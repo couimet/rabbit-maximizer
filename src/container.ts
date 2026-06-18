@@ -4,8 +4,8 @@ import { Octokit } from "@octokit/rest";
 import { getLogger, type Logger } from "@couimet/logger-contract";
 import { config } from "./config.js";
 import { TYPES } from "./inversify-types.js";
-import { CoderabbitGitHubClientImpl } from "./coderabbit-github.js";
-import type { CoderabbitGitHubClient } from "./coderabbit-github.js";
+import { CoderabbitGitHubClientImpl } from "./github/index.js";
+import type { CoderabbitGitHubClient } from "./github/index.js";
 
 const container = new Container();
 

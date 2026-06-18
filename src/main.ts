@@ -4,7 +4,7 @@ import { initLogger } from "./logger.js";
 import { getLogger } from "@couimet/logger-contract";
 import { container } from "./container.js";
 import { TYPES } from "./inversify-types.js";
-import type { CoderabbitGitHubClient } from "./coderabbit-github.js";
+import type { CoderabbitGitHubClient } from "./github/index.js";
 
 initLogger();
 const log = getLogger();

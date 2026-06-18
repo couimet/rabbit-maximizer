@@ -21,6 +21,7 @@ export default {
     "!src/**/*.test.ts",
     "!src/main.ts",
     "!src/container.ts",
+    "!src/**/index.ts",
     // TODO: remove once @couimet packages provide tests for these
     // https://github.com/couimet/ts-npm-packages/issues/25
     "!src/errors/**",

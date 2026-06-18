@@ -132,6 +132,16 @@ describe("parseConfig", () => {
     }
   });
 
+  it("fails when REPO_FILTER is a malformed JSON array rather than treating it as a bare pattern", () => {
+    const result = parseConfig(env({ REPO_FILTER: '["couimet/*"' }));
+    // Leading "[" signals JSON intent; a parse failure returns [] so the schema
+    // .min(1) rejects it instead of silently keeping the broken string.
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.some((i) => i.includes("REPO_FILTER"))).toBe(true);
+    }
+  });
+
   it("parses REPO_FILTER as JSON array with multiple entries", () => {
     const result = parseConfig(
       env({ REPO_FILTER: '["couimet/*","other-org/specific-repo"]' }),

@@ -14,6 +14,8 @@ dotenv.config();
 const emptyToUndefined = (val: string | undefined): string | undefined =>
   val === "" ? undefined : val;
 
+const USER_PATTERN_PART_COUNT = 2;
+
 /**
  * Parse REPO_FILTER from a JSON array string or a bare single pattern.
  * Infers the scope from pattern syntax:
@@ -24,10 +26,11 @@ const emptyToUndefined = (val: string | undefined): string | undefined =>
  *   couimet/*                        →  [{pattern:"couimet/*", scope:"user"}]
  */
 const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
-  if (!val || val === "") return [];
+  if (!val || val.trim() === "") return [];
+  const raw = val.trim();
   let patterns: string[];
   try {
-    const parsed = JSON.parse(val);
+    const parsed = JSON.parse(raw);
     if (
       Array.isArray(parsed) &&
       parsed.every((s: unknown) => typeof s === "string")
@@ -37,13 +40,15 @@ const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
       patterns = [];
     }
   } catch {
-    // Bare string without brackets — treat as a single-entry list
-    patterns = [val];
+    // A leading "[" means JSON was intended; a parse failure here is malformed
+    // input that should fail config validation, not silently become a pattern.
+    if (raw.startsWith("[")) return [];
+    patterns = [raw];
   }
 
   return patterns.map((p) => {
     const parts = p.split("/");
-    if (parts.length === 2 && parts[1] === "*") {
+    if (parts.length === USER_PATTERN_PART_COUNT && parts[1] === "*") {
       return { pattern: p, scope: "user" as const };
     }
     return { pattern: p, scope: "repo" as const };

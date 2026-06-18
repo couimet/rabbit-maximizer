@@ -4,7 +4,7 @@ export const ConfigSchema = z
   .object({
     DETECTION_MODE: z.enum(["poll", "webhook"]).default("poll"),
     GITHUB_PAT: z
-      .string({ message: "GITHUB_PAT is required" })
+      .string({ error: "GITHUB_PAT is required" })
       .min(1, "GITHUB_PAT is required"),
     POLL_INTERVAL: z.coerce
       .number()
@@ -24,7 +24,7 @@ export const ConfigSchema = z
             scope: z.literal("repo"),
           }),
         ]),
-        { message: "REPO_FILTER is required" },
+        { error: "REPO_FILTER is required" },
       )
       .min(1, "REPO_FILTER must have at least one entry"),
     WEBHOOK_SECRET: z.string().optional(),
