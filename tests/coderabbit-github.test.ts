@@ -10,10 +10,10 @@ import {
   type CoderabbitGitHubClient,
 } from "../src/coderabbit-github.js";
 import {
-  CODERABBIT_RATE_LIMIT_MARKER,
-  CODERABBIT_RATE_LIMIT_SEARCH_TEXT,
-  CODERABBIT_SELF_MARKER_PREFIX,
-  CODERABBIT_RETRIGGER_COMMAND,
+  REVIEW_BOT_RATE_LIMIT_MARKER,
+  REVIEW_BOT_RATE_LIMIT_SEARCH_TEXT,
+  REVIEW_BOT_SELF_MARKER_PREFIX,
+  REVIEW_BOT_RETRIGGER_COMMAND,
 } from "../src/types/coderabbit.js";
 import type { RepoFilter } from "../src/types/RepoFilter.js";
 import { TYPES } from "../src/inversify-types.js";
@@ -39,7 +39,7 @@ const mockLogger = (): Logger => ({
 describe("hasRateLimitMarker", () => {
   it("returns true when the body contains the rate-limit marker", () => {
     expect(
-      hasRateLimitMarker(`some text ${CODERABBIT_RATE_LIMIT_MARKER} more text`),
+      hasRateLimitMarker(`some text ${REVIEW_BOT_RATE_LIMIT_MARKER} more text`),
     ).toBe(true);
   });
 
@@ -56,13 +56,13 @@ describe("hasOwnRetriggerMarker", () => {
   it("returns true when the body contains the own marker prefix", () => {
     expect(
       hasOwnRetriggerMarker(
-        `${CODERABBIT_SELF_MARKER_PREFIX} v0.1.0 run=abc123`,
+        `${REVIEW_BOT_SELF_MARKER_PREFIX} v0.1.0 run=abc123`,
       ),
     ).toBe(true);
   });
 
   it("returns false when the body contains only the rate-limit marker", () => {
-    expect(hasOwnRetriggerMarker(CODERABBIT_RATE_LIMIT_MARKER)).toBe(false);
+    expect(hasOwnRetriggerMarker(REVIEW_BOT_RATE_LIMIT_MARKER)).toBe(false);
   });
 
   it("returns false for an empty string", () => {
@@ -138,7 +138,7 @@ describe("postRetrigger", () => {
     );
 
     const expectedBody = [
-      CODERABBIT_RETRIGGER_COMMAND,
+      REVIEW_BOT_RETRIGGER_COMMAND,
       "",
       `🔧 rabbit-optimizer v${VERSION} run=run-abc`,
       "",
@@ -286,7 +286,7 @@ describe("searchRateLimitComments", () => {
           html_url:
             "https://github.com/couimet/my-repo/issues/42#issuecomment-789",
           created_at: "2026-06-18T10:00:00Z",
-          body: `Some text. ${CODERABBIT_RATE_LIMIT_MARKER}. More text.`,
+          body: `Some text. ${REVIEW_BOT_RATE_LIMIT_MARKER}. More text.`,
         },
       ],
     });

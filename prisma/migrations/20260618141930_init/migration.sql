@@ -14,7 +14,8 @@ CREATE TABLE "review_queue" (
     "uuid" TEXT NOT NULL,
     "repo_full_name" TEXT NOT NULL,
     "pr_number" INTEGER NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'pending',
+    "status" TEXT NOT NULL DEFAULT 'pending'
+      CHECK ("status" IN ('pending', 'completed', 'failed')),
     "scheduled_for" DATETIME NOT NULL,
     "attempts" INTEGER NOT NULL DEFAULT 0,
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -58,6 +59,8 @@ CREATE TABLE "events" (
 -- ============================================================================
 
 CREATE UNIQUE INDEX "review_queue_uuid_key" ON "review_queue"("uuid");
+
+CREATE INDEX "review_queue_status_scheduled_for_idx" ON "review_queue"("status", "scheduled_for");
 
 CREATE UNIQUE INDEX "events_uuid_key" ON "events"("uuid");
 

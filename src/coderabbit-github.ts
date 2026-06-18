@@ -4,10 +4,10 @@ import type { Logger } from "@couimet/logger-contract";
 import type { RepoFilter } from "./types/RepoFilter.js";
 import type { RateLimitComment } from "./types/RateLimitComment.js";
 import {
-  CODERABBIT_RATE_LIMIT_MARKER,
-  CODERABBIT_RATE_LIMIT_SEARCH_TEXT,
-  CODERABBIT_RETRIGGER_COMMAND,
-  CODERABBIT_SELF_MARKER_PREFIX,
+  REVIEW_BOT_RATE_LIMIT_MARKER,
+  REVIEW_BOT_RATE_LIMIT_SEARCH_TEXT,
+  REVIEW_BOT_RETRIGGER_COMMAND,
+  REVIEW_BOT_SELF_MARKER_PREFIX,
 } from "./types/coderabbit.js";
 import { TYPES } from "./inversify-types.js";
 import pkg from "../package.json" with { type: "json" };
@@ -160,11 +160,11 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
 
 /** Check if a comment body contains the CodeRabbit rate-limit marker. */
 export const hasRateLimitMarker = (body: string): boolean =>
-  body.includes(CODERABBIT_RATE_LIMIT_MARKER);
+  body.includes(REVIEW_BOT_RATE_LIMIT_MARKER);
 
 /** Check if a comment body contains this tool's own marker (prevents self-retriggering). */
 export const hasOwnRetriggerMarker = (body: string): boolean =>
-  body.includes(CODERABBIT_SELF_MARKER_PREFIX);
+  body.includes(REVIEW_BOT_SELF_MARKER_PREFIX);
 
 /**
  * Best-effort extraction of wait time in seconds from a CodeRabbit rate-limit
@@ -212,7 +212,7 @@ const buildSearchQuery = (repoFilter: readonly RepoFilter[]): string => {
   ).toISOString();
 
   return [
-    `"${CODERABBIT_RATE_LIMIT_SEARCH_TEXT}"`,
+    `"${REVIEW_BOT_RATE_LIMIT_SEARCH_TEXT}"`,
     "type:pr",
     "state:open",
     ...qualifiers,
@@ -238,7 +238,7 @@ const buildCommentBody = (sourceCommentUrl: string, runId: string): string => {
     `↩ Triggered by: ${sourceCommentUrl}`,
   ].join("\n");
 
-  return [CODERABBIT_RETRIGGER_COMMAND, "", marker, "", "---", "", footer].join(
+  return [REVIEW_BOT_RETRIGGER_COMMAND, "", marker, "", "---", "", footer].join(
     "\n",
   );
 };
