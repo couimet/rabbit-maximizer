@@ -1,0 +1,4 @@
+# Claude skill working directories
+.claude-work/
+
+.history
