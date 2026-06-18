@@ -12,6 +12,7 @@ export default {
   errorOnDeprecated: true,
   testTimeout: 5000,
   maxWorkers: "50%",
+  coverageProvider: "v8",
 
   roots: ["<rootDir>/src", "<rootDir>/tests"],
   testMatch: ["**/*.test.ts"],
@@ -19,6 +20,7 @@ export default {
     "src/**/*.ts",
     "!src/**/*.test.ts",
     "!src/main.ts",
+    "!src/container.ts",
     // TODO: remove once @couimet packages provide tests for these
     // https://github.com/couimet/ts-npm-packages/issues/25
     "!src/errors/**",

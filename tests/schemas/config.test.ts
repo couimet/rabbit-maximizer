@@ -7,7 +7,7 @@ describe("ConfigSchema", () => {
     GITHUB_PAT: "ghp_test123",
     POLL_INTERVAL: 90,
     DATABASE_URL: "file:../data/rabbit-optimizer.db",
-    REPO_FILTER: ["couimet/*"],
+    REPO_FILTER: [{ pattern: "couimet/*", scope: "user" as const }],
   };
 
   // -- Success cases -----------------------------------------------------------
@@ -90,10 +90,13 @@ describe("ConfigSchema", () => {
     );
   });
 
-  it("rejects REPO_FILTER with empty strings", () => {
-    expect(ConfigSchema.safeParse({ ...BASE, REPO_FILTER: [""] }).success).toBe(
-      false,
-    );
+  it("rejects REPO_FILTER with empty pattern strings", () => {
+    expect(
+      ConfigSchema.safeParse({
+        ...BASE,
+        REPO_FILTER: [{ pattern: "", scope: "user" as const }],
+      }).success,
+    ).toBe(false);
   });
 
   // -- Webhook refinement ------------------------------------------------------

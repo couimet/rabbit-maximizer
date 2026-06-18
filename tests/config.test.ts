@@ -1,14 +1,11 @@
 import { jest, describe, it, expect } from "@jest/globals";
 import {
   config,
+  describeRepoFilter,
   exitWithConfigErrors,
   parseConfig,
   type Config,
 } from "../src/config.js";
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("parseConfig", () => {
   const BASE: Record<string, string> = {
@@ -120,7 +117,18 @@ describe("parseConfig", () => {
     if (result.success) {
       expect(result.value.DETECTION_MODE).toBe("poll");
       expect(result.value.GITHUB_PAT).toBe("ghp_test123");
-      expect(result.value.REPO_FILTER).toEqual(["couimet/*"]);
+      expect(result.value.REPO_FILTER).toStrictEqual([
+        { pattern: "couimet/*", scope: "user" },
+      ]);
+    }
+  });
+
+  it("falls back to empty array when REPO_FILTER JSON is not a string array", () => {
+    const result = parseConfig(env({ REPO_FILTER: "[1,2,3]" }));
+    // parseRepoFilter returns [] (not a string array), schema fails on .min(1)
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.some((i) => i.includes("REPO_FILTER"))).toBe(true);
     }
   });
 
@@ -130,9 +138,9 @@ describe("parseConfig", () => {
     );
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.value.REPO_FILTER).toEqual([
-        "couimet/*",
-        "other-org/specific-repo",
+      expect(result.value.REPO_FILTER).toStrictEqual([
+        { pattern: "couimet/*", scope: "user" },
+        { pattern: "other-org/specific-repo", scope: "repo" },
       ]);
     }
   });
@@ -175,7 +183,7 @@ describe("auto-validated config export", () => {
 
 describe("exitWithConfigErrors", () => {
   it("calls console.error and process.exit with code 1", () => {
-    const mockExit = jest.spyOn(process, "exit").mockImplementation(() => {
+    jest.spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit(1)");
     });
     const mockConsoleError = jest
@@ -186,10 +194,34 @@ describe("exitWithConfigErrors", () => {
       "process.exit(1)",
     );
     expect(mockConsoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[ERROR] Invalid config:"),
+      "[ERROR] Invalid config:\n  - GITHUB_PAT: required",
     );
-    expect(mockConsoleError).toHaveBeenCalledWith(
-      expect.stringContaining("GITHUB_PAT: required"),
+  });
+});
+
+describe("describeRepoFilter", () => {
+  it("formats a single user-scope filter", () => {
+    expect(describeRepoFilter([{ pattern: "couimet/*", scope: "user" }])).toBe(
+      "couimet/* (user)",
     );
+  });
+
+  it("formats a single repo-scope filter", () => {
+    expect(
+      describeRepoFilter([{ pattern: "other-org/repo", scope: "repo" }]),
+    ).toBe("other-org/repo (repo)");
+  });
+
+  it("joins multiple filters with commas", () => {
+    expect(
+      describeRepoFilter([
+        { pattern: "couimet/*", scope: "user" },
+        { pattern: "other-org/repo", scope: "repo" },
+      ]),
+    ).toBe("couimet/* (user), other-org/repo (repo)");
+  });
+
+  it("returns empty string for an empty filter list", () => {
+    expect(describeRepoFilter([])).toBe("");
   });
 });

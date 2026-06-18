@@ -30,7 +30,6 @@ model ReviewQueue {
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
-  @@index([status, scheduled_for], map: "review_queue_status_scheduled_for_idx")
   @@map("review_queue")
 }
 

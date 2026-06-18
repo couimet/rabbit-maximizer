@@ -29,14 +29,17 @@ export abstract class DetailedError<T extends string> extends Error {
   public readonly functionName?: string;
   /** Additional contextual information about the error */
   public readonly details?: ErrorDetails;
+  /** Original error that caused this error */
+  public readonly cause?: unknown;
 
   constructor(errorOptions: ErrorOptions<T>) {
     const { code, details, cause, message, functionName } = errorOptions;
 
-    super(message, cause !== undefined ? { cause } : undefined);
+    super(message);
 
     this.code = code;
     this.functionName = functionName;
     this.details = details;
+    this.cause = cause;
   }
 }
