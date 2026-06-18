@@ -1,0 +1,67 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------------------------------------------------------------------------
+// ReviewQueue — current state of pending/completed/failed review requests.
+//
+// Column notes:
+//   id              Internal auto-increment PK (pagination, FKs).
+//   uuid            External-facing stable identifier (UUID v4).
+//   scheduled_for   When the scheduler should next attempt a retrigger.
+//   created_at      Set by us when the row is inserted.
+//   updated_at      Set by us on every update.
+// ---------------------------------------------------------------------------
+
+/// Tracks a PR that needs (or has received) a review retrigger.
+model ReviewQueue {
+  id             Int      @id @default(autoincrement())
+  uuid           String   @unique @default(uuid())
+  repo_full_name String
+  pr_number      Int
+  status         String   @default("pending")
+  scheduled_for  DateTime
+  attempts       Int      @default(0)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  @@map("review_queue")
+}
+
+// ---------------------------------------------------------------------------
+// Event — append-only audit / debug log.
+//
+// Timestamps:
+//   ts          Set by us when we record the event (auto-default).
+//   source_ts   Timestamp from the incoming event payload, when available.
+//               Null when the event source doesn't provide one.
+//
+// Other columns:
+//   id          Internal auto-increment PK.
+//   uuid        External-facing stable identifier (UUID v4).
+// ---------------------------------------------------------------------------
+
+/// Append-only record of every lifecycle event (detected, enqueued, posted, etc.).
+model Event {
+  id                 Int       @id @default(autoincrement())
+  uuid               String    @unique @default(uuid())
+  ts                 DateTime  @default(now())
+  source_ts          DateTime?
+  type               String
+  repo_full_name     String
+  pr_number          Int
+  source_comment_url String?
+  posted_comment_url String?
+  attempt_no         Int?
+  scheduled_for      DateTime?
+  outcome            String?
+  new_wait           String?
+  detail             String?
+
+  @@map("events")
+}
