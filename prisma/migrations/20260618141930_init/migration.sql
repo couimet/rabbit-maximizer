@@ -14,7 +14,8 @@ CREATE TABLE "review_queue" (
     "uuid" TEXT NOT NULL,
     "repo_full_name" TEXT NOT NULL,
     "pr_number" INTEGER NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'pending',
+    "status" TEXT NOT NULL DEFAULT 'pending'
+      CHECK ("status" IN ('pending', 'completed', 'failed')),
     "scheduled_for" DATETIME NOT NULL,
     "attempts" INTEGER NOT NULL DEFAULT 0,
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
