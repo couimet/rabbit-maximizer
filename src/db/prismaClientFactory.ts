@@ -24,12 +24,13 @@ const createFromFile = (url: string): PrismaClient => {
 export const createPrismaClient = (): PrismaClient => {
   const url = config.DATABASE_URL;
   if (!url.startsWith(FILE_URL_PREFIX)) {
+    const [scheme] = url.split(":");
     throw new RabbitOptimizerError({
       code: RabbitOptimizerErrorCodes.PRISMA_CONNECTION_METHOD_NOT_SUPPORTED,
       message:
         'Unsupported DATABASE_URL connection method; only "file:" URLs are supported',
       functionName: "createPrismaClient",
-      details: { scheme: url.split(":")[0] },
+      details: { scheme },
     });
   }
   return createFromFile(url);

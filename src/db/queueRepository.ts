@@ -20,6 +20,7 @@ export interface QueueRepository {
     newScheduledFor: Date,
     tx?: Prisma.TransactionClient,
   ): Promise<QueueItem>;
+  /** The caller must record the corresponding failed event (with reason) in the same transaction. */
   markFailed(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
 }
@@ -77,6 +78,10 @@ export class QueueRepositoryImpl implements QueueRepository {
           return this.toQueueItem(existing);
         }
       }
+      this.log.warn(
+        { fn: "QueueRepositoryImpl.enqueue", repo, pr, err },
+        "Enqueue failed; rethrowing",
+      );
       throw err;
     }
   }
@@ -127,6 +132,7 @@ export class QueueRepositoryImpl implements QueueRepository {
     return this.toQueueItem(row);
   }
 
+  /** The caller must record the corresponding failed event (with reason) in the same transaction. */
   async markFailed(
     id: number,
     tx?: Prisma.TransactionClient,

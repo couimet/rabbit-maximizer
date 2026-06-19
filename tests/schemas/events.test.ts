@@ -13,6 +13,11 @@ import {
   getUniqueDate,
 } from "@couimet/dynamic-testing";
 
+const SECOND_ATTEMPT_NO = 2;
+const FIRST_ATTEMPT_NO = 1;
+const EXCEEDS_MAX_BY = 1;
+const DEFAULT_NEW_WAIT = "60";
+
 const baseRow = (over: Partial<PrismaEvent>): PrismaEvent =>
   ({
     id: getUniqueInt(),
@@ -71,8 +76,8 @@ describe("parseEventRow", () => {
       type: "enqueued",
       payload: JSON.stringify({
         scheduled_for: scheduledFor.toISOString(),
-        attempt_no: 2,
-        new_wait: "60",
+        attempt_no: SECOND_ATTEMPT_NO,
+        new_wait: DEFAULT_NEW_WAIT,
       }),
     });
 
@@ -168,7 +173,7 @@ describe("payload length limits", () => {
     const row = baseRow({
       type: "posted",
       payload: JSON.stringify({
-        source_comment_url: "a".repeat(COMMENT_URL_MAX_LENGTH + 1),
+        source_comment_url: "a".repeat(COMMENT_URL_MAX_LENGTH + EXCEEDS_MAX_BY),
         posted_comment_url: getUniqueString(),
       }),
     });
@@ -178,7 +183,7 @@ describe("payload length limits", () => {
   it("rejects a failed event whose reason exceeds the max", () => {
     const row = baseRow({
       type: "failed",
-      payload: JSON.stringify({ reason: "a".repeat(REASON_MAX_LENGTH + 1) }),
+      payload: JSON.stringify({ reason: "a".repeat(REASON_MAX_LENGTH + EXCEEDS_MAX_BY) }),
     });
     expect(() => parseEventRow(row)).toThrow();
   });
@@ -188,8 +193,8 @@ describe("payload length limits", () => {
       type: "enqueued",
       payload: JSON.stringify({
         scheduled_for: getUniqueDate().toISOString(),
-        attempt_no: 1,
-        new_wait: "a".repeat(NEW_WAIT_MAX_LENGTH + 1),
+        attempt_no: FIRST_ATTEMPT_NO,
+        new_wait: "a".repeat(NEW_WAIT_MAX_LENGTH + EXCEEDS_MAX_BY),
       }),
     });
     expect(() => parseEventRow(row)).toThrow();

@@ -9,6 +9,8 @@ const { UuidObservationContextProvider } =
   await import("../../src/observability/observationContext.js");
 
 describe("UuidObservationContextProvider", () => {
+  const EXPECTED_UUID_CALLS = 2;
+
   it("returns uuid correlation and request ids plus the package version", () => {
     const correlationId = getUniqueString({ prefix: "corr-" });
     const requestId = getUniqueString({ prefix: "req-" });
@@ -24,6 +26,6 @@ describe("UuidObservationContextProvider", () => {
       requestId,
       version: pkg.version,
     });
-    expect(randomUUID).toHaveBeenCalledTimes(2);
+    expect(randomUUID).toHaveBeenCalledTimes(EXPECTED_UUID_CALLS);
   });
 });

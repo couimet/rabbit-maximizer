@@ -22,6 +22,9 @@ import {
 } from "@couimet/dynamic-testing";
 
 describe("EventRepositoryImpl", () => {
+  const FIRST_ATTEMPT_NO = 1;
+  const EXPECTED_EVENT_COUNT = 2;
+
   describe("record", () => {
     it("inserts a detected event and returns the parsed entry", async () => {
       const { fullName: repo } = makeUniqueRepoName();
@@ -196,7 +199,7 @@ describe("EventRepositoryImpl", () => {
         version: getUniqueString(),
         payload: JSON.stringify({
           scheduled_for: scheduledFor.toISOString(),
-          attempt_no: 1,
+          attempt_no: FIRST_ATTEMPT_NO,
         }),
         metadata: null,
       };
@@ -238,11 +241,11 @@ describe("EventRepositoryImpl", () => {
           version: enqueuedRow.version,
           metadata: undefined,
           type: "enqueued",
-          payload: { scheduled_for: scheduledFor, attempt_no: 1 },
+          payload: { scheduled_for: scheduledFor, attempt_no: FIRST_ATTEMPT_NO },
         },
       ]);
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "EventRepositoryImpl.listForPr", repo, pr, count: 2 },
+        { fn: "EventRepositoryImpl.listForPr", repo, pr, count: EXPECTED_EVENT_COUNT },
         "Listed events for PR",
       );
     });

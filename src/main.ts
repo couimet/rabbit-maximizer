@@ -67,6 +67,9 @@ try {
   const events = container.get<EventRepository>(TYPES.EventRepository);
   const probes = container.get<ProbeFactory>(TYPES.ProbeFactory);
 
+  // TODO(https://github.com/couimet/rabbit-optimizer/issues/6): Wrap queue
+  // mutation and event probe calls in a transaction so queue state and the
+  // audit trail cannot diverge if event persistence fails.
   for (const c of comments) {
     const queued = await queue.enqueue(
       c.repo_full_name,

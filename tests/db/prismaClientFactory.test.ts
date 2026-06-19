@@ -32,8 +32,9 @@ describe("createPrismaClient", () => {
     expect(PrismaBetterSqlite3Ctor).toHaveBeenCalledWith({
       url: "file:/tmp/rabbit-optimizer/db.sqlite",
     });
+    const [adapterInstance] = PrismaBetterSqlite3Ctor.mock.instances;
     expect(PrismaClientCtor).toHaveBeenCalledWith({
-      adapter: PrismaBetterSqlite3Ctor.mock.instances[0],
+      adapter: adapterInstance,
     });
   });
 

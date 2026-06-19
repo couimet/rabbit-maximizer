@@ -55,9 +55,11 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
 
 describe("QueueRepositoryImpl", () => {
   let frozenNow: Date;
+  let logger: Logger;
 
   beforeEach(() => {
     frozenNow = getUniqueDate();
+    logger = createMockLogger();
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);
   });
@@ -72,7 +74,6 @@ describe("QueueRepositoryImpl", () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { create: createResolvedMock(row) },
       });
-      const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       const result = await sut.enqueue(repo, pr, scheduledFor);
@@ -113,7 +114,6 @@ describe("QueueRepositoryImpl", () => {
           findFirst: createResolvedMock(existing),
         },
       });
-      const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       const result = await sut.enqueue(repo, pr, getUniqueDate());
@@ -145,9 +145,13 @@ describe("QueueRepositoryImpl", () => {
           findFirst: createResolvedMock(null),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, createMockLogger());
+      const sut = new QueueRepositoryImpl(prisma, logger);
 
       await expect(sut.enqueue(repo, pr, getUniqueDate())).rejects.toBe(p2002);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: "QueueRepositoryImpl.enqueue", repo, pr, err: p2002 },
+        "Enqueue failed; rethrowing",
+      );
     });
 
     it("rethrows a known request error with a different code", async () => {
@@ -158,7 +162,7 @@ describe("QueueRepositoryImpl", () => {
       const { prisma } = createMockPrismaClient({
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2003) },
       });
-      const sut = new QueueRepositoryImpl(prisma, createMockLogger());
+      const sut = new QueueRepositoryImpl(prisma, logger);
 
       await expect(
         sut.enqueue(
@@ -167,6 +171,10 @@ describe("QueueRepositoryImpl", () => {
           getUniqueDate(),
         ),
       ).rejects.toBe(p2003);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: "QueueRepositoryImpl.enqueue", repo: expect.any(String) as unknown as string, pr: expect.any(Number) as unknown as number, err: p2003 },
+        "Enqueue failed; rethrowing",
+      );
     });
 
     it("rethrows a non-Prisma error", async () => {
@@ -174,7 +182,7 @@ describe("QueueRepositoryImpl", () => {
       const { prisma } = createMockPrismaClient({
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(boom) },
       });
-      const sut = new QueueRepositoryImpl(prisma, createMockLogger());
+      const sut = new QueueRepositoryImpl(prisma, logger);
 
       await expect(
         sut.enqueue(
@@ -183,6 +191,10 @@ describe("QueueRepositoryImpl", () => {
           getUniqueDate(),
         ),
       ).rejects.toBe(boom);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: "QueueRepositoryImpl.enqueue", repo: expect.any(String) as unknown as string, pr: expect.any(Number) as unknown as number, err: boom },
+        "Enqueue failed; rethrowing",
+      );
     });
   });
 
@@ -192,7 +204,6 @@ describe("QueueRepositoryImpl", () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(row) },
       });
-      const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       const result = await sut.getNextDue();
@@ -212,7 +223,6 @@ describe("QueueRepositoryImpl", () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null) },
       });
-      const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       const result = await sut.getNextDue();
@@ -235,7 +245,6 @@ describe("QueueRepositoryImpl", () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
-      const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       const result = await sut.markCompleted(row.id);
@@ -259,7 +268,6 @@ describe("QueueRepositoryImpl", () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
-      const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       const result = await sut.reschedule(row.id, newScheduledFor);
@@ -282,7 +290,6 @@ describe("QueueRepositoryImpl", () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
-      const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       const result = await sut.markFailed(row.id);
@@ -308,7 +315,6 @@ describe("QueueRepositoryImpl", () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findMany: createResolvedMock(rows) },
       });
-      const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       const result = await sut.getPendingQueue();
@@ -356,7 +362,6 @@ describe("QueueRepositoryImpl", () => {
   describe("container binding", () => {
     it("resolves QueueRepository from the container", () => {
       const { prisma } = createMockPrismaClient();
-      const logger = createMockLogger();
       const container = new Container();
 
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
