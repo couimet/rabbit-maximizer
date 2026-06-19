@@ -15,6 +15,7 @@ export default {
   coverageProvider: "v8",
 
   roots: ["<rootDir>/src", "<rootDir>/tests"],
+  setupFilesAfterEnv: ["<rootDir>/tests/setup/matchers.ts"],
   testMatch: ["**/*.test.ts"],
   collectCoverageFrom: [
     "src/**/*.ts",

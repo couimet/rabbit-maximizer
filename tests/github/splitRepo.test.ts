@@ -8,4 +8,37 @@ describe("splitRepo", () => {
       repo: "my-repo",
     });
   });
+
+  it("throws a RabbitOptimizerError when the input lacks a slash", () => {
+    expect(() => splitRepo("owner")).toThrowRabbitOptimizerError(
+      "GITHUB_API_ERROR",
+      {
+        message: "Invalid repo fullName format",
+        functionName: "splitRepo",
+        details: { fullName: "owner" },
+      },
+    );
+  });
+
+  it("throws a RabbitOptimizerError when the input is empty", () => {
+    expect(() => splitRepo("")).toThrowRabbitOptimizerError(
+      "GITHUB_API_ERROR",
+      {
+        message: "Invalid repo fullName format",
+        functionName: "splitRepo",
+        details: { fullName: "" },
+      },
+    );
+  });
+
+  it("throws a RabbitOptimizerError when the repo part is missing", () => {
+    expect(() => splitRepo("owner/")).toThrowRabbitOptimizerError(
+      "GITHUB_API_ERROR",
+      {
+        message: "Invalid repo fullName format",
+        functionName: "splitRepo",
+        details: { fullName: "owner/" },
+      },
+    );
+  });
 });

@@ -121,7 +121,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     sourceCommentUrl: string,
     runId: string,
   ): Promise<{ htmlUrl: string }> {
-    const [owner, repoName] = repo.split("/");
+    const { owner, repo: repoName } = splitRepo(repo);
     const body = buildCommentBody(sourceCommentUrl, runId);
 
     this.log.info(

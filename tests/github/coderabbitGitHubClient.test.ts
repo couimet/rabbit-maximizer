@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "@jest/globals";
+import { describe, it, expect, beforeEach, jest } from "@jest/globals";
 import { Container } from "inversify";
 import type { Octokit } from "@octokit/rest";
 import type { Logger } from "@couimet/logger-contract";
@@ -22,6 +22,8 @@ describe("client", () => {
   let logger: Logger;
 
   beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-06-18T12:00:00Z"));
     ({
       octokit,
       rest: { issues, search },
@@ -138,11 +140,7 @@ describe("client", () => {
       await client.searchRateLimitComments([userFilter, repoFilter]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: expect.stringMatching(
-          new RegExp(
-            `^"reached your PR review rate limit" type:pr state:open \\(user:couimet OR repo:other-org\\/specific-repo\\) created:>=\\d{4}-\\d{2}-\\d{2}`,
-          ),
-        ),
+        q: '"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=2026-06-17T12:00:00.000Z',
         sort: "created",
         order: "desc",
         per_page: 100,
@@ -150,7 +148,10 @@ describe("client", () => {
       });
 
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "searchRateLimitComments", query: expect.any(String) },
+        {
+          fn: "searchRateLimitComments",
+          query: '"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=2026-06-17T12:00:00.000Z',
+        },
         "Searching for rate-limit comments",
       );
     });
@@ -165,11 +166,7 @@ describe("client", () => {
       await client.searchRateLimitComments([]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: expect.stringMatching(
-          new RegExp(
-            `^"reached your PR review rate limit" type:pr state:open created:>=\\d{4}-\\d{2}-\\d{2}`,
-          ),
-        ),
+        q: '"reached your PR review rate limit" type:pr state:open created:>=2026-06-17T12:00:00.000Z',
         sort: "created",
         order: "desc",
         per_page: 100,
@@ -218,9 +215,7 @@ describe("client", () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: "searchRateLimitComments",
-          query: expect.stringMatching(
-            /^"reached your PR review rate limit" type:pr state:open user:couimet created:>=\d{4}-\d{2}-\d{2}/,
-          ),
+          query: '"reached your PR review rate limit" type:pr state:open user:couimet created:>=2026-06-17T12:00:00.000Z',
         },
         "Searching for rate-limit comments",
       );
@@ -258,9 +253,7 @@ describe("client", () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: "searchRateLimitComments",
-          query: expect.stringMatching(
-            /^"reached your PR review rate limit" type:pr state:open user:couimet created:>=\d{4}-\d{2}-\d{2}/,
-          ),
+          query: '"reached your PR review rate limit" type:pr state:open user:couimet created:>=2026-06-17T12:00:00.000Z',
         },
         "Searching for rate-limit comments",
       );
@@ -280,9 +273,7 @@ describe("client", () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: "searchRateLimitComments",
-          query: expect.stringMatching(
-            /^"reached your PR review rate limit" type:pr state:open user:couimet created:>=\d{4}-\d{2}-\d{2}/,
-          ),
+          query: '"reached your PR review rate limit" type:pr state:open user:couimet created:>=2026-06-17T12:00:00.000Z',
         },
         "Searching for rate-limit comments",
       );

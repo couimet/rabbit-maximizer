@@ -7,4 +7,14 @@ describe("extractRepoFullName", () => {
       extractRepoFullName("https://api.github.com/repos/couimet/my-repo"),
     ).toBe("couimet/my-repo");
   });
+
+  it("throws a RabbitOptimizerError when the URL lacks the expected prefix", () => {
+    expect(() =>
+      extractRepoFullName("https://example.com/repos/owner/repo"),
+    ).toThrowRabbitOptimizerError("GITHUB_API_ERROR", {
+      message: "Invalid repository URL format",
+      functionName: "extractRepoFullName",
+      details: { repositoryUrl: "https://example.com/repos/owner/repo" },
+    });
+  });
 });
