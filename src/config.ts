@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import { ConfigSchema, type Config } from "./schemas/config.js";
+import { type RepoFilter } from "./types/RepoFilter.js";
 import { Result } from "./types/Result.js";
 
 export type { Config };
@@ -13,27 +14,45 @@ dotenv.config();
 const emptyToUndefined = (val: string | undefined): string | undefined =>
   val === "" ? undefined : val;
 
+const USER_PATTERN_PART_COUNT = 2;
+
 /**
  * Parse REPO_FILTER from a JSON array string or a bare single pattern.
+ * Infers the scope from pattern syntax:
+ *   owner/*       → scope: "user"
+ *   owner/repo    → scope: "repo"
  *
- *   ["couimet/*", "other-org/repo"]  →  ["couimet/*", "other-org/repo"]
- *   couimet/*                        →  ["couimet/*"]
+ *   ["couimet/*", "other-org/repo"]  →  [{pattern:"couimet/*", scope:"user"}, {pattern:"other-org/repo", scope:"repo"}]
+ *   couimet/*                        →  [{pattern:"couimet/*", scope:"user"}]
  */
-const parseRepoFilter = (val: string | undefined): string[] => {
-  if (!val || val === "") return [];
+const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
+  if (!val || val.trim() === "") return [];
+  const raw = val.trim();
+  let patterns: string[];
   try {
-    const parsed = JSON.parse(val);
+    const parsed = JSON.parse(raw);
     if (
       Array.isArray(parsed) &&
       parsed.every((s: unknown) => typeof s === "string")
     ) {
-      return parsed;
+      patterns = parsed;
+    } else {
+      patterns = [];
     }
   } catch {
-    /* fall through */
+    // A leading "[" means JSON was intended; a parse failure here is malformed
+    // input that should fail config validation, not silently become a pattern.
+    if (raw.startsWith("[")) return [];
+    patterns = [raw];
   }
-  // Bare string without brackets — treat as a single-entry list
-  return [val];
+
+  return patterns.map((p) => {
+    const parts = p.split("/");
+    if (parts.length === USER_PATTERN_PART_COUNT && parts[1] === "*") {
+      return { pattern: p, scope: "user" as const };
+    }
+    return { pattern: p, scope: "repo" as const };
+  });
 };
 
 /**
@@ -81,9 +100,14 @@ const parsed = parseConfig({
   TUNNEL_URL: process.env.TUNNEL_URL,
 });
 
-/* istanbul ignore next */
+/* c8 ignore start */
 if (!parsed.success) {
   exitWithConfigErrors(parsed.error);
 }
+/* c8 ignore stop */
 
 export const config: Readonly<Config> = Object.freeze(parsed.value);
+
+/** Format the configured repo filter as a human-readable summary for logging. */
+export const describeRepoFilter = (filter: RepoFilter[]): string =>
+  filter.map((f) => `${f.pattern} (${f.scope})`).join(", ");

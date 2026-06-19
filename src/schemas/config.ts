@@ -4,7 +4,7 @@ export const ConfigSchema = z
   .object({
     DETECTION_MODE: z.enum(["poll", "webhook"]).default("poll"),
     GITHUB_PAT: z
-      .string({ required_error: "GITHUB_PAT is required" })
+      .string({ error: "GITHUB_PAT is required" })
       .min(1, "GITHUB_PAT is required"),
     POLL_INTERVAL: z.coerce
       .number()
@@ -13,7 +13,19 @@ export const ConfigSchema = z
       .default(90),
     DATABASE_URL: z.string().min(1).default("file:../data/rabbit-optimizer.db"),
     REPO_FILTER: z
-      .array(z.string().min(1), { required_error: "REPO_FILTER is required" })
+      .array(
+        z.discriminatedUnion("scope", [
+          z.object({
+            pattern: z.string().min(1),
+            scope: z.literal("user"),
+          }),
+          z.object({
+            pattern: z.string().min(1),
+            scope: z.literal("repo"),
+          }),
+        ]),
+        { error: "REPO_FILTER is required" },
+      )
       .min(1, "REPO_FILTER must have at least one entry"),
     WEBHOOK_SECRET: z.string().optional(),
     TUNNEL_URL: z.string().optional(),

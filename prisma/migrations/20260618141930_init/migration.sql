@@ -60,6 +60,8 @@ CREATE TABLE "events" (
 
 CREATE UNIQUE INDEX "review_queue_uuid_key" ON "review_queue"("uuid");
 
+CREATE INDEX "review_queue_status_scheduled_for_idx" ON "review_queue"("status", "scheduled_for");
+
 CREATE UNIQUE INDEX "events_uuid_key" ON "events"("uuid");
 
 -- Partial unique index: a PR can be re-queued after completion, but never
