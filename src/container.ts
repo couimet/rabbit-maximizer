@@ -9,7 +9,6 @@ import type { CoderabbitGitHubClient } from "./github/index.js";
 
 const container = new Container();
 
-// External dependencies
 container
   .bind<Octokit>(TYPES.Octokit)
   .toDynamicValue(() => new Octokit({ auth: config.GITHUB_PAT }))
@@ -20,7 +19,6 @@ container
   .toDynamicValue(() => getLogger())
   .inSingletonScope();
 
-// Services
 container
   .bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient)
   .to(CoderabbitGitHubClientImpl)

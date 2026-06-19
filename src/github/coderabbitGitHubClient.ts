@@ -12,7 +12,7 @@ import { TYPES } from "../inversify-types.js";
 
 const SEARCH_PER_PAGE = 100;
 const SEARCH_MAX_PAGES = 3;
-const COMMENTS_FETCH_PER_PAGE = 10;
+const COMMENTS_FETCH_PER_PAGE = 100;
 
 export interface CoderabbitGitHubClient {
   searchRateLimitComments(

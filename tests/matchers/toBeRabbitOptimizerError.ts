@@ -1,33 +1,14 @@
 import type { ErrorDetails } from "../../src/errors/detailedError.js";
 import { RabbitOptimizerError } from "../../src/errors/RabbitOptimizerError.js";
 
-/**
- * Expected error properties for strict validation.
- * Note: Error code is passed as a separate string parameter to enforce string literal usage.
- */
+// Error code is passed as a separate string parameter to enforce string literal usage.
 export interface ExpectedRabbitOptimizerError {
-  /** Expected error message - exact match (required) */
   message: string;
-  /** Expected function name (required - all RabbitOptimizerErrors must have this) */
   functionName: string;
-  /** Expected error details - uses toStrictEqual (optional) */
   details?: ErrorDetails;
-  /** Expected cause error (optional) */
   cause?: Error;
 }
 
-/**
- * Custom Jest matcher to validate RabbitOptimizerError objects with strict equality.
- * Enforces that all required properties from DetailedError are present and correct.
- *
- * Validates:
- * - Error is actual instance of RabbitOptimizerError class (not just duck-typed)
- * - Code matches exactly (required, passed as string literal)
- * - Message matches exactly (required)
- * - Function name matches exactly (required)
- * - Details match with toStrictEqual (optional)
- * - Cause matches (optional)
- */
 export const toBeRabbitOptimizerError = (
   received: unknown,
   expectedCode: string,
@@ -100,10 +81,6 @@ export const toBeRabbitOptimizerError = (
   };
 };
 
-/**
- * Custom Jest matcher for testing synchronous functions that throw RabbitOptimizerError.
- * Follows Jest's standard `.toThrow()` pattern.
- */
 export const toThrowRabbitOptimizerError = (
   received: () => void,
   expectedCode: string,
@@ -128,10 +105,6 @@ export const toThrowRabbitOptimizerError = (
   return toBeRabbitOptimizerError(caughtError, expectedCode, expected);
 };
 
-/**
- * Custom Jest matcher for testing asynchronous functions that throw RabbitOptimizerError.
- * Async version of toThrowRabbitOptimizerError.
- */
 export const toThrowRabbitOptimizerErrorAsync = async (
   received: () => Promise<void>,
   expectedCode: string,

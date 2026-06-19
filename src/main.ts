@@ -18,9 +18,7 @@ log.info(
   `Watching repos: ${describeRepoFilter(config.REPO_FILTER)}`,
 );
 
-// Smoke test: resolve the GitHub client and verify connectivity by counting
-// rate-limit comments across the configured repos. This is a one-shot check —
-// the poll detector and scheduler loops are wired in future issues.
+// One-shot connectivity check until detector/scheduler loops land (issues #5/#6).
 const github = container.get<CoderabbitGitHubClient>(
   TYPES.CoderabbitGitHubClient,
 );

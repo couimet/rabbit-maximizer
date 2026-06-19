@@ -22,7 +22,10 @@ import pkg from "../../package.json" with { type: "json" };
 const VERSION = pkg.version;
 const REPO_URL = pkg.repository.url;
 
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const MS_PER_HOUR = 60 * 60 * 1000;
+const TWENTY_FOUR_HOURS_MS = 24 * MS_PER_HOUR;
+const SEARCH_PER_PAGE = 100;
+const SEARCH_START_PAGE = 1;
 
 describe("client", () => {
   let octokit: Octokit;
@@ -174,8 +177,8 @@ describe("client", () => {
         q: `"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
         sort: "created",
         order: "desc",
-        per_page: 100,
-        page: 1,
+        per_page: SEARCH_PER_PAGE,
+        page: SEARCH_START_PAGE,
       });
 
       expect(logger.debug).toHaveBeenCalledWith(
@@ -204,9 +207,17 @@ describe("client", () => {
         q: `"reached your PR review rate limit" type:pr state:open created:>=${twentyFourHoursAgo}`,
         sort: "created",
         order: "desc",
-        per_page: 100,
-        page: 1,
+        per_page: SEARCH_PER_PAGE,
+        page: SEARCH_START_PAGE,
       });
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        {
+          fn: "searchRateLimitComments",
+          query: `"reached your PR review rate limit" type:pr state:open created:>=${twentyFourHoursAgo}`,
+        },
+        "Searching for rate-limit comments",
+      );
     });
 
     it("returns RateLimitComment objects for issues with matching comments", async () => {
@@ -216,7 +227,7 @@ describe("client", () => {
       const matchingCommentId = getUniqueInt();
       const matchingCommentUrl = `https://github.com/couimet/my-repo/issues/${prNumber}#issuecomment-${matchingCommentId}`;
       const matchingCreatedAt = new Date(
-        frozenDate.getTime() - getUniqueInt() * 60 * 60 * 1000,
+        frozenDate.getTime() - getUniqueInt() * MS_PER_HOUR,
       ).toISOString();
       const matchingBody = `${getRandomString()} rate limited by coderabbit.ai ${getRandomString()}`;
 
