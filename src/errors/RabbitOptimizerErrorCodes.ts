@@ -23,6 +23,11 @@ export enum RabbitOptimizerErrorCodes {
   GITHUB_RATE_LIMITED = "GITHUB_RATE_LIMITED",
 
   //
+  // Prisma / database errors
+  //
+  PRISMA_CONNECTION_METHOD_NOT_SUPPORTED = "PRISMA_CONNECTION_METHOD_NOT_SUPPORTED",
+
+  //
   // Result type errors
   //
   RESULT_ERROR_ACCESS_ON_SUCCESS = "RESULT_ERROR_ACCESS_ON_SUCCESS",

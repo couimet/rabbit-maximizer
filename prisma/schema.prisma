@@ -1,6 +1,5 @@
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -21,9 +20,12 @@ generator client {
 /// Tracks a PR that needs (or has received) a review retrigger.
 model ReviewQueue {
   id             Int      @id @default(autoincrement())
+  /// Max 36 (UUID v4). Enforced by CHECK in the init migration.
   uuid           String   @unique @default(uuid())
+  /// Max 140: GitHub owner/org (<=39) + "/" + repo (<=100). Sources and CHECK in the init migration; mirrored in src/schemas/lengths.ts.
   repo_full_name String
   pr_number      Int
+  /// Max 25; one of 'pending' | 'completed' | 'failed' (CHECK in the init migration).
   status         String   @default("pending")
   scheduled_for  DateTime
   attempts       Int      @default(0)
@@ -35,34 +37,43 @@ model ReviewQueue {
 }
 
 // ---------------------------------------------------------------------------
-// Event — append-only audit / debug log.
+// Event — append-only audit / debug log (one row per lifecycle transition).
 //
-// Timestamps:
-//   ts          Set by us when we record the event (auto-default).
-//   source_ts   Timestamp from the incoming event payload, when available.
-//               Null when the event source doesn't provide one.
+// Three-tier shape:
+//   envelope    Always-present, queried columns: ts, type, repo_full_name,
+//               pr_number, correlation_id, request_id, version.
+//   payload     Type-specific fields as a JSON blob (TEXT). A new event type
+//               adds a new payload shape with no migration.
+//   metadata    Rarely-queried provenance (git sha, build id, host, node
+//               version) as a JSON blob (TEXT).
 //
-// Other columns:
 //   id          Internal auto-increment PK.
 //   uuid        External-facing stable identifier (UUID v4).
+//   ts          Set by us when we record the event (auto-default).
 // ---------------------------------------------------------------------------
 
 /// Append-only record of every lifecycle event (detected, enqueued, posted, etc.).
 model Event {
-  id                 Int       @id @default(autoincrement())
-  uuid               String    @unique @default(uuid())
-  ts                 DateTime  @default(now())
-  source_ts          DateTime?
-  type               String
-  repo_full_name     String
-  pr_number          Int
-  source_comment_url String?
-  posted_comment_url String?
-  attempt_no         Int?
-  scheduled_for      DateTime?
-  outcome            String?
-  new_wait           String?
-  detail             String?
+  id             Int      @id @default(autoincrement())
+  /// Max 36 (UUID v4).
+  uuid           String   @unique @default(uuid())
+  ts             DateTime @default(now())
+  /// Max 25; one of the EventType values (CHECK in the init migration).
+  type           String
+  /// Max 140: GitHub owner/org + "/" + repo. See review_queue / init migration for sources.
+  repo_full_name String
+  pr_number      Int
+  /// Max 73 (two UUID v4 of 36 + 1 delimiter).
+  correlation_id String
+  /// Max 73 (two UUID v4 of 36 + 1 delimiter).
+  request_id     String?
+  /// Max 32 (semver, incl. prerelease/build metadata).
+  version        String
+  /// JSON blob; max 16384. Type-specific fields validated by Zod in src/schemas/events.ts.
+  payload        String
+  /// JSON blob; max 2048. Provenance (git sha, build id, host, node version).
+  metadata       String?
 
+  @@index([repo_full_name, pr_number, ts], map: "events_repo_pr_ts_idx")
   @@map("events")
 }

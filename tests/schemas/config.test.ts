@@ -21,7 +21,7 @@ describe("ConfigSchema", () => {
       DETECTION_MODE: "poll" as const,
       GITHUB_PAT: githubPat,
       POLL_INTERVAL: 90,
-      DATABASE_URL: "file:../data/rabbit-optimizer.db",
+      DATABASE_URL: "file:./data/rabbit-optimizer.db",
       REPO_FILTER: [{ pattern: "couimet/*", scope: "user" as const }],
     };
   });
