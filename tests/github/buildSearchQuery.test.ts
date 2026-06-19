@@ -1,11 +1,19 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
+import { getUniqueDate } from "@couimet/dynamic-testing";
 import { buildSearchQuery } from "../../src/github/buildSearchQuery.js";
 import type { RepoFilter } from "../../src/types/RepoFilter.js";
 
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+
 describe("buildSearchQuery", () => {
-  const frozenDate = new Date("2026-06-18T12:00:00Z");
+  let frozenDate: Date;
+  let twentyFourHoursAgo: string;
 
   beforeEach(() => {
+    frozenDate = getUniqueDate();
+    twentyFourHoursAgo = new Date(
+      frozenDate.getTime() - TWENTY_FOUR_HOURS_MS,
+    ).toISOString();
     jest.useFakeTimers();
     jest.setSystemTime(frozenDate);
   });
@@ -15,10 +23,6 @@ describe("buildSearchQuery", () => {
     pattern: "other-org/specific-repo",
     scope: "repo",
   };
-
-  const twentyFourHoursAgo = new Date(
-    frozenDate.getTime() - 24 * 60 * 60 * 1000,
-  ).toISOString();
 
   it("wraps multiple qualifiers in an OR group", () => {
     const query = buildSearchQuery([userFilter, repoFilter]);

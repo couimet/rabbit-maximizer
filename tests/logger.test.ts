@@ -1,6 +1,8 @@
 import { jest, describe, it, expect } from "@jest/globals";
+import { getUniqueInt } from "@couimet/dynamic-testing";
 import { initLogger } from "../src/logger.js";
 import { getLogger } from "@couimet/logger-contract";
+import { makeUniqueRepoName } from "./helpers/index.js";
 
 describe("initLogger", () => {
   it("registers a ConsoleLogger that logs to console at all four levels", () => {
@@ -24,6 +26,9 @@ describe("initLogger", () => {
   });
 
   it("includes extra context keys in the log output", () => {
+    const { fullName } = makeUniqueRepoName();
+    const prNumber = getUniqueInt();
+
     const mockDebug = jest.spyOn(console, "debug").mockImplementation(() => {});
     const mockInfo = jest.spyOn(console, "info").mockImplementation(() => {});
     const mockWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -31,7 +36,7 @@ describe("initLogger", () => {
 
     initLogger();
     const logger = getLogger();
-    const ctx = { fn: "testFn", pr: 42, repo: "couimet/rabbit-optimizer" };
+    const ctx = { fn: "testFn", pr: prNumber, repo: fullName };
 
     logger.debug(ctx, "debug msg");
     logger.info(ctx, "info msg");
@@ -39,16 +44,16 @@ describe("initLogger", () => {
     logger.error(ctx, "error msg");
 
     expect(mockDebug).toHaveBeenCalledWith(
-      '[DEBUG] {"fn":"testFn","pr":42,"repo":"couimet/rabbit-optimizer"} debug msg',
+      `[DEBUG] {"fn":"testFn","pr":${prNumber},"repo":"${fullName}"} debug msg`,
     );
     expect(mockInfo).toHaveBeenCalledWith(
-      '[INFO] {"fn":"testFn","pr":42,"repo":"couimet/rabbit-optimizer"} info msg',
+      `[INFO] {"fn":"testFn","pr":${prNumber},"repo":"${fullName}"} info msg`,
     );
     expect(mockWarn).toHaveBeenCalledWith(
-      '[WARN] {"fn":"testFn","pr":42,"repo":"couimet/rabbit-optimizer"} warn msg',
+      `[WARN] {"fn":"testFn","pr":${prNumber},"repo":"${fullName}"} warn msg`,
     );
     expect(mockError).toHaveBeenCalledWith(
-      '[ERROR] {"fn":"testFn","pr":42,"repo":"couimet/rabbit-optimizer"} error msg',
+      `[ERROR] {"fn":"testFn","pr":${prNumber},"repo":"${fullName}"} error msg`,
     );
   });
 });

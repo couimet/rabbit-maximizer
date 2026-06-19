@@ -1,10 +1,20 @@
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect, beforeEach } from "@jest/globals";
+import { getUniqueString } from "@couimet/dynamic-testing";
 import { hasOwnRetriggerMarker } from "../../src/github/hasOwnRetriggerMarker.js";
+import pkg from "../../package.json" with { type: "json" };
+
+const VERSION = pkg.version;
 
 describe("hasOwnRetriggerMarker", () => {
+  let runId: string;
+
+  beforeEach(() => {
+    runId = getUniqueString({ prefix: "run-" });
+  });
+
   it("returns true when the body contains the own marker prefix", () => {
     expect(
-      hasOwnRetriggerMarker("<!-- rabbit-optimizer v0.1.0 run=abc123"),
+      hasOwnRetriggerMarker(`<!-- rabbit-optimizer v${VERSION} run=${runId}`),
     ).toBe(true);
   });
 

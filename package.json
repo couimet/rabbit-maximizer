@@ -36,6 +36,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@couimet/dynamic-testing": "0.1.0",
     "@couimet/eslint-config": "^0.1.0",
     "@couimet/logger-contract-testing": "^1.0.0",
     "@jest/globals": "^30.4.1",

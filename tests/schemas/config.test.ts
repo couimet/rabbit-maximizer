@@ -1,14 +1,30 @@
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect, beforeEach } from "@jest/globals";
+import { getRandomString } from "@couimet/dynamic-testing";
 import { ConfigSchema } from "../../src/schemas/config.js";
 
 describe("ConfigSchema", () => {
-  const BASE = {
-    DETECTION_MODE: "poll" as const,
-    GITHUB_PAT: "ghp_test123",
-    POLL_INTERVAL: 90,
-    DATABASE_URL: "file:../data/rabbit-optimizer.db",
-    REPO_FILTER: [{ pattern: "couimet/*", scope: "user" as const }],
-  };
+  let githubPat: string;
+  let webhookSecret: string;
+  let tunnelUrl: string;
+  let BASE: ReturnType<typeof ConfigSchema.safeParse> extends {
+    success: true;
+    data: infer D;
+  }
+    ? D
+    : never;
+
+  beforeEach(() => {
+    githubPat = getRandomString({ charset: "alphanumeric", length: 20 });
+    webhookSecret = getRandomString({ charset: "alphanumeric", length: 16 });
+    tunnelUrl = `https://${getRandomString({ charset: "alpha", length: 8 })}.com`;
+    BASE = {
+      DETECTION_MODE: "poll" as const,
+      GITHUB_PAT: githubPat,
+      POLL_INTERVAL: 90,
+      DATABASE_URL: "file:../data/rabbit-optimizer.db",
+      REPO_FILTER: [{ pattern: "couimet/*", scope: "user" as const }],
+    };
+  });
 
   // -- Success cases -----------------------------------------------------------
 
@@ -21,8 +37,8 @@ describe("ConfigSchema", () => {
       ConfigSchema.safeParse({
         ...BASE,
         DETECTION_MODE: "webhook",
-        WEBHOOK_SECRET: "secret123",
-        TUNNEL_URL: "https://example.com",
+        WEBHOOK_SECRET: webhookSecret,
+        TUNNEL_URL: tunnelUrl,
       }).success,
     ).toBe(true);
   });
@@ -118,7 +134,7 @@ describe("ConfigSchema", () => {
     const result = ConfigSchema.safeParse({
       ...BASE,
       DETECTION_MODE: "webhook",
-      WEBHOOK_SECRET: "secret123",
+      WEBHOOK_SECRET: webhookSecret,
     });
     expect(result.success).toBe(false);
     if (!result.success) {
@@ -134,7 +150,7 @@ describe("ConfigSchema", () => {
         ...BASE,
         DETECTION_MODE: "webhook",
         WEBHOOK_SECRET: "",
-        TUNNEL_URL: "https://example.com",
+        TUNNEL_URL: tunnelUrl,
       }).success,
     ).toBe(false);
   });

@@ -10,10 +10,19 @@ import type { RepoFilter } from "../../src/types/RepoFilter.js";
 import { TYPES } from "../../src/inversify-types.js";
 import { createMockOctokit, createMockLogger } from "../helpers/index.js";
 import type { MockIssuesRest, MockSearchRest } from "../helpers/index.js";
+import { makeUniqueRepoName } from "../helpers/index.js";
+import {
+  getUniqueInt,
+  getUniqueDate,
+  getUniqueString,
+  getRandomString,
+} from "@couimet/dynamic-testing";
 import pkg from "../../package.json" with { type: "json" };
 
 const VERSION = pkg.version;
 const REPO_URL = pkg.repository.url;
+
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 describe("client", () => {
   let octokit: Octokit;
@@ -21,9 +30,21 @@ describe("client", () => {
   let search: MockSearchRest;
   let logger: Logger;
 
+  let frozenDate: Date;
+  let prNumber: number;
+  let triggerCommentId: number;
+  let fetchCommentId: number;
+  let runId: string;
+
   beforeEach(() => {
+    frozenDate = getUniqueDate();
+    prNumber = getUniqueInt();
+    triggerCommentId = getUniqueInt();
+    fetchCommentId = getUniqueInt();
+    runId = getUniqueString({ prefix: "run-" });
+
     jest.useFakeTimers();
-    jest.setSystemTime(new Date("2026-06-18T12:00:00Z"));
+    jest.setSystemTime(frozenDate);
     ({
       octokit,
       rest: { issues, search },
@@ -33,50 +54,53 @@ describe("client", () => {
 
   describe("postRetrigger", () => {
     it("posts a comment with the correct body template", async () => {
+      const { owner, repo, fullName } = makeUniqueRepoName();
+      const responseCommentId = getUniqueInt();
       issues.createComment.mockResolvedValue({
         data: {
-          html_url: "https://github.com/owner/repo/issues/42#issuecomment-1",
+          html_url: `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${responseCommentId}`,
         },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
+      const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
       const result = await client.postRetrigger(
-        "owner/repo",
-        42,
-        "https://github.com/owner/repo/issues/42#issuecomment-999",
-        "run-abc",
+        fullName,
+        prNumber,
+        triggerUrl,
+        runId,
       );
 
       const expectedBody = [
         "@coderabbitai full review",
         "",
-        `🔧 rabbit-optimizer v${VERSION} run=run-abc`,
+        `🔧 rabbit-optimizer v${VERSION} run=${runId}`,
         "",
         "---",
         "",
-        `🤖 rabbit-optimizer | ${REPO_URL} | v${VERSION} | run=run-abc`,
-        "↩ Triggered by: https://github.com/owner/repo/issues/42#issuecomment-999",
+        `🤖 rabbit-optimizer | ${REPO_URL} | v${VERSION} | run=${runId}`,
+        `↩ Triggered by: ${triggerUrl}`,
       ].join("\n");
 
       expect(issues.createComment).toHaveBeenCalledWith({
-        owner: "owner",
-        repo: "repo",
-        issue_number: 42,
+        owner,
+        repo,
+        issue_number: prNumber,
         body: expectedBody,
       });
 
       expect(result.htmlUrl).toBe(
-        "https://github.com/owner/repo/issues/42#issuecomment-1",
+        `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${responseCommentId}`,
       );
 
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: "postRetrigger",
-          owner: "owner",
-          repo: "repo",
-          pr: 42,
-          runId: "run-abc",
+          owner,
+          repo,
+          pr: prNumber,
+          runId,
         },
         "Posting retrigger comment",
       );
@@ -85,39 +109,42 @@ describe("client", () => {
 
   describe("fetchComment", () => {
     it("returns the comment body from the API response", async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const bodyText = getRandomString();
       issues.getComment.mockResolvedValue({
-        data: { body: "the comment body" },
+        data: { body: bodyText },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const body = await client.fetchComment("owner", "repo", 123);
+      const body = await client.fetchComment(owner, repo, fetchCommentId);
 
       expect(issues.getComment).toHaveBeenCalledWith({
-        owner: "owner",
-        repo: "repo",
-        comment_id: 123,
+        owner,
+        repo,
+        comment_id: fetchCommentId,
       });
-      expect(body).toBe("the comment body");
+      expect(body).toBe(bodyText);
 
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "fetchComment", owner: "owner", repo: "repo", commentId: 123 },
+        { fn: "fetchComment", owner, repo, commentId: fetchCommentId },
         "Fetching comment body",
       );
     });
 
     it("returns empty string when the comment body is null", async () => {
+      const { owner, repo } = makeUniqueRepoName();
       issues.getComment.mockResolvedValue({
         data: { body: null },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const body = await client.fetchComment("owner", "repo", 123);
+      const body = await client.fetchComment(owner, repo, fetchCommentId);
       expect(body).toBe("");
 
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "fetchComment", owner: "owner", repo: "repo", commentId: 123 },
+        { fn: "fetchComment", owner, repo, commentId: fetchCommentId },
         "Fetching comment body",
       );
     });
@@ -131,6 +158,10 @@ describe("client", () => {
     };
 
     it("builds the correct search query with user and repo scopes", async () => {
+      const twentyFourHoursAgo = new Date(
+        frozenDate.getTime() - TWENTY_FOUR_HOURS_MS,
+      ).toISOString();
+
       search.issuesAndPullRequests.mockResolvedValue({
         data: { items: [] },
       });
@@ -140,7 +171,7 @@ describe("client", () => {
       await client.searchRateLimitComments([userFilter, repoFilter]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: '"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=2026-06-17T12:00:00.000Z',
+        q: `"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
         sort: "created",
         order: "desc",
         per_page: 100,
@@ -150,13 +181,17 @@ describe("client", () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: "searchRateLimitComments",
-          query: '"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=2026-06-17T12:00:00.000Z',
+          query: `"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
         },
         "Searching for rate-limit comments",
       );
     });
 
     it("omits the qualifier clause when the repo filter is empty", async () => {
+      const twentyFourHoursAgo = new Date(
+        frozenDate.getTime() - TWENTY_FOUR_HOURS_MS,
+      ).toISOString();
+
       search.issuesAndPullRequests.mockResolvedValue({
         data: { items: [] },
       });
@@ -166,7 +201,7 @@ describe("client", () => {
       await client.searchRateLimitComments([]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: '"reached your PR review rate limit" type:pr state:open created:>=2026-06-17T12:00:00.000Z',
+        q: `"reached your PR review rate limit" type:pr state:open created:>=${twentyFourHoursAgo}`,
         sort: "created",
         order: "desc",
         per_page: 100,
@@ -175,12 +210,22 @@ describe("client", () => {
     });
 
     it("returns RateLimitComment objects for issues with matching comments", async () => {
+      const twentyFourHoursAgo = new Date(
+        frozenDate.getTime() - TWENTY_FOUR_HOURS_MS,
+      ).toISOString();
+      const matchingCommentId = getUniqueInt();
+      const matchingCommentUrl = `https://github.com/couimet/my-repo/issues/${prNumber}#issuecomment-${matchingCommentId}`;
+      const matchingCreatedAt = new Date(
+        frozenDate.getTime() - getUniqueInt() * 60 * 60 * 1000,
+      ).toISOString();
+      const matchingBody = `${getRandomString()} rate limited by coderabbit.ai ${getRandomString()}`;
+
       search.issuesAndPullRequests.mockResolvedValue({
         data: {
           items: [
             {
               repository_url: "https://api.github.com/repos/couimet/my-repo",
-              number: 42,
+              number: prNumber,
             },
           ],
         },
@@ -189,11 +234,10 @@ describe("client", () => {
       issues.listComments.mockResolvedValue({
         data: [
           {
-            id: 789,
-            html_url:
-              "https://github.com/couimet/my-repo/issues/42#issuecomment-789",
-            created_at: "2026-06-18T10:00:00Z",
-            body: "Some text. rate limited by coderabbit.ai. More text.",
+            id: matchingCommentId,
+            html_url: matchingCommentUrl,
+            created_at: matchingCreatedAt,
+            body: matchingBody,
           },
         ],
       });
@@ -205,23 +249,29 @@ describe("client", () => {
       expect(results).toStrictEqual([
         {
           repo_full_name: "couimet/my-repo",
-          pr_number: 42,
-          comment_id: 789,
-          url: "https://github.com/couimet/my-repo/issues/42#issuecomment-789",
-          created_at: "2026-06-18T10:00:00Z",
+          pr_number: prNumber,
+          comment_id: matchingCommentId,
+          url: matchingCommentUrl,
+          created_at: matchingCreatedAt,
         },
       ]);
 
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: "searchRateLimitComments",
-          query: '"reached your PR review rate limit" type:pr state:open user:couimet created:>=2026-06-17T12:00:00.000Z',
+          query: `"reached your PR review rate limit" type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
         },
         "Searching for rate-limit comments",
       );
     });
 
     it("excludes issues whose comments do not contain the rate-limit marker", async () => {
+      const twentyFourHoursAgo = new Date(
+        frozenDate.getTime() - TWENTY_FOUR_HOURS_MS,
+      ).toISOString();
+      const nonMatchingCommentId = getUniqueInt();
+      const nonMatchingBody = getRandomString();
+
       search.issuesAndPullRequests.mockResolvedValue({
         data: {
           items: [
@@ -236,10 +286,10 @@ describe("client", () => {
       issues.listComments.mockResolvedValue({
         data: [
           {
-            id: 1,
+            id: nonMatchingCommentId,
             html_url: "https://example.com",
             created_at: "2026-06-18T10:00:00Z",
-            body: "not a rate-limit comment",
+            body: nonMatchingBody,
           },
         ],
       });
@@ -253,13 +303,17 @@ describe("client", () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: "searchRateLimitComments",
-          query: '"reached your PR review rate limit" type:pr state:open user:couimet created:>=2026-06-17T12:00:00.000Z',
+          query: `"reached your PR review rate limit" type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
         },
         "Searching for rate-limit comments",
       );
     });
 
     it("returns empty array when search has no results", async () => {
+      const twentyFourHoursAgo = new Date(
+        frozenDate.getTime() - TWENTY_FOUR_HOURS_MS,
+      ).toISOString();
+
       search.issuesAndPullRequests.mockResolvedValue({
         data: { items: [] },
       });
@@ -273,7 +327,7 @@ describe("client", () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: "searchRateLimitComments",
-          query: '"reached your PR review rate limit" type:pr state:open user:couimet created:>=2026-06-17T12:00:00.000Z',
+          query: `"reached your PR review rate limit" type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
         },
         "Searching for rate-limit comments",
       );

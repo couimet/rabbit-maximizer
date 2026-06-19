@@ -1,20 +1,25 @@
 import { describe, it, expect } from "@jest/globals";
 import { extractRepoFullName } from "../../src/github/extractRepoFullName.js";
+import { makeUniqueRepoName } from "../helpers/index.js";
 
 describe("extractRepoFullName", () => {
   it("strips the GitHub API repository prefix", () => {
+    const { fullName } = makeUniqueRepoName();
     expect(
-      extractRepoFullName("https://api.github.com/repos/couimet/my-repo"),
-    ).toBe("couimet/my-repo");
+      extractRepoFullName(`https://api.github.com/repos/${fullName}`),
+    ).toBe(fullName);
   });
 
   it("throws a RabbitOptimizerError when the URL lacks the expected prefix", () => {
-    expect(() =>
-      extractRepoFullName("https://example.com/repos/owner/repo"),
-    ).toThrowRabbitOptimizerError("GITHUB_API_ERROR", {
-      message: "Invalid repository URL format",
-      functionName: "extractRepoFullName",
-      details: { repositoryUrl: "https://example.com/repos/owner/repo" },
-    });
+    const { fullName } = makeUniqueRepoName();
+    const badUrl = `https://example.com/repos/${fullName}`;
+    expect(() => extractRepoFullName(badUrl)).toThrowRabbitOptimizerError(
+      "GITHUB_API_ERROR",
+      {
+        message: "Invalid repository URL format",
+        functionName: "extractRepoFullName",
+        details: { repositoryUrl: badUrl },
+      },
+    );
   });
 });

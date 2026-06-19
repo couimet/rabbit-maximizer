@@ -36,6 +36,9 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      '@couimet/dynamic-testing':
+        specifier: 0.1.0
+        version: 0.1.0
       '@couimet/eslint-config':
         specifier: ^0.1.0
         version: 0.1.0(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-prettier@5.5.6(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(prettier@3.8.4))(eslint-plugin-simple-import-sort@13.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(globals@16.5.0)(prettier-plugin-packagejson@3.0.2(prettier@3.8.4))(prettier@3.8.4)
@@ -233,6 +236,14 @@ packages:
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
+
+  '@couimet/dynamic-testing@0.1.0':
+    resolution: {integrity: sha512-RXvoo9hTFj6KqWhFnkhvrv/IH49BaYDipU5i1mf3RgAIwJZ/0rpES7QSoa74GHcapvWK09s470fcFhXXi9F8bg==}
+    peerDependencies:
+      decimal.js: ^10.0.0
+    peerDependenciesMeta:
+      decimal.js:
+        optional: true
 
   '@couimet/eslint-config@0.1.0':
     resolution: {integrity: sha512-7aNaqJQSdVQ4eBWNJEsmJEpOSPpDBe7mcdfh+ukcOdsIbcN03q8+Ish/Ac9FhmHqSv7mqchlHNApNM1iXSrklQ==}
@@ -2620,6 +2631,8 @@ snapshots:
       '@babel/helper-validator-identifier': 7.29.7
 
   '@bcoe/v8-coverage@0.2.3': {}
+
+  '@couimet/dynamic-testing@0.1.0': {}
 
   '@couimet/eslint-config@0.1.0(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-prettier@5.5.6(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(prettier@3.8.4))(eslint-plugin-simple-import-sort@13.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(globals@16.5.0)(prettier-plugin-packagejson@3.0.2(prettier@3.8.4))(prettier@3.8.4)':
     dependencies:
