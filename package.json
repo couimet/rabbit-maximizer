@@ -14,9 +14,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio",
-    "dev": "tsx src/main.ts",
+    "db:migrate": "DATABASE_URL=\"file:$PWD/data/rabbit-optimizer.db\" prisma migrate dev",
+    "db:studio": "DATABASE_URL=\"file:$PWD/data/rabbit-optimizer.db\" prisma studio",
+    "dev": "DATABASE_URL=\"file:$PWD/data/rabbit-optimizer.db\" tsx src/main.ts",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "eslint .",
@@ -28,7 +28,9 @@
     "@couimet/logger-contract": "^1.0.0",
     "@octokit/auth-token": "^6.0.0",
     "@octokit/rest": "^22.0.1",
+    "@prisma/adapter-better-sqlite3": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "better-sqlite3": "^12.11.1",
     "dotenv": "^17.4.2",
     "inversify": "^8.1.1",
     "prisma": "^7.8.0",
@@ -37,7 +39,7 @@
   },
   "devDependencies": {
     "@couimet/dynamic-testing": "0.1.0",
-    "@couimet/eslint-config": "^0.1.0",
+    "@couimet/eslint-config": "^0.2.0",
     "@couimet/logger-contract-testing": "^1.0.0",
     "@jest/globals": "^30.4.1",
     "@types/jest": "^30.0.0",
@@ -52,6 +54,7 @@
     "onlyBuiltDependencies": [
       "@prisma/client",
       "@prisma/engines",
+      "better-sqlite3",
       "esbuild",
       "prisma"
     ]

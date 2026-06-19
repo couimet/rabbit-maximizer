@@ -11,7 +11,7 @@ export const ConfigSchema = z
       .int()
       .positive("POLL_INTERVAL must be a positive integer")
       .default(90),
-    DATABASE_URL: z.string().min(1).default("file:../data/rabbit-optimizer.db"),
+    DATABASE_URL: z.string().min(1).default("file:./data/rabbit-optimizer.db"),
     REPO_FILTER: z
       .array(
         z.discriminatedUnion("scope", [

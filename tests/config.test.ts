@@ -22,7 +22,7 @@ describe("parseConfig", () => {
       DETECTION_MODE: "poll",
       GITHUB_PAT: githubPat,
       POLL_INTERVAL: "90",
-      DATABASE_URL: "file:../data/rabbit-optimizer.db",
+      DATABASE_URL: "file:./data/rabbit-optimizer.db",
       REPO_FILTER: "couimet/*",
     };
   });
@@ -92,9 +92,7 @@ describe("parseConfig", () => {
     const result = parseConfig(rest);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.value.DATABASE_URL).toBe(
-        "file:../data/rabbit-optimizer.db",
-      );
+      expect(result.value.DATABASE_URL).toBe("file:./data/rabbit-optimizer.db");
     }
   });
 
