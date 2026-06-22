@@ -16,7 +16,7 @@
     "db:migrate:backup": "pnpm db:backup && pnpm db:migrate",
     "db:restore": "bash scripts/db/restore.sh",
     "db:studio": "DATABASE_URL=\"file:$PWD/data/rabbit-maximizer.db\" prisma studio",
-    "dev": "DATABASE_URL=\"file:$PWD/data/rabbit-maximizer.db\" tsx src/main.ts",
+    "dev": "DATABASE_URL=\"file:$PWD/data/rabbit-maximizer.db\" tsx src/backend.ts",
     "fix": "pnpm lint:fix && pnpm format:fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
