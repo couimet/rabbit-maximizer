@@ -15,7 +15,7 @@ export interface QueueRepository {
     pr: number,
     scheduledFor: Date,
     sourceCommentUrl: string,
-    newWait: string,
+    newWait: number,
     observation: ObservationContext,
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem>;
@@ -46,7 +46,7 @@ export class QueueRepositoryImpl implements QueueRepository {
     pr: number,
     scheduledFor: Date,
     sourceCommentUrl: string,
-    newWait: string,
+    newWait: number,
     observation: ObservationContext,
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem> {

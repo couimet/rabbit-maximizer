@@ -73,7 +73,7 @@ describe('EnqueueService', () => {
         comment.pr_number,
         expect.any(Date),
         comment.url,
-        String(jitteredWait),
+        jitteredWait,
         observation.current(),
         tx,
       );

@@ -40,7 +40,7 @@ export class EnqueueService {
     await probe.processStarted();
 
     await this.prisma.$transaction(async (tx) => {
-      await this.queue.enqueue(comment.repo_full_name, comment.pr_number, scheduledFor, comment.url, String(jitteredWait), obs, tx);
+      await this.queue.enqueue(comment.repo_full_name, comment.pr_number, scheduledFor, comment.url, jitteredWait, obs, tx);
       await probe.processCompleted(tx);
     });
   };

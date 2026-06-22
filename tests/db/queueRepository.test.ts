@@ -69,7 +69,7 @@ describe('QueueRepositoryImpl', () => {
       const pr = getUniqueInt();
       const scheduledFor = getUniqueDate();
       const sourceUrl = getUniqueString({ prefix: 'https://gh/c/' });
-      const newWait = '330';
+      const newWait = 330;
       const obs = makeObservation();
       const row = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_url: sourceUrl });
 
@@ -114,7 +114,7 @@ describe('QueueRepositoryImpl', () => {
         pr,
         getUniqueDate(),
         getUniqueString({ prefix: 'https://gh/c/' }),
-        '60',
+        60,
         makeObservation(),
         prisma as unknown as Prisma.TransactionClient,
       );

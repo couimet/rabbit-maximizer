@@ -10,7 +10,6 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
 describe('EventRepositoryImpl', () => {
-  const FIRST_ATTEMPT_NO = 1;
   const EXPECTED_EVENT_COUNT = 2;
 
   describe('record', () => {
@@ -181,7 +180,7 @@ describe('EventRepositoryImpl', () => {
         version: getUniqueString(),
         payload: JSON.stringify({
           scheduled_for: scheduledFor.toISOString(),
-          attempt_no: FIRST_ATTEMPT_NO,
+          new_wait: 60,
         }),
         metadata: null,
       };
@@ -225,7 +224,7 @@ describe('EventRepositoryImpl', () => {
           type: 'enqueued',
           payload: {
             scheduled_for: scheduledFor,
-            attempt_no: FIRST_ATTEMPT_NO,
+            new_wait: 60,
           },
         },
       ]);
