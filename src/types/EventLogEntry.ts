@@ -1,13 +1,5 @@
-import { EventType } from "./EventType.js";
-import type {
-  DetectedPayload,
-  EnqueuedPayload,
-  PostedPayload,
-  RejectedPayload,
-  CompletedPayload,
-  FailedPayload,
-  EventMetadata,
-} from "./EventPayloads.js";
+import type { CompletedPayload, DetectedPayload, EnqueuedPayload, EventMetadata, FailedPayload, PostedPayload, RejectedPayload } from './EventPayloads.js';
+import { EventType } from './EventType.js';
 
 /** Always-present columns shared by every event, regardless of type. */
 export interface EventEnvelope {

@@ -1,4 +1,4 @@
-import type { QueueStatus } from "./QueueStatus.js";
+import type { QueueStatus } from './QueueStatus.js';
 
 export interface QueueItem {
   readonly id: number;

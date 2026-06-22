@@ -1,5 +1,5 @@
-import { jest } from "@jest/globals";
-import type { Logger } from "@couimet/logger-contract";
+import type { Logger } from '@couimet/logger-contract';
+import { jest } from '@jest/globals';
 
 // Local stand-in for @couimet/logger-contract-testing's createMockLogger, which
 // can't run under our ESM Jest until

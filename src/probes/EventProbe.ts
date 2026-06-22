@@ -1,7 +1,8 @@
-import type { Logger } from "@couimet/logger-contract";
-import type { Prisma } from "@prisma/client";
-import type { ObservationContext } from "../observability/observationContext.js";
-import type { EventLogEntry } from "../types/index.js";
+import type { ObservationContext } from '../observability/observationContext.js';
+import type { EventLogEntry } from '../types/index.js';
+
+import type { Logger } from '@couimet/logger-contract';
+import type { Prisma } from '@prisma/client';
 
 /**
  * Base for domain probes that record a business-significant event. Probes carry
@@ -15,7 +16,5 @@ export abstract class EventProbe {
   ) {}
 
   abstract processStarted(): Promise<void>;
-  abstract processCompleted(
-    tx?: Prisma.TransactionClient,
-  ): Promise<EventLogEntry>;
+  abstract processCompleted(tx?: Prisma.TransactionClient): Promise<EventLogEntry>;
 }

@@ -1,7 +1,8 @@
-import dotenv from "dotenv";
-import { ConfigSchema, type Config } from "./schemas/config.js";
-import { type RepoFilter } from "./types/RepoFilter.js";
-import { Result } from "./types/Result.js";
+import { type Config, ConfigSchema } from './schemas/config.js';
+import { type RepoFilter } from './types/RepoFilter.js';
+import { Result } from './types/Result.js';
+
+import dotenv from 'dotenv';
 
 export type { Config };
 
@@ -11,8 +12,7 @@ dotenv.config();
  * Convert empty-string env vars to undefined so Zod `.default()` and
  * `required_error` behave as expected.
  */
-const emptyToUndefined = (val: string | undefined): string | undefined =>
-  val === "" ? undefined : val;
+const emptyToUndefined = (val: string | undefined): string | undefined => (val === '' ? undefined : val);
 
 const USER_PATTERN_PART_COUNT = 2;
 
@@ -26,15 +26,12 @@ const USER_PATTERN_PART_COUNT = 2;
  *   couimet/*                        →  [{pattern:"couimet/*", scope:"user"}]
  */
 const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
-  if (!val || val.trim() === "") return [];
+  if (!val || val.trim() === '') return [];
   const raw = val.trim();
   let patterns: string[];
   try {
     const parsed = JSON.parse(raw);
-    if (
-      Array.isArray(parsed) &&
-      parsed.every((s: unknown) => typeof s === "string")
-    ) {
+    if (Array.isArray(parsed) && parsed.every((s: unknown) => typeof s === 'string')) {
       patterns = parsed;
     } else {
       patterns = [];
@@ -42,16 +39,16 @@ const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
   } catch {
     // A leading "[" means JSON was intended; a parse failure here is malformed
     // input that should fail config validation, not silently become a pattern.
-    if (raw.startsWith("[")) return [];
+    if (raw.startsWith('[')) return [];
     patterns = [raw];
   }
 
   return patterns.map((p) => {
-    const parts = p.split("/");
-    if (parts.length === USER_PATTERN_PART_COUNT && parts[1] === "*") {
-      return { pattern: p, scope: "user" as const };
+    const parts = p.split('/');
+    if (parts.length === USER_PATTERN_PART_COUNT && parts[1] === '*') {
+      return { pattern: p, scope: 'user' as const };
     }
-    return { pattern: p, scope: "repo" as const };
+    return { pattern: p, scope: 'repo' as const };
   });
 };
 
@@ -59,9 +56,7 @@ const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
  * Parse and validate config from a raw env-like record.
  * Exported so tests can call it without triggering `process.exit`.
  */
-export const parseConfig = (
-  raw: Record<string, string | undefined>,
-): Result<Config, string[]> => {
+export const parseConfig = (raw: Record<string, string | undefined>): Result<Config, string[]> => {
   const prepped = {
     DETECTION_MODE: emptyToUndefined(raw.DETECTION_MODE),
     GITHUB_PAT: emptyToUndefined(raw.GITHUB_PAT),
@@ -75,9 +70,7 @@ export const parseConfig = (
   const result = ConfigSchema.safeParse(prepped);
 
   if (!result.success) {
-    return Result.err(
-      result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
-    );
+    return Result.err(result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`));
   }
 
   return Result.ok(result.data);
@@ -85,7 +78,7 @@ export const parseConfig = (
 
 /** @internal Exported for testing — logs every config issue and exits with code 1. */
 export const exitWithConfigErrors = (issues: string[]): never => {
-  const formatted = issues.map((i) => `  - ${i}`).join("\n");
+  const formatted = issues.map((i) => `  - ${i}`).join('\n');
   console.error(`[ERROR] Invalid config:\n${formatted}`);
   process.exit(1);
 };
@@ -109,5 +102,4 @@ if (!parsed.success) {
 export const config: Readonly<Config> = Object.freeze(parsed.value);
 
 /** Format the configured repo filter as a human-readable summary for logging. */
-export const describeRepoFilter = (filter: RepoFilter[]): string =>
-  filter.map((f) => `${f.pattern} (${f.scope})`).join(", ");
+export const describeRepoFilter = (filter: RepoFilter[]): string => filter.map((f) => `${f.pattern} (${f.scope})`).join(', ');

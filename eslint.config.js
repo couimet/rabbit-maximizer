@@ -1,1 +1,1 @@
-export { default } from "@couimet/eslint-config";
+export { default } from '@couimet/eslint-config';

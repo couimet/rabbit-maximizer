@@ -1,4 +1,4 @@
-import { Logger, LoggingContext, setLogger } from "@couimet/logger-contract";
+import { Logger, LoggingContext, setLogger } from '@couimet/logger-contract';
 
 /** Ensure `fn` appears first in the serialized context. */
 const orderedCtx = (ctx: LoggingContext): Record<string, unknown> => {
@@ -13,10 +13,10 @@ const log =
   };
 
 class ConsoleLogger implements Logger {
-  debug = log("DEBUG", console.debug);
-  info = log("INFO", console.info);
-  warn = log("WARN", console.warn);
-  error = log("ERROR", console.error);
+  debug = log('DEBUG', console.debug);
+  info = log('INFO', console.info);
+  warn = log('WARN', console.warn);
+  error = log('ERROR', console.error);
 }
 
 /** Initialize the global logger. Call once at application startup (from main.ts). */

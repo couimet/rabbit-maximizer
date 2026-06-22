@@ -1,9 +1,11 @@
-import { inject, injectable } from "inversify";
-import type { Logger } from "@couimet/logger-contract";
-import { TYPES } from "../inversify-types.js";
-import type { EventRepository } from "../db/eventRepository.js";
-import type { ObservationContextProvider } from "../observability/observationContext.js";
-import { DetectedProbe, type DetectedProbeContext } from "./DetectedProbe.js";
+import type { EventRepository } from '../db/eventRepository.js';
+import { TYPES } from '../inversify-types.js';
+import type { ObservationContextProvider } from '../observability/observationContext.js';
+
+import { DetectedProbe, type DetectedProbeContext } from './DetectedProbe.js';
+
+import type { Logger } from '@couimet/logger-contract';
+import { inject, injectable } from 'inversify';
 
 @injectable()
 export class ProbeFactory {
@@ -18,11 +20,6 @@ export class ProbeFactory {
   /* c8 ignore stop */
 
   createDetectedProbe(context: DetectedProbeContext): DetectedProbe {
-    return new DetectedProbe(
-      context,
-      this.eventRepository,
-      this.observationContextProvider.current(),
-      this.log,
-    );
+    return new DetectedProbe(context, this.eventRepository, this.observationContextProvider.current(), this.log);
   }
 }

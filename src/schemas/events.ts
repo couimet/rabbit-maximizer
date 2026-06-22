@@ -1,12 +1,10 @@
-import { z } from "zod";
-import type { Event as PrismaEvent } from "@prisma/client";
-import { EventType } from "../types/EventType.js";
-import type { EventEnvelope, EventLogEntry } from "../types/EventLogEntry.js";
-import {
-  COMMENT_URL_MAX_LENGTH,
-  NEW_WAIT_MAX_LENGTH,
-  REASON_MAX_LENGTH,
-} from "./lengths.js";
+import type { EventEnvelope, EventLogEntry } from '../types/EventLogEntry.js';
+import { EventType } from '../types/EventType.js';
+
+import { COMMENT_URL_MAX_LENGTH, NEW_WAIT_MAX_LENGTH, REASON_MAX_LENGTH } from './lengths.js';
+
+import type { Event as PrismaEvent } from '@prisma/client';
+import { z } from 'zod';
 
 export const DetectedPayloadSchema = z.object({
   source_ts: z.coerce.date().optional(),
@@ -54,9 +52,7 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
     correlation_id: row.correlation_id,
     request_id: row.request_id ?? undefined,
     version: row.version,
-    metadata: row.metadata
-      ? EventMetadataSchema.parse(JSON.parse(row.metadata))
-      : undefined,
+    metadata: row.metadata ? EventMetadataSchema.parse(JSON.parse(row.metadata)) : undefined,
   };
 
   const payload: unknown = JSON.parse(row.payload);

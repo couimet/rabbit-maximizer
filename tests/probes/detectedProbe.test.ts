@@ -1,19 +1,14 @@
-import { describe, it, expect, jest } from "@jest/globals";
-import type { Prisma } from "@prisma/client";
-import { DetectedProbe } from "../../src/probes/DetectedProbe.js";
-import type { EventRepository } from "../../src/db/eventRepository.js";
-import type { ObservationContext } from "../../src/observability/observationContext.js";
-import type { EventLogEntry } from "../../src/types/index.js";
-import { createMockLogger, makeUniqueRepoName } from "../helpers/index.js";
-import {
-  getUniqueInt,
-  getUniqueString,
-  getUniqueDate,
-} from "@couimet/dynamic-testing";
+import type { EventRepository } from '../../src/db/eventRepository.js';
+import type { ObservationContext } from '../../src/observability/observationContext.js';
+import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
+import type { EventLogEntry } from '../../src/types/index.js';
+import { createMockLogger, makeUniqueRepoName } from '../helpers/index.js';
 
-const makeEventRepository = (
-  entry: EventLogEntry,
-): { eventRepository: EventRepository; record: jest.Mock<any> } => {
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { describe, expect, it, jest } from '@jest/globals';
+import type { Prisma } from '@prisma/client';
+
+const makeEventRepository = (entry: EventLogEntry): { eventRepository: EventRepository; record: jest.Mock<any> } => {
   const record = jest.fn<any>().mockResolvedValue(entry);
   const eventRepository = {
     record,
@@ -22,16 +17,16 @@ const makeEventRepository = (
   return { eventRepository, record };
 };
 
-describe("DetectedProbe", () => {
-  it("logs intent and records a detected event with the observation context", async () => {
+describe('DetectedProbe', () => {
+  it('logs intent and records a detected event with the observation context', async () => {
     const { fullName: repo } = makeUniqueRepoName();
     const pr = getUniqueInt();
-    const correlationId = getUniqueString({ prefix: "corr-" });
-    const requestId = getUniqueString({ prefix: "req-" });
-    const version = getUniqueString({ prefix: "v" });
+    const correlationId = getUniqueString({ prefix: 'corr-' });
+    const requestId = getUniqueString({ prefix: 'req-' });
+    const version = getUniqueString({ prefix: 'v' });
     const sourceTs = getUniqueDate();
-    const sourceCommentUrl = getUniqueString({ prefix: "https://gh/c/" });
-    const entryUuid = getUniqueString({ prefix: "uuid-" });
+    const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+    const entryUuid = getUniqueString({ prefix: 'uuid-' });
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
@@ -55,16 +50,13 @@ describe("DetectedProbe", () => {
     );
 
     await probe.processStarted();
-    expect(logger.debug).toHaveBeenCalledWith(
-      { fn: "DetectedProbe", repo, pr },
-      "Rate-limit comment detected",
-    );
+    expect(logger.debug).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr }, 'Rate-limit comment detected');
 
     const result = await probe.processCompleted();
 
     expect(record).toHaveBeenCalledWith(
       {
-        type: "detected",
+        type: 'detected',
         repo_full_name: repo,
         pr_number: pr,
         correlation_id: correlationId,
@@ -75,37 +67,29 @@ describe("DetectedProbe", () => {
       undefined,
     );
     expect(result).toBe(entry);
-    expect(logger.info).toHaveBeenCalledWith(
-      { fn: "DetectedProbe", repo, pr, eventUuid: entryUuid },
-      "Detected event recorded",
-    );
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Detected event recorded');
   });
 
-  it("forwards the transaction client to the repository", async () => {
+  it('forwards the transaction client to the repository', async () => {
     const { fullName: repo } = makeUniqueRepoName();
     const pr = getUniqueInt();
     const observation: ObservationContext = {
       correlationId: getUniqueString(),
       version: getUniqueString(),
     };
-    const entryUuid = getUniqueString({ prefix: "uuid-" });
+    const entryUuid = getUniqueString({ prefix: 'uuid-' });
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
     const logger = createMockLogger();
     const tx = {} as Prisma.TransactionClient;
 
-    const probe = new DetectedProbe(
-      { repo_full_name: repo, pr_number: pr },
-      eventRepository,
-      observation,
-      logger,
-    );
+    const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, eventRepository, observation, logger);
 
     await probe.processCompleted(tx);
 
     expect(record).toHaveBeenCalledWith(
       {
-        type: "detected",
+        type: 'detected',
         repo_full_name: repo,
         pr_number: pr,
         correlation_id: observation.correlationId,
@@ -115,9 +99,6 @@ describe("DetectedProbe", () => {
       },
       tx,
     );
-    expect(logger.info).toHaveBeenCalledWith(
-      { fn: "DetectedProbe", repo, pr, eventUuid: entryUuid },
-      "Detected event recorded",
-    );
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Detected event recorded');
   });
 });

@@ -1,5 +1,5 @@
-import { jest } from "@jest/globals";
-import type { PrismaClient } from "@prisma/client";
+import { jest } from '@jest/globals';
+import type { PrismaClient } from '@prisma/client';
 
 export interface MockReviewQueueDelegate {
   create: jest.Mock<any>;
@@ -24,9 +24,7 @@ export interface MockPrismaResult {
   event: MockEventDelegate;
 }
 
-export const createMockPrismaClient = (
-  options?: MockPrismaOptions,
-): MockPrismaResult => {
+export const createMockPrismaClient = (options?: MockPrismaOptions): MockPrismaResult => {
   const reviewQueue: MockReviewQueueDelegate = {
     create: jest.fn<any>(),
     findFirst: jest.fn<any>(),

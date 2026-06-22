@@ -1,6 +1,7 @@
-import { randomUUID } from "node:crypto";
-import { injectable } from "inversify";
-import pkg from "../../package.json" with { type: "json" };
+import pkg from '../../package.json' with { type: 'json' };
+
+import { injectable } from 'inversify';
+import { randomUUID } from 'node:crypto';
 
 /** Correlation/request ids plus the app version that wrote a given event. */
 export interface ObservationContext {

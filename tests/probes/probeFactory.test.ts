@@ -1,28 +1,18 @@
-import { describe, it, expect, jest } from "@jest/globals";
-import { Container } from "inversify";
-import type { Logger } from "@couimet/logger-contract";
-import type { PrismaClient } from "@prisma/client";
-import { ProbeFactory } from "../../src/probes/ProbeFactory.js";
-import { DetectedProbe } from "../../src/probes/DetectedProbe.js";
-import {
-  EventRepositoryImpl,
-  type EventRepository,
-} from "../../src/db/eventRepository.js";
-import {
-  UuidObservationContextProvider,
-  type ObservationContext,
-  type ObservationContextProvider,
-} from "../../src/observability/observationContext.js";
-import { TYPES } from "../../src/inversify-types.js";
-import {
-  createMockLogger,
-  createMockPrismaClient,
-  makeUniqueRepoName,
-} from "../helpers/index.js";
-import { getUniqueInt, getUniqueString } from "@couimet/dynamic-testing";
+import { type EventRepository, EventRepositoryImpl } from '../../src/db/eventRepository.js';
+import { TYPES } from '../../src/inversify-types.js';
+import { type ObservationContext, type ObservationContextProvider, UuidObservationContextProvider } from '../../src/observability/observationContext.js';
+import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
+import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
+import { createMockLogger, createMockPrismaClient, makeUniqueRepoName } from '../helpers/index.js';
 
-describe("ProbeFactory", () => {
-  it("creates a DetectedProbe wired with the current observation context", () => {
+import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import type { Logger } from '@couimet/logger-contract';
+import { describe, expect, it, jest } from '@jest/globals';
+import type { PrismaClient } from '@prisma/client';
+import { Container } from 'inversify';
+
+describe('ProbeFactory', () => {
+  it('creates a DetectedProbe wired with the current observation context', () => {
     const observation: ObservationContext = {
       correlationId: getUniqueString(),
       requestId: getUniqueString(),
@@ -46,20 +36,16 @@ describe("ProbeFactory", () => {
     expect(current).toHaveBeenCalledWith();
   });
 
-  describe("container binding", () => {
-    it("resolves ProbeFactory from the container", () => {
+  describe('container binding', () => {
+    it('resolves ProbeFactory from the container', () => {
       const { prisma } = createMockPrismaClient();
       const logger = createMockLogger();
       const container = new Container();
 
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
-      container
-        .bind<EventRepository>(TYPES.EventRepository)
-        .to(EventRepositoryImpl);
-      container
-        .bind<ObservationContextProvider>(TYPES.ObservationContextProvider)
-        .to(UuidObservationContextProvider);
+      container.bind<EventRepository>(TYPES.EventRepository).to(EventRepositoryImpl);
+      container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(UuidObservationContextProvider);
       container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory);
 
       const factory = container.get<ProbeFactory>(TYPES.ProbeFactory);
