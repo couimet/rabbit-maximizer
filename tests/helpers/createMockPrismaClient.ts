@@ -6,11 +6,15 @@ export interface MockReviewQueueDelegate {
   findFirst: jest.Mock<any>;
   update: jest.Mock<any>;
   findMany: jest.Mock<any>;
+  count: jest.Mock<any>;
+  groupBy: jest.Mock<any>;
 }
 
 export interface MockEventDelegate {
   create: jest.Mock<any>;
   findMany: jest.Mock<any>;
+  count: jest.Mock<any>;
+  groupBy: jest.Mock<any>;
 }
 
 export interface MockPrismaOptions {
@@ -30,11 +34,15 @@ export const createMockPrismaClient = (options?: MockPrismaOptions): MockPrismaR
     findFirst: jest.fn<any>(),
     update: jest.fn<any>(),
     findMany: jest.fn<any>(),
+    count: jest.fn<any>(),
+    groupBy: jest.fn<any>(),
     ...options?.reviewQueue,
   };
   const event: MockEventDelegate = {
     create: jest.fn<any>(),
     findMany: jest.fn<any>(),
+    count: jest.fn<any>(),
+    groupBy: jest.fn<any>(),
     ...options?.event,
   };
 

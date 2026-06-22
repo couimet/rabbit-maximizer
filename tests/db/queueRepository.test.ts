@@ -227,7 +227,7 @@ describe('QueueRepositoryImpl', () => {
       const pr = getUniqueInt();
       const otherError = new Error('Connection refused');
 
-      const { prisma, reviewQueue: _reviewQueue2 } = createMockPrismaClient({
+      const { prisma } = createMockPrismaClient({
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(otherError) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -245,6 +245,67 @@ describe('QueueRepositoryImpl', () => {
 
       await expect(promise).rejects.toThrow('Connection refused');
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, err: otherError }, 'Enqueue failed; rethrowing');
+    });
+  });
+
+  describe('getAll', () => {
+    it('returns paginated queue items sorted by scheduled_for, with total count', async () => {
+      const skip = 0;
+      const take = 20;
+      const rows = [
+        makeRow({ status: 'pending' }),
+        makeRow({ status: 'posted' }),
+      ];
+      const total = 5;
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          findMany: createResolvedMock(rows),
+          count: createResolvedMock(total),
+        },
+      });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+
+      const result = await sut.getAll(skip, take);
+
+      expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        orderBy: { scheduled_for: 'asc' }, skip, take,
+      });
+      expect(reviewQueue.count).toHaveBeenCalledWith();
+      expect(result).toStrictEqual({ items: rows.map(toExpectedItem), total });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.getAll', count: rows.length, total },
+        'Fetched all queue items',
+      );
+    });
+  });
+
+  describe('getCountsByStatus', () => {
+    it('returns counts keyed by QueueStatus, initializing missing statuses to 0', async () => {
+      const rows = [
+        { status: 'pending', _count: { status: 7 } },
+        { status: 'posted', _count: { status: 3 } },
+        { status: 'completed', _count: { status: 1 } },
+      ];
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { groupBy: createResolvedMock(rows) },
+      });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+
+      const result = await sut.getCountsByStatus();
+
+      expect(reviewQueue.groupBy).toHaveBeenCalledWith({
+        by: ['status'],
+        _count: { status: true },
+      });
+      expect(result).toStrictEqual({ pending: 7, posted: 3, completed: 1, failed: 0 });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.getCountsByStatus', counts: { pending: 7, posted: 3, completed: 1, failed: 0 } },
+        'Fetched queue counts by status',
+      );
     });
   });
 

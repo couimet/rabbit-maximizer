@@ -1,6 +1,6 @@
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
-import { EventType, type QueueItem, QueueStatus } from '../types/index.js';
+import { EventType, type PaginatedResult, type QueueItem, QueueStatus } from '../types/index.js';
 
 import type { EventRepository } from './eventRepository.js';
 
@@ -26,6 +26,8 @@ export interface QueueRepository {
   reschedule(id: number, newScheduledFor: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
+  getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
 }
 
 @injectable()
@@ -154,6 +156,36 @@ export class QueueRepositoryImpl implements QueueRepository {
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.getPendingQueue', count: rows.length }, 'Fetched pending queue');
     return rows.map((row) => this.toQueueItem(row));
+  }
+
+  async getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+    const db = this.client(tx);
+    const [rows, total] = await Promise.all([
+      db.reviewQueue.findMany({ orderBy: { scheduled_for: 'asc' }, skip, take }),
+      db.reviewQueue.count(),
+    ]);
+    this.log.debug(
+      { fn: 'QueueRepositoryImpl.getAll', count: rows.length, total },
+      'Fetched all queue items',
+    );
+    return { items: rows.map((row) => this.toQueueItem(row)), total };
+  }
+
+  async getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>> {
+    const db = this.client(tx);
+    const rows = await db.reviewQueue.groupBy({
+      by: ['status'],
+      _count: { status: true },
+    });
+    const counts: Record<QueueStatus, number> = { pending: 0, posted: 0, completed: 0, failed: 0 };
+    for (const row of rows) {
+      counts[row.status as QueueStatus] = row._count.status;
+    }
+    this.log.debug(
+      { fn: 'QueueRepositoryImpl.getCountsByStatus', counts },
+      'Fetched queue counts by status',
+    );
+    return counts;
   }
 
   private toQueueItem(row: ReviewQueue): QueueItem {

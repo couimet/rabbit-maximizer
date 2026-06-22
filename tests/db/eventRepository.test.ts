@@ -240,6 +240,107 @@ describe('EventRepositoryImpl', () => {
     });
   });
 
+  describe('listRecent', () => {
+    it('returns paginated events sorted by ts descending, with total count', async () => {
+      const skip = 0;
+      const take = 10;
+      const repo = makeUniqueRepoName().fullName;
+      const pr = getUniqueInt();
+      const rows = [
+        {
+          id: getUniqueInt(),
+          uuid: getUniqueString(),
+          ts: getUniqueDate(),
+          type: 'posted',
+          repo_full_name: repo,
+          pr_number: pr,
+          correlation_id: getUniqueString(),
+          request_id: null,
+          version: getUniqueString(),
+          payload: JSON.stringify({ source_comment_url: getUniqueString(), posted_comment_url: getUniqueString() }),
+          metadata: null,
+        },
+      ];
+      const total = 15;
+
+      const { prisma, event } = createMockPrismaClient({
+        event: { findMany: createResolvedMock(rows), count: createResolvedMock(total) },
+      });
+      const logger = createMockLogger();
+      const sut = new EventRepositoryImpl(prisma, logger);
+
+      const result = await sut.listRecent(skip, take);
+
+      expect(event.findMany).toHaveBeenCalledWith({
+        orderBy: { ts: 'desc' }, skip, take,
+      });
+      expect(event.count).toHaveBeenCalledWith();
+      expect(result.items).toStrictEqual([
+        {
+          id: rows[0].id,
+          uuid: rows[0].uuid,
+          ts: rows[0].ts,
+          repo_full_name: repo,
+          pr_number: pr,
+          correlation_id: rows[0].correlation_id,
+          request_id: undefined,
+          version: rows[0].version,
+          metadata: undefined,
+          type: 'posted',
+          payload: { source_comment_url: expect.any(String) as unknown, posted_comment_url: expect.any(String) as unknown },
+        },
+      ]);
+      expect(result.total).toBe(total);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'EventRepositoryImpl.listRecent', count: rows.length, total },
+        'Listed recent events',
+      );
+    });
+  });
+
+  describe('countByType', () => {
+    it('returns counts keyed by EventType for events since the given date', async () => {
+      const since = getUniqueDate();
+      const rows = [
+        { type: 'detected', _count: { type: 11 } },
+        { type: 'enqueued', _count: { type: 8 } },
+        { type: 'posted', _count: { type: 5 } },
+        { type: 'rejected', _count: { type: 3 } },
+        { type: 'completed', _count: { type: 2 } },
+        { type: 'failed', _count: { type: 1 } },
+      ];
+
+      const { prisma, event } = createMockPrismaClient({
+        event: { groupBy: createResolvedMock(rows) },
+      });
+      const logger = createMockLogger();
+      const sut = new EventRepositoryImpl(prisma, logger);
+
+      const result = await sut.countByType(since);
+
+      expect(event.groupBy).toHaveBeenCalledWith({
+        by: ['type'],
+        where: { ts: { gte: since } },
+        _count: { type: true },
+      });
+      expect(result).toStrictEqual({
+        detected: 11,
+        enqueued: 8,
+        posted: 5,
+        rejected: 3,
+        completed: 2,
+        failed: 1,
+      });
+      expect(logger.debug).toHaveBeenCalledWith(
+        {
+          fn: 'EventRepositoryImpl.countByType',
+          counts: { detected: 11, enqueued: 8, posted: 5, rejected: 3, completed: 2, failed: 1 },
+        },
+        'Counted events by type',
+      );
+    });
+  });
+
   describe('container binding', () => {
     it('resolves EventRepository from the container', () => {
       const { prisma } = createMockPrismaClient();
