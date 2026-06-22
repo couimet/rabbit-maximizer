@@ -1,0 +1,255 @@
+openapi: "3.1.0"
+info:
+  title: Rabbit Maximizer API
+  version: "0.1.0"
+servers:
+  - url: http://localhost:3000
+    description: Local dev server
+
+paths:
+  /api/summary:
+    get:
+      operationId: getSummary
+      responses:
+        "200":
+          description: Aggregate status summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Summary"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/queue:
+    get:
+      operationId: getQueue
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated queue items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedQueue"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/events:
+    get:
+      operationId: getEvents
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedEvents"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  responses:
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+      additionalProperties: false
+
+    QueueStatus:
+      type: string
+      enum: [pending, posted, completed, failed]
+
+    QueueItem:
+      type: object
+      required:
+        - id
+        - uuid
+        - repo_full_name
+        - pr_number
+        - status
+        - scheduled_for
+        - attempts
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+        repo_full_name:
+          type: string
+        pr_number:
+          type: integer
+        status:
+          $ref: "#/components/schemas/QueueStatus"
+        scheduled_for:
+          type: string
+          format: date-time
+        attempts:
+          type: integer
+        source_comment_url:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    EventType:
+      type: string
+      enum: [detected, enqueued, posted, rejected, completed, failed]
+
+    EventEntry:
+      type: object
+      required:
+        - id
+        - uuid
+        - ts
+        - type
+        - repo_full_name
+        - pr_number
+        - correlation_id
+        - version
+        - payload
+      properties:
+        id:
+          type: integer
+        uuid:
+          type: string
+        ts:
+          type: string
+          format: date-time
+        type:
+          $ref: "#/components/schemas/EventType"
+        repo_full_name:
+          type: string
+        pr_number:
+          type: integer
+        correlation_id:
+          type: string
+        request_id:
+          type: string
+        version:
+          type: string
+        metadata:
+          type: object
+        payload:
+          type: object
+      additionalProperties: false
+
+    QueueCounts:
+      type: object
+      required: [pending, posted, completed, failed]
+      properties:
+        pending:
+          type: integer
+        posted:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+      additionalProperties: false
+
+    EventCounts:
+      type: object
+      required: [detected, enqueued, posted, rejected, completed, failed]
+      properties:
+        detected:
+          type: integer
+        enqueued:
+          type: integer
+        posted:
+          type: integer
+        rejected:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+      additionalProperties: false
+
+    Summary:
+      type: object
+      required: [queueCounts, eventCounts24h, oldestPending]
+      properties:
+        queueCounts:
+          $ref: "#/components/schemas/QueueCounts"
+        eventCounts24h:
+          $ref: "#/components/schemas/EventCounts"
+        oldestPending:
+          oneOf:
+            - $ref: "#/components/schemas/QueueItem"
+            - type: "null"
+      additionalProperties: false
+
+    PaginatedQueue:
+      type: object
+      required: [data, total, page, pageSize]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueItem"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+      additionalProperties: false
+
+    PaginatedEvents:
+      type: object
+      required: [data, total, page, pageSize]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventEntry"
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+      additionalProperties: false

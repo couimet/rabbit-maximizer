@@ -10,6 +10,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "api:types": "openapi-typescript docs/api-spec.yaml -o src/api-types.ts",
     "build": "tsc",
     "db:backup": "bash scripts/db/backup.sh",
     "db:migrate": "DATABASE_URL=\"file:$PWD/data/rabbit-maximizer.db\" prisma migrate dev",
@@ -57,6 +58,7 @@
     "@types/node": "^26.0.0",
     "eslint": "^10.5.0",
     "jest": "^30.4.2",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.5.3",
     "ts-jest": "^29.3.4",
     "tsx": "^4.19.4",
