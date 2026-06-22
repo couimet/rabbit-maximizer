@@ -5,7 +5,7 @@ export const ConfigSchema = z
     DETECTION_MODE: z.enum(['poll', 'webhook']).default('poll'),
     GITHUB_PAT: z.string({ error: 'GITHUB_PAT is required' }).min(1, 'GITHUB_PAT is required'),
     POLL_INTERVAL: z.coerce.number().int().positive('POLL_INTERVAL must be a positive integer').default(90),
-    DATABASE_URL: z.string().min(1).default('file:./data/rabbit-optimizer.db'),
+    DATABASE_URL: z.string().min(1).default('file:./data/rabbit-maximizer.db'),
     REPO_FILTER: z
       .array(
         z.discriminatedUnion('scope', [

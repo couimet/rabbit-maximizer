@@ -1,19 +1,19 @@
 {
-  "name": "rabbit-optimizer",
+  "name": "rabbit-maximizer",
   "version": "0.1.0",
   "private": true,
-  "description": "Re-request CodeRabbit reviews on your PRs after hitting the hourly rate limit",
+  "description": "Maximize CodeRabbit free-tier usage by re-requesting reviews after hitting rate limits",
   "repository": {
     "type": "git",
-    "url": "https://github.com/couimet/rabbit-optimizer"
+    "url": "https://github.com/couimet/rabbit-maximizer"
   },
   "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "db:migrate": "DATABASE_URL=\"file:$PWD/data/rabbit-optimizer.db\" prisma migrate dev",
-    "db:studio": "DATABASE_URL=\"file:$PWD/data/rabbit-optimizer.db\" prisma studio",
-    "dev": "DATABASE_URL=\"file:$PWD/data/rabbit-optimizer.db\" tsx src/main.ts",
+    "db:migrate": "DATABASE_URL=\"file:$PWD/data/rabbit-maximizer.db\" prisma migrate dev",
+    "db:studio": "DATABASE_URL=\"file:$PWD/data/rabbit-maximizer.db\" prisma studio",
+    "dev": "DATABASE_URL=\"file:$PWD/data/rabbit-maximizer.db\" tsx src/main.ts",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "lint": "eslint .",

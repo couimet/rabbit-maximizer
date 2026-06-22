@@ -66,11 +66,11 @@ describe('client', () => {
       const expectedBody = [
         '@coderabbitai full review',
         '',
-        `🔧 rabbit-optimizer v${VERSION} run=${runId}`,
+        `🔧 rabbit-maximizer v${VERSION} run=${runId}`,
         '',
         '---',
         '',
-        `🤖 rabbit-optimizer | ${REPO_URL} | v${VERSION} | run=${runId}`,
+        `🤖 rabbit-maximizer | ${REPO_URL} | v${VERSION} | run=${runId}`,
         `↩ Triggered by: ${triggerUrl}`,
       ].join('\n');
 

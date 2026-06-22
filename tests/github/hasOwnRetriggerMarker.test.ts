@@ -14,7 +14,7 @@ describe('hasOwnRetriggerMarker', () => {
   });
 
   it('returns true when the body contains the own marker prefix', () => {
-    expect(hasOwnRetriggerMarker(`<!-- rabbit-optimizer v${VERSION} run=${runId}`)).toBe(true);
+    expect(hasOwnRetriggerMarker(`<!-- rabbit-maximizer v${VERSION} run=${runId}`)).toBe(true);
   });
 
   it('returns false when the body contains only the rate-limit marker', () => {

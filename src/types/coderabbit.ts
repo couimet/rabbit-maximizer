@@ -1,5 +1,5 @@
 /** Hidden HTML marker prefix our tool embeds in its comments so detection skips them. */
-export const REVIEW_BOT_SELF_MARKER_PREFIX = '<!-- rabbit-optimizer';
+export const REVIEW_BOT_SELF_MARKER_PREFIX = '<!-- rabbit-maximizer';
 
 /** Hidden HTML marker that identifies a CodeRabbit rate-limit comment. Used by hasRateLimitMarker() for precise verification against the full comment body (which includes HTML comments via the REST API). */
 export const REVIEW_BOT_RATE_LIMIT_MARKER = 'rate limited by coderabbit.ai';
