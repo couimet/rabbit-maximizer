@@ -1,11 +1,12 @@
 import { z } from 'zod';
 
+// Keep keys alphabetically sorted.
 export const ConfigSchema = z
   .object({
+    DATABASE_URL: z.string().min(1).default('file:./data/rabbit-maximizer.db'),
     DETECTION_MODE: z.enum(['poll', 'webhook']).default('poll'),
     GITHUB_PAT: z.string({ error: 'GITHUB_PAT is required' }).min(1, 'GITHUB_PAT is required'),
     POLL_INTERVAL: z.coerce.number().int().positive('POLL_INTERVAL must be a positive integer').default(90),
-    DATABASE_URL: z.string().min(1).default('file:./data/rabbit-maximizer.db'),
     REPO_FILTER: z
       .array(
         z.discriminatedUnion('scope', [
@@ -21,8 +22,9 @@ export const ConfigSchema = z
         { error: 'REPO_FILTER is required' },
       )
       .min(1, 'REPO_FILTER must have at least one entry'),
-    WEBHOOK_SECRET: z.string().optional(),
     TUNNEL_URL: z.string().optional(),
+    WEB_PORT: z.coerce.number().int().positive('WEB_PORT must be a positive integer').default(3000),
+    WEBHOOK_SECRET: z.string().optional(),
   })
   .superRefine((cfg, ctx) => {
     if (cfg.DETECTION_MODE === 'webhook') {
