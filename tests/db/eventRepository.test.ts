@@ -241,11 +241,19 @@ describe("EventRepositoryImpl", () => {
           version: enqueuedRow.version,
           metadata: undefined,
           type: "enqueued",
-          payload: { scheduled_for: scheduledFor, attempt_no: FIRST_ATTEMPT_NO },
+          payload: {
+            scheduled_for: scheduledFor,
+            attempt_no: FIRST_ATTEMPT_NO,
+          },
         },
       ]);
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "EventRepositoryImpl.listForPr", repo, pr, count: EXPECTED_EVENT_COUNT },
+        {
+          fn: "EventRepositoryImpl.listForPr",
+          repo,
+          pr,
+          count: EXPECTED_EVENT_COUNT,
+        },
         "Listed events for PR",
       );
     });

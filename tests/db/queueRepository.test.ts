@@ -164,15 +164,16 @@ describe("QueueRepositoryImpl", () => {
       });
       const sut = new QueueRepositoryImpl(prisma, logger);
 
-      await expect(
-        sut.enqueue(
-          makeUniqueRepoName().fullName,
-          getUniqueInt(),
-          getUniqueDate(),
-        ),
-      ).rejects.toBe(p2003);
+      const repo = makeUniqueRepoName().fullName;
+      const pr = getUniqueInt();
+      await expect(sut.enqueue(repo, pr, getUniqueDate())).rejects.toBe(p2003);
       expect(logger.warn).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.enqueue", repo: expect.any(String) as unknown as string, pr: expect.any(Number) as unknown as number, err: p2003 },
+        {
+          fn: "QueueRepositoryImpl.enqueue",
+          repo,
+          pr,
+          err: p2003,
+        },
         "Enqueue failed; rethrowing",
       );
     });
@@ -184,15 +185,16 @@ describe("QueueRepositoryImpl", () => {
       });
       const sut = new QueueRepositoryImpl(prisma, logger);
 
-      await expect(
-        sut.enqueue(
-          makeUniqueRepoName().fullName,
-          getUniqueInt(),
-          getUniqueDate(),
-        ),
-      ).rejects.toBe(boom);
+      const repo = makeUniqueRepoName().fullName;
+      const pr = getUniqueInt();
+      await expect(sut.enqueue(repo, pr, getUniqueDate())).rejects.toBe(boom);
       expect(logger.warn).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.enqueue", repo: expect.any(String) as unknown as string, pr: expect.any(Number) as unknown as number, err: boom },
+        {
+          fn: "QueueRepositoryImpl.enqueue",
+          repo,
+          pr,
+          err: boom,
+        },
         "Enqueue failed; rethrowing",
       );
     });
