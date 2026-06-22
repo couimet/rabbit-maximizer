@@ -1,6 +1,11 @@
 # Rabbit Maximizer
 
-A personal, single-tenant tool that maximizes CodeRabbit free-tier usage by re-requesting reviews after hitting the review limit, spacing retries so they go through.
+<div style="text-align: center">
+  <img src="./assets/icon.png" alt="Rabbit Maximizer Logo" width="128" />
+</div>
+
+**"Review limit. Wait 47 minutes. Request again. Repeat."**
+**Rabbit Maximizer automates it.** Your CodeRabbit free tier, fully squeezed.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
