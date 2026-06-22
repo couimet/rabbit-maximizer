@@ -183,7 +183,9 @@ describe("payload length limits", () => {
   it("rejects a failed event whose reason exceeds the max", () => {
     const row = baseRow({
       type: "failed",
-      payload: JSON.stringify({ reason: "a".repeat(REASON_MAX_LENGTH + EXCEEDS_MAX_BY) }),
+      payload: JSON.stringify({
+        reason: "a".repeat(REASON_MAX_LENGTH + EXCEEDS_MAX_BY),
+      }),
     });
     expect(() => parseEventRow(row)).toThrow();
   });

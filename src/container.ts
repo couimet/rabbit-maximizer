@@ -21,6 +21,7 @@ import {
   type ObservationContextProvider,
 } from "./observability/observationContext.js";
 import { ProbeFactory } from "./probes/ProbeFactory.js";
+import { PollDetector } from "./detectorPoll.js";
 
 const container = new Container();
 
@@ -62,6 +63,11 @@ container
 container
   .bind<ProbeFactory>(TYPES.ProbeFactory)
   .to(ProbeFactory)
+  .inSingletonScope();
+
+container
+  .bind<PollDetector>(TYPES.PollDetector)
+  .to(PollDetector)
   .inSingletonScope();
 
 export { container };

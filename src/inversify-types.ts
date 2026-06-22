@@ -10,6 +10,7 @@ export const TYPES = {
   Logger: Symbol.for("Logger"),
   ObservationContextProvider: Symbol.for("ObservationContextProvider"),
   Octokit: Symbol.for("Octokit"),
+  PollDetector: Symbol.for("PollDetector"),
   PrismaClient: Symbol.for("PrismaClient"),
   ProbeFactory: Symbol.for("ProbeFactory"),
   QueueRepository: Symbol.for("QueueRepository"),

@@ -29,7 +29,9 @@ export const toBeRabbitOptimizerError = (
   const error = received as RabbitOptimizerError;
 
   if (error.code !== expectedCode) {
-    failures.push(`  Code: expected "${expectedCode}", received "${error.code}"`);
+    failures.push(
+      `  Code: expected "${expectedCode}", received "${error.code}"`,
+    );
   }
 
   if (error.message !== expected.message) {
@@ -40,7 +42,7 @@ export const toBeRabbitOptimizerError = (
 
   if (error.functionName !== expected.functionName) {
     failures.push(
-      `  Function name: expected "${expected.functionName}", received "${error.functionName || 'undefined'}"`,
+      `  Function name: expected "${expected.functionName}", received "${error.functionName || "undefined"}"`,
     );
   }
 
@@ -53,21 +55,31 @@ export const toBeRabbitOptimizerError = (
       );
     }
   } else if (error.details !== undefined) {
-    failures.push(`  Details: expected undefined, received ${JSON.stringify(error.details)}`);
+    failures.push(
+      `  Details: expected undefined, received ${JSON.stringify(error.details)}`,
+    );
   }
 
   if (expected.cause !== undefined) {
     if (error.cause !== expected.cause) {
       const expectedCauseMsg =
-        expected.cause instanceof Error ? expected.cause.message : 'undefined';
+        expected.cause instanceof Error ? expected.cause.message : "undefined";
       const receivedCauseMsg =
-        error.cause instanceof Error ? (error.cause as Error).message : 'undefined';
-      failures.push(`  Cause: expected ${expectedCauseMsg}, received ${receivedCauseMsg}`);
+        error.cause instanceof Error
+          ? (error.cause as Error).message
+          : "undefined";
+      failures.push(
+        `  Cause: expected ${expectedCauseMsg}, received ${receivedCauseMsg}`,
+      );
     }
   } else if (error.cause !== undefined) {
     const causeMsg =
-      error.cause instanceof Error ? (error.cause as Error).message : String(error.cause);
-    failures.push(`  Cause: expected undefined, received error with message "${causeMsg}"`);
+      error.cause instanceof Error
+        ? (error.cause as Error).message
+        : String(error.cause);
+    failures.push(
+      `  Cause: expected undefined, received error with message "${causeMsg}"`,
+    );
   }
 
   const pass = failures.length === 0;
@@ -77,7 +89,7 @@ export const toBeRabbitOptimizerError = (
     message: () =>
       pass
         ? `Expected error NOT to match RabbitOptimizerError("${expectedCode}")`
-        : `Expected RabbitOptimizerError("${expectedCode}") to match:\n${failures.join('\n')}`,
+        : `Expected RabbitOptimizerError("${expectedCode}") to match:\n${failures.join("\n")}`,
   };
 };
 
