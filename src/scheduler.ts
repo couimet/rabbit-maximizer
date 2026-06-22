@@ -9,6 +9,8 @@ import type { Logger } from '@couimet/logger-contract';
 import { type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 import { randomUUID } from 'node:crypto';
+import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
+import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
 
 const TICK_INTERVAL_MS = 10_000;
 const HTTP_NOT_FOUND = 404;
@@ -71,29 +73,46 @@ export class Scheduler {
   }
 
   private async executeTick(): Promise<void> {
-    const item = await this.queue.getNextDue();
-    if (!item) return;
-
-    const runId = randomUUID();
-
+    let item: Awaited<ReturnType<typeof this.queue.getNextDue>> | null = null;
     try {
-      const { htmlUrl: postedCommentUrl } = await this.github.postRetrigger(item.repo_full_name, item.pr_number, item.source_comment_url ?? '', runId);
+      item = await this.queue.getNextDue();
+      if (!item) return;
+
+      const runId = randomUUID();
+
+      if (item.source_comment_url == null) {
+        throw new RabbitOptimizerError({
+          code: RabbitOptimizerErrorCodes.MISSING_SOURCE_COMMENT_URL,
+          functionName: 'Scheduler.executeTick',
+          message: 'source_comment_url is required but was null or undefined',
+          details: { queueItemId: item.id, repo: item.repo_full_name, pr: item.pr_number },
+        });
+      }
+
+      const sourceCommentUrl: string = item.source_comment_url;
+
+      const { htmlUrl: postedCommentUrl } = await this.github.postRetrigger(
+        item.repo_full_name,
+        item.pr_number,
+        sourceCommentUrl,
+        runId,
+      );
 
       const obs = this.observation.current();
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.markPosted(item.id, tx);
+        await this.queue.markPosted(item!.id, tx);
 
         await this.events.record(
           {
             type: EventType.posted,
-            repo_full_name: item.repo_full_name,
-            pr_number: item.pr_number,
+            repo_full_name: item!.repo_full_name,
+            pr_number: item!.pr_number,
             correlation_id: obs.correlationId,
             request_id: obs.requestId,
             version: obs.version,
             payload: {
-              source_comment_url: item.source_comment_url ?? '',
+              source_comment_url: sourceCommentUrl,
               posted_comment_url: postedCommentUrl,
             },
           },
@@ -104,27 +123,36 @@ export class Scheduler {
       this.log.info(
         {
           fn: 'Scheduler.tick',
-          repo: item.repo_full_name,
-          pr: item.pr_number,
-          queueId: item.id,
+          repo: item!.repo_full_name,
+          pr: item!.pr_number,
+          queueId: item!.id,
           runId,
         },
         'Retrigger posted',
       );
     } catch (err: unknown) {
+      if (!item) {
+        this.log.warn(
+          { fn: 'Scheduler.tick', error: err instanceof Error ? err.message : String(err) },
+          'executeTick failed before item was fetched',
+        );
+        return;
+      }
+
       const error = err as { status?: number };
 
       if (error.status === HTTP_NOT_FOUND || error.status === HTTP_GONE) {
         const obs = this.observation.current();
+        const item_ = item;
 
         await this.prisma.$transaction(async (tx) => {
-          await this.queue.markFailed(item.id, tx);
+          await this.queue.markFailed(item_.id, tx);
 
           await this.events.record(
             {
               type: EventType.failed,
-              repo_full_name: item.repo_full_name,
-              pr_number: item.pr_number,
+              repo_full_name: item_.repo_full_name,
+              pr_number: item_.pr_number,
               correlation_id: obs.correlationId,
               request_id: obs.requestId,
               version: obs.version,

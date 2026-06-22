@@ -86,5 +86,9 @@ describe('DetectedProbe', () => {
       },
       tx,
     );
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid },
+      'Review-limit comment detected and enqueued',
+    );
   });
 });

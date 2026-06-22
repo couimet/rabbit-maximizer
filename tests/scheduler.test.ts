@@ -111,7 +111,7 @@ describe('Scheduler', () => {
       (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: postedHtmlUrl });
 
       const scheduler = createScheduler();
-      scheduler.start();
+      const { stop } = scheduler.start();
 
       await Promise.resolve();
       await Promise.resolve();
@@ -148,7 +148,7 @@ describe('Scheduler', () => {
         'Retrigger posted',
       );
 
-      await scheduler.start().stop();
+      await stop();
     });
 
     it('marks failed and records failed event on HTTP 404', async () => {
@@ -158,7 +158,7 @@ describe('Scheduler', () => {
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(notFoundError);
 
       const scheduler = createScheduler();
-      scheduler.start();
+      const { stop } = scheduler.start();
 
       await Promise.resolve();
       await Promise.resolve();
@@ -191,7 +191,7 @@ describe('Scheduler', () => {
         'PR closed or merged; marked failed',
       );
 
-      await scheduler.start().stop();
+      await stop();
     });
 
     it('marks failed on HTTP 410', async () => {
@@ -201,7 +201,7 @@ describe('Scheduler', () => {
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(goneError);
 
       const scheduler = createScheduler();
-      scheduler.start();
+      const { stop } = scheduler.start();
 
       await Promise.resolve();
       await Promise.resolve();
@@ -210,16 +210,25 @@ describe('Scheduler', () => {
       await Promise.resolve();
 
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
-      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(expect.objectContaining({ status: 410 }), 'PR closed or merged; marked failed');
+      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          status: 410,
+        },
+        'PR closed or merged; marked failed',
+      );
 
-      await scheduler.start().stop();
+      await stop();
     });
 
     it('returns early when no items are due', async () => {
       (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(null);
 
       const scheduler = createScheduler();
-      scheduler.start();
+      const { stop } = scheduler.start();
 
       await Promise.resolve();
       await Promise.resolve();
@@ -229,7 +238,7 @@ describe('Scheduler', () => {
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
 
-      await scheduler.start().stop();
+      await stop();
     });
 
     it('logs warning and skips item on unknown error (item stays pending)', async () => {
@@ -239,7 +248,7 @@ describe('Scheduler', () => {
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
-      scheduler.start();
+      const { stop } = scheduler.start();
 
       await Promise.resolve();
       await Promise.resolve();
@@ -260,7 +269,7 @@ describe('Scheduler', () => {
         'Post retrigger failed; will retry next tick',
       );
 
-      await scheduler.start().stop();
+      await stop();
     });
   });
 
@@ -276,7 +285,7 @@ describe('Scheduler', () => {
       (deps.github.postRetrigger as jest.Mock<any>).mockReturnValue(postPromise);
 
       const scheduler = createScheduler();
-      scheduler.start();
+      const { stop } = scheduler.start();
 
       await Promise.resolve();
       await Promise.resolve();
@@ -288,7 +297,7 @@ describe('Scheduler', () => {
       expect(deps.github.postRetrigger).toHaveBeenCalledTimes(1);
 
       resolvePost!({ htmlUrl: getUniqueString({ prefix: 'https://gh/' }) });
-      await scheduler.start().stop();
+      await stop();
     });
   });
 

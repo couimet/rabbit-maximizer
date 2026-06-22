@@ -95,6 +95,7 @@ describe('QueueRepositoryImpl', () => {
         prisma,
       );
       expect(result).toStrictEqual(toExpectedItem(row));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
     });
 
     it('returns the existing pending row when the PR is already queued (P2002)', async () => {
@@ -122,6 +123,7 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: repo, pr_number: pr, status: 'pending' } });
       expect(result).toStrictEqual(toExpectedItem(existing));
       expect(events.record).not.toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Already queued; returning existing pending row');
     });
   });
 
@@ -137,6 +139,7 @@ describe('QueueRepositoryImpl', () => {
         orderBy: { scheduled_for: 'asc' },
       });
       expect(result).toStrictEqual(toExpectedItem(row));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getNextDue', found: true }, 'Fetched next due review');
     });
   });
 
@@ -149,6 +152,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.markPosted(row.id, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'posted' } });
       expect(result).toStrictEqual(toExpectedItem(row));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markPosted', id: row.id }, 'Marked review posted');
     });
   });
 
@@ -161,6 +165,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.markFailed(row.id, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'failed' } });
       expect(result).toStrictEqual(toExpectedItem(row));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markFailed', id: row.id }, 'Marked review failed');
     });
   });
 
