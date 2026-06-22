@@ -6,6 +6,7 @@ describe('QueueStatus', () => {
   it('has the correct values', () => {
     expect(QueueStatus).toStrictEqual({
       pending: 'pending',
+      posted: 'posted',
       completed: 'completed',
       failed: 'failed',
     });

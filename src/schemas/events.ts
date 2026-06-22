@@ -1,7 +1,7 @@
 import type { EventEnvelope, EventLogEntry } from '../types/EventLogEntry.js';
 import { EventType } from '../types/EventType.js';
 
-import { COMMENT_URL_MAX_LENGTH, NEW_WAIT_MAX_LENGTH, REASON_MAX_LENGTH } from './lengths.js';
+import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from './lengths.js';
 
 import type { Event as PrismaEvent } from '@prisma/client';
 import { z } from 'zod';
@@ -13,8 +13,7 @@ export const DetectedPayloadSchema = z.object({
 
 export const EnqueuedPayloadSchema = z.object({
   scheduled_for: z.coerce.date(),
-  attempt_no: z.number().int(),
-  new_wait: z.string().max(NEW_WAIT_MAX_LENGTH).optional(),
+  new_wait: z.number().int().positive(),
 });
 
 export const PostedPayloadSchema = z.object({

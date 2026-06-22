@@ -1,15 +1,13 @@
 import { parseEventRow } from '../../src/schemas/events.js';
-import { COMMENT_URL_MAX_LENGTH, NEW_WAIT_MAX_LENGTH, REASON_MAX_LENGTH } from '../../src/schemas/lengths.js';
+import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from '../../src/schemas/lengths.js';
 import { EventType } from '../../src/types/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 import type { Event as PrismaEvent } from '@prisma/client';
 
-const SECOND_ATTEMPT_NO = 2;
-const FIRST_ATTEMPT_NO = 1;
 const EXCEEDS_MAX_BY = 1;
-const DEFAULT_NEW_WAIT = '60';
+const DEFAULT_NEW_WAIT = 60;
 
 const baseRow = (over: Partial<PrismaEvent>): PrismaEvent =>
   ({
@@ -63,13 +61,12 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses an enqueued event coercing dates and omitting absent optionals', () => {
+  it('parses an enqueued event coercing dates', () => {
     const scheduledFor = getUniqueDate();
     const row = baseRow({
       type: 'enqueued',
       payload: JSON.stringify({
         scheduled_for: scheduledFor.toISOString(),
-        attempt_no: SECOND_ATTEMPT_NO,
         new_wait: DEFAULT_NEW_WAIT,
       }),
     });
@@ -79,8 +76,7 @@ describe('parseEventRow', () => {
     expect(result.type).toBe('enqueued');
     expect(result.payload).toStrictEqual({
       scheduled_for: scheduledFor,
-      attempt_no: 2,
-      new_wait: '60',
+      new_wait: 60,
     });
     expect(result.request_id).toBeUndefined();
     expect(result.metadata).toBeUndefined();
@@ -152,10 +148,10 @@ describe('parseEventRow', () => {
     expect(() => parseEventRow(row)).toThrow('Unknown event type: bogus');
   });
 
-  it('rejects an enqueued payload missing attempt_no', () => {
+  it('rejects an enqueued payload missing scheduled_for', () => {
     const row = baseRow({
       type: 'enqueued',
-      payload: JSON.stringify({ scheduled_for: getUniqueDate().toISOString() }),
+      payload: JSON.stringify({ new_wait: 60 }),
     });
     expect(() => parseEventRow(row)).toThrow();
   });
@@ -183,13 +179,12 @@ describe('payload length limits', () => {
     expect(() => parseEventRow(row)).toThrow();
   });
 
-  it('rejects an enqueued event whose new_wait exceeds the max', () => {
+  it('rejects an enqueued event whose new_wait is not a positive integer', () => {
     const row = baseRow({
       type: 'enqueued',
       payload: JSON.stringify({
         scheduled_for: getUniqueDate().toISOString(),
-        attempt_no: FIRST_ATTEMPT_NO,
-        new_wait: 'a'.repeat(NEW_WAIT_MAX_LENGTH + EXCEEDS_MAX_BY),
+        new_wait: -1,
       }),
     });
     expect(() => parseEventRow(row)).toThrow();

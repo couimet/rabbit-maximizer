@@ -8,6 +8,7 @@ export interface QueueItem {
   readonly status: QueueStatus;
   readonly scheduled_for: Date;
   readonly attempts: number;
+  readonly source_comment_url?: string;
   readonly created_at: Date;
   readonly updated_at: Date;
 }

@@ -11,8 +11,7 @@ export interface DetectedPayload {
 
 export interface EnqueuedPayload {
   readonly scheduled_for: Date;
-  readonly attempt_no: number;
-  readonly new_wait?: string;
+  readonly new_wait: number;
 }
 
 export interface PostedPayload {
