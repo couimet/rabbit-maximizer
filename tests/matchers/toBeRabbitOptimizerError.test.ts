@@ -1,15 +1,12 @@
-import { beforeEach, describe, it, expect } from "@jest/globals";
-import { getRandomString } from "@couimet/dynamic-testing";
-import { RabbitOptimizerError } from "../../src/errors/RabbitOptimizerError.js";
-import { RabbitOptimizerErrorCodes } from "../../src/errors/RabbitOptimizerErrorCodes.js";
+import { RabbitOptimizerError } from '../../src/errors/RabbitOptimizerError.js';
+import { RabbitOptimizerErrorCodes } from '../../src/errors/RabbitOptimizerErrorCodes.js';
 
-import {
-  toBeRabbitOptimizerError,
-  toThrowRabbitOptimizerError,
-  toThrowRabbitOptimizerErrorAsync,
-} from "./toBeRabbitOptimizerError.js";
+import { toBeRabbitOptimizerError, toThrowRabbitOptimizerError, toThrowRabbitOptimizerErrorAsync } from './toBeRabbitOptimizerError.js';
 
-describe("toBeRabbitOptimizerError matcher", () => {
+import { getRandomString } from '@couimet/dynamic-testing';
+import { beforeEach, describe, expect, it } from '@jest/globals';
+
+describe('toBeRabbitOptimizerError matcher', () => {
   let msg: string;
   let fn: string;
   let detailKey: string;
@@ -17,13 +14,13 @@ describe("toBeRabbitOptimizerError matcher", () => {
 
   beforeEach(() => {
     msg = getRandomString();
-    fn = getRandomString({ charset: "alpha" });
-    detailKey = getRandomString({ charset: "alpha" });
+    fn = getRandomString({ charset: 'alpha' });
+    detailKey = getRandomString({ charset: 'alpha' });
     detailVal = getRandomString();
   });
 
-  describe("negative validation for details", () => {
-    it("fails when error has details but expected does not specify it", () => {
+  describe('negative validation for details', () => {
+    it('fails when error has details but expected does not specify it', () => {
       const error = new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
         message: msg,
@@ -31,7 +28,7 @@ describe("toBeRabbitOptimizerError matcher", () => {
         details: { [detailKey]: detailVal },
       });
 
-      const result = toBeRabbitOptimizerError(error, "GITHUB_API_ERROR", {
+      const result = toBeRabbitOptimizerError(error, 'GITHUB_API_ERROR', {
         message: msg,
         functionName: fn,
       });
@@ -42,20 +39,20 @@ describe("toBeRabbitOptimizerError matcher", () => {
       );
     });
 
-    it("passes when both error and expected have undefined details", () => {
+    it('passes when both error and expected have undefined details', () => {
       const error = new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
         message: msg,
         functionName: fn,
       });
 
-      expect(error).toBeRabbitOptimizerError("GITHUB_API_ERROR", {
+      expect(error).toBeRabbitOptimizerError('GITHUB_API_ERROR', {
         message: msg,
         functionName: fn,
       });
     });
 
-    it("passes when expected specifies details and error has matching details", () => {
+    it('passes when expected specifies details and error has matching details', () => {
       const error = new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
         message: msg,
@@ -63,7 +60,7 @@ describe("toBeRabbitOptimizerError matcher", () => {
         details: { [detailKey]: detailVal },
       });
 
-      expect(error).toBeRabbitOptimizerError("GITHUB_API_ERROR", {
+      expect(error).toBeRabbitOptimizerError('GITHUB_API_ERROR', {
         message: msg,
         functionName: fn,
         details: { [detailKey]: detailVal },
@@ -71,8 +68,8 @@ describe("toBeRabbitOptimizerError matcher", () => {
     });
   });
 
-  describe("negative validation for cause", () => {
-    it("fails when error has cause but expected does not specify it", () => {
+  describe('negative validation for cause', () => {
+    it('fails when error has cause but expected does not specify it', () => {
       const causeError = new Error(msg);
       const error = new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
@@ -81,7 +78,7 @@ describe("toBeRabbitOptimizerError matcher", () => {
         cause: causeError,
       });
 
-      const result = toBeRabbitOptimizerError(error, "GITHUB_API_ERROR", {
+      const result = toBeRabbitOptimizerError(error, 'GITHUB_API_ERROR', {
         message: msg,
         functionName: fn,
       });
@@ -92,20 +89,20 @@ describe("toBeRabbitOptimizerError matcher", () => {
       );
     });
 
-    it("passes when both error and expected have undefined cause", () => {
+    it('passes when both error and expected have undefined cause', () => {
       const error = new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
         message: msg,
         functionName: fn,
       });
 
-      expect(error).toBeRabbitOptimizerError("GITHUB_API_ERROR", {
+      expect(error).toBeRabbitOptimizerError('GITHUB_API_ERROR', {
         message: msg,
         functionName: fn,
       });
     });
 
-    it("passes when expected specifies cause and error has matching cause", () => {
+    it('passes when expected specifies cause and error has matching cause', () => {
       const causeError = new Error(msg);
       const error = new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
@@ -114,7 +111,7 @@ describe("toBeRabbitOptimizerError matcher", () => {
         cause: causeError,
       });
 
-      expect(error).toBeRabbitOptimizerError("GITHUB_API_ERROR", {
+      expect(error).toBeRabbitOptimizerError('GITHUB_API_ERROR', {
         message: msg,
         functionName: fn,
         cause: causeError,
@@ -123,7 +120,7 @@ describe("toBeRabbitOptimizerError matcher", () => {
   });
 });
 
-describe("toThrowRabbitOptimizerError matcher", () => {
+describe('toThrowRabbitOptimizerError matcher', () => {
   let msg: string;
   let fn: string;
   let detailKey: string;
@@ -131,13 +128,13 @@ describe("toThrowRabbitOptimizerError matcher", () => {
 
   beforeEach(() => {
     msg = getRandomString();
-    fn = getRandomString({ charset: "alpha" });
-    detailKey = getRandomString({ charset: "alpha" });
+    fn = getRandomString({ charset: 'alpha' });
+    detailKey = getRandomString({ charset: 'alpha' });
     detailVal = getRandomString();
   });
 
-  describe("negative validation for details", () => {
-    it("fails when thrown error has details but expected does not specify it", () => {
+  describe('negative validation for details', () => {
+    it('fails when thrown error has details but expected does not specify it', () => {
       const throwFn = () => {
         throw new RabbitOptimizerError({
           code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
@@ -147,7 +144,7 @@ describe("toThrowRabbitOptimizerError matcher", () => {
         });
       };
 
-      const result = toThrowRabbitOptimizerError(throwFn, "GITHUB_API_ERROR", {
+      const result = toThrowRabbitOptimizerError(throwFn, 'GITHUB_API_ERROR', {
         message: msg,
         functionName: fn,
       });
@@ -159,8 +156,8 @@ describe("toThrowRabbitOptimizerError matcher", () => {
     });
   });
 
-  describe("negative validation for cause", () => {
-    it("fails when thrown error has cause but expected does not specify it", () => {
+  describe('negative validation for cause', () => {
+    it('fails when thrown error has cause but expected does not specify it', () => {
       const causeError = new Error(msg);
       const throwFn = () => {
         throw new RabbitOptimizerError({
@@ -171,7 +168,7 @@ describe("toThrowRabbitOptimizerError matcher", () => {
         });
       };
 
-      const result = toThrowRabbitOptimizerError(throwFn, "GITHUB_API_ERROR", {
+      const result = toThrowRabbitOptimizerError(throwFn, 'GITHUB_API_ERROR', {
         message: msg,
         functionName: fn,
       });
@@ -184,7 +181,7 @@ describe("toThrowRabbitOptimizerError matcher", () => {
   });
 });
 
-describe("toThrowRabbitOptimizerErrorAsync matcher", () => {
+describe('toThrowRabbitOptimizerErrorAsync matcher', () => {
   let msg: string;
   let fn: string;
   let detailKey: string;
@@ -192,30 +189,27 @@ describe("toThrowRabbitOptimizerErrorAsync matcher", () => {
 
   beforeEach(() => {
     msg = getRandomString();
-    fn = getRandomString({ charset: "alpha" });
-    detailKey = getRandomString({ charset: "alpha" });
+    fn = getRandomString({ charset: 'alpha' });
+    detailKey = getRandomString({ charset: 'alpha' });
     detailVal = getRandomString();
   });
 
-  describe("negative validation for details", () => {
-    it("fails when thrown error has details but expected does not specify it", async () => {
-      const throwFn = async () => {
-        throw new RabbitOptimizerError({
-          code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
-          message: msg,
-          functionName: fn,
-          details: { [detailKey]: detailVal },
-        });
-      };
+  describe('negative validation for details', () => {
+    it('fails when thrown error has details but expected does not specify it', async () => {
+      const throwFn = () =>
+        Promise.reject(
+          new RabbitOptimizerError({
+            code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
+            message: msg,
+            functionName: fn,
+            details: { [detailKey]: detailVal },
+          }),
+        );
 
-      const result = await toThrowRabbitOptimizerErrorAsync(
-        throwFn,
-        "GITHUB_API_ERROR",
-        {
-          message: msg,
-          functionName: fn,
-        },
-      );
+      const result = await toThrowRabbitOptimizerErrorAsync(throwFn, 'GITHUB_API_ERROR', {
+        message: msg,
+        functionName: fn,
+      });
 
       expect(result.pass).toBe(false);
       expect(result.message()).toBe(
@@ -224,26 +218,23 @@ describe("toThrowRabbitOptimizerErrorAsync matcher", () => {
     });
   });
 
-  describe("negative validation for cause", () => {
-    it("fails when thrown error has cause but expected does not specify it", async () => {
+  describe('negative validation for cause', () => {
+    it('fails when thrown error has cause but expected does not specify it', async () => {
       const causeError = new Error(msg);
-      const throwFn = async () => {
-        throw new RabbitOptimizerError({
-          code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
-          message: msg,
-          functionName: fn,
-          cause: causeError,
-        });
-      };
+      const throwFn = () =>
+        Promise.reject(
+          new RabbitOptimizerError({
+            code: RabbitOptimizerErrorCodes.GITHUB_API_ERROR,
+            message: msg,
+            functionName: fn,
+            cause: causeError,
+          }),
+        );
 
-      const result = await toThrowRabbitOptimizerErrorAsync(
-        throwFn,
-        "GITHUB_API_ERROR",
-        {
-          message: msg,
-          functionName: fn,
-        },
-      );
+      const result = await toThrowRabbitOptimizerErrorAsync(throwFn, 'GITHUB_API_ERROR', {
+        message: msg,
+        functionName: fn,
+      });
 
       expect(result.pass).toBe(false);
       expect(result.message()).toBe(

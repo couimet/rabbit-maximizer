@@ -1,5 +1,5 @@
-import { jest } from "@jest/globals";
-import type { Octokit } from "@octokit/rest";
+import { jest } from '@jest/globals';
+import type { Octokit } from '@octokit/rest';
 
 export interface MockSearchRest {
   issuesAndPullRequests: jest.Mock<any>;
@@ -26,9 +26,7 @@ export interface MockOctokitResult {
   };
 }
 
-export const createMockOctokit = (
-  options?: MockOctokitOptions,
-): MockOctokitResult => {
+export const createMockOctokit = (options?: MockOctokitOptions): MockOctokitResult => {
   const search: MockSearchRest = {
     issuesAndPullRequests: jest.fn<any>(),
     ...options?.rest?.search,

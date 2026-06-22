@@ -1,47 +1,35 @@
-import { describe, it, expect } from "@jest/globals";
-import { Container } from "inversify";
-import type { Logger } from "@couimet/logger-contract";
-import type { Prisma, PrismaClient } from "@prisma/client";
-import {
-  EventRepositoryImpl,
-  type EventRepository,
-  type NewEvent,
-} from "../../src/db/eventRepository.js";
-import { EventType } from "../../src/types/index.js";
-import { TYPES } from "../../src/inversify-types.js";
-import {
-  createMockPrismaClient,
-  createMockLogger,
-  createResolvedMock,
-  makeUniqueRepoName,
-} from "../helpers/index.js";
-import {
-  getUniqueInt,
-  getUniqueString,
-  getUniqueDate,
-} from "@couimet/dynamic-testing";
+import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/eventRepository.js';
+import { TYPES } from '../../src/inversify-types.js';
+import { EventType } from '../../src/types/index.js';
+import { createMockLogger, createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
 
-describe("EventRepositoryImpl", () => {
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import type { Logger } from '@couimet/logger-contract';
+import { describe, expect, it } from '@jest/globals';
+import type { Prisma, PrismaClient } from '@prisma/client';
+import { Container } from 'inversify';
+
+describe('EventRepositoryImpl', () => {
   const FIRST_ATTEMPT_NO = 1;
   const EXPECTED_EVENT_COUNT = 2;
 
-  describe("record", () => {
-    it("inserts a detected event and returns the parsed entry", async () => {
+  describe('record', () => {
+    it('inserts a detected event and returns the parsed entry', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const correlationId = getUniqueString({ prefix: "corr-" });
-      const requestId = getUniqueString({ prefix: "req-" });
-      const version = getUniqueString({ prefix: "v" });
-      const sourceCommentUrl = getUniqueString({ prefix: "https://gh/c/" });
+      const correlationId = getUniqueString({ prefix: 'corr-' });
+      const requestId = getUniqueString({ prefix: 'req-' });
+      const version = getUniqueString({ prefix: 'v' });
+      const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
       const id = getUniqueInt();
-      const uuid = getUniqueString({ prefix: "uuid-" });
+      const uuid = getUniqueString({ prefix: 'uuid-' });
       const ts = getUniqueDate();
 
       const storedRow = {
         id,
         uuid,
         ts,
-        type: "detected",
+        type: 'detected',
         repo_full_name: repo,
         pr_number: pr,
         correlation_id: correlationId,
@@ -70,7 +58,7 @@ describe("EventRepositoryImpl", () => {
 
       expect(event.create).toHaveBeenCalledWith({
         data: {
-          type: "detected",
+          type: 'detected',
           repo_full_name: repo,
           pr_number: pr,
           correlation_id: correlationId,
@@ -84,7 +72,7 @@ describe("EventRepositoryImpl", () => {
         id,
         uuid,
         ts,
-        type: "detected",
+        type: 'detected',
         repo_full_name: repo,
         pr_number: pr,
         correlation_id: correlationId,
@@ -93,18 +81,15 @@ describe("EventRepositoryImpl", () => {
         metadata: undefined,
         payload: { source_comment_url: sourceCommentUrl },
       });
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "EventRepositoryImpl.record", type: "detected", repo, pr },
-        "Event recorded",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.record', type: 'detected', repo, pr }, 'Event recorded');
     });
 
-    it("writes through the transaction client and serializes metadata", async () => {
+    it('writes through the transaction client and serializes metadata', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const correlationId = getUniqueString({ prefix: "corr-" });
-      const version = getUniqueString({ prefix: "v" });
-      const reason = getUniqueString({ prefix: "reason-" });
+      const correlationId = getUniqueString({ prefix: 'corr-' });
+      const version = getUniqueString({ prefix: 'v' });
+      const reason = getUniqueString({ prefix: 'reason-' });
       const metadata = {
         git_sha: getUniqueString(),
         host: getUniqueString(),
@@ -115,7 +100,7 @@ describe("EventRepositoryImpl", () => {
         id: getUniqueInt(),
         uuid: getUniqueString(),
         ts,
-        type: "failed",
+        type: 'failed',
         repo_full_name: repo,
         pr_number: pr,
         correlation_id: correlationId,
@@ -147,7 +132,7 @@ describe("EventRepositoryImpl", () => {
 
       expect(tx.event.create).toHaveBeenCalledWith({
         data: {
-          type: "failed",
+          type: 'failed',
           repo_full_name: repo,
           pr_number: pr,
           correlation_id: correlationId,
@@ -160,25 +145,22 @@ describe("EventRepositoryImpl", () => {
       expect(base.event.create).not.toHaveBeenCalled();
       expect(result.metadata).toStrictEqual(metadata);
       expect(result.request_id).toBeUndefined();
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "EventRepositoryImpl.record", type: "failed", repo, pr },
-        "Event recorded",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.record', type: 'failed', repo, pr }, 'Event recorded');
     });
   });
 
-  describe("listForPr", () => {
-    it("returns events for a PR ordered by ts", async () => {
+  describe('listForPr', () => {
+    it('returns events for a PR ordered by ts', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const detectedUrl = getUniqueString({ prefix: "https://gh/c/" });
+      const detectedUrl = getUniqueString({ prefix: 'https://gh/c/' });
       const scheduledFor = getUniqueDate();
 
       const detectedRow = {
         id: getUniqueInt(),
         uuid: getUniqueString(),
         ts: getUniqueDate(),
-        type: "detected",
+        type: 'detected',
         repo_full_name: repo,
         pr_number: pr,
         correlation_id: getUniqueString(),
@@ -191,7 +173,7 @@ describe("EventRepositoryImpl", () => {
         id: getUniqueInt(),
         uuid: getUniqueString(),
         ts: getUniqueDate(),
-        type: "enqueued",
+        type: 'enqueued',
         repo_full_name: repo,
         pr_number: pr,
         correlation_id: getUniqueString(),
@@ -214,7 +196,7 @@ describe("EventRepositoryImpl", () => {
 
       expect(event.findMany).toHaveBeenCalledWith({
         where: { repo_full_name: repo, pr_number: pr },
-        orderBy: { ts: "asc" },
+        orderBy: { ts: 'asc' },
       });
       expect(result).toStrictEqual([
         {
@@ -227,7 +209,7 @@ describe("EventRepositoryImpl", () => {
           request_id: undefined,
           version: detectedRow.version,
           metadata: undefined,
-          type: "detected",
+          type: 'detected',
           payload: { source_comment_url: detectedUrl },
         },
         {
@@ -240,7 +222,7 @@ describe("EventRepositoryImpl", () => {
           request_id: undefined,
           version: enqueuedRow.version,
           metadata: undefined,
-          type: "enqueued",
+          type: 'enqueued',
           payload: {
             scheduled_for: scheduledFor,
             attempt_no: FIRST_ATTEMPT_NO,
@@ -249,27 +231,25 @@ describe("EventRepositoryImpl", () => {
       ]);
       expect(logger.debug).toHaveBeenCalledWith(
         {
-          fn: "EventRepositoryImpl.listForPr",
+          fn: 'EventRepositoryImpl.listForPr',
           repo,
           pr,
           count: EXPECTED_EVENT_COUNT,
         },
-        "Listed events for PR",
+        'Listed events for PR',
       );
     });
   });
 
-  describe("container binding", () => {
-    it("resolves EventRepository from the container", () => {
+  describe('container binding', () => {
+    it('resolves EventRepository from the container', () => {
       const { prisma } = createMockPrismaClient();
       const logger = createMockLogger();
       const container = new Container();
 
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
-      container
-        .bind<EventRepository>(TYPES.EventRepository)
-        .to(EventRepositoryImpl);
+      container.bind<EventRepository>(TYPES.EventRepository).to(EventRepositoryImpl);
 
       const repo = container.get<EventRepository>(TYPES.EventRepository);
       expect(repo).toBeInstanceOf(EventRepositoryImpl);

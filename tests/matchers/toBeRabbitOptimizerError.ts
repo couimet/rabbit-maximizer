@@ -1,5 +1,5 @@
-import type { ErrorDetails } from "../../src/errors/detailedError.js";
-import { RabbitOptimizerError } from "../../src/errors/RabbitOptimizerError.js";
+import type { ErrorDetails } from '../../src/errors/detailedError.js';
+import { RabbitOptimizerError } from '../../src/errors/RabbitOptimizerError.js';
 
 // Error code is passed as a separate string parameter to enforce string literal usage.
 export interface ExpectedRabbitOptimizerError {
@@ -9,11 +9,7 @@ export interface ExpectedRabbitOptimizerError {
   cause?: Error;
 }
 
-export const toBeRabbitOptimizerError = (
-  received: unknown,
-  expectedCode: string,
-  expected: ExpectedRabbitOptimizerError,
-): jest.CustomMatcherResult => {
+export const toBeRabbitOptimizerError = (received: unknown, expectedCode: string, expected: ExpectedRabbitOptimizerError): jest.CustomMatcherResult => {
   const failures: string[] = [];
 
   if (!(received instanceof RabbitOptimizerError)) {
@@ -29,21 +25,15 @@ export const toBeRabbitOptimizerError = (
   const error = received as RabbitOptimizerError;
 
   if (error.code !== expectedCode) {
-    failures.push(
-      `  Code: expected "${expectedCode}", received "${error.code}"`,
-    );
+    failures.push(`  Code: expected "${expectedCode}", received "${error.code}"`);
   }
 
   if (error.message !== expected.message) {
-    failures.push(
-      `  Message:\n    expected: "${expected.message}"\n    received: "${error.message}"`,
-    );
+    failures.push(`  Message:\n    expected: "${expected.message}"\n    received: "${error.message}"`);
   }
 
   if (error.functionName !== expected.functionName) {
-    failures.push(
-      `  Function name: expected "${expected.functionName}", received "${error.functionName || "undefined"}"`,
-    );
+    failures.push(`  Function name: expected "${expected.functionName}", received "${error.functionName || 'undefined'}"`);
   }
 
   if (expected.details !== undefined) {
@@ -55,31 +45,18 @@ export const toBeRabbitOptimizerError = (
       );
     }
   } else if (error.details !== undefined) {
-    failures.push(
-      `  Details: expected undefined, received ${JSON.stringify(error.details)}`,
-    );
+    failures.push(`  Details: expected undefined, received ${JSON.stringify(error.details)}`);
   }
 
   if (expected.cause !== undefined) {
     if (error.cause !== expected.cause) {
-      const expectedCauseMsg =
-        expected.cause instanceof Error ? expected.cause.message : "undefined";
-      const receivedCauseMsg =
-        error.cause instanceof Error
-          ? (error.cause as Error).message
-          : "undefined";
-      failures.push(
-        `  Cause: expected ${expectedCauseMsg}, received ${receivedCauseMsg}`,
-      );
+      const expectedCauseMsg = expected.cause instanceof Error ? expected.cause.message : 'undefined';
+      const receivedCauseMsg = error.cause instanceof Error ? (error.cause as Error).message : 'undefined';
+      failures.push(`  Cause: expected ${expectedCauseMsg}, received ${receivedCauseMsg}`);
     }
   } else if (error.cause !== undefined) {
-    const causeMsg =
-      error.cause instanceof Error
-        ? (error.cause as Error).message
-        : String(error.cause);
-    failures.push(
-      `  Cause: expected undefined, received error with message "${causeMsg}"`,
-    );
+    const causeMsg = error.cause instanceof Error ? (error.cause as Error).message : String(error.cause);
+    failures.push(`  Cause: expected undefined, received error with message "${causeMsg}"`);
   }
 
   const pass = failures.length === 0;
@@ -89,15 +66,11 @@ export const toBeRabbitOptimizerError = (
     message: () =>
       pass
         ? `Expected error NOT to match RabbitOptimizerError("${expectedCode}")`
-        : `Expected RabbitOptimizerError("${expectedCode}") to match:\n${failures.join("\n")}`,
+        : `Expected RabbitOptimizerError("${expectedCode}") to match:\n${failures.join('\n')}`,
   };
 };
 
-export const toThrowRabbitOptimizerError = (
-  received: () => void,
-  expectedCode: string,
-  expected: ExpectedRabbitOptimizerError,
-): jest.CustomMatcherResult => {
+export const toThrowRabbitOptimizerError = (received: () => void, expectedCode: string, expected: ExpectedRabbitOptimizerError): jest.CustomMatcherResult => {
   let caughtError: unknown;
 
   try {
@@ -109,8 +82,7 @@ export const toThrowRabbitOptimizerError = (
   if (caughtError === undefined) {
     return {
       pass: false,
-      message: () =>
-        `Expected function to throw RabbitOptimizerError with code "${expectedCode}", but nothing was thrown`,
+      message: () => `Expected function to throw RabbitOptimizerError with code "${expectedCode}", but nothing was thrown`,
     };
   }
 
@@ -133,8 +105,7 @@ export const toThrowRabbitOptimizerErrorAsync = async (
   if (caughtError === undefined) {
     return {
       pass: false,
-      message: () =>
-        `Expected async function to throw RabbitOptimizerError with code "${expectedCode}", but nothing was thrown`,
+      message: () => `Expected async function to throw RabbitOptimizerError with code "${expectedCode}", but nothing was thrown`,
     };
   }
 

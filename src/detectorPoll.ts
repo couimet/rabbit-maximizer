@@ -1,20 +1,21 @@
-import { inject, injectable } from "inversify";
-import type { Logger } from "@couimet/logger-contract";
-import { TYPES } from "./inversify-types.js";
-import type { CoderabbitGitHubClient } from "./github/coderabbitGitHubClient.js";
-import type { QueueRepository } from "./db/queueRepository.js";
-import type { ProbeFactory } from "./probes/ProbeFactory.js";
-import { hasRateLimitMarker } from "./github/hasRateLimitMarker.js";
-import { hasOwnRetriggerMarker } from "./github/hasOwnRetriggerMarker.js";
-import { parseWaitSeconds } from "./github/parseWaitSeconds.js";
-import { splitRepo } from "./github/splitRepo.js";
-import { config } from "./config.js";
+import type { QueueRepository } from './db/queueRepository.js';
+import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
+import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
+import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
+import { parseWaitSeconds } from './github/parseWaitSeconds.js';
+import { splitRepo } from './github/splitRepo.js';
+import type { ProbeFactory } from './probes/ProbeFactory.js';
+import { config } from './config.js';
+import { TYPES } from './inversify-types.js';
+
+import type { Logger } from '@couimet/logger-contract';
+import { inject, injectable } from 'inversify';
 
 const DEFAULT_FALLBACK_WAIT_SECONDS = 3600;
 const MILLISECONDS_PER_SECOND = 1000;
 const HTTP_FORBIDDEN = 403;
 const HTTP_TOO_MANY_REQUESTS = 429;
-const QUOTA_EXHAUSTED = "0";
+const QUOTA_EXHAUSTED = '0';
 
 const POLL_INTERVAL_MS = config.POLL_INTERVAL * MILLISECONDS_PER_SECOND;
 
@@ -40,11 +41,11 @@ export class PollDetector {
   start(): { stop(): Promise<void> } {
     this.log.info(
       {
-        fn: "PollDetector.start",
+        fn: 'PollDetector.start',
         pollIntervalSec: config.POLL_INTERVAL,
         repoCount: config.REPO_FILTER.length,
       },
-      "Starting poll detector",
+      'Starting poll detector',
     );
 
     this.tick();
@@ -64,7 +65,7 @@ export class PollDetector {
     if (this.tickPromise) {
       await this.tickPromise;
     }
-    this.log.info({ fn: "PollDetector.stop" }, "Poll detector stopped");
+    this.log.info({ fn: 'PollDetector.stop' }, 'Poll detector stopped');
   }
 
   private async tick(): Promise<void> {
@@ -80,9 +81,7 @@ export class PollDetector {
 
   private async executeTick(): Promise<void> {
     try {
-      const comments = await this.github.searchRateLimitComments(
-        config.REPO_FILTER,
-      );
+      const comments = await this.github.searchRateLimitComments(config.REPO_FILTER);
 
       for (const c of comments) {
         if (this.seenCommentIds.has(c.comment_id)) continue;
@@ -97,9 +96,7 @@ export class PollDetector {
 
         const waitSeconds = parseWaitSeconds(body);
         const effectiveWait = waitSeconds ?? DEFAULT_FALLBACK_WAIT_SECONDS;
-        const scheduledFor = new Date(
-          Date.now() + effectiveWait * MILLISECONDS_PER_SECOND,
-        );
+        const scheduledFor = new Date(Date.now() + effectiveWait * MILLISECONDS_PER_SECOND);
 
         await this.queue.enqueue(c.repo_full_name, c.pr_number, scheduledFor);
 
@@ -114,14 +111,14 @@ export class PollDetector {
 
         this.log.info(
           {
-            fn: "PollDetector.tick",
+            fn: 'PollDetector.tick',
             repo: c.repo_full_name,
             pr: c.pr_number,
             commentId: c.comment_id,
             scheduledFor: scheduledFor.toISOString(),
             waitSeconds: effectiveWait,
           },
-          "Rate-limit comment detected and enqueued",
+          'Rate-limit comment detected and enqueued',
         );
 
         this.seenCommentIds.add(c.comment_id);
@@ -133,41 +130,38 @@ export class PollDetector {
       };
       if (
         (error.status === HTTP_FORBIDDEN || error.status === HTTP_TOO_MANY_REQUESTS) &&
-        error.response?.headers?.["x-ratelimit-remaining"] === QUOTA_EXHAUSTED
+        error.response?.headers?.['x-ratelimit-remaining'] === QUOTA_EXHAUSTED
       ) {
-        const resetEpoch = Number(error.response.headers["x-ratelimit-reset"]);
+        const resetEpoch = Number(error.response.headers['x-ratelimit-reset']);
         if (Number.isNaN(resetEpoch)) {
           this.log.warn(
             {
-              fn: "PollDetector.tick",
+              fn: 'PollDetector.tick',
               status: error.status,
             },
-            "Rate limit response missing valid x-ratelimit-reset header; skipping backoff",
+            'Rate limit response missing valid x-ratelimit-reset header; skipping backoff',
           );
           return;
         }
-        const retryAfterMs = Math.max(
-          0,
-          resetEpoch * MILLISECONDS_PER_SECOND - Date.now(),
-        );
+        const retryAfterMs = Math.max(0, resetEpoch * MILLISECONDS_PER_SECOND - Date.now());
         this.rateLimitRetryAfter = Date.now() + retryAfterMs;
         this.log.warn(
           {
-            fn: "PollDetector.tick",
+            fn: 'PollDetector.tick',
             status: error.status,
             retryAfterSec: Math.ceil(retryAfterMs / MILLISECONDS_PER_SECOND),
           },
-          "GitHub API rate limit exhausted; backing off until reset",
+          'GitHub API rate limit exhausted; backing off until reset',
         );
         return;
       }
 
       this.log.warn(
         {
-          fn: "PollDetector.tick",
+          fn: 'PollDetector.tick',
           error: err instanceof Error ? err.message : String(err),
         },
-        "Poll tick failed; will retry on next interval",
+        'Poll tick failed; will retry on next interval',
       );
     }
   }

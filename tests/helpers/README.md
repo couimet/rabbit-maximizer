@@ -33,7 +33,7 @@ Add methods to `MockSearchRest` / `MockIssuesRest` and the factory body when the
 ## createMockLogger
 
 ```ts
-import { createMockLogger } from "./helpers/index.js";
+import { createMockLogger } from './helpers/index.js';
 const logger = createMockLogger();
 // logger.debug, logger.info, logger.warn, logger.error are all jest.fn()
 ```
@@ -43,7 +43,7 @@ Local stand-in for `@couimet/logger-contract-testing`'s `createMockLogger`, whic
 ## createResolvedMock
 
 ```ts
-import { createResolvedMock } from "./helpers/index.js";
-const mock = createResolvedMock({ data: { html_url: "..." } });
+import { createResolvedMock } from './helpers/index.js';
+const mock = createResolvedMock({ data: { html_url: '...' } });
 // equivalent to jest.fn<any>().mockResolvedValue({ data: { html_url: "..." } })
 ```

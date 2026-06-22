@@ -1,24 +1,13 @@
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
-import { Container } from "inversify";
-import type { Logger } from "@couimet/logger-contract";
-import { Prisma, type PrismaClient } from "@prisma/client";
-import {
-  QueueRepositoryImpl,
-  type QueueRepository,
-} from "../../src/db/queueRepository.js";
-import { QueueStatus } from "../../src/types/index.js";
-import { TYPES } from "../../src/inversify-types.js";
-import {
-  createMockPrismaClient,
-  createMockLogger,
-  createResolvedMock,
-  makeUniqueRepoName,
-} from "../helpers/index.js";
-import {
-  getUniqueInt,
-  getUniqueDate,
-  getUniqueString,
-} from "@couimet/dynamic-testing";
+import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/queueRepository.js';
+import { TYPES } from '../../src/inversify-types.js';
+import { QueueStatus } from '../../src/types/index.js';
+import { createMockLogger, createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
+
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import type { Logger } from '@couimet/logger-contract';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { Prisma, type PrismaClient } from '@prisma/client';
+import { Container } from 'inversify';
 
 interface RowOverrides {
   id?: number;
@@ -31,10 +20,10 @@ interface RowOverrides {
 
 const makeRow = (over: RowOverrides = {}) => ({
   id: over.id ?? getUniqueInt(),
-  uuid: getUniqueString({ prefix: "uuid-" }),
+  uuid: getUniqueString({ prefix: 'uuid-' }),
   repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
   pr_number: over.pr_number ?? getUniqueInt(),
-  status: over.status ?? "pending",
+  status: over.status ?? 'pending',
   scheduled_for: over.scheduled_for ?? getUniqueDate(),
   attempts: over.attempts ?? 0,
   created_at: getUniqueDate(),
@@ -53,7 +42,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
   updated_at: row.updated_at,
 });
 
-describe("QueueRepositoryImpl", () => {
+describe('QueueRepositoryImpl', () => {
   let frozenNow: Date;
   let logger: Logger;
 
@@ -64,8 +53,8 @@ describe("QueueRepositoryImpl", () => {
     jest.setSystemTime(frozenNow);
   });
 
-  describe("enqueue", () => {
-    it("creates a pending row and returns it", async () => {
+  describe('enqueue', () => {
+    it('creates a pending row and returns it', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const scheduledFor = getUniqueDate();
@@ -86,27 +75,21 @@ describe("QueueRepositoryImpl", () => {
         },
       });
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.enqueue", repo, pr },
-        "Enqueued review",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
     });
 
-    it("returns the existing pending row when the PR is already queued (P2002)", async () => {
+    it('returns the existing pending row when the PR is already queued (P2002)', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const existing = makeRow({
         repo_full_name: repo,
         pr_number: pr,
-        status: "pending",
+        status: 'pending',
       });
-      const p2002 = new Prisma.PrismaClientKnownRequestError(
-        "Unique constraint",
-        {
-          code: "P2002",
-          clientVersion: "7.8.0",
-        },
-      );
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '7.8.0',
+      });
 
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
@@ -119,25 +102,19 @@ describe("QueueRepositoryImpl", () => {
       const result = await sut.enqueue(repo, pr, getUniqueDate());
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr, status: "pending" },
+        where: { repo_full_name: repo, pr_number: pr, status: 'pending' },
       });
       expect(result).toStrictEqual(toExpectedItem(existing));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.enqueue", repo, pr },
-        "Already queued; returning existing pending row",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Already queued; returning existing pending row');
     });
 
-    it("rethrows a P2002 when no pending row is found", async () => {
+    it('rethrows a P2002 when no pending row is found', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const p2002 = new Prisma.PrismaClientKnownRequestError(
-        "Unique constraint",
-        {
-          code: "P2002",
-          clientVersion: "7.8.0",
-        },
-      );
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', {
+        code: 'P2002',
+        clientVersion: '7.8.0',
+      });
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
@@ -148,16 +125,13 @@ describe("QueueRepositoryImpl", () => {
       const sut = new QueueRepositoryImpl(prisma, logger);
 
       await expect(sut.enqueue(repo, pr, getUniqueDate())).rejects.toBe(p2002);
-      expect(logger.warn).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.enqueue", repo, pr, err: p2002 },
-        "Enqueue failed; rethrowing",
-      );
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, err: p2002 }, 'Enqueue failed; rethrowing');
     });
 
-    it("rethrows a known request error with a different code", async () => {
-      const p2003 = new Prisma.PrismaClientKnownRequestError("FK constraint", {
-        code: "P2003",
-        clientVersion: "7.8.0",
+    it('rethrows a known request error with a different code', async () => {
+      const p2003 = new Prisma.PrismaClientKnownRequestError('FK constraint', {
+        code: 'P2003',
+        clientVersion: '7.8.0',
       });
       const { prisma } = createMockPrismaClient({
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2003) },
@@ -169,17 +143,17 @@ describe("QueueRepositoryImpl", () => {
       await expect(sut.enqueue(repo, pr, getUniqueDate())).rejects.toBe(p2003);
       expect(logger.warn).toHaveBeenCalledWith(
         {
-          fn: "QueueRepositoryImpl.enqueue",
+          fn: 'QueueRepositoryImpl.enqueue',
           repo,
           pr,
           err: p2003,
         },
-        "Enqueue failed; rethrowing",
+        'Enqueue failed; rethrowing',
       );
     });
 
-    it("rethrows a non-Prisma error", async () => {
-      const boom = new Error("boom");
+    it('rethrows a non-Prisma error', async () => {
+      const boom = new Error('boom');
       const { prisma } = createMockPrismaClient({
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(boom) },
       });
@@ -190,19 +164,19 @@ describe("QueueRepositoryImpl", () => {
       await expect(sut.enqueue(repo, pr, getUniqueDate())).rejects.toBe(boom);
       expect(logger.warn).toHaveBeenCalledWith(
         {
-          fn: "QueueRepositoryImpl.enqueue",
+          fn: 'QueueRepositoryImpl.enqueue',
           repo,
           pr,
           err: boom,
         },
-        "Enqueue failed; rethrowing",
+        'Enqueue failed; rethrowing',
       );
     });
   });
 
-  describe("getNextDue", () => {
-    it("returns the earliest due pending item", async () => {
-      const row = makeRow({ status: "pending" });
+  describe('getNextDue', () => {
+    it('returns the earliest due pending item', async () => {
+      const row = makeRow({ status: 'pending' });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(row) },
       });
@@ -211,17 +185,14 @@ describe("QueueRepositoryImpl", () => {
       const result = await sut.getNextDue();
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { status: "pending", scheduled_for: { lte: frozenNow } },
-        orderBy: { scheduled_for: "asc" },
+        where: { status: 'pending', scheduled_for: { lte: frozenNow } },
+        orderBy: { scheduled_for: 'asc' },
       });
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.getNextDue", found: true },
-        "Fetched next due review",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getNextDue', found: true }, 'Fetched next due review');
     });
 
-    it("returns null when nothing is due", async () => {
+    it('returns null when nothing is due', async () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null) },
       });
@@ -231,19 +202,16 @@ describe("QueueRepositoryImpl", () => {
 
       expect(result).toBeNull();
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { status: "pending", scheduled_for: { lte: frozenNow } },
-        orderBy: { scheduled_for: "asc" },
+        where: { status: 'pending', scheduled_for: { lte: frozenNow } },
+        orderBy: { scheduled_for: 'asc' },
       });
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.getNextDue", found: false },
-        "Fetched next due review",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getNextDue', found: false }, 'Fetched next due review');
     });
   });
 
-  describe("markCompleted", () => {
-    it("updates the row to completed", async () => {
-      const row = makeRow({ status: "completed" });
+  describe('markCompleted', () => {
+    it('updates the row to completed', async () => {
+      const row = makeRow({ status: 'completed' });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
@@ -253,18 +221,15 @@ describe("QueueRepositoryImpl", () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { status: "completed" },
+        data: { status: 'completed' },
       });
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.markCompleted", id: row.id },
-        "Marked review completed",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markCompleted', id: row.id }, 'Marked review completed');
     });
   });
 
-  describe("reschedule", () => {
-    it("increments attempts and updates the scheduled time", async () => {
+  describe('reschedule', () => {
+    it('increments attempts and updates the scheduled time', async () => {
       const newScheduledFor = getUniqueDate();
       const row = makeRow({ attempts: 1, scheduled_for: newScheduledFor });
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -279,16 +244,13 @@ describe("QueueRepositoryImpl", () => {
         data: { attempts: { increment: 1 }, scheduled_for: newScheduledFor },
       });
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.reschedule", id: row.id },
-        "Rescheduled review",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
     });
   });
 
-  describe("markFailed", () => {
-    it("updates the row to failed", async () => {
-      const row = makeRow({ status: "failed" });
+  describe('markFailed', () => {
+    it('updates the row to failed', async () => {
+      const row = makeRow({ status: 'failed' });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
@@ -298,22 +260,16 @@ describe("QueueRepositoryImpl", () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { status: "failed" },
+        data: { status: 'failed' },
       });
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.markFailed", id: row.id },
-        "Marked review failed",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markFailed', id: row.id }, 'Marked review failed');
     });
   });
 
-  describe("getPendingQueue", () => {
-    it("returns pending items ordered by scheduled time", async () => {
-      const rows = [
-        makeRow({ status: "pending" }),
-        makeRow({ status: "pending" }),
-      ];
+  describe('getPendingQueue', () => {
+    it('returns pending items ordered by scheduled time', async () => {
+      const rows = [makeRow({ status: 'pending' }), makeRow({ status: 'pending' })];
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findMany: createResolvedMock(rows) },
       });
@@ -322,20 +278,17 @@ describe("QueueRepositoryImpl", () => {
       const result = await sut.getPendingQueue();
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: "pending" },
-        orderBy: { scheduled_for: "asc" },
+        where: { status: 'pending' },
+        orderBy: { scheduled_for: 'asc' },
       });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.getPendingQueue", count: 2 },
-        "Fetched pending queue",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getPendingQueue', count: 2 }, 'Fetched pending queue');
     });
   });
 
-  describe("transaction client", () => {
-    it("uses the provided transaction client for mutations", async () => {
-      const row = makeRow({ status: "completed" });
+  describe('transaction client', () => {
+    it('uses the provided transaction client for mutations', async () => {
+      const row = makeRow({ status: 'completed' });
       const tx = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
@@ -343,34 +296,26 @@ describe("QueueRepositoryImpl", () => {
       const logger = createMockLogger();
       const sut = new QueueRepositoryImpl(base.prisma, logger);
 
-      const result = await sut.markCompleted(
-        row.id,
-        tx.prisma as unknown as Prisma.TransactionClient,
-      );
+      const result = await sut.markCompleted(row.id, tx.prisma as unknown as Prisma.TransactionClient);
 
       expect(tx.reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { status: "completed" },
+        data: { status: 'completed' },
       });
       expect(base.reviewQueue.update).not.toHaveBeenCalled();
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: "QueueRepositoryImpl.markCompleted", id: row.id },
-        "Marked review completed",
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markCompleted', id: row.id }, 'Marked review completed');
     });
   });
 
-  describe("container binding", () => {
-    it("resolves QueueRepository from the container", () => {
+  describe('container binding', () => {
+    it('resolves QueueRepository from the container', () => {
       const { prisma } = createMockPrismaClient();
       const container = new Container();
 
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
-      container
-        .bind<QueueRepository>(TYPES.QueueRepository)
-        .to(QueueRepositoryImpl);
+      container.bind<QueueRepository>(TYPES.QueueRepository).to(QueueRepositoryImpl);
 
       const repo = container.get<QueueRepository>(TYPES.QueueRepository);
       expect(repo).toBeInstanceOf(QueueRepositoryImpl);

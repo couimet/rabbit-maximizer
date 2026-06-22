@@ -1,12 +1,13 @@
-import { mkdirSync } from "node:fs";
-import path from "node:path";
-import { PrismaClient } from "@prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import { config } from "../config.js";
-import { RabbitOptimizerError } from "../errors/RabbitOptimizerError.js";
-import { RabbitOptimizerErrorCodes } from "../errors/RabbitOptimizerErrorCodes.js";
+import { config } from '../config.js';
+import { RabbitOptimizerError } from '../errors/RabbitOptimizerError.js';
+import { RabbitOptimizerErrorCodes } from '../errors/RabbitOptimizerErrorCodes.js';
 
-const FILE_URL_PREFIX = "file:";
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { PrismaClient } from '@prisma/client';
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+
+const FILE_URL_PREFIX = 'file:';
 
 /**
  * The SQLite file location is dictated entirely by DATABASE_URL (the npm scripts
@@ -24,12 +25,11 @@ const createFromFile = (url: string): PrismaClient => {
 export const createPrismaClient = (): PrismaClient => {
   const url = config.DATABASE_URL;
   if (!url.startsWith(FILE_URL_PREFIX)) {
-    const [scheme] = url.split(":");
+    const [scheme] = url.split(':');
     throw new RabbitOptimizerError({
       code: RabbitOptimizerErrorCodes.PRISMA_CONNECTION_METHOD_NOT_SUPPORTED,
-      message:
-        'Unsupported DATABASE_URL connection method; only "file:" URLs are supported',
-      functionName: "createPrismaClient",
+      message: 'Unsupported DATABASE_URL connection method; only "file:" URLs are supported',
+      functionName: 'createPrismaClient',
       details: { scheme },
     });
   }

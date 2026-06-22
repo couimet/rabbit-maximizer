@@ -11,9 +11,7 @@
 const SECONDS_PER_MINUTE = 60;
 
 export const parseWaitSeconds = (body: string): number | undefined => {
-  const match = body.match(
-    /please wait (\d+) minutes?(?: and (\d+) seconds?)? before requesting another review/i,
-  );
+  const match = body.match(/please wait (\d+) minutes?(?: and (\d+) seconds?)? before requesting another review/i);
   if (!match) return undefined;
 
   const minutes = parseInt(match[1], 10);

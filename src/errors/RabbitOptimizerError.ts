@@ -1,5 +1,5 @@
-import { DetailedError, ErrorOptions } from "./detailedError.js";
-import type { RabbitOptimizerErrorCodes } from "./RabbitOptimizerErrorCodes.js";
+import { DetailedError, ErrorOptions } from './detailedError.js';
+import type { RabbitOptimizerErrorCodes } from './RabbitOptimizerErrorCodes.js';
 
 /**
  * Base error class for all Rabbit Optimizer errors.
@@ -13,7 +13,7 @@ import type { RabbitOptimizerErrorCodes } from "./RabbitOptimizerErrorCodes.js";
 export class RabbitOptimizerError extends DetailedError<RabbitOptimizerErrorCodes> {
   constructor(options: ErrorOptions<RabbitOptimizerErrorCodes>) {
     super(options);
-    this.name = "RabbitOptimizerError";
+    this.name = 'RabbitOptimizerError';
 
     // Maintains proper stack trace for where error was thrown (V8 only)
     if (Error.captureStackTrace) {

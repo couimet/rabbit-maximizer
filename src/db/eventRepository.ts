@@ -1,18 +1,19 @@
-import { inject, injectable } from "inversify";
-import type { Logger } from "@couimet/logger-contract";
-import { type Prisma, type PrismaClient } from "@prisma/client";
-import { TYPES } from "../inversify-types.js";
-import { EventType, type EventLogEntry } from "../types/index.js";
+import { TYPES } from '../inversify-types.js';
+import { parseEventRow } from '../schemas/events.js';
 import type {
+  CompletedPayload,
   DetectedPayload,
   EnqueuedPayload,
+  EventMetadata,
+  FailedPayload,
   PostedPayload,
   RejectedPayload,
-  CompletedPayload,
-  FailedPayload,
-  EventMetadata,
-} from "../types/EventPayloads.js";
-import { parseEventRow } from "../schemas/events.js";
+} from '../types/EventPayloads.js';
+import { type EventLogEntry, EventType } from '../types/index.js';
+
+import type { Logger } from '@couimet/logger-contract';
+import { type Prisma, type PrismaClient } from '@prisma/client';
+import { inject, injectable } from 'inversify';
 
 interface NewEventBase {
   readonly repo_full_name: string;
@@ -32,10 +33,7 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
 export interface EventRepository {
-  record(
-    input: NewEvent,
-    tx?: Prisma.TransactionClient,
-  ): Promise<EventLogEntry>;
+  record(input: NewEvent, tx?: Prisma.TransactionClient): Promise<EventLogEntry>;
   listForPr(repo: string, pr: number): Promise<EventLogEntry[]>;
 }
 
@@ -48,10 +46,7 @@ export class EventRepositoryImpl implements EventRepository {
   ) {}
   /* c8 ignore stop */
 
-  async record(
-    input: NewEvent,
-    tx?: Prisma.TransactionClient,
-  ): Promise<EventLogEntry> {
+  async record(input: NewEvent, tx?: Prisma.TransactionClient): Promise<EventLogEntry> {
     const row = await (tx ?? this.prisma).event.create({
       data: {
         type: input.type,
@@ -68,12 +63,12 @@ export class EventRepositoryImpl implements EventRepository {
     const entry = parseEventRow(row);
     this.log.debug(
       {
-        fn: "EventRepositoryImpl.record",
+        fn: 'EventRepositoryImpl.record',
         type: input.type,
         repo: input.repo_full_name,
         pr: input.pr_number,
       },
-      "Event recorded",
+      'Event recorded',
     );
     return entry;
   }
@@ -81,13 +76,10 @@ export class EventRepositoryImpl implements EventRepository {
   async listForPr(repo: string, pr: number): Promise<EventLogEntry[]> {
     const rows = await this.prisma.event.findMany({
       where: { repo_full_name: repo, pr_number: pr },
-      orderBy: { ts: "asc" },
+      orderBy: { ts: 'asc' },
     });
 
-    this.log.debug(
-      { fn: "EventRepositoryImpl.listForPr", repo, pr, count: rows.length },
-      "Listed events for PR",
-    );
+    this.log.debug({ fn: 'EventRepositoryImpl.listForPr', repo, pr, count: rows.length }, 'Listed events for PR');
     return rows.map((row) => parseEventRow(row));
   }
 }

@@ -1,5 +1,5 @@
-import { RabbitOptimizerError } from "../errors/RabbitOptimizerError.js";
-import { RabbitOptimizerErrorCodes } from "../errors/RabbitOptimizerErrorCodes.js";
+import { RabbitOptimizerError } from '../errors/RabbitOptimizerError.js';
+import { RabbitOptimizerErrorCodes } from '../errors/RabbitOptimizerErrorCodes.js';
 
 /**
  * Functional error handling Value Object.
@@ -28,8 +28,8 @@ export class Result<T, E> {
     if (success && error !== undefined) {
       throw new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.RESULT_INVALID_STATE,
-        message: "Result marked as success cannot have an error defined",
-        functionName: "Result.constructor",
+        message: 'Result marked as success cannot have an error defined',
+        functionName: 'Result.constructor',
         details: {
           success,
           hasValue: value !== undefined,
@@ -40,8 +40,8 @@ export class Result<T, E> {
     if (!success && value !== undefined) {
       throw new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.RESULT_INVALID_STATE,
-        message: "Result marked as error cannot have a value defined",
-        functionName: "Result.constructor",
+        message: 'Result marked as error cannot have a value defined',
+        functionName: 'Result.constructor',
         details: {
           success,
           hasValue: value !== undefined,
@@ -74,9 +74,8 @@ export class Result<T, E> {
     if (!this._success) {
       throw new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.RESULT_VALUE_ACCESS_ON_ERROR,
-        message:
-          "Cannot access value on an error Result. Check .success before accessing .value",
-        functionName: "Result.value",
+        message: 'Cannot access value on an error Result. Check .success before accessing .value',
+        functionName: 'Result.value',
       });
     }
     return this._value as T;
@@ -87,9 +86,8 @@ export class Result<T, E> {
     if (this._success) {
       throw new RabbitOptimizerError({
         code: RabbitOptimizerErrorCodes.RESULT_ERROR_ACCESS_ON_SUCCESS,
-        message:
-          "Cannot access error on a successful Result. Check .success before accessing .error",
-        functionName: "Result.error",
+        message: 'Cannot access error on a successful Result. Check .success before accessing .error',
+        functionName: 'Result.error',
       });
     }
     return this._error as E;

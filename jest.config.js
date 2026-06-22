@@ -1,7 +1,7 @@
 /** @type {import('ts-jest').JestConfigWithTsJest} */
 export default {
-  preset: "ts-jest/presets/default-esm",
-  testEnvironment: "node",
+  preset: 'ts-jest/presets/default-esm',
+  testEnvironment: 'node',
 
   // Mock cleanup — automatic between tests
   clearMocks: true,
@@ -11,25 +11,25 @@ export default {
   // Test execution settings
   errorOnDeprecated: true,
   testTimeout: 5000,
-  maxWorkers: "50%",
-  coverageProvider: "v8",
+  maxWorkers: '50%',
+  coverageProvider: 'v8',
 
-  roots: ["<rootDir>/src", "<rootDir>/tests"],
-  setupFilesAfterEnv: ["<rootDir>/tests/setup/matchers.ts"],
-  testMatch: ["**/*.test.ts"],
+  roots: ['<rootDir>/src', '<rootDir>/tests'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup/matchers.ts'],
+  testMatch: ['**/*.test.ts'],
   collectCoverageFrom: [
-    "src/**/*.ts",
-    "!src/**/*.test.ts",
-    "!src/main.ts",
-    "!src/container.ts",
-    "!src/**/index.ts",
+    'src/**/*.ts',
+    '!src/**/*.test.ts',
+    '!src/main.ts',
+    '!src/container.ts',
+    '!src/**/index.ts',
     // TODO: remove once @couimet packages provide tests for these
     // https://github.com/couimet/ts-npm-packages/issues/25
-    "!src/errors/**",
-    "!src/types/Result.ts",
+    '!src/errors/**',
+    '!src/types/Result.ts',
   ],
-  coverageDirectory: "coverage",
-  coverageReporters: ["text", "text-summary", "html", "lcov"],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'text-summary', 'html', 'lcov'],
   coverageThreshold: {
     global: {
       branches: 100,
@@ -41,6 +41,6 @@ export default {
 
   // Map .js extensions → .ts for ts-jest ESM resolution
   moduleNameMapper: {
-    "^(\\.{1,2}/.*)\\.js$": "$1",
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
 };

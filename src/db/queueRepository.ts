@@ -1,25 +1,17 @@
-import { inject, injectable } from "inversify";
-import type { Logger } from "@couimet/logger-contract";
-import { Prisma, type PrismaClient, type ReviewQueue } from "@prisma/client";
-import { TYPES } from "../inversify-types.js";
-import { QueueStatus, type QueueItem } from "../types/index.js";
+import { TYPES } from '../inversify-types.js';
+import { type QueueItem, QueueStatus } from '../types/index.js';
 
-const UNIQUE_CONSTRAINT_VIOLATION = "P2002";
+import type { Logger } from '@couimet/logger-contract';
+import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
+import { inject, injectable } from 'inversify';
+
+const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 export interface QueueRepository {
-  enqueue(
-    repo: string,
-    pr: number,
-    scheduledFor: Date,
-    tx?: Prisma.TransactionClient,
-  ): Promise<QueueItem>;
+  enqueue(repo: string, pr: number, scheduledFor: Date, tx?: Prisma.TransactionClient): Promise<QueueItem>;
   getNextDue(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
   markCompleted(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem>;
-  reschedule(
-    id: number,
-    newScheduledFor: Date,
-    tx?: Prisma.TransactionClient,
-  ): Promise<QueueItem>;
+  reschedule(id: number, newScheduledFor: Date, tx?: Prisma.TransactionClient): Promise<QueueItem>;
   /** The caller must record the corresponding failed event (with reason) in the same transaction. */
   markFailed(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
@@ -38,12 +30,7 @@ export class QueueRepositoryImpl implements QueueRepository {
     return tx ?? this.prisma;
   }
 
-  async enqueue(
-    repo: string,
-    pr: number,
-    scheduledFor: Date,
-    tx?: Prisma.TransactionClient,
-  ): Promise<QueueItem> {
+  async enqueue(repo: string, pr: number, scheduledFor: Date, tx?: Prisma.TransactionClient): Promise<QueueItem> {
     const db = this.client(tx);
     try {
       const row = await db.reviewQueue.create({
@@ -53,16 +40,10 @@ export class QueueRepositoryImpl implements QueueRepository {
           scheduled_for: scheduledFor,
         },
       });
-      this.log.debug(
-        { fn: "QueueRepositoryImpl.enqueue", repo, pr },
-        "Enqueued review",
-      );
+      this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
       return this.toQueueItem(row);
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === UNIQUE_CONSTRAINT_VIOLATION
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === UNIQUE_CONSTRAINT_VIOLATION) {
         const existing = await db.reviewQueue.findFirst({
           where: {
             repo_full_name: repo,
@@ -71,17 +52,11 @@ export class QueueRepositoryImpl implements QueueRepository {
           },
         });
         if (existing) {
-          this.log.debug(
-            { fn: "QueueRepositoryImpl.enqueue", repo, pr },
-            "Already queued; returning existing pending row",
-          );
+          this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Already queued; returning existing pending row');
           return this.toQueueItem(existing);
         }
       }
-      this.log.warn(
-        { fn: "QueueRepositoryImpl.enqueue", repo, pr, err },
-        "Enqueue failed; rethrowing",
-      );
+      this.log.warn({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, err }, 'Enqueue failed; rethrowing');
       throw err;
     }
   }
@@ -92,71 +67,46 @@ export class QueueRepositoryImpl implements QueueRepository {
         status: QueueStatus.pending,
         scheduled_for: { lte: new Date() },
       },
-      orderBy: { scheduled_for: "asc" },
+      orderBy: { scheduled_for: 'asc' },
     });
-    this.log.debug(
-      { fn: "QueueRepositoryImpl.getNextDue", found: row !== null },
-      "Fetched next due review",
-    );
+    this.log.debug({ fn: 'QueueRepositoryImpl.getNextDue', found: row !== null }, 'Fetched next due review');
     return row ? this.toQueueItem(row) : null;
   }
 
-  async markCompleted(
-    id: number,
-    tx?: Prisma.TransactionClient,
-  ): Promise<QueueItem> {
+  async markCompleted(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
       data: { status: QueueStatus.completed },
     });
-    this.log.debug(
-      { fn: "QueueRepositoryImpl.markCompleted", id },
-      "Marked review completed",
-    );
+    this.log.debug({ fn: 'QueueRepositoryImpl.markCompleted', id }, 'Marked review completed');
     return this.toQueueItem(row);
   }
 
-  async reschedule(
-    id: number,
-    newScheduledFor: Date,
-    tx?: Prisma.TransactionClient,
-  ): Promise<QueueItem> {
+  async reschedule(id: number, newScheduledFor: Date, tx?: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
       data: { attempts: { increment: 1 }, scheduled_for: newScheduledFor },
     });
-    this.log.debug(
-      { fn: "QueueRepositoryImpl.reschedule", id },
-      "Rescheduled review",
-    );
+    this.log.debug({ fn: 'QueueRepositoryImpl.reschedule', id }, 'Rescheduled review');
     return this.toQueueItem(row);
   }
 
   /** The caller must record the corresponding failed event (with reason) in the same transaction. */
-  async markFailed(
-    id: number,
-    tx?: Prisma.TransactionClient,
-  ): Promise<QueueItem> {
+  async markFailed(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
       data: { status: QueueStatus.failed },
     });
-    this.log.debug(
-      { fn: "QueueRepositoryImpl.markFailed", id },
-      "Marked review failed",
-    );
+    this.log.debug({ fn: 'QueueRepositoryImpl.markFailed', id }, 'Marked review failed');
     return this.toQueueItem(row);
   }
 
   async getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
     const rows = await this.client(tx).reviewQueue.findMany({
       where: { status: QueueStatus.pending },
-      orderBy: { scheduled_for: "asc" },
+      orderBy: { scheduled_for: 'asc' },
     });
-    this.log.debug(
-      { fn: "QueueRepositoryImpl.getPendingQueue", count: rows.length },
-      "Fetched pending queue",
-    );
+    this.log.debug({ fn: 'QueueRepositoryImpl.getPendingQueue', count: rows.length }, 'Fetched pending queue');
     return rows.map((row) => this.toQueueItem(row));
   }
 
