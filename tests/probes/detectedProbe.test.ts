@@ -8,17 +8,16 @@ import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-t
 import { describe, expect, it, jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
 
+const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
+
 const makeEventRepository = (entry: EventLogEntry): { eventRepository: EventRepository; record: jest.Mock<any> } => {
   const record = jest.fn<any>().mockResolvedValue(entry);
-  const eventRepository = {
-    record,
-    listForPr: jest.fn<any>(),
-  } as unknown as EventRepository;
+  const eventRepository = { record, listForPr: jest.fn<any>() } as unknown as EventRepository;
   return { eventRepository, record };
 };
 
 describe('DetectedProbe', () => {
-  it('logs intent and records a detected event with the observation context', async () => {
+  it('logs intent and records a detected event', async () => {
     const { fullName: repo } = makeUniqueRepoName();
     const pr = getUniqueInt();
     const correlationId = getUniqueString({ prefix: 'corr-' });
@@ -27,32 +26,24 @@ describe('DetectedProbe', () => {
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const entryUuid = getUniqueString({ prefix: 'uuid-' });
+    const tx = makeTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
     const logger = createMockLogger();
-    const observation: ObservationContext = {
-      correlationId,
-      requestId,
-      version,
-    };
+    const observation: ObservationContext = { correlationId, requestId, version };
 
     const probe = new DetectedProbe(
-      {
-        repo_full_name: repo,
-        pr_number: pr,
-        source_ts: sourceTs,
-        source_comment_url: sourceCommentUrl,
-      },
+      { repo_full_name: repo, pr_number: pr, source_ts: sourceTs, source_comment_url: sourceCommentUrl },
       eventRepository,
       observation,
       logger,
     );
 
     await probe.processStarted();
-    expect(logger.debug).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr }, 'Rate-limit comment detected');
+    expect(logger.debug).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr }, 'Review-limit comment detected');
 
-    const result = await probe.processCompleted();
+    const result = await probe.processCompleted(tx);
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -64,27 +55,23 @@ describe('DetectedProbe', () => {
         version,
         payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl },
       },
-      undefined,
+      tx,
     );
     expect(result).toBe(entry);
-    expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Detected event recorded');
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Review-limit comment detected and enqueued');
   });
 
   it('forwards the transaction client to the repository', async () => {
     const { fullName: repo } = makeUniqueRepoName();
     const pr = getUniqueInt();
-    const observation: ObservationContext = {
-      correlationId: getUniqueString(),
-      version: getUniqueString(),
-    };
+    const observation: ObservationContext = { correlationId: getUniqueString(), version: getUniqueString() };
     const entryUuid = getUniqueString({ prefix: 'uuid-' });
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
     const logger = createMockLogger();
-    const tx = {} as Prisma.TransactionClient;
+    const tx = makeTx();
 
     const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, eventRepository, observation, logger);
-
     await probe.processCompleted(tx);
 
     expect(record).toHaveBeenCalledWith(
@@ -99,6 +86,5 @@ describe('DetectedProbe', () => {
       },
       tx,
     );
-    expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Detected event recorded');
   });
 });

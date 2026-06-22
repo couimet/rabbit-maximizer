@@ -1,0 +1,369 @@
+import type { EventRepository } from '../src/db/eventRepository.js';
+import type { QueueRepository } from '../src/db/queueRepository.js';
+import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
+import type { ObservationContextProvider } from '../src/observability/observationContext.js';
+import { Scheduler } from '../src/scheduler.js';
+
+import { createMockLogger } from './helpers/createMockLogger.js';
+import { makeUniqueRepoName } from './helpers/index.js';
+
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import type { Logger } from '@couimet/logger-contract';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { type Prisma, type PrismaClient } from '@prisma/client';
+
+const TICK_INTERVAL_MS = 10_000;
+
+interface QueueItemStub {
+  id: number;
+  uuid: string;
+  repo_full_name: string;
+  pr_number: number;
+  status: string;
+  scheduled_for: Date;
+  attempts: number;
+  source_comment_url: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface MockSchedulerDeps {
+  queue: QueueRepository;
+  github: CoderabbitGitHubClient;
+  events: EventRepository;
+  observation: ObservationContextProvider;
+  prisma: PrismaClient;
+  tx: Prisma.TransactionClient;
+  logger: Logger;
+}
+
+const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => ({
+  id: over.id ?? getUniqueInt(),
+  uuid: over.uuid ?? getUniqueString({ prefix: 'uuid-' }),
+  repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
+  pr_number: over.pr_number ?? getUniqueInt(),
+  status: over.status ?? 'pending',
+  scheduled_for: over.scheduled_for ?? new Date(Date.now() - 60_000),
+  attempts: over.attempts ?? 0,
+  source_comment_url: over.source_comment_url ?? getUniqueString({ prefix: 'https://gh/c/' }),
+  created_at: over.created_at ?? getUniqueDate(),
+  updated_at: over.updated_at ?? getUniqueDate(),
+});
+
+const setup = (): MockSchedulerDeps => {
+  const queue = {
+    enqueue: jest.fn<any>(),
+    getNextDue: jest.fn<any>(),
+    markPosted: jest.fn<any>(),
+    markCompleted: jest.fn<any>(),
+    reschedule: jest.fn<any>(),
+    markFailed: jest.fn<any>(),
+    getPendingQueue: jest.fn<any>(),
+  } as unknown as QueueRepository;
+
+  const github = {
+    searchRateLimitComments: jest.fn<any>(),
+    fetchComment: jest.fn<any>(),
+    postRetrigger: jest.fn<any>(),
+  } as unknown as CoderabbitGitHubClient;
+
+  const events = {
+    record: jest.fn<any>(),
+    listForPr: jest.fn<any>(),
+  } as unknown as EventRepository;
+
+  const obsContext = {
+    correlationId: getUniqueString({ prefix: 'corr-' }),
+    requestId: getUniqueString({ prefix: 'req-' }),
+    version: '1.0.0-test',
+  };
+
+  const observation = {
+    current: jest.fn<any>().mockReturnValue(obsContext),
+  } as unknown as ObservationContextProvider;
+
+  const tx = {} as Prisma.TransactionClient;
+
+  const prisma = {
+    $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)),
+  } as unknown as PrismaClient;
+
+  const logger = createMockLogger();
+
+  return { queue, github, events, observation, prisma, tx, logger };
+};
+
+describe('Scheduler', () => {
+  let deps: MockSchedulerDeps;
+
+  beforeEach(() => {
+    deps = setup();
+    jest.useFakeTimers();
+  });
+
+  const createScheduler = () => new Scheduler(deps.queue, deps.github, deps.events, deps.observation, deps.prisma, deps.logger);
+
+  describe('tick', () => {
+    it('posts retrigger, marks posted, and records posted event in a transaction', async () => {
+      const item = makeItem();
+      const postedHtmlUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: postedHtmlUrl });
+
+      const scheduler = createScheduler();
+      scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
+      expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(deps.queue.markPosted).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'posted',
+          repo_full_name: item.repo_full_name,
+          pr_number: item.pr_number,
+          correlation_id: deps.observation.current().correlationId,
+          request_id: deps.observation.current().requestId,
+          version: deps.observation.current().version,
+          payload: {
+            source_comment_url: item.source_comment_url,
+            posted_comment_url: postedHtmlUrl,
+          },
+        },
+        deps.tx,
+      );
+      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          runId: expect.any(String),
+        },
+        'Retrigger posted',
+      );
+
+      await scheduler.start().stop();
+    });
+
+    it('marks failed and records failed event on HTTP 404', async () => {
+      const item = makeItem();
+      const notFoundError = { status: 404 };
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(notFoundError);
+
+      const scheduler = createScheduler();
+      scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'failed',
+          repo_full_name: item.repo_full_name,
+          pr_number: item.pr_number,
+          correlation_id: deps.observation.current().correlationId,
+          request_id: deps.observation.current().requestId,
+          version: deps.observation.current().version,
+          payload: { reason: 'PR closed or merged' },
+        },
+        deps.tx,
+      );
+      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          status: 404,
+        },
+        'PR closed or merged; marked failed',
+      );
+
+      await scheduler.start().stop();
+    });
+
+    it('marks failed on HTTP 410', async () => {
+      const item = makeItem();
+      const goneError = { status: 410 };
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(goneError);
+
+      const scheduler = createScheduler();
+      scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(expect.objectContaining({ status: 410 }), 'PR closed or merged; marked failed');
+
+      await scheduler.start().stop();
+    });
+
+    it('returns early when no items are due', async () => {
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(null);
+
+      const scheduler = createScheduler();
+      scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
+      expect(deps.queue.markPosted).not.toHaveBeenCalled();
+      expect(deps.queue.markFailed).not.toHaveBeenCalled();
+      expect(deps.events.record).not.toHaveBeenCalled();
+
+      await scheduler.start().stop();
+    });
+
+    it('logs warning and skips item on unknown error (item stays pending)', async () => {
+      const item = makeItem();
+      const networkError = new Error('Network timeout');
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(networkError);
+
+      const scheduler = createScheduler();
+      scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.queue.markFailed).not.toHaveBeenCalled();
+      expect(deps.events.record).not.toHaveBeenCalled();
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          error: 'Network timeout',
+        },
+        'Post retrigger failed; will retry next tick',
+      );
+
+      await scheduler.start().stop();
+    });
+  });
+
+  describe('concurrency', () => {
+    it('skips tick when another tick is already in-flight', async () => {
+      const item = makeItem();
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+
+      let resolvePost: (value: unknown) => void;
+      const postPromise = new Promise((resolve) => {
+        resolvePost = resolve;
+      });
+      (deps.github.postRetrigger as jest.Mock<any>).mockReturnValue(postPromise);
+
+      const scheduler = createScheduler();
+      scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      scheduler['tick']();
+
+      await Promise.resolve();
+
+      expect(deps.github.postRetrigger).toHaveBeenCalledTimes(1);
+
+      resolvePost!({ htmlUrl: getUniqueString({ prefix: 'https://gh/' }) });
+      await scheduler.start().stop();
+    });
+  });
+
+  describe('stop', () => {
+    it('drains the in-flight tick before resolving stop', async () => {
+      const item = makeItem();
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+
+      let resolvePost: (value: unknown) => void;
+      const postPromise = new Promise((resolve) => {
+        resolvePost = resolve;
+      });
+      (deps.github.postRetrigger as jest.Mock<any>).mockReturnValue(postPromise);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      let stopResolved = false;
+      const stopPromise = stop().then(() => {
+        stopResolved = true;
+      });
+
+      await Promise.resolve();
+      expect(stopResolved).toBe(false);
+
+      resolvePost!({ htmlUrl: getUniqueString({ prefix: 'https://gh/' }) });
+      await stopPromise;
+      expect(stopResolved).toBe(true);
+    });
+  });
+
+  describe('start', () => {
+    it('fires first tick immediately and starts an interval', async () => {
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(null);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.queue.getNextDue).toHaveBeenCalledTimes(1);
+      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
+
+      jest.advanceTimersByTime(TICK_INTERVAL_MS);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      jest.advanceTimersByTime(TICK_INTERVAL_MS);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.queue.getNextDue).toHaveBeenCalledTimes(3);
+
+      await stop();
+    });
+
+    it('stop clears the interval and logs', async () => {
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(null);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      await stop();
+
+      jest.advanceTimersByTime(TICK_INTERVAL_MS * 2);
+
+      expect(deps.queue.getNextDue).toHaveBeenCalledTimes(1);
+      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
+    });
+  });
+});

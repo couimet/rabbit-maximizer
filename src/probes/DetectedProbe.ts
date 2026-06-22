@@ -32,11 +32,11 @@ export class DetectedProbe extends EventProbe {
   }
 
   processStarted(): Promise<void> {
-    this.log.debug(this.loggingCtx, 'Rate-limit comment detected');
+    this.log.debug(this.loggingCtx, 'Review-limit comment detected');
     return Promise.resolve();
   }
 
-  async processCompleted(tx?: Prisma.TransactionClient): Promise<EventLogEntry> {
+  async processCompleted(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
     const event = await this.eventRepository.record(
       {
         type: EventType.detected,
@@ -53,7 +53,7 @@ export class DetectedProbe extends EventProbe {
       tx,
     );
 
-    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'Detected event recorded');
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'Review-limit comment detected and enqueued');
     return event;
   }
 }

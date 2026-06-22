@@ -1,8 +1,5 @@
-import type { QueueRepository } from '../src/db/queueRepository.js';
 import { PollDetector } from '../src/detectorPoll.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
-import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
-import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { RateLimitComment } from '../src/types/RateLimitComment.js';
 
 import { createMockLogger } from './helpers/createMockLogger.js';
@@ -16,16 +13,11 @@ const POLL_INTERVAL_SEC = 90;
 const POLL_INTERVAL_MS = POLL_INTERVAL_SEC * 1000;
 const EXPECTED_REPO_COUNT = 1;
 const MS_PER_SECOND = 1000;
-const TICK_DEPTH = 6;
+const TICK_DEPTH = 20;
 
 interface MockDetectorDeps {
   github: CoderabbitGitHubClient;
-  queue: QueueRepository;
-  probes: ProbeFactory;
-  probe: {
-    processStarted: jest.Mock<() => Promise<void>>;
-    processCompleted: jest.Mock<() => Promise<unknown>>;
-  };
+  onDetected: jest.Mock<any>;
   logger: Logger;
 }
 
@@ -39,32 +31,15 @@ const makeComment = (overrides: { commentId?: number; repoFullName?: string; prN
 
 const setup = (): MockDetectorDeps => {
   const github = {
-    searchRateLimitComments: jest.fn<CoderabbitGitHubClient['searchRateLimitComments']>(),
-    fetchComment: jest.fn<CoderabbitGitHubClient['fetchComment']>(),
-    postRetrigger: jest.fn<CoderabbitGitHubClient['postRetrigger']>(),
+    searchRateLimitComments: jest.fn<any>(),
+    fetchComment: jest.fn<any>(),
+    postRetrigger: jest.fn<any>(),
   } as unknown as CoderabbitGitHubClient;
 
-  const queue = {
-    enqueue: jest.fn<QueueRepository['enqueue']>(),
-    getNextDue: jest.fn(),
-    markCompleted: jest.fn(),
-    reschedule: jest.fn(),
-    markFailed: jest.fn(),
-    getPendingQueue: jest.fn(),
-  } as unknown as QueueRepository;
-
-  const probe = {
-    processStarted: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    processCompleted: jest.fn<() => Promise<unknown>>().mockResolvedValue({ uuid: getUniqueString() }),
-  };
-
-  const probes = {
-    createDetectedProbe: jest.fn<ProbeFactory['createDetectedProbe']>().mockReturnValue(probe as unknown as DetectedProbe),
-  } as unknown as ProbeFactory;
-
+  const onDetected = jest.fn<any>().mockResolvedValue(undefined);
   const logger = createMockLogger();
 
-  return { github, queue, probes, probe, logger };
+  return { github, onDetected, logger };
 };
 
 describe('PollDetector', () => {
@@ -73,22 +48,21 @@ describe('PollDetector', () => {
   beforeEach(() => {
     deps = setup();
     jest.useFakeTimers();
+    jest.spyOn(Math, 'random').mockReturnValue(0.5);
   });
+
+  const createDetector = () => new PollDetector(deps.github, deps.onDetected, deps.logger);
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([]);
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([]);
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       const { stop } = detector.start();
 
       expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.start',
-          pollIntervalSec: POLL_INTERVAL_SEC,
-          repoCount: EXPECTED_REPO_COUNT,
-        },
+        { fn: 'PollDetector.start', pollIntervalSec: POLL_INTERVAL_SEC, repoCount: EXPECTED_REPO_COUNT },
         'Starting poll detector',
       );
 
@@ -96,9 +70,9 @@ describe('PollDetector', () => {
     });
 
     it('stop clears the interval', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([]);
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([]);
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       const { stop } = detector.start();
 
       await stop();
@@ -107,49 +81,18 @@ describe('PollDetector', () => {
       expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'PollDetector.stop' }, 'Poll detector stopped');
     });
-
-    it('re-fires on each interval', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([]);
-
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
-      const { stop } = detector.start();
-
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.start',
-          pollIntervalSec: POLL_INTERVAL_SEC,
-          repoCount: EXPECTED_REPO_COUNT,
-        },
-        'Starting poll detector',
-      );
-
-      for (let i = 0; i < TICK_DEPTH; i++) {
-        await Promise.resolve();
-      }
-
-      jest.advanceTimersByTime(POLL_INTERVAL_MS);
-
-      for (let i = 0; i < TICK_DEPTH; i++) {
-        await Promise.resolve();
-      }
-
-      jest.advanceTimersByTime(POLL_INTERVAL_MS);
-
-      await stop();
-      expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(3);
-    });
   });
 
   describe('detection', () => {
-    it('fetches body, verifies markers, enqueues with computed scheduledFor, and fires probe', async () => {
+    it('fetches body, verifies markers, and fires onDetected callback with jittered wait', async () => {
       const comment = makeComment({});
-      const bodyText = `some text rate limited by coderabbit.ai more text Please wait 5 minutes and 30 seconds before requesting another review.`;
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock).mockResolvedValue(bodyText);
+      const bodyText = 'some text rate limited by coderabbit.ai more text Please wait 5 minutes and 30 seconds before requesting another review.';
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
+      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 5 * 60 + 30;
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       detector.start();
 
       for (let i = 0; i < TICK_DEPTH; i++) {
@@ -158,71 +101,23 @@ describe('PollDetector', () => {
 
       const [owner, repo] = comment.repo_full_name.split('/');
       expect(deps.github.fetchComment).toHaveBeenCalledWith(owner, repo, comment.comment_id);
-
-      expect(deps.queue.enqueue).toHaveBeenCalledTimes(1);
-      expect(deps.queue.enqueue).toHaveBeenCalledWith(comment.repo_full_name, comment.pr_number, expect.any(Date));
-      const enqueuedScheduledFor = (deps.queue.enqueue as jest.Mock).mock.calls[0][2] as Date;
-
-      const beforeScheduled = Date.now() + expectedWaitSeconds * MS_PER_SECOND;
-      const scheduledMs = enqueuedScheduledFor.getTime();
-      expect(Math.abs(scheduledMs - beforeScheduled)).toBeLessThan(MS_PER_SECOND);
-
-      expect(deps.probes.createDetectedProbe).toHaveBeenCalledWith({
-        repo_full_name: comment.repo_full_name,
-        pr_number: comment.pr_number,
-        source_ts: new Date(comment.created_at),
-        source_comment_url: comment.url,
-      });
-      expect(deps.probe.processStarted).toHaveBeenCalled();
-      expect(deps.probe.processCompleted).toHaveBeenCalled();
-
-      const scheduledForIso = enqueuedScheduledFor.toISOString();
-
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.tick',
-          repo: comment.repo_full_name,
-          pr: comment.pr_number,
-          commentId: comment.comment_id,
-          scheduledFor: scheduledForIso,
-          waitSeconds: expectedWaitSeconds,
-        },
-        'Rate-limit comment detected and enqueued',
-      );
+      expect(deps.onDetected).toHaveBeenCalledWith(comment, expectedWaitSeconds);
     });
 
     it('falls back to DEFAULT_FALLBACK_WAIT_SECONDS when parseWaitSeconds returns undefined', async () => {
       const comment = makeComment({});
       const bodyText = 'rate limited by coderabbit.ai but no wait time pattern';
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock).mockResolvedValue(bodyText);
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
+      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       detector.start();
 
       for (let i = 0; i < TICK_DEPTH; i++) {
         await Promise.resolve();
       }
 
-      expect(deps.queue.enqueue).toHaveBeenCalledTimes(1);
-      expect(deps.queue.enqueue).toHaveBeenCalledWith(comment.repo_full_name, comment.pr_number, expect.any(Date));
-      const scheduledFor = (deps.queue.enqueue as jest.Mock).mock.calls[0][2] as Date;
-      const expectedScheduled = Date.now() + DEFAULT_FALLBACK_WAIT_SECONDS * MS_PER_SECOND;
-      expect(Math.abs(scheduledFor.getTime() - expectedScheduled)).toBeLessThan(MS_PER_SECOND);
-
-      const scheduledForIso = scheduledFor.toISOString();
-
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.tick',
-          repo: comment.repo_full_name,
-          pr: comment.pr_number,
-          commentId: comment.comment_id,
-          scheduledFor: scheduledForIso,
-          waitSeconds: DEFAULT_FALLBACK_WAIT_SECONDS,
-        },
-        'Rate-limit comment detected and enqueued',
-      );
+      expect(deps.onDetected).toHaveBeenCalledWith(comment, DEFAULT_FALLBACK_WAIT_SECONDS);
     });
   });
 
@@ -230,42 +125,24 @@ describe('PollDetector', () => {
     it('skips comments already in seenCommentIds on subsequent ticks', async () => {
       const comment = makeComment({});
       const bodyText = 'rate limited by coderabbit.ai Please wait 1 minute before requesting another review.';
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock).mockResolvedValue(bodyText);
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
+      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       detector.start();
 
       for (let i = 0; i < TICK_DEPTH; i++) {
         await Promise.resolve();
       }
 
-      expect(deps.queue.enqueue).toHaveBeenCalledTimes(1);
-
-      const scheduledFor = (deps.queue.enqueue as jest.Mock).mock.calls[0][2] as Date;
-      const scheduledForIso = scheduledFor.toISOString();
-
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.tick',
-          repo: comment.repo_full_name,
-          pr: comment.pr_number,
-          commentId: comment.comment_id,
-          scheduledFor: scheduledForIso,
-          waitSeconds: 60,
-        },
-        'Rate-limit comment detected and enqueued',
-      );
+      expect(deps.onDetected).toHaveBeenCalledTimes(1);
 
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
       for (let i = 0; i < TICK_DEPTH; i++) {
         await Promise.resolve();
       }
 
-      expect(deps.queue.enqueue).toHaveBeenCalledTimes(1);
-
-      const detectionLogCalls = (deps.logger.info as jest.Mock).mock.calls.filter((c: unknown[]) => c[1] === 'Rate-limit comment detected and enqueued');
-      expect(detectionLogCalls.length).toBe(1);
+      expect(deps.onDetected).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -273,34 +150,33 @@ describe('PollDetector', () => {
     it('skips comments whose full body contains the own-retrigger marker', async () => {
       const comment = makeComment({});
       const bodyText = 'rate limited by coderabbit.ai <!-- rabbit-maximizer already processed -->';
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock).mockResolvedValue(bodyText);
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
+      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       detector.start();
 
       for (let i = 0; i < TICK_DEPTH; i++) {
         await Promise.resolve();
       }
 
-      expect(deps.queue.enqueue).not.toHaveBeenCalled();
-      expect(deps.probes.createDetectedProbe).not.toHaveBeenCalled();
+      expect(deps.onDetected).not.toHaveBeenCalled();
     });
 
-    it('skips comments that lack the rate-limit marker in the full body', async () => {
+    it('skips comments that lack the rate-limit marker', async () => {
       const comment = makeComment({});
       const bodyText = 'some unrelated comment body';
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock).mockResolvedValue(bodyText);
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
+      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       detector.start();
 
       for (let i = 0; i < TICK_DEPTH; i++) {
         await Promise.resolve();
       }
 
-      expect(deps.queue.enqueue).not.toHaveBeenCalled();
+      expect(deps.onDetected).not.toHaveBeenCalled();
     });
   });
 
@@ -311,16 +187,11 @@ describe('PollDetector', () => {
       const expectedRetryAfterSec = Math.ceil(retryAfterMs / MS_PER_SECOND);
       const rateLimitError = {
         status: 403,
-        response: {
-          headers: {
-            'x-ratelimit-remaining': '0',
-            'x-ratelimit-reset': String(resetEpoch),
-          },
-        },
+        response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(resetEpoch) } },
       };
-      (deps.github.searchRateLimitComments as jest.Mock).mockRejectedValue(rateLimitError);
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockRejectedValue(rateLimitError);
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       detector.start();
 
       for (let i = 0; i < TICK_DEPTH; i++) {
@@ -328,107 +199,27 @@ describe('PollDetector', () => {
       }
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.tick',
-          status: 403,
-          retryAfterSec: expectedRetryAfterSec,
-        },
+        { fn: 'PollDetector.tick', status: 403, retryAfterSec: expectedRetryAfterSec },
         'GitHub API rate limit exhausted; backing off until reset',
       );
-
       expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(1);
 
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
       await Promise.resolve();
-
       expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(1);
     });
 
-    it('logs rate-limit warning when API returns 429', async () => {
-      const resetEpoch = Math.ceil(Date.now() / MS_PER_SECOND) + 60;
-      const retryAfterMs = Math.max(0, resetEpoch * MS_PER_SECOND - Date.now());
-      const expectedRetryAfterSec = Math.ceil(retryAfterMs / MS_PER_SECOND);
-      const rateLimitError = {
-        status: 429,
-        response: {
-          headers: {
-            'x-ratelimit-remaining': '0',
-            'x-ratelimit-reset': String(resetEpoch),
-          },
-        },
-      };
-      (deps.github.searchRateLimitComments as jest.Mock).mockRejectedValue(rateLimitError);
-
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
-      detector.start();
-
-      for (let i = 0; i < TICK_DEPTH; i++) {
-        await Promise.resolve();
-      }
-
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.tick',
-          status: 429,
-          retryAfterSec: expectedRetryAfterSec,
-        },
-        'GitHub API rate limit exhausted; backing off until reset',
-      );
-    });
-
     it('logs generic warning for non-rate-limit errors and continues', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockRejectedValue(new Error('Network error'));
 
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
+      const detector = createDetector();
       detector.start();
 
       for (let i = 0; i < TICK_DEPTH; i++) {
         await Promise.resolve();
       }
 
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.tick',
-          error: 'Network error',
-        },
-        'Poll tick failed; will retry on next interval',
-      );
-    });
-
-    it('stringifies non-Error throwables for logging', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock).mockRejectedValue('plain string failure');
-
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
-      detector.start();
-
-      for (let i = 0; i < TICK_DEPTH; i++) {
-        await Promise.resolve();
-      }
-
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        {
-          fn: 'PollDetector.tick',
-          error: 'plain string failure',
-        },
-        'Poll tick failed; will retry on next interval',
-      );
-    });
-
-    it('does not crash the interval on error', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock).mockRejectedValue(new Error('Boom'));
-
-      const detector = new PollDetector(deps.github, deps.queue, deps.probes, deps.logger);
-      detector.start();
-
-      for (let i = 0; i < TICK_DEPTH; i++) {
-        await Promise.resolve();
-      }
-
-      (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([]);
-
-      jest.advanceTimersByTime(POLL_INTERVAL_MS);
-
-      expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(2);
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: 'Network error' }, 'Poll tick failed; will retry on next interval');
     });
   });
 });

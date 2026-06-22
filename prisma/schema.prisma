@@ -25,10 +25,12 @@ model ReviewQueue {
   /// Max 140: GitHub owner/org (<=39) + "/" + repo (<=100). Sources and CHECK in the init migration; mirrored in src/schemas/lengths.ts.
   repo_full_name String
   pr_number      Int
-  /// Max 25; one of 'pending' | 'completed' | 'failed' (CHECK in the init migration).
+  /// Max 25; one of 'pending' | 'posted' | 'completed' | 'failed' (CHECK in the init migration).
   status         String   @default("pending")
   scheduled_for  DateTime
   attempts       Int      @default(0)
+  /// Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
+  source_comment_url String?
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 

@@ -7,7 +7,10 @@ import { type ObservationContextProvider, UuidObservationContextProvider } from 
 import { ProbeFactory } from './probes/ProbeFactory.js';
 import { config } from './config.js';
 import { PollDetector } from './detectorPoll.js';
+import { EnqueueService } from './EnqueueService.js';
+import { Scheduler } from './scheduler.js';
 import { TYPES } from './inversify-types.js';
+import type { OnDetectedCallback } from './types/index.js';
 
 import 'reflect-metadata';
 import { getLogger, type Logger } from '@couimet/logger-contract';
@@ -42,7 +45,16 @@ container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(
 
 container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory).inSingletonScope();
 
+container.bind<EnqueueService>(TYPES.EnqueueService).to(EnqueueService).inSingletonScope();
+
+container
+  .bind<OnDetectedCallback>(TYPES.OnDetectedCallback)
+  .toDynamicValue(() => container.get<EnqueueService>(TYPES.EnqueueService).handle)
+  .inSingletonScope();
+
 container.bind<PollDetector>(TYPES.PollDetector).to(PollDetector).inSingletonScope();
+
+container.bind<Scheduler>(TYPES.Scheduler).to(Scheduler).inSingletonScope();
 
 export { container };
 

@@ -1,5 +1,7 @@
+import type { EventRepository } from './eventRepository.js';
 import { TYPES } from '../inversify-types.js';
-import { type QueueItem, QueueStatus } from '../types/index.js';
+import type { ObservationContext } from '../observability/observationContext.js';
+import { EventType, type QueueItem, QueueStatus } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
@@ -8,12 +10,20 @@ import { inject, injectable } from 'inversify';
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 export interface QueueRepository {
-  enqueue(repo: string, pr: number, scheduledFor: Date, tx?: Prisma.TransactionClient): Promise<QueueItem>;
+  enqueue(
+    repo: string,
+    pr: number,
+    scheduledFor: Date,
+    sourceCommentUrl: string,
+    newWait: string,
+    observation: ObservationContext,
+    tx: Prisma.TransactionClient,
+  ): Promise<QueueItem>;
   getNextDue(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
-  markCompleted(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem>;
-  reschedule(id: number, newScheduledFor: Date, tx?: Prisma.TransactionClient): Promise<QueueItem>;
-  /** The caller must record the corresponding failed event (with reason) in the same transaction. */
-  markFailed(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem>;
+  markPosted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  reschedule(id: number, newScheduledFor: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
 }
 
@@ -22,6 +32,7 @@ export class QueueRepositoryImpl implements QueueRepository {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
+    @inject(TYPES.EventRepository) private readonly events: EventRepository,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
@@ -30,7 +41,15 @@ export class QueueRepositoryImpl implements QueueRepository {
     return tx ?? this.prisma;
   }
 
-  async enqueue(repo: string, pr: number, scheduledFor: Date, tx?: Prisma.TransactionClient): Promise<QueueItem> {
+  async enqueue(
+    repo: string,
+    pr: number,
+    scheduledFor: Date,
+    sourceCommentUrl: string,
+    newWait: string,
+    observation: ObservationContext,
+    tx: Prisma.TransactionClient,
+  ): Promise<QueueItem> {
     const db = this.client(tx);
     try {
       const row = await db.reviewQueue.create({
@@ -38,8 +57,26 @@ export class QueueRepositoryImpl implements QueueRepository {
           repo_full_name: repo,
           pr_number: pr,
           scheduled_for: scheduledFor,
+          source_comment_url: sourceCommentUrl,
         },
       });
+
+      await this.events.record(
+        {
+          type: EventType.enqueued,
+          repo_full_name: repo,
+          pr_number: pr,
+          correlation_id: observation.correlationId,
+          request_id: observation.requestId,
+          version: observation.version,
+          payload: {
+            scheduled_for: scheduledFor,
+            new_wait: newWait,
+          },
+        },
+        tx,
+      );
+
       this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
       return this.toQueueItem(row);
     } catch (err) {
@@ -73,7 +110,16 @@ export class QueueRepositoryImpl implements QueueRepository {
     return row ? this.toQueueItem(row) : null;
   }
 
-  async markCompleted(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem> {
+  async markPosted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
+    const row = await this.client(tx).reviewQueue.update({
+      where: { id },
+      data: { status: QueueStatus.posted },
+    });
+    this.log.debug({ fn: 'QueueRepositoryImpl.markPosted', id }, 'Marked review posted');
+    return this.toQueueItem(row);
+  }
+
+  async markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
       data: { status: QueueStatus.completed },
@@ -82,7 +128,7 @@ export class QueueRepositoryImpl implements QueueRepository {
     return this.toQueueItem(row);
   }
 
-  async reschedule(id: number, newScheduledFor: Date, tx?: Prisma.TransactionClient): Promise<QueueItem> {
+  async reschedule(id: number, newScheduledFor: Date, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
       data: { attempts: { increment: 1 }, scheduled_for: newScheduledFor },
@@ -91,8 +137,7 @@ export class QueueRepositoryImpl implements QueueRepository {
     return this.toQueueItem(row);
   }
 
-  /** The caller must record the corresponding failed event (with reason) in the same transaction. */
-  async markFailed(id: number, tx?: Prisma.TransactionClient): Promise<QueueItem> {
+  async markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
       data: { status: QueueStatus.failed },
@@ -119,6 +164,7 @@ export class QueueRepositoryImpl implements QueueRepository {
       status: row.status as QueueStatus,
       scheduled_for: row.scheduled_for,
       attempts: row.attempts,
+      source_comment_url: row.source_comment_url ?? undefined,
       created_at: row.created_at,
       updated_at: row.updated_at,
     };

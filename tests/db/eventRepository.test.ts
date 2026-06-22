@@ -54,7 +54,7 @@ describe('EventRepositoryImpl', () => {
         version,
         payload: { source_comment_url: sourceCommentUrl },
       };
-      const result = await sut.record(input);
+      const result = await sut.record(input, prisma as unknown as Prisma.TransactionClient);
 
       expect(event.create).toHaveBeenCalledWith({
         data: {

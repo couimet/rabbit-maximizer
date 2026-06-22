@@ -33,7 +33,7 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
 export interface EventRepository {
-  record(input: NewEvent, tx?: Prisma.TransactionClient): Promise<EventLogEntry>;
+  record(input: NewEvent, tx: Prisma.TransactionClient): Promise<EventLogEntry>;
   listForPr(repo: string, pr: number): Promise<EventLogEntry[]>;
 }
 
@@ -46,8 +46,8 @@ export class EventRepositoryImpl implements EventRepository {
   ) {}
   /* c8 ignore stop */
 
-  async record(input: NewEvent, tx?: Prisma.TransactionClient): Promise<EventLogEntry> {
-    const row = await (tx ?? this.prisma).event.create({
+  async record(input: NewEvent, tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+    const row = await tx.event.create({
       data: {
         type: input.type,
         repo_full_name: input.repo_full_name,

@@ -16,5 +16,5 @@ export abstract class EventProbe {
   ) {}
 
   abstract processStarted(): Promise<void>;
-  abstract processCompleted(tx?: Prisma.TransactionClient): Promise<EventLogEntry>;
+  abstract processCompleted(tx: Prisma.TransactionClient): Promise<EventLogEntry>;
 }

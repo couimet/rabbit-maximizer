@@ -1,6 +1,7 @@
 import { type EventRepository, EventRepositoryImpl } from '../../src/db/eventRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
-import { type ObservationContext, type ObservationContextProvider, UuidObservationContextProvider } from '../../src/observability/observationContext.js';
+import type { ObservationContext, ObservationContextProvider } from '../../src/observability/observationContext.js';
+import { UuidObservationContextProvider } from '../../src/observability/observationContext.js';
 import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { createMockLogger, createMockPrismaClient, makeUniqueRepoName } from '../helpers/index.js';
@@ -12,28 +13,22 @@ import type { PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
 describe('ProbeFactory', () => {
-  it('creates a DetectedProbe wired with the current observation context', () => {
+  it('creates a DetectedProbe with the provided observation context', () => {
     const observation: ObservationContext = {
       correlationId: getUniqueString(),
       requestId: getUniqueString(),
       version: getUniqueString(),
     };
-    const current = jest.fn<() => ObservationContext>(() => observation);
-    const provider = { current } as ObservationContextProvider;
     const eventRepository = {
       record: jest.fn<any>(),
       listForPr: jest.fn<any>(),
     } as unknown as EventRepository;
     const logger = createMockLogger();
 
-    const factory = new ProbeFactory(eventRepository, provider, logger);
-    const probe = factory.createDetectedProbe({
-      repo_full_name: makeUniqueRepoName().fullName,
-      pr_number: getUniqueInt(),
-    });
+    const factory = new ProbeFactory(eventRepository, logger);
+    const probe = factory.createDetectedProbe({ repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() }, observation);
 
     expect(probe).toBeInstanceOf(DetectedProbe);
-    expect(current).toHaveBeenCalledWith();
   });
 
   describe('container binding', () => {

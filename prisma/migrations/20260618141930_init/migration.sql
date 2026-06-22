@@ -21,9 +21,10 @@ CREATE TABLE "review_queue" (
     "repo_full_name" TEXT NOT NULL CHECK (length("repo_full_name") <= 140),
     "pr_number" INTEGER NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'pending'
-      CHECK ("status" IN ('pending', 'completed', 'failed') AND length("status") <= 25),
+      CHECK ("status" IN ('pending', 'posted', 'completed', 'failed') AND length("status") <= 25),
     "scheduled_for" DATETIME NOT NULL,
     "attempts" INTEGER NOT NULL DEFAULT 0,
+    "source_comment_url" TEXT CHECK (length("source_comment_url") <= 512),
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" DATETIME NOT NULL
 );

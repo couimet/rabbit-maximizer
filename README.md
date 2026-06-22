@@ -1,8 +1,30 @@
 # Rabbit Maximizer
 
-A personal, single-tenant tool that maximizes CodeRabbit free-tier usage by re-requesting reviews after rate limits, spacing retries so they go through.
+A personal, single-tenant tool that maximizes CodeRabbit free-tier usage by re-requesting reviews after hitting the review limit, spacing retries so they go through.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
+
+## How It Works
+
+CodeRabbit's free tier limits how often it reviews PRs. When the limit is hit, CodeRabbit posts a review-limit comment with a wait time ("Please wait X minutes before requesting another review"). Rabbit Maximizer finds these comments, waits out the cooldown, and automatically re-requests the review.
+
+```mermaid
+flowchart TD
+    detect["Poll Detector<br>searches for<br>review-limit comments"]
+    queue[(Review Queue)]
+    sched[Scheduler<br>posts retriggers when due]
+    gh[GitHub PR]
+
+    detect -->|review-limit found| queue
+    queue -->|next due item| sched
+    sched -->|"@coderabbitai full review"| gh
+    gh -->|review runs| done([Done])
+    gh -->|another review limit| detect
+```
+
+The poll detector and scheduler run on independent intervals. The detector finds review-limit comments and enqueues PRs with their cooldown time. The scheduler picks due items and posts retrigger comments. If a retrigger hits another review limit, CodeRabbit posts a new comment — the detector finds it and the cycle continues. If the PR is closed or merged, the item is marked failed and stops retrying.
+
+Detailed state diagrams: [Event lifecycle](docs/event-lifecycle.md) · [Queue statuses](docs/queue-status.md)
 
 ## Stack
 

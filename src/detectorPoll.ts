@@ -1,10 +1,10 @@
-import type { QueueRepository } from './db/queueRepository.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
+import { getJitter } from './utils/getJitter.js';
 import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
 import { parseWaitSeconds } from './github/parseWaitSeconds.js';
 import { splitRepo } from './github/splitRepo.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
+import type { OnDetectedCallback } from './types/index.js';
 import { config } from './config.js';
 import { TYPES } from './inversify-types.js';
 
@@ -30,10 +30,8 @@ export class PollDetector {
   constructor(
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
-    @inject(TYPES.QueueRepository)
-    private readonly queue: QueueRepository,
-    @inject(TYPES.ProbeFactory)
-    private readonly probes: ProbeFactory,
+    @inject(TYPES.OnDetectedCallback)
+    private readonly onDetected: OnDetectedCallback,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
@@ -96,30 +94,9 @@ export class PollDetector {
 
         const waitSeconds = parseWaitSeconds(body);
         const effectiveWait = waitSeconds ?? DEFAULT_FALLBACK_WAIT_SECONDS;
-        const scheduledFor = new Date(Date.now() + effectiveWait * MILLISECONDS_PER_SECOND);
+        const jitteredWait = getJitter(effectiveWait);
 
-        await this.queue.enqueue(c.repo_full_name, c.pr_number, scheduledFor);
-
-        const probe = this.probes.createDetectedProbe({
-          repo_full_name: c.repo_full_name,
-          pr_number: c.pr_number,
-          source_ts: new Date(c.created_at),
-          source_comment_url: c.url,
-        });
-        await probe.processStarted();
-        await probe.processCompleted();
-
-        this.log.info(
-          {
-            fn: 'PollDetector.tick',
-            repo: c.repo_full_name,
-            pr: c.pr_number,
-            commentId: c.comment_id,
-            scheduledFor: scheduledFor.toISOString(),
-            waitSeconds: effectiveWait,
-          },
-          'Rate-limit comment detected and enqueued',
-        );
+        await this.onDetected(c, jitteredWait);
 
         this.seenCommentIds.add(c.comment_id);
       }

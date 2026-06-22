@@ -1,6 +1,6 @@
 import type { EventRepository } from '../db/eventRepository.js';
 import { TYPES } from '../inversify-types.js';
-import type { ObservationContextProvider } from '../observability/observationContext.js';
+import type { ObservationContext } from '../observability/observationContext.js';
 
 import { DetectedProbe, type DetectedProbeContext } from './DetectedProbe.js';
 
@@ -13,13 +13,11 @@ export class ProbeFactory {
   constructor(
     @inject(TYPES.EventRepository)
     private readonly eventRepository: EventRepository,
-    @inject(TYPES.ObservationContextProvider)
-    private readonly observationContextProvider: ObservationContextProvider,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
 
-  createDetectedProbe(context: DetectedProbeContext): DetectedProbe {
-    return new DetectedProbe(context, this.eventRepository, this.observationContextProvider.current(), this.log);
+  createDetectedProbe(context: DetectedProbeContext, observation: ObservationContext): DetectedProbe {
+    return new DetectedProbe(context, this.eventRepository, observation, this.log);
   }
 }

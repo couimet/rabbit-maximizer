@@ -26,3 +26,6 @@ export const REPO_FULL_NAME_MAX_LENGTH = 140;
 export const COMMENT_URL_MAX_LENGTH = 512;
 export const REASON_MAX_LENGTH = 1024;
 export const NEW_WAIT_MAX_LENGTH = 32;
+
+// Column limit for source_comment_url on review_queue.
+export const SOURCE_COMMENT_URL_MAX_LENGTH = COMMENT_URL_MAX_LENGTH;

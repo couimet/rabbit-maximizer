@@ -2,6 +2,7 @@ export * from './coderabbit.js';
 export * from './EventLogEntry.js';
 export * from './EventPayloads.js';
 export * from './EventType.js';
+export * from './OnDetectedCallback.js';
 export * from './QueueItem.js';
 export * from './QueueStatus.js';
 export * from './RateLimitComment.js';
