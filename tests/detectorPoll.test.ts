@@ -86,7 +86,7 @@ describe("PollDetector", () => {
   });
 
   describe("start", () => {
-    it("fires the first tick immediately and starts an interval", () => {
+    it("fires the first tick immediately and starts an interval", async () => {
       (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([]);
 
       const detector = new PollDetector(
@@ -107,10 +107,10 @@ describe("PollDetector", () => {
         "Starting poll detector",
       );
 
-      stop();
+      await stop();
     });
 
-    it("stop clears the interval", () => {
+    it("stop clears the interval", async () => {
       (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([]);
 
       const detector = new PollDetector(
@@ -121,7 +121,7 @@ describe("PollDetector", () => {
       );
       const { stop } = detector.start();
 
-      stop();
+      await stop();
       jest.advanceTimersByTime(POLL_INTERVAL_MS * 2);
 
       expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(1);
@@ -131,7 +131,7 @@ describe("PollDetector", () => {
       );
     });
 
-    it("re-fires on each interval", () => {
+    it("re-fires on each interval", async () => {
       (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([]);
 
       const detector = new PollDetector(
@@ -142,14 +142,28 @@ describe("PollDetector", () => {
       );
       const { stop } = detector.start();
 
-      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        {
+          fn: "PollDetector.start",
+          pollIntervalSec: POLL_INTERVAL_SEC,
+          repoCount: EXPECTED_REPO_COUNT,
+        },
+        "Starting poll detector",
+      );
+
+      for (let i = 0; i < TICK_DEPTH; i++) {
+        await Promise.resolve();
+      }
 
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
 
-      stop();
-      // First tick (immediate) + two interval ticks = 3, but async tick
-      // won't have resolved under fake timers; we only confirm the function
-      // was called (tick fires synchronously via setInterval callback).
+      for (let i = 0; i < TICK_DEPTH; i++) {
+        await Promise.resolve();
+      }
+
+      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+
+      await stop();
       expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(3);
     });
   });
@@ -185,12 +199,13 @@ describe("PollDetector", () => {
       );
 
       expect(deps.queue.enqueue).toHaveBeenCalledTimes(1);
-      const enqueuedRepo = (deps.queue.enqueue as jest.Mock).mock.calls[0][0];
-      const enqueuedPr = (deps.queue.enqueue as jest.Mock).mock.calls[0][1];
+      expect(deps.queue.enqueue).toHaveBeenCalledWith(
+        comment.repo_full_name,
+        comment.pr_number,
+        expect.any(Date),
+      );
       const enqueuedScheduledFor = (deps.queue.enqueue as jest.Mock).mock
         .calls[0][2] as Date;
-      expect(enqueuedRepo).toBe(comment.repo_full_name);
-      expect(enqueuedPr).toBe(comment.pr_number);
 
       const beforeScheduled = Date.now() + expectedWaitSeconds * MS_PER_SECOND;
       const scheduledMs = enqueuedScheduledFor.getTime();
@@ -243,6 +258,11 @@ describe("PollDetector", () => {
       }
 
       expect(deps.queue.enqueue).toHaveBeenCalledTimes(1);
+      expect(deps.queue.enqueue).toHaveBeenCalledWith(
+        comment.repo_full_name,
+        comment.pr_number,
+        expect.any(Date),
+      );
       const scheduledFor = (deps.queue.enqueue as jest.Mock).mock
         .calls[0][2] as Date;
       const expectedScheduled =
@@ -291,12 +311,36 @@ describe("PollDetector", () => {
 
       expect(deps.queue.enqueue).toHaveBeenCalledTimes(1);
 
+      const scheduledFor = (deps.queue.enqueue as jest.Mock).mock
+        .calls[0][2] as Date;
+      const scheduledForIso = scheduledFor.toISOString();
+
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        {
+          fn: "PollDetector.tick",
+          repo: comment.repo_full_name,
+          pr: comment.pr_number,
+          commentId: comment.comment_id,
+          scheduledFor: scheduledForIso,
+          waitSeconds: 60,
+        },
+        "Rate-limit comment detected and enqueued",
+      );
+
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
       for (let i = 0; i < TICK_DEPTH; i++) {
         await Promise.resolve();
       }
 
       expect(deps.queue.enqueue).toHaveBeenCalledTimes(1);
+
+      const detectionLogCalls = (
+        deps.logger.info as jest.Mock
+      ).mock.calls.filter(
+        (c: unknown[]) =>
+          c[1] === "Rate-limit comment detected and enqueued",
+      );
+      expect(detectionLogCalls.length).toBe(1);
     });
   });
 

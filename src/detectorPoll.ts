@@ -12,6 +12,9 @@ import { config } from "./config.js";
 
 const DEFAULT_FALLBACK_WAIT_SECONDS = 3600;
 const MILLISECONDS_PER_SECOND = 1000;
+const HTTP_FORBIDDEN = 403;
+const HTTP_TOO_MANY_REQUESTS = 429;
+const QUOTA_EXHAUSTED = "0";
 
 const POLL_INTERVAL_MS = config.POLL_INTERVAL * MILLISECONDS_PER_SECOND;
 
@@ -20,6 +23,7 @@ export class PollDetector {
   private seenCommentIds = new Set<number>();
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private rateLimitRetryAfter = 0;
+  private tickPromise: Promise<void> | null = null;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
@@ -33,7 +37,7 @@ export class PollDetector {
   ) {}
   /* c8 ignore stop */
 
-  start(): { stop(): void } {
+  start(): { stop(): Promise<void> } {
     this.log.info(
       {
         fn: "PollDetector.start",
@@ -52,17 +56,29 @@ export class PollDetector {
     return { stop: () => this.stop() };
   }
 
-  private stop(): void {
+  private async stop(): Promise<void> {
     if (this.intervalId !== undefined) {
       clearInterval(this.intervalId);
       this.intervalId = undefined;
+    }
+    if (this.tickPromise) {
+      await this.tickPromise;
     }
     this.log.info({ fn: "PollDetector.stop" }, "Poll detector stopped");
   }
 
   private async tick(): Promise<void> {
+    if (this.tickPromise) return;
     if (Date.now() < this.rateLimitRetryAfter) return;
+    this.tickPromise = this.executeTick();
+    try {
+      await this.tickPromise;
+    } finally {
+      this.tickPromise = null;
+    }
+  }
 
+  private async executeTick(): Promise<void> {
     try {
       const comments = await this.github.searchRateLimitComments(
         config.REPO_FILTER,
@@ -116,10 +132,20 @@ export class PollDetector {
         response?: { headers?: Record<string, string> };
       };
       if (
-        (error.status === 403 || error.status === 429) &&
-        error.response?.headers?.["x-ratelimit-remaining"] === "0"
+        (error.status === HTTP_FORBIDDEN || error.status === HTTP_TOO_MANY_REQUESTS) &&
+        error.response?.headers?.["x-ratelimit-remaining"] === QUOTA_EXHAUSTED
       ) {
         const resetEpoch = Number(error.response.headers["x-ratelimit-reset"]);
+        if (Number.isNaN(resetEpoch)) {
+          this.log.warn(
+            {
+              fn: "PollDetector.tick",
+              status: error.status,
+            },
+            "Rate limit response missing valid x-ratelimit-reset header; skipping backoff",
+          );
+          return;
+        }
         const retryAfterMs = Math.max(
           0,
           resetEpoch * MILLISECONDS_PER_SECOND - Date.now(),

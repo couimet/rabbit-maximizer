@@ -23,8 +23,7 @@ const { stop } = detector.start();
 
 const gracefulShutdown = () => {
   log.info({ fn: "main" }, "Stopping poll detector");
-  stop();
-  process.exit(0);
+  void stop().then(() => process.exit(0));
 };
 
 process.on("SIGTERM", gracefulShutdown);
