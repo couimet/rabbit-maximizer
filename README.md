@@ -1,6 +1,6 @@
 # Rabbit Maximizer
 
-<div align="center">
+<div style="text-align: center">
   <img src="./assets/icon.png" alt="Rabbit Maximizer Logo" width="128" />
 </div>
 
