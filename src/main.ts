@@ -10,7 +10,7 @@ import { getLogger } from '@couimet/logger-contract';
 initLogger();
 const log = getLogger();
 
-log.info({ fn: 'main' }, `rabbit-optimizer starting — DETECTION_MODE=${config.DETECTION_MODE}`);
+log.info({ fn: 'main' }, `rabbit-maximizer starting — DETECTION_MODE=${config.DETECTION_MODE}`);
 log.info({ fn: 'main' }, `Watching repos: ${describeRepoFilter(config.REPO_FILTER)}`);
 
 const detector = container.get<PollDetector>(TYPES.PollDetector);

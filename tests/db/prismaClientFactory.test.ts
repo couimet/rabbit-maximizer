@@ -5,7 +5,7 @@ const mkdirSync = jest.fn();
 const PrismaClientCtor = jest.fn();
 const PrismaBetterSqlite3Ctor = jest.fn();
 
-const config = { DATABASE_URL: 'file:./data/rabbit-optimizer.db' };
+const config = { DATABASE_URL: 'file:./data/rabbit-maximizer.db' };
 
 jest.unstable_mockModule('node:fs', () => ({ mkdirSync }));
 jest.unstable_mockModule('@prisma/client', () => ({
@@ -20,13 +20,13 @@ const { createPrismaClient } = await import('../../src/db/prismaClientFactory.js
 
 describe('createPrismaClient', () => {
   it('creates the parent directory and opens the configured file url as-is', () => {
-    config.DATABASE_URL = 'file:/tmp/rabbit-optimizer/db.sqlite';
+    config.DATABASE_URL = 'file:/tmp/rabbit-maximizer/db.sqlite';
 
     createPrismaClient();
 
-    expect(mkdirSync).toHaveBeenCalledWith(path.dirname('/tmp/rabbit-optimizer/db.sqlite'), { recursive: true });
+    expect(mkdirSync).toHaveBeenCalledWith(path.dirname('/tmp/rabbit-maximizer/db.sqlite'), { recursive: true });
     expect(PrismaBetterSqlite3Ctor).toHaveBeenCalledWith({
-      url: 'file:/tmp/rabbit-optimizer/db.sqlite',
+      url: 'file:/tmp/rabbit-maximizer/db.sqlite',
     });
     const [adapterInstance] = PrismaBetterSqlite3Ctor.mock.instances;
     expect(PrismaClientCtor).toHaveBeenCalledWith({

@@ -1,6 +1,6 @@
-# Rabbit Optimizer
+# Rabbit Maximizer
 
-A personal, single-tenant tool that re-requests CodeRabbit reviews on your PRs after you hit CodeRabbit's hourly rate limit, spacing the retries so they actually go through.
+A personal, single-tenant tool that maximizes CodeRabbit free-tier usage by re-requesting reviews after rate limits, spacing retries so they go through.
 
 [![License](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
@@ -14,8 +14,8 @@ TypeScript, Node, pnpm, Prisma (SQLite), Octokit. Runs locally as a long-lived p
 
 ```bash
 # Clone and install
-git clone https://github.com/couimet/rabbit-optimizer.git
-cd rabbit-optimizer
+git clone https://github.com/couimet/rabbit-maximizer.git
+cd rabbit-maximizer
 pnpm install
 
 # Configure
@@ -31,7 +31,7 @@ pnpm dev
 
 ### PAT Setup
 
-Rabbit Optimizer needs a GitHub **fine-grained personal access token** (classic tokens also work but fine-grained is recommended). The token must be issued by a **user account** (not a GitHub App) — CodeRabbit ignores `[bot]` identities. A user PAT works for both user-owned and organization-owned repos, as long as your account has access to them.
+Rabbit Maximizer needs a GitHub **fine-grained personal access token** (classic tokens also work but fine-grained is recommended). The token must be issued by a **user account** (not a GitHub App) — CodeRabbit ignores `[bot]` identities. A user PAT works for both user-owned and organization-owned repos, as long as your account has access to them.
 
 1. Go to https://github.com/settings/personal-access-tokens/new
 2. Under **Resource owner**, select your user account

@@ -272,7 +272,7 @@ describe('PollDetector', () => {
   describe('self-marker exclusion', () => {
     it('skips comments whose full body contains the own-retrigger marker', async () => {
       const comment = makeComment({});
-      const bodyText = 'rate limited by coderabbit.ai <!-- rabbit-optimizer already processed -->';
+      const bodyText = 'rate limited by coderabbit.ai <!-- rabbit-maximizer already processed -->';
       (deps.github.searchRateLimitComments as jest.Mock).mockResolvedValue([comment]);
       (deps.github.fetchComment as jest.Mock).mockResolvedValue(bodyText);
 

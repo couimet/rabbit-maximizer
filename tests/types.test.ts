@@ -27,7 +27,7 @@ describe('EventType', () => {
 
 describe('coderabbit constants', () => {
   it('REVIEW_BOT_SELF_MARKER_PREFIX matches our tool marker', () => {
-    expect(REVIEW_BOT_SELF_MARKER_PREFIX).toBe('<!-- rabbit-optimizer');
+    expect(REVIEW_BOT_SELF_MARKER_PREFIX).toBe('<!-- rabbit-maximizer');
   });
 
   it('REVIEW_BOT_RATE_LIMIT_MARKER is the known CodeRabbit hidden marker', () => {
