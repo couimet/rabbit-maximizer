@@ -91,12 +91,7 @@ export class Scheduler {
 
       const sourceCommentUrl: string = item.source_comment_url;
 
-      const { htmlUrl: postedCommentUrl } = await this.github.postRetrigger(
-        item.repo_full_name,
-        item.pr_number,
-        sourceCommentUrl,
-        runId,
-      );
+      const { htmlUrl: postedCommentUrl } = await this.github.postRetrigger(item.repo_full_name, item.pr_number, sourceCommentUrl, runId);
 
       const obs = this.observation.current();
 
@@ -132,10 +127,7 @@ export class Scheduler {
       );
     } catch (err: unknown) {
       if (!item) {
-        this.log.warn(
-          { fn: 'Scheduler.tick', error: err instanceof Error ? err.message : String(err) },
-          'executeTick failed before item was fetched',
-        );
+        this.log.warn({ fn: 'Scheduler.tick', error: err instanceof Error ? err.message : String(err) }, 'executeTick failed before item was fetched');
         return;
       }
 
