@@ -13,8 +13,11 @@ import { inject, injectable } from 'inversify';
 import { randomUUID } from 'node:crypto';
 
 const TICK_INTERVAL_MS = 10_000;
+const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_GONE = 410;
+
+const TERMINAL_HTTP_STATUSES = [HTTP_FORBIDDEN, HTTP_NOT_FOUND, HTTP_GONE];
 
 @injectable()
 export class Scheduler {
@@ -127,13 +130,16 @@ export class Scheduler {
       );
     } catch (err: unknown) {
       if (!item) {
-        this.log.warn({ fn: 'Scheduler.tick', error: err instanceof Error ? err.message : String(err) }, 'executeTick failed before item was fetched');
+        this.log.warn(
+          { fn: 'Scheduler.tick', error: err },
+          'executeTick failed before item was fetched',
+        );
         return;
       }
 
       const error = err as { status?: number };
 
-      if (error.status === HTTP_NOT_FOUND || error.status === HTTP_GONE) {
+      if (error.status !== undefined && TERMINAL_HTTP_STATUSES.includes(error.status)) {
         const obs = this.observation.current();
         const item_ = item;
 
@@ -149,7 +155,7 @@ export class Scheduler {
               request_id: obs.requestId,
               version: obs.version,
               payload: {
-                reason: 'PR closed or merged',
+                reason: error.status === HTTP_FORBIDDEN ? 'Access denied or PR unavailable' : 'PR closed or merged',
               },
             },
             tx,
@@ -164,7 +170,7 @@ export class Scheduler {
             queueId: item.id,
             status: error.status,
           },
-          'PR closed or merged; marked failed',
+          error.status === HTTP_FORBIDDEN ? 'Access denied or PR unavailable; marked failed' : 'PR closed or merged; marked failed',
         );
         return;
       }
@@ -175,7 +181,7 @@ export class Scheduler {
           repo: item.repo_full_name,
           pr: item.pr_number,
           queueId: item.id,
-          error: err instanceof Error ? err.message : String(err),
+          error: err,
         },
         'Post retrigger failed; will retry next tick',
       );

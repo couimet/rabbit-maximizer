@@ -96,7 +96,7 @@ export class QueueRepositoryImpl implements QueueRepository {
           return this.toQueueItem(existing);
         }
       }
-      this.log.warn({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, err }, 'Enqueue failed; rethrowing');
+      this.log.warn({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: err }, 'Enqueue failed; rethrowing');
       throw err;
     }
   }

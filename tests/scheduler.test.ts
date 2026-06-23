@@ -214,6 +214,48 @@ describe('Scheduler', () => {
       await stop();
     });
 
+    it('marks failed on HTTP 403', async () => {
+      const item = makeItem();
+      const forbiddenError = { status: 403 };
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(forbiddenError);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'failed',
+          repo_full_name: item.repo_full_name,
+          pr_number: item.pr_number,
+          correlation_id: deps.observation.current().correlationId,
+          request_id: deps.observation.current().requestId,
+          version: deps.observation.current().version,
+          payload: { reason: 'Access denied or PR unavailable' },
+        },
+        deps.tx,
+      );
+      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          status: 403,
+        },
+        'Access denied or PR unavailable; marked failed',
+      );
+
+      await stop();
+    });
+
     it('returns early when no items are due', async () => {
       (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(null);
 
@@ -305,7 +347,7 @@ describe('Scheduler', () => {
           repo: item.repo_full_name,
           pr: item.pr_number,
           queueId: item.id,
-          error: 'Network timeout',
+          error: networkError,
         },
         'Post retrigger failed; will retry next tick',
       );

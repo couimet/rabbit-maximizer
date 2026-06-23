@@ -219,14 +219,15 @@ describe('PollDetector', () => {
     });
 
     it('logs generic warning for non-rate-limit errors and continues', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock<any>).mockRejectedValue(new Error('Network error'));
+      const networkError = new Error('Network error');
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockRejectedValue(networkError);
 
       const detector = createDetector();
       detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: 'Network error' }, 'Poll tick failed; will retry on next interval');
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: networkError }, 'Poll tick failed; will retry on next interval');
     });
 
     it('logs generic warning with String(err) for non-Error rejections', async () => {

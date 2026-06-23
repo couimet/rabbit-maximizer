@@ -13,19 +13,19 @@ const createGracefulShutdown = ({ stopDetector, stopScheduler, stopServer, prism
   log.info({ fn: 'gracefulShutdown' }, 'Shutting down');
   void stopDetector()
     .catch((err) => {
-      log.warn({ fn: 'gracefulShutdown', err }, 'stopDetector failed during shutdown');
+      log.warn({ fn: 'gracefulShutdown', error: err }, 'stopDetector failed during shutdown');
     })
     .then(() => stopScheduler())
     .catch((err) => {
-      log.warn({ fn: 'gracefulShutdown', err }, 'stopScheduler failed during shutdown');
+      log.warn({ fn: 'gracefulShutdown', error: err }, 'stopScheduler failed during shutdown');
     })
     .then(() => stopServer?.())
     .catch((err) => {
-      log.warn({ fn: 'gracefulShutdown', err }, 'stopServer failed during shutdown');
+      log.warn({ fn: 'gracefulShutdown', error: err }, 'stopServer failed during shutdown');
     })
     .then(() => prisma.$disconnect())
     .catch((err) => {
-      log.warn({ fn: 'gracefulShutdown', err }, 'prisma.$disconnect failed during shutdown');
+      log.warn({ fn: 'gracefulShutdown', error: err }, 'prisma.$disconnect failed during shutdown');
     })
     .finally(() => {
       process.exit(0);

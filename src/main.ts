@@ -9,8 +9,11 @@ import { createGracefulShutdown } from './gracefulShutdown.js';
 import { TYPES } from './inversify-types.js';
 import { initLogger } from './logger.js';
 import type { Scheduler } from './scheduler.js';
+import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
+import { validateGitHubToken } from './validateGitHubToken.js';
 
 import { getLogger, type Logger } from '@couimet/logger-contract';
+import type { Octokit } from '@octokit/rest';
 import type { PrismaClient } from '@prisma/client';
 import 'reflect-metadata';
 
@@ -20,6 +23,19 @@ const log = getLogger();
 log.info({ fn: 'main' }, `rabbit-maximizer starting — DETECTION_MODE=${config.DETECTION_MODE}`);
 log.info({ fn: 'main' }, `Watching repos: ${describeRepoFilter(config.REPO_FILTER)}`);
 log.info({ fn: 'main' }, `Poll interval: ${config.POLL_INTERVAL}s`);
+
+const octokit = container.get<Octokit>(TYPES.Octokit);
+try {
+  await validateGitHubToken({ octokit, repoFilter: config.REPO_FILTER, log });
+} catch (err) {
+  log.warn(
+    {
+      fn: 'main',
+      error: err,
+    },
+    'GitHub token validation failed — the app will start but posting retrigger comments may fail with 403',
+  );
+}
 
 const prisma = container.get<PrismaClient>(TYPES.PrismaClient);
 log.info({ fn: 'main' }, `Connected to ${describeDatabaseUrl(config.DATABASE_URL)}`);
