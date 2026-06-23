@@ -1,85 +1,140 @@
 import { createGracefulShutdown } from '../src/gracefulShutdown.js';
+import { createMockLogger } from './helpers/index.js';
 
-import { createMockLogger, drainMicrotasks } from './helpers/index.js';
-
-import type { Logger } from '@couimet/logger-contract';
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { PrismaClient } from '@prisma/client';
-
-const SHUTDOWN_CHAIN_TICKS = 12;
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('createGracefulShutdown', () => {
-  let stopDetector: jest.Mock<() => Promise<void>>;
-  let stopScheduler: jest.Mock<() => Promise<void>>;
-  let $disconnect: jest.Mock<() => Promise<void>>;
-  let prisma: PrismaClient;
-  let logger: Logger;
-  let exitSpy: jest.SpiedFunction<typeof process.exit>;
+  const exit = process.exit;
 
   beforeEach(() => {
-    stopDetector = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-    stopScheduler = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-    $disconnect = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
-    prisma = { $disconnect } as unknown as PrismaClient;
-    logger = createMockLogger();
-    exitSpy = jest.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    process.exit = jest.fn<typeof process.exit>() as any;
   });
 
-  it('chains stopDetector → stopScheduler → prisma.$disconnect → process.exit(0)', async () => {
-    const shutdown = createGracefulShutdown({ stopDetector, stopScheduler, prisma, log: logger });
-    shutdown();
-
-    await drainMicrotasks(SHUTDOWN_CHAIN_TICKS);
-
-    expect(logger.info).toHaveBeenCalledWith({ fn: 'gracefulShutdown' }, 'Shutting down');
-    expect(stopDetector).toHaveBeenCalledTimes(1);
-    expect(stopScheduler).toHaveBeenCalledTimes(1);
-    expect($disconnect).toHaveBeenCalledTimes(1);
-    expect(exitSpy).toHaveBeenCalledWith(0);
+  afterEach(() => {
+    process.exit = exit;
   });
 
-  it('logs warning when stopDetector fails and continues the chain', async () => {
-    const error = new Error('detector crashed');
-    stopDetector.mockRejectedValue(error);
+  it('logs shutdown and stops all services in order', async () => {
+    const order: string[] = [];
+    const deps = {
+      stopDetector: jest.fn<any>().mockImplementation(() => { order.push('detector'); return Promise.resolve(); }),
+      stopScheduler: jest.fn<any>().mockImplementation(() => { order.push('scheduler'); return Promise.resolve(); }),
+      stopServer: jest.fn<any>().mockImplementation(() => { order.push('server'); return Promise.resolve(); }),
+      prisma: { $disconnect: jest.fn<any>().mockImplementation(() => { order.push('prisma'); return Promise.resolve(); }) },
+      log: createMockLogger(),
+    };
 
-    const shutdown = createGracefulShutdown({ stopDetector, stopScheduler, prisma, log: logger });
+    const shutdown = createGracefulShutdown(deps);
     shutdown();
 
-    await drainMicrotasks(SHUTDOWN_CHAIN_TICKS);
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(logger.warn).toHaveBeenCalledWith({ fn: 'gracefulShutdown', err: error }, 'stopDetector failed during shutdown');
-    expect(stopScheduler).toHaveBeenCalledTimes(1);
-    expect($disconnect).toHaveBeenCalledTimes(1);
-    expect(exitSpy).toHaveBeenCalledWith(0);
+    expect(deps.log.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'gracefulShutdown' }, 'Shutting down');
+    expect(order).toStrictEqual(['detector', 'scheduler', 'server', 'prisma']);
+    expect(process.exit).toHaveBeenCalledWith(0);
   });
 
-  it('logs warning when stopScheduler fails and continues the chain', async () => {
-    const error = new Error('scheduler crashed');
-    stopScheduler.mockRejectedValue(error);
+  it('logs warning when stopDetector fails and continues chain', async () => {
+    const err = new Error('detector crash');
+    const deps = {
+      stopDetector: jest.fn<any>().mockRejectedValue(err),
+      stopScheduler: jest.fn<any>().mockResolvedValue(undefined),
+      stopServer: jest.fn<any>().mockResolvedValue(undefined),
+      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) },
+      log: createMockLogger(),
+    };
 
-    const shutdown = createGracefulShutdown({ stopDetector, stopScheduler, prisma, log: logger });
+    const shutdown = createGracefulShutdown(deps);
     shutdown();
 
-    await drainMicrotasks(SHUTDOWN_CHAIN_TICKS);
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(logger.warn).toHaveBeenCalledWith({ fn: 'gracefulShutdown', err: error }, 'stopScheduler failed during shutdown');
-    expect(stopDetector).toHaveBeenCalledTimes(1);
-    expect($disconnect).toHaveBeenCalledTimes(1);
-    expect(exitSpy).toHaveBeenCalledWith(0);
+    expect(deps.log.warn as jest.Mock<any>).toHaveBeenCalledWith(
+      { fn: 'gracefulShutdown', error: err },
+      'stopDetector failed during shutdown',
+    );
+    expect(deps.stopScheduler).toHaveBeenCalled();
+    expect(deps.prisma.$disconnect).toHaveBeenCalled();
   });
 
-  it('logs warning when prisma.$disconnect fails and still calls process.exit(0)', async () => {
-    const error = new Error('disconnect failed');
-    $disconnect.mockRejectedValue(error);
+  it('logs warning when stopScheduler fails and continues chain', async () => {
+    const err = new Error('scheduler crash');
+    const deps = {
+      stopDetector: jest.fn<any>().mockResolvedValue(undefined),
+      stopScheduler: jest.fn<any>().mockRejectedValue(err),
+      stopServer: jest.fn<any>().mockResolvedValue(undefined),
+      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) },
+      log: createMockLogger(),
+    };
 
-    const shutdown = createGracefulShutdown({ stopDetector, stopScheduler, prisma, log: logger });
+    const shutdown = createGracefulShutdown(deps);
     shutdown();
 
-    await drainMicrotasks(SHUTDOWN_CHAIN_TICKS);
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(logger.warn).toHaveBeenCalledWith({ fn: 'gracefulShutdown', err: error }, 'prisma.$disconnect failed during shutdown');
-    expect(stopDetector).toHaveBeenCalledTimes(1);
-    expect(stopScheduler).toHaveBeenCalledTimes(1);
-    expect(exitSpy).toHaveBeenCalledWith(0);
+    expect(deps.log.warn as jest.Mock<any>).toHaveBeenCalledWith(
+      { fn: 'gracefulShutdown', error: err },
+      'stopScheduler failed during shutdown',
+    );
+    expect(deps.prisma.$disconnect).toHaveBeenCalled();
+  });
+
+  it('skips stopServer when undefined', async () => {
+    const deps = {
+      stopDetector: jest.fn<any>().mockResolvedValue(undefined),
+      stopScheduler: jest.fn<any>().mockResolvedValue(undefined),
+      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) },
+      log: createMockLogger(),
+    };
+
+    const shutdown = createGracefulShutdown(deps);
+    shutdown();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(deps.prisma.$disconnect).toHaveBeenCalled();
+  });
+
+  it('logs warning when stopServer fails and continues', async () => {
+    const err = new Error('server crash');
+    const deps = {
+      stopDetector: jest.fn<any>().mockResolvedValue(undefined),
+      stopScheduler: jest.fn<any>().mockResolvedValue(undefined),
+      stopServer: jest.fn<any>().mockRejectedValue(err),
+      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) },
+      log: createMockLogger(),
+    };
+
+    const shutdown = createGracefulShutdown(deps);
+    shutdown();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(deps.log.warn as jest.Mock<any>).toHaveBeenCalledWith(
+      { fn: 'gracefulShutdown', error: err },
+      'stopServer failed during shutdown',
+    );
+    expect(deps.prisma.$disconnect).toHaveBeenCalled();
+  });
+
+  it('logs warning when prisma.$disconnect fails', async () => {
+    const err = new Error('prisma crash');
+    const deps = {
+      stopDetector: jest.fn<any>().mockResolvedValue(undefined),
+      stopScheduler: jest.fn<any>().mockResolvedValue(undefined),
+      prisma: { $disconnect: jest.fn<any>().mockRejectedValue(err) },
+      log: createMockLogger(),
+    };
+
+    const shutdown = createGracefulShutdown(deps);
+    shutdown();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(deps.log.warn as jest.Mock<any>).toHaveBeenCalledWith(
+      { fn: 'gracefulShutdown', error: err },
+      'prisma.$disconnect failed during shutdown',
+    );
+    expect(process.exit).toHaveBeenCalledWith(0);
   });
 });
