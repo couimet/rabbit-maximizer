@@ -5,12 +5,12 @@ import type { CoderabbitGitHubClient } from './github/index.js';
 import { CoderabbitGitHubClientImpl } from './github/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
 import { ProbeFactory } from './probes/ProbeFactory.js';
+import type { OnDetectedCallback } from './types/index.js';
 import { config } from './config.js';
 import { PollDetector } from './detectorPoll.js';
 import { EnqueueService } from './EnqueueService.js';
-import { Scheduler } from './scheduler.js';
 import { TYPES } from './inversify-types.js';
-import type { OnDetectedCallback } from './types/index.js';
+import { Scheduler } from './scheduler.js';
 
 import 'reflect-metadata';
 import { getLogger, type Logger } from '@couimet/logger-contract';

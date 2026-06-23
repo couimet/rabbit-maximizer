@@ -1,8 +1,8 @@
-import { EnqueueService } from '../src/EnqueueService.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
+import { EnqueueService } from '../src/EnqueueService.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
-import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
+import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { RateLimitComment } from '../src/types/RateLimitComment.js';
 
 import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';

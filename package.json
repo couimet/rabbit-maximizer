@@ -16,6 +16,7 @@
     "dev": "DATABASE_URL=\"file:$PWD/data/rabbit-maximizer.db\" tsx src/main.ts",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
+    "postinstall": "prisma generate",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
@@ -39,6 +40,7 @@
     "@couimet/dynamic-testing": "^0.1.1",
     "@couimet/eslint-config": "^0.4.0",
     "@couimet/logger-contract-testing": "^1.0.1",
+    "eslint": "^10.5.0",
     "@jest/globals": "^30.4.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.0.0",
@@ -48,6 +50,7 @@
     "tsx": "^4.19.4",
     "typescript": "^6.0.3"
   },
+  "packageManager": "pnpm@10.19.0",
   "engines": {
     "node": ">=24"
   },

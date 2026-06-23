@@ -1,7 +1,8 @@
-import type { EventRepository } from './eventRepository.js';
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import { EventType, type QueueItem, QueueStatus } from '../types/index.js';
+
+import type { EventRepository } from './eventRepository.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';

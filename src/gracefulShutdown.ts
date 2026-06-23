@@ -1,5 +1,5 @@
-import type { PrismaClient } from '@prisma/client';
 import type { Logger } from '@couimet/logger-contract';
+import type { PrismaClient } from '@prisma/client';
 
 interface ShutdownDeps {
   stopDetector(): Promise<void>;

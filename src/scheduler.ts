@@ -1,16 +1,16 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
+import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
+import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
-import { TYPES } from './inversify-types.js';
 import { EventType } from './types/EventType.js';
+import { TYPES } from './inversify-types.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 import { randomUUID } from 'node:crypto';
-import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
-import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
 
 const TICK_INTERVAL_MS = 10_000;
 const HTTP_NOT_FOUND = 404;
