@@ -9,6 +9,7 @@ export default {
   restoreMocks: true,
 
   // Test execution settings
+  collectCoverage: true,
   errorOnDeprecated: true,
   testTimeout: 5000,
   maxWorkers: '50%',
