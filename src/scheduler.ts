@@ -130,10 +130,7 @@ export class Scheduler {
       );
     } catch (err: unknown) {
       if (!item) {
-        this.log.warn(
-          { fn: 'Scheduler.tick', error: err },
-          'executeTick failed before item was fetched',
-        );
+        this.log.warn({ fn: 'Scheduler.tick', error: err }, 'executeTick failed before item was fetched');
         return;
       }
 

@@ -252,10 +252,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns paginated queue items sorted by scheduled_for, with total count', async () => {
       const skip = 0;
       const take = 20;
-      const rows = [
-        makeRow({ status: 'pending' }),
-        makeRow({ status: 'posted' }),
-      ];
+      const rows = [makeRow({ status: 'pending' }), makeRow({ status: 'posted' })];
       const total = 5;
 
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -270,14 +267,13 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getAll(skip, take);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        orderBy: { scheduled_for: 'asc' }, skip, take,
+        orderBy: { scheduled_for: 'asc' },
+        skip,
+        take,
       });
       expect(reviewQueue.count).toHaveBeenCalledWith();
       expect(result).toStrictEqual({ items: rows.map(toExpectedItem), total });
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.getAll', count: rows.length, total },
-        'Fetched all queue items',
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getAll', count: rows.length, total }, 'Fetched all queue items');
     });
   });
 

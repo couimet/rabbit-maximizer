@@ -272,7 +272,9 @@ describe('EventRepositoryImpl', () => {
       const result = await sut.listRecent(skip, take);
 
       expect(event.findMany).toHaveBeenCalledWith({
-        orderBy: { ts: 'desc' }, skip, take,
+        orderBy: { ts: 'desc' },
+        skip,
+        take,
       });
       expect(event.count).toHaveBeenCalledWith();
       expect(result.items).toStrictEqual([
@@ -291,10 +293,7 @@ describe('EventRepositoryImpl', () => {
         },
       ]);
       expect(result.total).toBe(total);
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'EventRepositoryImpl.listRecent', count: rows.length, total },
-        'Listed recent events',
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total }, 'Listed recent events');
     });
   });
 

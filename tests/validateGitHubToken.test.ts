@@ -119,9 +119,7 @@ describe('validateGitHubToken', () => {
       ];
 
       rest.repos.get.mockResolvedValue({ data: {} });
-      rest.issues.createComment
-        .mockRejectedValueOnce({ status: 404 })
-        .mockRejectedValueOnce({ status: 403 });
+      rest.issues.createComment.mockRejectedValueOnce({ status: 404 }).mockRejectedValueOnce({ status: 403 });
 
       await validateGitHubToken({ octokit, repoFilter, log: logger });
 
@@ -145,10 +143,7 @@ describe('validateGitHubToken', () => {
       await validateGitHubToken({ octokit, repoFilter, log: logger });
 
       expect(rest.issues.createComment).not.toHaveBeenCalled();
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: FUNCTION_NAME, repo },
-        'Repository not accessible with this token',
-      );
+      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repo }, 'Repository not accessible with this token');
     });
 
     it('logs a warning for unexpected write-probe errors', async () => {
@@ -174,21 +169,20 @@ describe('validateGitHubToken', () => {
     it('throws when the token fails to authenticate', async () => {
       rest.users.getAuthenticated.mockRejectedValue(new Error('Bad credentials'));
 
-      await expect(validateGitHubToken({ octokit, repoFilter: [{ pattern: 'o/r', scope: 'repo' }], log: logger })).rejects.toThrow(
-        'Bad credentials',
-      );
+      await expect(validateGitHubToken({ octokit, repoFilter: [{ pattern: 'o/r', scope: 'repo' }], log: logger })).rejects.toThrow('Bad credentials');
     });
 
     it('throws when the filter resolves to zero repos', async () => {
       mockAuth();
       rest.repos.listForUser.mockResolvedValue({ data: [] });
 
-      await expect(() =>
-        validateGitHubToken({ octokit, repoFilter: [{ pattern: 'owner/*', scope: 'user' }], log: logger }),
-      ).toThrowRabbitOptimizerErrorAsync('TOKEN_VALIDATION_EMPTY_FILTER', {
-        message: 'REPO_FILTER resolved to zero repositories. Check that the filter matches at least one accessible repo.',
-        functionName: 'resolveAllRepos',
-      });
+      await expect(() => validateGitHubToken({ octokit, repoFilter: [{ pattern: 'owner/*', scope: 'user' }], log: logger })).toThrowRabbitOptimizerErrorAsync(
+        'TOKEN_VALIDATION_EMPTY_FILTER',
+        {
+          message: 'REPO_FILTER resolved to zero repositories. Check that the filter matches at least one accessible repo.',
+          functionName: 'resolveAllRepos',
+        },
+      );
     });
   });
 });

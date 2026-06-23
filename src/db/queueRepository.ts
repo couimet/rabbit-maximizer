@@ -160,14 +160,8 @@ export class QueueRepositoryImpl implements QueueRepository {
 
   async getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
     const db = this.client(tx);
-    const [rows, total] = await Promise.all([
-      db.reviewQueue.findMany({ orderBy: { scheduled_for: 'asc' }, skip, take }),
-      db.reviewQueue.count(),
-    ]);
-    this.log.debug(
-      { fn: 'QueueRepositoryImpl.getAll', count: rows.length, total },
-      'Fetched all queue items',
-    );
+    const [rows, total] = await Promise.all([db.reviewQueue.findMany({ orderBy: { scheduled_for: 'asc' }, skip, take }), db.reviewQueue.count()]);
+    this.log.debug({ fn: 'QueueRepositoryImpl.getAll', count: rows.length, total }, 'Fetched all queue items');
     return { items: rows.map((row) => this.toQueueItem(row)), total };
   }
 
@@ -181,10 +175,7 @@ export class QueueRepositoryImpl implements QueueRepository {
     for (const row of rows) {
       counts[row.status as QueueStatus] = row._count.status;
     }
-    this.log.debug(
-      { fn: 'QueueRepositoryImpl.getCountsByStatus', counts },
-      'Fetched queue counts by status',
-    );
+    this.log.debug({ fn: 'QueueRepositoryImpl.getCountsByStatus', counts }, 'Fetched queue counts by status');
     return counts;
   }
 

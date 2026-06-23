@@ -86,15 +86,9 @@ export class EventRepositoryImpl implements EventRepository {
   }
 
   async listRecent(skip: number, take: number): Promise<PaginatedResult<EventLogEntry>> {
-    const [rows, total] = await Promise.all([
-      this.prisma.event.findMany({ orderBy: { ts: 'desc' }, skip, take }),
-      this.prisma.event.count(),
-    ]);
+    const [rows, total] = await Promise.all([this.prisma.event.findMany({ orderBy: { ts: 'desc' }, skip, take }), this.prisma.event.count()]);
 
-    this.log.debug(
-      { fn: 'EventRepositoryImpl.listRecent', count: rows.length, total },
-      'Listed recent events',
-    );
+    this.log.debug({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total }, 'Listed recent events');
     return { items: rows.map((row) => parseEventRow(row)), total };
   }
 
@@ -117,10 +111,7 @@ export class EventRepositoryImpl implements EventRepository {
       counts[row.type as EventType] = row._count.type;
     }
 
-    this.log.debug(
-      { fn: 'EventRepositoryImpl.countByType', counts },
-      'Counted events by type',
-    );
+    this.log.debug({ fn: 'EventRepositoryImpl.countByType', counts }, 'Counted events by type');
     return counts;
   }
 }

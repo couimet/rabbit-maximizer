@@ -1,7 +1,7 @@
-openapi: "3.1.0"
+openapi: '3.1.0'
 info:
   title: Rabbit Maximizer API
-  version: "0.1.0"
+  version: '0.1.0'
 servers:
   - url: http://localhost:3000
     description: Local dev server
@@ -11,14 +11,14 @@ paths:
     get:
       operationId: getSummary
       responses:
-        "200":
+        '200':
           description: Aggregate status summary
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Summary"
-        "500":
-          $ref: "#/components/responses/InternalError"
+                $ref: '#/components/schemas/Summary'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/queue:
     get:
@@ -38,14 +38,14 @@ paths:
             maximum: 100
             default: 20
       responses:
-        "200":
+        '200':
           description: Paginated queue items
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaginatedQueue"
-        "500":
-          $ref: "#/components/responses/InternalError"
+                $ref: '#/components/schemas/PaginatedQueue'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/events:
     get:
@@ -65,14 +65,14 @@ paths:
             maximum: 100
             default: 20
       responses:
-        "200":
+        '200':
           description: Paginated events
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PaginatedEvents"
-        "500":
-          $ref: "#/components/responses/InternalError"
+                $ref: '#/components/schemas/PaginatedEvents'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
 components:
   responses:
@@ -81,7 +81,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
 
   schemas:
     Error:
@@ -118,7 +118,7 @@ components:
         pr_number:
           type: integer
         status:
-          $ref: "#/components/schemas/QueueStatus"
+          $ref: '#/components/schemas/QueueStatus'
         scheduled_for:
           type: string
           format: date-time
@@ -159,7 +159,7 @@ components:
           type: string
           format: date-time
         type:
-          $ref: "#/components/schemas/EventType"
+          $ref: '#/components/schemas/EventType'
         repo_full_name:
           type: string
         pr_number:
@@ -213,13 +213,13 @@ components:
       required: [queueCounts, eventCounts24h, oldestPending]
       properties:
         queueCounts:
-          $ref: "#/components/schemas/QueueCounts"
+          $ref: '#/components/schemas/QueueCounts'
         eventCounts24h:
-          $ref: "#/components/schemas/EventCounts"
+          $ref: '#/components/schemas/EventCounts'
         oldestPending:
           oneOf:
-            - $ref: "#/components/schemas/QueueItem"
-            - type: "null"
+            - $ref: '#/components/schemas/QueueItem'
+            - type: 'null'
       additionalProperties: false
 
     PaginatedQueue:
@@ -229,7 +229,7 @@ components:
         data:
           type: array
           items:
-            $ref: "#/components/schemas/QueueItem"
+            $ref: '#/components/schemas/QueueItem'
         total:
           type: integer
         page:
@@ -245,7 +245,7 @@ components:
         data:
           type: array
           items:
-            $ref: "#/components/schemas/EventEntry"
+            $ref: '#/components/schemas/EventEntry'
         total:
           type: integer
         page:
