@@ -23,6 +23,7 @@ export default {
     'dashboard/src/**/*.ts',
     'dashboard/src/**/*.tsx',
     '!src/**/*.test.ts',
+    '!src/api-types.ts',
     '!src/main.ts',
     '!src/container.ts',
     '!src/**/index.ts',
