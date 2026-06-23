@@ -1,6 +1,7 @@
 import type { PaginatedResponse, QueueItem } from '../api';
 import { fetchQueue } from '../api';
 import { formatDate } from '../formatDate';
+import { prUrl, repoUrl } from '../githubUrl';
 import { useEffect, useState } from 'react';
 
 const PAGE_SIZE = 20;
@@ -54,9 +55,13 @@ const QueueTable = () => {
             data.data.map((item) => (
               <tr key={item.id} className={`row-status-${item.status}`}>
                 <td>{item.status}</td>
-                <td>{item.repo_full_name}</td>
                 <td>
-                  <a href={`https://github.com/${item.repo_full_name}/pull/${item.pr_number}`} target="_blank" rel="noopener noreferrer">
+                  <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
+                    {item.repo_full_name}
+                  </a>
+                </td>
+                <td>
+                  <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
                     #{item.pr_number}
                   </a>
                 </td>

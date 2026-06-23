@@ -1,6 +1,7 @@
 import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../api';
 import { fetchSummary } from '../api';
 import { formatDate } from '../formatDate';
+import { prUrl, repoUrl } from '../githubUrl';
 import { useEffect, useState } from 'react';
 
 const SummaryStats = () => {
@@ -69,8 +70,16 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
       </thead>
       <tbody>
         <tr>
-          <td>{item.repo_full_name}</td>
-          <td>#{item.pr_number}</td>
+          <td>
+            <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
+              {item.repo_full_name}
+            </a>
+          </td>
+          <td>
+            <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
+              #{item.pr_number}
+            </a>
+          </td>
           <td>{formatDate(item.scheduled_for)}</td>
           <td>{item.attempts}</td>
         </tr>

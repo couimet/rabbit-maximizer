@@ -1,6 +1,7 @@
 import type { EventEntry, PaginatedResponse } from '../api';
 import { fetchEvents } from '../api';
 import { formatDate } from '../formatDate';
+import { prUrl, repoUrl } from '../githubUrl';
 import { useEffect, useMemo, useState } from 'react';
 
 const PAGE_SIZE = 20;
@@ -61,8 +62,10 @@ const EventHistory = () => {
         groups.map((group) => (
           <div key={group.key} className="event-group">
             <h3>
-              {group.repo_full_name}{' '}
-              <a href={`https://github.com/${group.repo_full_name}/pull/${group.pr_number}`} target="_blank" rel="noopener noreferrer">
+              <a href={repoUrl(group.repo_full_name)} target="_blank" rel="noopener noreferrer">
+                {group.repo_full_name}
+              </a>{' '}
+              <a href={prUrl(group.repo_full_name, group.pr_number)} target="_blank" rel="noopener noreferrer">
                 #{group.pr_number}
               </a>
             </h3>
