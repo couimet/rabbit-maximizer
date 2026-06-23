@@ -167,6 +167,10 @@ h3 {
   border-top: 1px solid #f4f0e7;
 }
 
+.data-table tbody tr:nth-child(even) {
+  background: #faf8f4;
+}
+
 .empty-row {
   text-align: center;
   color: #8b7d6b;
@@ -185,10 +189,33 @@ h3 {
   background: #f0f7f5;
 }
 .row-status-failed {
-  background: #fef5f5;
+  border-left: 4px solid #d9534f;
+  background: #fdf0f0;
+  font-weight: 600;
 }
 .row-status-completed {
   background: #f5fdf5;
+}
+
+.row-event-detected {
+  border-left: 3px solid #f38222;
+}
+.row-event-enqueued {
+  border-left: 3px solid #629988;
+}
+.row-event-posted {
+  border-left: 3px solid #5cb85c;
+}
+.row-event-failed {
+  border-left: 4px solid #d9534f;
+  background: #fdf0f0;
+  font-weight: 600;
+}
+.row-event-completed {
+  border-left: 3px solid #5cb85c;
+}
+.row-event-rejected {
+  border-left: 3px solid #999;
 }
 
 /* Links */
