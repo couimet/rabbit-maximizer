@@ -48,8 +48,22 @@ describe('QueueTable', () => {
     beforeEach(() => {
       mockFetch(200, {
         data: [
-          makeQueueItem({ id: 1, status: 'pending', repo_full_name: 'couimet/rabbit-maximizer', pr_number: 42, attempts: 2, scheduled_for: '2026-06-23T14:30:00.000Z' }),
-          makeQueueItem({ id: 2, status: 'posted', repo_full_name: 'couimet/ts-npm-packages', pr_number: 7, attempts: 1, scheduled_for: '2026-06-24T09:15:00.000Z' }),
+          makeQueueItem({
+            id: 1,
+            status: 'pending',
+            repo_full_name: 'couimet/rabbit-maximizer',
+            pr_number: 42,
+            attempts: 2,
+            scheduled_for: '2026-06-23T14:30:00.000Z',
+          }),
+          makeQueueItem({
+            id: 2,
+            status: 'posted',
+            repo_full_name: 'couimet/ts-npm-packages',
+            pr_number: 7,
+            attempts: 1,
+            scheduled_for: '2026-06-24T09:15:00.000Z',
+          }),
         ],
         total: 2,
         page: 1,

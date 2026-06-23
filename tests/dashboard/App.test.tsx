@@ -5,7 +5,11 @@ import '@testing-library/jest-dom';
 import App from '../../dashboard/src/App.js';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const emptySummary = { queueCounts: { pending: 0, posted: 0, completed: 0, failed: 0 }, eventCounts24h: { detected: 0, enqueued: 0, posted: 0, rejected: 0, completed: 0, failed: 0 }, oldestPending: null };
+const emptySummary = {
+  queueCounts: { pending: 0, posted: 0, completed: 0, failed: 0 },
+  eventCounts24h: { detected: 0, enqueued: 0, posted: 0, rejected: 0, completed: 0, failed: 0 },
+  oldestPending: null,
+};
 const emptyQueue = { data: [], total: 0, page: 1, pageSize: 20 };
 const emptyEvents = { data: [], total: 0, page: 1, pageSize: 20 };
 

@@ -15,9 +15,6 @@ describe('setupVite', () => {
 
     await setupVite(app, logger, 5173);
 
-    expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'setupExpress', port: 5173 },
-      'Dashboard running with Vite HMR',
-    );
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'setupExpress', port: 5173 }, 'Dashboard running with Vite HMR');
   });
 });

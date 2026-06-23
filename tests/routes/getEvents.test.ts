@@ -49,9 +49,6 @@ describe('getEvents', () => {
     const res = await fetchResponse(server, '/api/events');
     expect(res.status).toBe(500);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get events' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith(
-      { fn: 'api.getEvents', error: expect.any(Error) },
-      'Failed to get events',
-    );
+    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getEvents', error: expect.any(Error) }, 'Failed to get events');
   });
 });

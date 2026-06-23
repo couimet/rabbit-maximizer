@@ -55,9 +55,6 @@ describe('getQueue', () => {
     const res = await fetchResponse(server, '/api/queue');
     expect(res.status).toBe(500);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get queue' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith(
-      { fn: 'api.getQueue', error: expect.any(Error) },
-      'Failed to get queue',
-    );
+    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getQueue', error: expect.any(Error) }, 'Failed to get queue');
   });
 });

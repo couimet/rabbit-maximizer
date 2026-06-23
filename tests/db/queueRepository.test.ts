@@ -231,7 +231,15 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       await expect(() =>
-        sut.enqueue(repo, pr, getUniqueDate(), getUniqueString({ prefix: 'https://gh/c/' }), 60, makeObservation(), prisma as unknown as Prisma.TransactionClient),
+        sut.enqueue(
+          repo,
+          pr,
+          getUniqueDate(),
+          getUniqueString({ prefix: 'https://gh/c/' }),
+          60,
+          makeObservation(),
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       ).rejects.toThrow('Connection lost');
 
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: networkError }, 'Enqueue failed; rethrowing');
@@ -248,7 +256,15 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       await expect(() =>
-        sut.enqueue(repo, pr, getUniqueDate(), getUniqueString({ prefix: 'https://gh/c/' }), 60, makeObservation(), prisma as unknown as Prisma.TransactionClient),
+        sut.enqueue(
+          repo,
+          pr,
+          getUniqueDate(),
+          getUniqueString({ prefix: 'https://gh/c/' }),
+          60,
+          makeObservation(),
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       ).rejects.toThrow('Unique constraint');
 
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: p2002 }, 'Enqueue failed; rethrowing');

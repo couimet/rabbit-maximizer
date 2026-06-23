@@ -23,12 +23,15 @@ describe('getSummary', () => {
 
   it('returns 200 with queue counts, event counts, and oldest pending', async () => {
     logger = createMockLogger();
-    startServer({
-      getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 5, posted: 3, completed: 10, failed: 2 }),
-      getPendingQueue: jest.fn<any>().mockResolvedValue([{ id: 1, repo_full_name: 'c/r', pr_number: 42, scheduled_for: '2026-01-01T00:00:00.000Z' }]),
-    }, {
-      countByType: jest.fn<any>().mockResolvedValue({ detected: 8, enqueued: 7, posted: 3, rejected: 1, completed: 2, failed: 1 }),
-    });
+    startServer(
+      {
+        getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 5, posted: 3, completed: 10, failed: 2 }),
+        getPendingQueue: jest.fn<any>().mockResolvedValue([{ id: 1, repo_full_name: 'c/r', pr_number: 42, scheduled_for: '2026-01-01T00:00:00.000Z' }]),
+      },
+      {
+        countByType: jest.fn<any>().mockResolvedValue({ detected: 8, enqueued: 7, posted: 3, rejected: 1, completed: 2, failed: 1 }),
+      },
+    );
 
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
@@ -57,9 +60,6 @@ describe('getSummary', () => {
     const res = await fetchResponse(server, '/api/summary');
     expect(res.status).toBe(500);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get summary' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith(
-      { fn: 'api.getSummary', error: expect.any(Error) },
-      'Failed to get summary',
-    );
+    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: expect.any(Error) }, 'Failed to get summary');
   });
 });
