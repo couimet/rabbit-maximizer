@@ -1,4 +1,4 @@
-import { ConfigSchema } from '../../src/schemas/config.js';
+import { type Config, ConfigSchema } from '../../src/schemas/config.js';
 
 import { getRandomString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -7,12 +7,7 @@ describe('ConfigSchema', () => {
   let githubPat: string;
   let webhookSecret: string;
   let tunnelUrl: string;
-  let BASE: ReturnType<typeof ConfigSchema.safeParse> extends {
-    success: true;
-    data: infer D;
-  }
-    ? D
-    : never;
+  let BASE: Config;
 
   beforeEach(() => {
     githubPat = getRandomString({ charset: 'alphanumeric', length: 20 });

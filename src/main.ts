@@ -1,3 +1,4 @@
+import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
 import type { PollDetector } from './detectorPoll.js';
@@ -5,11 +6,10 @@ import { createGracefulShutdown } from './gracefulShutdown.js';
 import { TYPES } from './inversify-types.js';
 import { initLogger } from './logger.js';
 import type { Scheduler } from './scheduler.js';
-import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
 
-import type { PrismaClient } from '@prisma/client';
 import 'reflect-metadata';
 import { getLogger } from '@couimet/logger-contract';
+import type { PrismaClient } from '@prisma/client';
 
 initLogger();
 const log = getLogger();

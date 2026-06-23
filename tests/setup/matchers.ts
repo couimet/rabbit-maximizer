@@ -5,14 +5,12 @@ import {
   toThrowRabbitOptimizerErrorAsync,
 } from '../matchers/toBeRabbitOptimizerError.js';
 
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace jest {
-    interface Matchers<R> {
-      toBeRabbitOptimizerError(code: string, expected: ExpectedRabbitOptimizerError): R;
-      toThrowRabbitOptimizerError(code: string, expected: ExpectedRabbitOptimizerError): R;
-      toThrowRabbitOptimizerErrorAsync(code: string, expected: ExpectedRabbitOptimizerError): Promise<R>;
-    }
+import { expect } from '@jest/globals';
+
+declare module '@jest/expect' {
+  interface Matchers<R extends void | Promise<void>> {
+    toBeRabbitOptimizerError(code: string, expected: ExpectedRabbitOptimizerError): R;
+    toThrowRabbitOptimizerError(code: string, expected: ExpectedRabbitOptimizerError): R;
   }
 }
 
@@ -21,5 +19,3 @@ expect.extend({
   toThrowRabbitOptimizerError,
   toThrowRabbitOptimizerErrorAsync,
 });
-
-export {};

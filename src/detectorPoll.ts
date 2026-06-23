@@ -1,10 +1,10 @@
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
-import { getJitter } from './utils/getJitter.js';
 import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
 import { parseWaitSeconds } from './github/parseWaitSeconds.js';
 import { splitRepo } from './github/splitRepo.js';
 import type { OnDetectedCallback } from './types/index.js';
+import { getJitter } from './utils/getJitter.js';
 import { config } from './config.js';
 import { TYPES } from './inversify-types.js';
 
