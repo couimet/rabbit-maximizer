@@ -106,6 +106,21 @@ describe('validateGitHubToken', () => {
       expect(rest.repos.listForUser).toHaveBeenCalledTimes(2);
       expect(rest.issues.createComment).toHaveBeenCalledTimes(150);
     });
+
+    it('treats createComment resolving as write access confirmed', async () => {
+      mockAuth();
+      const { fullName: repo } = makeUniqueRepoName();
+      const repoFilter: RepoFilter[] = [{ pattern: repo, scope: 'repo' }];
+      rest.repos.get.mockResolvedValue({ data: {} });
+      rest.issues.createComment.mockResolvedValue({ data: {} });
+
+      await validateGitHubToken({ octokit, repoFilter, log: logger });
+
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+        { fn: FUNCTION_NAME, repoCount: 1 },
+        'GitHub token validated — Issues read & write confirmed for all repos',
+      );
+    });
   });
 
   describe('some repos fail', () => {
