@@ -56,6 +56,18 @@ pnpm db:migrate
 pnpm dev
 ```
 
+`pnpm dev` starts the poll detector, scheduler, and a local web server on port 3000. Open `http://localhost:3000` for the dashboard — Vite provides hot reload in development, so changes to `dashboard/` appear immediately.
+
+### Dashboard
+
+The dashboard shows current system status across three tabs:
+
+- **Summary** — queue counts by status, event counts from the last 24 hours, and the oldest pending PR
+- **Queue** — paginated table of all queue items with status, repo, PR number, scheduled time, and attempt count
+- **Events** — paginated event history grouped by PR, showing each PR's detect → enqueue → post lifecycle
+
+All timestamps are displayed in UTC (`YYYY-MM-DD HH:MM:SS UTC`).
+
 ### PAT Setup
 
 Rabbit Maximizer needs a GitHub **fine-grained personal access token** (classic tokens also work but fine-grained is recommended). The token must be issued by a **user account** (not a GitHub App) — CodeRabbit ignores `[bot]` identities. A user PAT works for both user-owned and organization-owned repos, as long as your account has access to them.
