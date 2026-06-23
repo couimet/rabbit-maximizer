@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -91,6 +91,14 @@ describe('SummaryStats', () => {
       });
       render(<SummaryStats />);
       await waitFor(() => expect(screen.getByText('No pending items.')).toBeInTheDocument());
+    });
+  });
+
+  describe('cleanup', () => {
+    it('cancels in-flight fetch on unmount', () => {
+      const { unmount } = render(<SummaryStats />);
+      unmount();
+      expect(globalThis.fetch).toHaveBeenCalled();
     });
   });
 

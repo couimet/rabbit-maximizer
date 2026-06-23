@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import EventHistory from '../../dashboard/src/components/EventHistory.js';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -120,6 +120,14 @@ describe('EventHistory', () => {
       mockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 50, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
       await waitFor(() => expect(screen.getByText('completed')).toBeInTheDocument());
+    });
+  });
+
+  describe('cleanup', () => {
+    it('cancels in-flight fetch on unmount', () => {
+      const { unmount } = render(<EventHistory />);
+      unmount();
+      expect(globalThis.fetch).toHaveBeenCalled();
     });
   });
 

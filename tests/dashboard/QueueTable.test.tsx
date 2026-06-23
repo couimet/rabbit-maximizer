@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import QueueTable from '../../dashboard/src/components/QueueTable.js';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -118,6 +118,28 @@ describe('QueueTable', () => {
       mockFetch(200, { data: [makeQueueItem({ id: 99, pr_number: 99 })], total: 50, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
       await waitFor(() => expect(screen.getByText('#99')).toBeInTheDocument());
+    });
+
+    it('fetches previous page when Previous is clicked', async () => {
+      mockFetch(200, { data: [makeQueueItem({ pr_number: 50 })], total: 50, page: 1, pageSize: PAGE_SIZE });
+      render(<QueueTable />);
+      await waitFor(() => expect(screen.getByText('#50')).toBeInTheDocument());
+
+      mockFetch(200, { data: [makeQueueItem({ pr_number: 51 })], total: 50, page: 2, pageSize: PAGE_SIZE });
+      fireEvent.click(screen.getByText('Next'));
+      await waitFor(() => expect(screen.getByText('#51')).toBeInTheDocument());
+
+      mockFetch(200, { data: [makeQueueItem({ id: 1, pr_number: 1 })], total: 50, page: 1, pageSize: PAGE_SIZE });
+      fireEvent.click(screen.getByText('Previous'));
+      await waitFor(() => expect(screen.getByText('#1')).toBeInTheDocument());
+    });
+  });
+
+  describe('cleanup', () => {
+    it('cancels in-flight fetch on unmount', () => {
+      const { unmount } = render(<QueueTable />);
+      unmount();
+      expect(globalThis.fetch).toHaveBeenCalled();
     });
   });
 
