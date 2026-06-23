@@ -3,7 +3,7 @@ set -euo pipefail
 
 DB_FILE="$PWD/data/rabbit-maximizer.db"
 BACKUP_DIR="$PWD/data/backups"
-TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
 BACKUP_FILE="$BACKUP_DIR/$TIMESTAMP.sql.gz"
 
 if [ ! -f "$DB_FILE" ]; then

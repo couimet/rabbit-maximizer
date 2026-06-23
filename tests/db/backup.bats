@@ -6,7 +6,7 @@ load test_helper
   create_test_db
   run bash "$SCRIPT_DIR/backup.sh"
   [ "$status" -eq 0 ]
-  [[ "$output" =~ data/backups/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\.sql\.gz ]]
+  [[ "$output" =~ data/backups/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+Z\.sql\.gz ]]
   [ -f "$output" ]
 }
 
@@ -36,7 +36,7 @@ load test_helper
   [ "$status" -eq 0 ]
   local count
   count=$(ls "$BATS_TEST_TMPDIR/data/backups"/*.sql.gz | wc -l | tr -d ' ')
-  [ "$count" -le 11 ]  # 10 old + 1 new
+  [ "$count" -eq 10 ]  # rotation keeps exactly 10 most recent
 }
 
 @test "rotation is no-op when fewer than 10 backups exist" {

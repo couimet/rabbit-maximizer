@@ -23,7 +23,7 @@
     "postinstall": "prisma generate",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "pnpm test:ts:unit && pnpm test:db:scripts",
+    "test": "pnpm test:ts:unit ; pnpm test:db:scripts",
     "test:db:scripts": "bats tests/db/",
     "test:ts:unit": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch"

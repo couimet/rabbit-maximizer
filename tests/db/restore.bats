@@ -76,6 +76,22 @@ setup() {
   [[ "$output" =~ "Aborted" ]]
 }
 
+@test "fails on invalid .sql.gz backup and preserves original database" {
+  create_test_db
+  echo "this is not valid sql" | gzip > "$BATS_TEST_TMPDIR/corrupt.sql.gz"
+  run bash -c "yes | bash '$SCRIPT_DIR/restore.sh' '$BATS_TEST_TMPDIR/corrupt.sql.gz'"
+  [ "$status" -ne 0 ]
+  [ -f data/rabbit-maximizer.db ]
+}
+
+@test "fails on invalid uncompressed .sql backup and preserves original database" {
+  create_test_db
+  echo "this is not valid sql" > "$BATS_TEST_TMPDIR/corrupt.sql"
+  run bash -c "yes | bash '$SCRIPT_DIR/restore.sh' '$BATS_TEST_TMPDIR/corrupt.sql'"
+  [ "$status" -ne 0 ]
+  [ -f data/rabbit-maximizer.db ]
+}
+
 @test "confirmation prompt matches expected format" {
   create_test_db
   local restore_from="$BATS_TEST_TMPDIR/restore-me.sql.gz"

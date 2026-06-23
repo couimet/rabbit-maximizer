@@ -31,19 +31,29 @@ fi
 
 # Pre-restore safety backup
 if [ -f "$DB_FILE" ]; then
-  TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
   SAFETY_BACKUP="$BACKUP_DIR/$TIMESTAMP-pre-restore.sql.gz"
   mkdir -p "$BACKUP_DIR"
   sqlite3 "$DB_FILE" .dump | gzip > "$SAFETY_BACKUP"
   echo "Pre-restore backup: $SAFETY_BACKUP"
 fi
 
-# Restore into a fresh database (replace, don't merge)
-rm -f "$DB_FILE"
+# Restore to a temp file first, validate, then replace
+TEMP_DB="$DB_FILE.restoring"
+rm -f "$TEMP_DB"
 if [[ "$BACKUP_FILE" == *.gz ]]; then
-  gunzip -c "$BACKUP_FILE" | sqlite3 "$DB_FILE"
+  gunzip -c "$BACKUP_FILE" | sqlite3 "$TEMP_DB"
 else
-  sqlite3 "$DB_FILE" < "$BACKUP_FILE"
+  sqlite3 "$TEMP_DB" < "$BACKUP_FILE"
 fi
+
+if ! sqlite3 "$TEMP_DB" ".tables" > /dev/null 2>&1; then
+  echo "Restore failed: backup is not a valid SQLite database" >&2
+  rm -f "$TEMP_DB"
+  exit 1
+fi
+
+rm -f "$DB_FILE"
+mv "$TEMP_DB" "$DB_FILE"
 
 echo "Restored data/rabbit-maximizer.db from $BACKUP_FILE"
