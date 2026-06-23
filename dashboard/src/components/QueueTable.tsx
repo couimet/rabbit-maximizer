@@ -71,17 +71,7 @@ const QueueTable = () => {
   );
 };
 
-const Pagination = ({
-  page,
-  totalPages,
-  total,
-  onPage,
-}: {
-  page: number;
-  totalPages: number;
-  total: number;
-  onPage: (p: number) => void;
-}) => (
+const Pagination = ({ page, totalPages, total, onPage }: { page: number; totalPages: number; total: number; onPage: (p: number) => void }) => (
   <div className="pagination">
     <button disabled={page <= 1} onClick={() => onPage(page - 1)}>
       Previous
