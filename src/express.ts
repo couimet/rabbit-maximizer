@@ -3,6 +3,7 @@ import type { QueueRepository } from './db/queueRepository.js';
 import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
 import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
 import { createExpressApp } from './external-deps/couimet/express-tools/createExpressApp.js';
+import { isProduction } from './isProduction.js';
 import { createGetEventsHandler, createGetQueueHandler, createGetSummaryHandler } from './routes/index.js';
 import { trySetupVite } from './routes/setupVite.js';
 
@@ -24,7 +25,8 @@ export interface ExpressApp {
 
 export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   const { queueRepo, eventRepo, logger, port } = deps;
-  const app = createExpressApp({ logger });
+  const production = isProduction();
+  const app = createExpressApp({ logger, helmet: production });
 
   app.get('/api/summary', createGetSummaryHandler(queueRepo, eventRepo, logger));
   app.get('/api/queue', createGetQueueHandler(queueRepo, logger));
@@ -33,7 +35,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.get('/icon.png', (_req: Request, res: Response) => res.sendFile('assets/icon.png', { root: '.' }));
   app.get('/icon_256.png', (_req: Request, res: Response) => res.sendFile('assets/icon_256.png', { root: '.' }));
 
-  if (process.env.NODE_ENV === 'production') {
+  if (production) {
     app.use(express.static('dashboard/dist'));
   } else {
     trySetupVite(app, logger, port);
