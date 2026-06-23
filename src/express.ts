@@ -72,6 +72,9 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
     }
   });
 
+  app.get('/icon.png', (_req: Request, res: Response) => res.sendFile('assets/icon.png', { root: '.' }));
+  app.get('/icon_256.png', (_req: Request, res: Response) => res.sendFile('assets/icon_256.png', { root: '.' }));
+
   let server: Server;
 
   if (process.env.NODE_ENV === 'production') {

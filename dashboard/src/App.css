@@ -7,8 +7,8 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #f5f5f5;
-  color: #222;
+  background: #f4f0e7;
+  color: #472e22;
 }
 
 .dashboard {
@@ -19,11 +19,20 @@ body {
 
 .dashboard-header {
   margin-bottom: 24px;
+  text-align: center;
+}
+
+.logo {
+  width: 256px;
+  height: 256px;
+  margin-bottom: 8px;
 }
 
 .dashboard-header h1 {
-  margin: 0 0 12px;
-  font-size: 1.5rem;
+  margin: 0 0 16px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #472e22;
 }
 
 /* Tabs */
@@ -31,7 +40,8 @@ body {
 .tabs {
   display: flex;
   gap: 0;
-  border-bottom: 2px solid #ddd;
+  justify-content: center;
+  border-bottom: 2px solid #e3d6c3;
 }
 
 .tab {
@@ -40,7 +50,7 @@ body {
   background: none;
   font-size: 0.95rem;
   cursor: pointer;
-  color: #555;
+  color: #8b7d6b;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   transition:
@@ -49,13 +59,13 @@ body {
 }
 
 .tab:hover {
-  color: #111;
+  color: #472e22;
 }
 
 .tab.active {
-  color: #111;
+  color: #f38222;
   font-weight: 600;
-  border-bottom-color: #333;
+  border-bottom-color: #f38222;
 }
 
 /* Summary grid */
@@ -69,17 +79,17 @@ body {
 
 .summary-card {
   background: #fff;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #e3d6c3;
   border-radius: 6px;
   padding: 16px;
   text-align: center;
 }
 
 .summary-card.status-pending {
-  border-left: 4px solid #f0ad4e;
+  border-left: 4px solid #f38222;
 }
 .summary-card.status-posted {
-  border-left: 4px solid #5bc0de;
+  border-left: 4px solid #629988;
 }
 .summary-card.status-completed {
   border-left: 4px solid #5cb85c;
@@ -91,7 +101,7 @@ body {
 .stat-label {
   display: block;
   font-size: 0.8rem;
-  color: #777;
+  color: #8b7d6b;
   text-transform: uppercase;
   margin-bottom: 4px;
 }
@@ -100,6 +110,25 @@ body {
   display: block;
   font-size: 1.5rem;
   font-weight: 700;
+  color: #472e22;
+}
+
+/* Section headings */
+
+h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #472e22;
+  margin: 0 0 12px;
+}
+
+h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #8b7d6b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 8px;
 }
 
 /* Tables */
@@ -108,7 +137,7 @@ body {
   width: 100%;
   border-collapse: collapse;
   background: #fff;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #e3d6c3;
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 16px;
@@ -122,41 +151,55 @@ body {
 }
 
 .data-table thead {
-  background: #fafafa;
-  border-bottom: 2px solid #e0e0e0;
+  background: #f4f0e7;
+  border-bottom: 2px solid #e3d6c3;
 }
 
 .data-table th {
   font-weight: 600;
-  color: #555;
+  color: #8b7d6b;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
 }
 
 .data-table tbody tr + tr {
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid #f4f0e7;
 }
 
 .empty-row {
   text-align: center;
-  color: #999;
+  color: #8b7d6b;
   padding: 24px;
 }
 
 .correlation-id {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 0.8rem;
-  color: #777;
+  color: #8b7d6b;
 }
 
 /* Row status tints */
 
 .row-status-posted {
-  background: #f0f9ff;
+  background: #f0f7f5;
 }
 .row-status-failed {
-  background: #fff5f5;
+  background: #fef5f5;
 }
 .row-status-completed {
-  background: #f5fff5;
+  background: #f5fdf5;
+}
+
+/* Links */
+
+a {
+  color: #629988;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
 
 /* Event group */
@@ -166,7 +209,10 @@ body {
 }
 
 .event-group h3 {
+  text-transform: none;
+  letter-spacing: normal;
   font-size: 1rem;
+  color: #472e22;
   margin: 0 0 8px;
 }
 
@@ -182,11 +228,20 @@ body {
 
 .pagination button {
   padding: 6px 16px;
-  border: 1px solid #ccc;
+  border: 1px solid #e3d6c3;
   background: #fff;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9rem;
+  color: #472e22;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: #f4f0e7;
+  border-color: #f38222;
 }
 
 .pagination button:disabled {
@@ -196,7 +251,7 @@ body {
 
 .page-info {
   font-size: 0.85rem;
-  color: #777;
+  color: #8b7d6b;
 }
 
 /* States */
@@ -204,14 +259,28 @@ body {
 .loading {
   padding: 32px;
   text-align: center;
-  color: #999;
+  color: #8b7d6b;
 }
 
 .error {
   padding: 32px;
   text-align: center;
   color: #d9534f;
-  background: #fff5f5;
+  background: #fef5f5;
   border: 1px solid #f5c6cb;
   border-radius: 6px;
+}
+
+/* Footer */
+
+.dashboard-footer {
+  margin-top: 48px;
+  padding: 16px 0;
+  text-align: center;
+  border-top: 1px solid #e3d6c3;
+}
+
+.dashboard-footer a {
+  font-size: 0.85rem;
+  color: #8b7d6b;
 }

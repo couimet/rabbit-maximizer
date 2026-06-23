@@ -17,6 +17,7 @@ const App = () => {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
+        <img src="/icon_256.png" alt="Rabbit Maximizer" className="logo" />
         <h1>Rabbit Maximizer</h1>
         <nav className="tabs">
           {TABS.map(({ key, label }) => (
@@ -31,6 +32,11 @@ const App = () => {
         {activeTab === 'queue' && <QueueTable />}
         {activeTab === 'events' && <EventHistory />}
       </main>
+      <footer className="dashboard-footer">
+        <a href="https://github.com/couimet/rabbit-maximizer" target="_blank" rel="noopener noreferrer">
+          github.com/couimet/rabbit-maximizer
+        </a>
+      </footer>
     </div>
   );
 };
