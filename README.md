@@ -66,8 +66,6 @@ The dashboard shows current system status across three tabs:
 - **Queue** — paginated table of all queue items with status, repo, PR number, scheduled time, and attempt count
 - **Events** — paginated event history grouped by PR, showing each PR's detect → enqueue → post lifecycle
 
-All timestamps are displayed in UTC (`YYYY-MM-DD HH:MM:SS UTC`).
-
 ### PAT Setup
 
 Rabbit Maximizer needs a GitHub **fine-grained personal access token** (classic tokens also work but fine-grained is recommended). The token must be issued by a **user account** (not a GitHub App) — CodeRabbit ignores `[bot]` identities. A user PAT works for both user-owned and organization-owned repos, as long as your account has access to them.

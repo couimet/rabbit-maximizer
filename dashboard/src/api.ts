@@ -15,8 +15,6 @@ export interface PaginatedResponse<T> {
 
 const API_BASE = '/api';
 
-export const formatDate = (iso: string): string => `${new Date(iso).toISOString().replace('T', ' ').slice(0, 19)} UTC`;
-
 const fetchJson = async <T>(url: string): Promise<T> => {
   const res = await fetch(url);
   if (!res.ok) {

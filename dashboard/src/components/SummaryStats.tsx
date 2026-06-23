@@ -1,5 +1,6 @@
 import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../api';
-import { fetchSummary, formatDate } from '../api';
+import { fetchSummary } from '../api';
+import { formatDate } from '../formatDate';
 import { useEffect, useState } from 'react';
 
 const SummaryStats = () => {
@@ -62,7 +63,7 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
         <tr>
           <th>Repo</th>
           <th>PR</th>
-          <th>Scheduled For</th>
+          <th>Scheduled For (UTC)</th>
           <th>Attempts</th>
         </tr>
       </thead>

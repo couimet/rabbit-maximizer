@@ -1,5 +1,6 @@
 import type { PaginatedResponse, QueueItem } from '../api';
-import { fetchQueue, formatDate } from '../api';
+import { fetchQueue } from '../api';
+import { formatDate } from '../formatDate';
 import { useEffect, useState } from 'react';
 
 const PAGE_SIZE = 20;
@@ -38,7 +39,7 @@ const QueueTable = () => {
             <th>Status</th>
             <th>Repo</th>
             <th>PR</th>
-            <th>Scheduled For</th>
+            <th>Scheduled For (UTC)</th>
             <th>Attempts</th>
           </tr>
         </thead>

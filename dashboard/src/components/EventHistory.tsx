@@ -1,5 +1,6 @@
 import type { EventEntry, PaginatedResponse } from '../api';
-import { fetchEvents, formatDate } from '../api';
+import { fetchEvents } from '../api';
+import { formatDate } from '../formatDate';
 import { useEffect, useMemo, useState } from 'react';
 
 const PAGE_SIZE = 20;
@@ -68,7 +69,7 @@ const EventHistory = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Time</th>
+                  <th>Time (UTC)</th>
                   <th>Type</th>
                   <th>Correlation ID</th>
                 </tr>
