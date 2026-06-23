@@ -1,6 +1,13 @@
 import type { ErrorDetails } from '../../src/errors/detailedError.js';
 import { RabbitOptimizerError } from '../../src/errors/RabbitOptimizerError.js';
 
+import { expect } from '@jest/globals';
+
+interface CustomMatcherResult {
+  pass: boolean;
+  message(): string;
+}
+
 // Error code is passed as a separate string parameter to enforce string literal usage.
 export interface ExpectedRabbitOptimizerError {
   message: string;
@@ -9,7 +16,7 @@ export interface ExpectedRabbitOptimizerError {
   cause?: Error;
 }
 
-export const toBeRabbitOptimizerError = (received: unknown, expectedCode: string, expected: ExpectedRabbitOptimizerError): jest.CustomMatcherResult => {
+export const toBeRabbitOptimizerError = (received: unknown, expectedCode: string, expected: ExpectedRabbitOptimizerError): CustomMatcherResult => {
   const failures: string[] = [];
 
   if (!(received instanceof RabbitOptimizerError)) {
@@ -70,7 +77,7 @@ export const toBeRabbitOptimizerError = (received: unknown, expectedCode: string
   };
 };
 
-export const toThrowRabbitOptimizerError = (received: () => void, expectedCode: string, expected: ExpectedRabbitOptimizerError): jest.CustomMatcherResult => {
+export const toThrowRabbitOptimizerError = (received: () => void, expectedCode: string, expected: ExpectedRabbitOptimizerError): CustomMatcherResult => {
   let caughtError: unknown;
 
   try {
@@ -93,7 +100,7 @@ export const toThrowRabbitOptimizerErrorAsync = async (
   received: () => Promise<void>,
   expectedCode: string,
   expected: ExpectedRabbitOptimizerError,
-): Promise<jest.CustomMatcherResult> => {
+): Promise<CustomMatcherResult> => {
   let caughtError: unknown;
 
   try {

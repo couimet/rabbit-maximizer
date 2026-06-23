@@ -41,6 +41,7 @@
     "@couimet/dynamic-testing": "^0.1.1",
     "@couimet/eslint-config": "^0.4.0",
     "@couimet/logger-contract-testing": "^1.0.1",
+    "@jest/expect": "^30.4.1",
     "@jest/globals": "^30.4.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.0.0",

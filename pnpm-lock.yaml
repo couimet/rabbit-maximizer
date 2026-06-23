@@ -51,6 +51,9 @@ importers:
       '@couimet/logger-contract-testing':
         specifier: ^1.0.1
         version: 1.0.1(@couimet/logger-contract@1.0.0)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
+      '@jest/expect':
+        specifier: ^30.4.1
+        version: 30.4.1
       '@jest/globals':
         specifier: ^30.4.1
         version: 30.4.1
