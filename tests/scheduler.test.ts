@@ -105,6 +105,8 @@ describe('Scheduler', () => {
 
   const createScheduler = () => new Scheduler(deps.queue, deps.github, deps.events, deps.observation, deps.prisma, deps.logger);
 
+  const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
+
   describe('tick', () => {
     it('posts retrigger, marks posted, and records posted event in a transaction', async () => {
       const item = makeItem();
@@ -115,7 +117,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -158,7 +160,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
@@ -197,7 +199,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
       expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
@@ -223,11 +225,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await awaitTick(scheduler);
 
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
       expect(deps.events.record as jest.Mock<any>).toHaveBeenCalledWith(
@@ -279,7 +277,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'Scheduler.tick', error: 'DB connection lost' },
@@ -295,7 +293,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'Scheduler.tick', error: 'raw string failure' },
@@ -312,7 +310,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         {
@@ -337,7 +335,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
@@ -355,25 +353,44 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('logs warning with String(err) for non-Error postRetrigger failure', async () => {
-      const item = makeItem();
+    it('logs warning on MISSING_SOURCE_COMMENT_URL error', async () => {
+      const item = { ...makeItem(), source_comment_url: null as unknown as string };
       (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
-      (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(42);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
+      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         {
           fn: 'Scheduler.tick',
           repo: item.repo_full_name,
           pr: item.pr_number,
           queueId: item.id,
-          error: '42',
+          error: expect.objectContaining({ code: 'MISSING_SOURCE_COMMENT_URL' }),
         },
         'Post retrigger failed; will retry next tick',
+      );
+
+      await stop();
+    });
+
+    it('logs warning when getNextDue rejects (item is null in catch)', async () => {
+      const dbError = new Error('Database connection lost');
+      (deps.queue.getNextDue as jest.Mock<any>).mockRejectedValue(dbError);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
+        { fn: 'Scheduler.tick', error: dbError },
+        'executeTick failed before item was fetched',
       );
 
       await stop();
