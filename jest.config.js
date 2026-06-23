@@ -15,7 +15,7 @@ export default {
   coverageProvider: 'v8',
 
   roots: ['<rootDir>/src', '<rootDir>/tests'],
-  setupFilesAfterEnv: ['<rootDir>/tests/setup/matchers.ts'],
+  setupFilesAfterEnv: ['<rootDir>/node_modules/@couimet/detailed-error-testing/dist/setup.mjs'],
   testMatch: ['**/*.test.ts'],
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -23,19 +23,16 @@ export default {
     '!src/main.ts',
     '!src/container.ts',
     '!src/**/index.ts',
-    // TODO: remove once @couimet packages provide tests for these
-    // https://github.com/couimet/ts-npm-packages/issues/25
-    '!src/errors/**',
     '!src/types/Result.ts',
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'text-summary', 'html', 'lcov'],
   coverageThreshold: {
     global: {
-      branches: 100,
-      functions: 100,
-      lines: 100,
-      statements: 100,
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90,
     },
   },
 

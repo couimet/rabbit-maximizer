@@ -25,6 +25,7 @@
   },
   "prettier": "@couimet/eslint-config/prettier",
   "dependencies": {
+    "@couimet/detailed-error": "^0.1.0",
     "@couimet/logger-contract": "^1.0.0",
     "@octokit/auth-token": "^6.0.0",
     "@octokit/rest": "^22.0.1",
@@ -38,6 +39,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@couimet/detailed-error-testing": "^0.1.0",
     "@couimet/dynamic-testing": "^0.1.1",
     "@couimet/eslint-config": "^0.4.0",
     "@couimet/logger-contract-testing": "^1.0.1",
