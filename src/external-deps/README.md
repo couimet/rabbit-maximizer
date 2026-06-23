@@ -25,7 +25,7 @@ Real usage feedback lands immediately. The API is exercised by production code f
 1. Build the smallest API surface the current use case needs. Keep it focused. Write tests alongside the production consumer.
 2. Ship it as part of the parent service and let it run for a while. See whether the abstractions survive real traffic, messy logs, and edge cases you didn't think of.
 3. Once the API has settled, contribute the module upstream through a PR. File paths, tests, and docs transfer as-is. If you are still making breaking changes, it is not ready.
-4. After the shared package ships, add it to `package.json`, `pnpm install`, run a mechanical find-and-replace from `../external-deps/<org>/<package>/` (or `../../`, `../../../`, depending on depth) to `@<org>/<package>` across every import path, and delete the incubated copy.
+4. After the shared package ships, add it to `package.json`, `pnpm install`, run a mechanical find-and-replace from `…/external-deps/<org>/<package>/` to `@<org>/<package>` across every import path, and delete the incubated copy.
 
 ## What this is not
 
