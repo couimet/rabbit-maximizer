@@ -1,16 +1,23 @@
-import { setupVite } from '../../src/routes/setupVite.js';
-import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
-import { createMockLogger } from '../helpers/index.js';
+import { jest, describe, expect, it } from '@jest/globals';
 
-import { describe, expect, it } from '@jest/globals';
+jest.unstable_mockModule('vite', () => ({
+  createServer: jest.fn().mockResolvedValue({ middlewares: jest.fn() }),
+}));
 
 describe('setupVite', () => {
-  it('imports Vite and attempts server creation', async () => {
+  it('sets up Vite dev server and mounts middlewares', async () => {
+    const { setupVite } = await import('../../src/routes/setupVite.js');
+    const { createExpressApp } = await import('../../src/external-deps/couimet/express-tools/createExpressApp.js');
+    const { createMockLogger } = await import('../helpers/index.js');
+
     const logger = createMockLogger();
     const app = createExpressApp({ logger });
 
-    // Vite 8's createServer fails in Jest due to native plugin bindings,
-    // but the dynamic import succeeds, covering the module loading path.
-    await expect(setupVite(app, logger, 0)).rejects.toThrow();
+    await setupVite(app, logger, 5173);
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'setupExpress', port: 5173 },
+      'Dashboard running with Vite HMR',
+    );
   });
 });

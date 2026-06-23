@@ -51,4 +51,11 @@ describe('setupExpress', () => {
       process.env.NODE_ENV = prev;
     }
   });
+
+  it('rejects stop() when server is already closed', async () => {
+    start();
+    await stop();
+    await expect(stop()).rejects.toThrow();
+    stop = async () => {}; // Prevent afterEach from re-closing
+  });
 });
