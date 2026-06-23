@@ -1,0 +1,24 @@
+import type { EventRepository } from '../db/eventRepository.js';
+import type { QueueRepository } from '../db/queueRepository.js';
+
+import type { Logger } from '@couimet/logger-contract';
+import type { Request, Response } from 'express';
+
+const MILLISECONDS_IN_24_HOURS = 86_400_000;
+
+export const createGetSummaryHandler = (queueRepo: QueueRepository, eventRepo: EventRepository, logger: Logger) => {
+  return async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const [queueCounts, eventCounts24h, pending] = await Promise.all([
+        queueRepo.getCountsByStatus(),
+        eventRepo.countByType(new Date(Date.now() - MILLISECONDS_IN_24_HOURS)),
+        queueRepo.getPendingQueue(),
+      ]);
+
+      res.json({ queueCounts, eventCounts24h, oldestPending: pending.length > 0 ? pending[0] : null });
+    } catch (error) {
+      logger.error({ fn: 'api.getSummary', error }, 'Failed to get summary');
+      res.status(500).json({ error: 'Failed to get summary' });
+    }
+  };
+};

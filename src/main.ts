@@ -57,6 +57,8 @@ const { stop: stopServer } = setupExpress({
   port: config.WEB_PORT,
 });
 
+log.info({ fn: 'main', port: config.WEB_PORT }, 'Dashboard API server started');
+
 const gracefulShutdown = createGracefulShutdown({ stopDetector, stopScheduler, stopServer, prisma, log });
 
 process.on('SIGTERM', gracefulShutdown);
