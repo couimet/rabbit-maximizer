@@ -1,4 +1,5 @@
 import { createGracefulShutdown } from '../src/gracefulShutdown.js';
+
 import { createMockLogger } from './helpers/index.js';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';

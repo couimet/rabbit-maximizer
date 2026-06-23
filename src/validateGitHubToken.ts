@@ -1,7 +1,7 @@
 import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
 import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
-import type { RepoFilter } from './types/RepoFilter.js';
 import { splitRepo } from './github/splitRepo.js';
+import type { RepoFilter } from './types/RepoFilter.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Octokit } from '@octokit/rest';

@@ -1,21 +1,20 @@
+import type { EventRepository } from './db/eventRepository.js';
+import type { QueueRepository } from './db/queueRepository.js';
 import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
-import type { EventRepository } from './db/eventRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
 import type { PollDetector } from './detectorPoll.js';
 import { setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { TYPES } from './inversify-types.js';
 import { initLogger } from './logger.js';
 import type { Scheduler } from './scheduler.js';
-import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
 import { validateGitHubToken } from './validateGitHubToken.js';
 
+import 'reflect-metadata';
 import { getLogger, type Logger } from '@couimet/logger-contract';
 import type { Octokit } from '@octokit/rest';
 import type { PrismaClient } from '@prisma/client';
-import 'reflect-metadata';
 
 initLogger();
 const log = getLogger();

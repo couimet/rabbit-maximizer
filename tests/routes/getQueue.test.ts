@@ -1,5 +1,5 @@
-import { createGetQueueHandler } from '../../src/routes/getQueue.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { createGetQueueHandler } from '../../src/routes/getQueue.js';
 import { createMockLogger, createMockQueueRepo } from '../helpers/index.js';
 import { fetchResponse, getJson } from '../helpers/testHttpClient.js';
 
@@ -11,8 +11,8 @@ describe('getQueue', () => {
   let server: Server;
   let logger: Logger;
 
-  afterEach(() => {
-    server?.close();
+  afterEach(async () => {
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
   const startServer = (over = {}) => {

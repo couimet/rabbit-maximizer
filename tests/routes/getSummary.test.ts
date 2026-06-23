@@ -1,5 +1,5 @@
-import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
 import { createMockEventRepo, createMockLogger, createMockQueueRepo } from '../helpers/index.js';
 import { fetchResponse, getJson } from '../helpers/testHttpClient.js';
 
@@ -11,8 +11,8 @@ describe('getSummary', () => {
   let logger: Logger;
   let server: Server;
 
-  afterEach(() => {
-    server?.close();
+  afterEach(async () => {
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
   const startServer = (queueRepoOver = {}, eventRepoOver = {}) => {

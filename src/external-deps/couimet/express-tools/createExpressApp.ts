@@ -1,5 +1,6 @@
 import type { Logger } from '@couimet/logger-contract';
 import express, { type Application } from 'express';
+import helmet from 'helmet';
 
 export interface CreateExpressOptions {
   logger: Logger;
@@ -7,6 +8,6 @@ export interface CreateExpressOptions {
 
 export const createExpressApp = (options: CreateExpressOptions): Application => {
   const app = express();
-  // Future middleware registration points go here (request ID, logging, healthcheck, etc.)
+  app.use(helmet());
   return app;
 };

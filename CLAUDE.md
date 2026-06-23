@@ -143,3 +143,9 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Define named constants for all numeric literals with semantic meaning</do>
   <do>Use SCREAMING_SNAKE_CASE for constant names</do>
 </rule>
+
+<rule id="P002" priority="critical">
+  <title>Never stage without approval</title>
+  <never>Run `git add` or `git stage` without explicit user approval</never>
+  <rationale>The user stages files manually while reviewing changes</rationale>
+</rule>

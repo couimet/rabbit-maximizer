@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import SummaryStats from './components/SummaryStats';
-import QueueTable from './components/QueueTable';
 import EventHistory from './components/EventHistory';
+import QueueTable from './components/QueueTable';
+import SummaryStats from './components/SummaryStats';
+
+import { useState } from 'react';
 
 type Tab = 'summary' | 'queue' | 'events';
 

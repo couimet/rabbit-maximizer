@@ -1,11 +1,13 @@
-import { jest, describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
-jest.unstable_mockModule('vite', () => ({
-  createServer: jest.fn().mockResolvedValue({ middlewares: jest.fn() }),
-}));
+const { createMockVite } = await import('../helpers/index.js');
+const viteMock = createMockVite();
+
+jest.unstable_mockModule('vite', () => viteMock);
 
 describe('setupVite', () => {
   it('sets up Vite dev server and mounts middlewares', async () => {
+    viteMock.createServer.mockResolvedValue({ middlewares: jest.fn() });
     const { setupVite } = await import('../../src/routes/setupVite.js');
     const { createExpressApp } = await import('../../src/external-deps/couimet/express-tools/createExpressApp.js');
     const { createMockLogger } = await import('../helpers/index.js');
@@ -15,6 +17,23 @@ describe('setupVite', () => {
 
     await setupVite(app, logger, 5173);
 
-    expect(logger.info).toHaveBeenCalledWith({ fn: 'setupExpress', port: 5173 }, 'Dashboard running with Vite HMR');
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'setupVite', port: 5173 }, 'Dashboard running with Vite HMR');
+  });
+
+  it('logs warning when Vite fails to start', async () => {
+    const viteError = new Error('Vite not found');
+    viteMock.createServer.mockRejectedValue(viteError);
+    const { trySetupVite } = await import('../../src/routes/setupVite.js');
+    const { createMockLogger } = await import('../helpers/index.js');
+    const { createExpressApp } = await import('../../src/external-deps/couimet/express-tools/createExpressApp.js');
+
+    const logger = createMockLogger();
+    const app = createExpressApp({ logger });
+
+    trySetupVite(app, logger, 5173);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(logger.warn).toHaveBeenCalledWith({ fn: 'trySetupVite', error: viteError }, 'Vite dev server not available (dashboard directory may not exist yet)');
   });
 });

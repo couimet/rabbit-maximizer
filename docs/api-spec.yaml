@@ -228,6 +228,7 @@ components:
       properties:
         data:
           type: array
+          maxItems: 100
           items:
             $ref: '#/components/schemas/QueueItem'
         total:
@@ -244,6 +245,7 @@ components:
       properties:
         data:
           type: array
+          maxItems: 100
           items:
             $ref: '#/components/schemas/EventEntry'
         total:

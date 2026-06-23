@@ -6,7 +6,7 @@ Writing a shared library in its own repo before the API has been battle-tested i
 
 Build the module directly inside the service that needs it. Treat it as if it were already published under its eventual org and package name. The directory structure mirrors that future home:
 
-```
+```text
 src/external-deps/<org>/<package>/   ← e.g. couimet/express-tools
 ```
 

@@ -1,5 +1,5 @@
-import { createGetEventsHandler } from '../../src/routes/getEvents.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { createGetEventsHandler } from '../../src/routes/getEvents.js';
 import { createMockEventRepo, createMockLogger } from '../helpers/index.js';
 import { fetchResponse, getJson } from '../helpers/testHttpClient.js';
 
@@ -11,8 +11,8 @@ describe('getEvents', () => {
   let server: Server;
   let logger: Logger;
 
-  afterEach(() => {
-    server?.close();
+  afterEach(async () => {
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
   const startServer = (over = {}) => {

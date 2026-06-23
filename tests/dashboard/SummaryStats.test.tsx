@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 
-import { act, render, screen, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
+
+import '@testing-library/jest-dom';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { render, screen, waitFor } from '@testing-library/react';
 
 const mockFetch = (status: number, body: unknown) => {
   globalThis.fetch = jest.fn(() =>

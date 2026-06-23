@@ -246,6 +246,8 @@ describe('EventRepositoryImpl', () => {
       const take = 10;
       const repo = makeUniqueRepoName().fullName;
       const pr = getUniqueInt();
+      const sourceCommentUrl = getUniqueString();
+      const postedCommentUrl = getUniqueString();
       const rows = [
         {
           id: getUniqueInt(),
@@ -257,7 +259,7 @@ describe('EventRepositoryImpl', () => {
           correlation_id: getUniqueString(),
           request_id: null,
           version: getUniqueString(),
-          payload: JSON.stringify({ source_comment_url: getUniqueString(), posted_comment_url: getUniqueString() }),
+          payload: JSON.stringify({ source_comment_url: sourceCommentUrl, posted_comment_url: postedCommentUrl }),
           metadata: null,
         },
       ];
@@ -289,7 +291,7 @@ describe('EventRepositoryImpl', () => {
           version: rows[0].version,
           metadata: undefined,
           type: 'posted',
-          payload: { source_comment_url: expect.any(String) as unknown, posted_comment_url: expect.any(String) as unknown },
+          payload: { source_comment_url: sourceCommentUrl, posted_comment_url: postedCommentUrl },
         },
       ]);
       expect(result.total).toBe(total);

@@ -384,8 +384,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await awaitTick(scheduler);
 
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.tick', error: dbError }, 'executeTick failed before item was fetched');

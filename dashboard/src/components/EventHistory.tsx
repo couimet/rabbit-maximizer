@@ -2,7 +2,9 @@ import type { EventEntry, PaginatedResponse } from '../api';
 import { fetchEvents } from '../api';
 import { formatDate } from '../formatDate';
 import { prUrl, repoUrl } from '../githubUrl';
+
 import Pagination from './Pagination';
+
 import { useEffect, useMemo, useState } from 'react';
 
 const PAGE_SIZE = 20;

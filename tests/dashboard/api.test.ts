@@ -1,4 +1,5 @@
 import { fetchSummary } from '../../dashboard/src/api.js';
+
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('api', () => {

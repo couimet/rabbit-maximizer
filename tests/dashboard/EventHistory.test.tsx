@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import EventHistory from '../../dashboard/src/components/EventHistory.js';
+
+import '@testing-library/jest-dom';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const PAGE_SIZE = 20;
 

@@ -28,7 +28,7 @@ export interface MockPrismaResult {
   event: MockEventDelegate;
 }
 
-export const createMockPrismaClient = (options?: MockPrismaOptions): MockPrismaResult => {
+export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockPrismaResult => {
   const reviewQueue: MockReviewQueueDelegate = {
     create: jest.fn<any>(),
     findFirst: jest.fn<any>(),
@@ -36,14 +36,14 @@ export const createMockPrismaClient = (options?: MockPrismaOptions): MockPrismaR
     findMany: jest.fn<any>(),
     count: jest.fn<any>(),
     groupBy: jest.fn<any>(),
-    ...options?.reviewQueue,
+    ...overrides.reviewQueue,
   };
   const event: MockEventDelegate = {
     create: jest.fn<any>(),
     findMany: jest.fn<any>(),
     count: jest.fn<any>(),
     groupBy: jest.fn<any>(),
-    ...options?.event,
+    ...overrides.event,
   };
 
   return {

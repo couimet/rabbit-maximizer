@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 
-import { act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { act } from '@testing-library/react';
 
 describe('main', () => {
   beforeEach(() => {

@@ -1,4 +1,5 @@
 import { formatDate } from '../../dashboard/src/formatDate.js';
+
 import { describe, expect, it } from '@jest/globals';
 
 describe('formatDate', () => {
@@ -12,5 +13,9 @@ describe('formatDate', () => {
 
   it('zero-pads single-digit months, days, hours, minutes, and seconds', () => {
     expect(formatDate('2026-02-05T09:07:03.000Z')).toBe('2026-02-05 09:07:03');
+  });
+
+  it('returns fallback string when given an invalid date', () => {
+    expect(formatDate('not-a-date')).toBe('Invalid date');
   });
 });

@@ -2,6 +2,7 @@ import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../ap
 import { fetchSummary } from '../api';
 import { formatDate } from '../formatDate';
 import { prUrl, repoUrl } from '../githubUrl';
+
 import { useEffect, useState } from 'react';
 
 const SummaryStats = () => {

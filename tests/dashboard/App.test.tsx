@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import App from '../../dashboard/src/App.js';
+
+import '@testing-library/jest-dom';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const emptySummary = {
   queueCounts: { pending: 0, posted: 0, completed: 0, failed: 0 },

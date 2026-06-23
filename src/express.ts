@@ -1,13 +1,14 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
+import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
+import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
 import { createExpressApp } from './external-deps/couimet/express-tools/createExpressApp.js';
-import { createGetSummaryHandler, createGetQueueHandler, createGetEventsHandler } from './routes/index.js';
+import { createGetEventsHandler, createGetQueueHandler, createGetSummaryHandler } from './routes/index.js';
 import { trySetupVite } from './routes/setupVite.js';
 
 import type { Logger } from '@couimet/logger-contract';
-import express from 'express';
 import type { Request, Response } from 'express';
-import type { Server } from 'http';
+import express from 'express';
 
 export interface ExpressDeps {
   eventRepo: EventRepository;
@@ -39,7 +40,17 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   }
 
   const server = app.listen(port);
-  const actualPort = (server.address() as { port: number }).port;
+  const address = server.address();
+  /* c8 ignore start — defensive: numeric ports always return an address object */
+  if (!address || typeof address === 'string') {
+    throw new RabbitOptimizerError({
+      code: RabbitOptimizerErrorCodes.SERVER_ADDRESS_NOT_AVAILABLE,
+      functionName: 'setupExpress',
+      message: 'Server did not bind to a TCP port',
+    });
+  }
+  /* c8 ignore stop */
+  const actualPort = address.port;
 
   return {
     port: actualPort,

@@ -1,4 +1,5 @@
 import { describeDatabaseUrl } from '../../src/utils/describeDatabaseUrl.js';
+
 import { describe, expect, it } from '@jest/globals';
 
 describe('describeDatabaseUrl', () => {
