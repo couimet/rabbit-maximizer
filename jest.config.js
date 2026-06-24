@@ -17,14 +17,7 @@ export default {
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   setupFilesAfterEnv: ['<rootDir>/node_modules/@couimet/detailed-error-testing/dist/setup.mjs'],
   testMatch: ['**/*.test.ts'],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.test.ts',
-    '!src/main.ts',
-    '!src/container.ts',
-    '!src/**/index.ts',
-    '!src/types/Result.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.test.ts', '!src/main.ts', '!src/container.ts', '!src/**/index.ts', '!src/types/Result.ts'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'text-summary', 'html', 'lcov'],
   coverageThreshold: {
