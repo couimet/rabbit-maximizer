@@ -39,7 +39,7 @@ if [ -f "$DB_FILE" ]; then
 fi
 
 # Restore to a temp file first, validate, then replace
-TEMP_DB="$DB_FILE.restoring"
+TEMP_DB="$DB_FILE.$$.restoring"
 rm -f "$TEMP_DB"
 if [[ "$BACKUP_FILE" == *.gz ]]; then
   gunzip -c "$BACKUP_FILE" | sqlite3 "$TEMP_DB"
@@ -53,7 +53,6 @@ if ! sqlite3 "$TEMP_DB" ".tables" > /dev/null 2>&1; then
   exit 1
 fi
 
-rm -f "$DB_FILE"
-mv "$TEMP_DB" "$DB_FILE"
+mv -f "$TEMP_DB" "$DB_FILE"
 
 echo "Restored data/rabbit-maximizer.db from $BACKUP_FILE"

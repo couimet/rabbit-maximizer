@@ -81,7 +81,7 @@ setup() {
   echo "this is not valid sql" | gzip > "$BATS_TEST_TMPDIR/corrupt.sql.gz"
   run bash -c "yes | bash '$SCRIPT_DIR/restore.sh' '$BATS_TEST_TMPDIR/corrupt.sql.gz'"
   [ "$status" -ne 0 ]
-  [ -f data/rabbit-maximizer.db ]
+  assert_db_has_table data/rabbit-maximizer.db "test_data"
 }
 
 @test "fails on invalid uncompressed .sql backup and preserves original database" {
@@ -89,7 +89,7 @@ setup() {
   echo "this is not valid sql" > "$BATS_TEST_TMPDIR/corrupt.sql"
   run bash -c "yes | bash '$SCRIPT_DIR/restore.sh' '$BATS_TEST_TMPDIR/corrupt.sql'"
   [ "$status" -ne 0 ]
-  [ -f data/rabbit-maximizer.db ]
+  assert_db_has_table data/rabbit-maximizer.db "test_data"
 }
 
 @test "confirmation prompt matches expected format" {
