@@ -18,6 +18,7 @@ jobs:
       pull-requests: write
     with:
       pre-install-command: 'cp .env.ci .env'
+      test-command: 'pnpm test:ci'
 
   shellcheck:
     runs-on: ubuntu-latest
