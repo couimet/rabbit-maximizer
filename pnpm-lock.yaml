@@ -46,8 +46,8 @@ importers:
         version: 4.4.3
     devDependencies:
       '@couimet/detailed-error-testing':
-        specifier: 0.1.1-alpha.1
-        version: 0.1.1-alpha.1(@couimet/detailed-error@0.1.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
+        specifier: ^0.1.1
+        version: 0.1.1(@couimet/detailed-error@0.1.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
       '@couimet/dynamic-testing':
         specifier: ^0.1.1
         version: 0.1.1
@@ -255,8 +255,8 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@couimet/detailed-error-testing@0.1.1-alpha.1':
-    resolution: {integrity: sha512-r/D6bJ0SvG8RBOq7NJE/hI8Aq8PePA7YlLX+p5l9k52obn4RXdKP2kQHVa+0D6giMhjY3qk4XgKjUgV4rFupZw==}
+  '@couimet/detailed-error-testing@0.1.1':
+    resolution: {integrity: sha512-Qaldlp5RCw5HEEDGYeOvCSshUC0dbtSZtkT5yi/8DBYf5+gAlxMNRmakvGygpcRXbYKz2/benLvv00mpv6txwQ==}
     peerDependencies:
       '@couimet/detailed-error': 0.1.0
       '@jest/expect': '>=30.0.0'
@@ -2777,7 +2777,7 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@couimet/detailed-error-testing@0.1.1-alpha.1(@couimet/detailed-error@0.1.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))':
+  '@couimet/detailed-error-testing@0.1.1(@couimet/detailed-error@0.1.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))':
     dependencies:
       '@couimet/detailed-error': 0.1.0
       '@jest/globals': 30.4.1

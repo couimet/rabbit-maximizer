@@ -39,7 +39,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@couimet/detailed-error-testing": "0.1.1-alpha.1",
+    "@couimet/detailed-error-testing": "^0.1.1",
     "@couimet/dynamic-testing": "^0.1.1",
     "@couimet/eslint-config": "^0.4.0",
     "@couimet/logger-contract-testing": "^1.0.1",
