@@ -15,7 +15,7 @@ export default {
   coverageProvider: 'v8',
 
   roots: ['<rootDir>/src', '<rootDir>/tests'],
-  setupFilesAfterEnv: ['<rootDir>/node_modules/@couimet/detailed-error-testing/dist/setup.mjs'],
+  setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],
   testMatch: ['**/*.test.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.test.ts', '!src/main.ts', '!src/container.ts', '!src/**/index.ts', '!src/types/Result.ts'],
   coverageDirectory: 'coverage',
