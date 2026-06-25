@@ -56,13 +56,23 @@ pnpm db:migrate
 pnpm dev
 ```
 
+`pnpm dev` starts the poll detector, scheduler, and a local web server on port 3000. Open `http://localhost:3000` for the dashboard — Vite provides hot reload in development, so changes to `dashboard/` appear immediately.
+
+### Dashboard
+
+The dashboard shows current system status across three tabs:
+
+- **Summary** — queue counts by status, event counts from the last 24 hours, and the oldest pending PR
+- **Queue** — paginated table of all queue items with status, repo, PR number, scheduled time, and attempt count
+- **Events** — paginated event history grouped by PR, showing each PR's detect → enqueue → post lifecycle
+
 ### PAT Setup
 
 Rabbit Maximizer needs a GitHub **fine-grained personal access token** (classic tokens also work but fine-grained is recommended). The token must be issued by a **user account** (not a GitHub App) — CodeRabbit ignores `[bot]` identities. A user PAT works for both user-owned and organization-owned repos, as long as your account has access to them.
 
 1. Go to https://github.com/settings/personal-access-tokens/new
 2. Under **Resource owner**, select your user account
-3. Under **Repository access**, choose "Selected repositories" and pick the repos you want Rabbit Optimizer to watch. If you plan to filter repos via `REPO_FILTER` in `.env`, "All repositories" also works — "Public repositories" is sufficient when all your repos are public. Selecting specific repos limits exposure if the token leaks.
-4. Under **Permissions**, ensure the token can read and write Issues. If you chose "Selected repositories" or "All repositories", look for **Repository permissions** and set **Issues** to "Read and write". If you chose "Public repositories", GitHub pre-configures this — you may not see the section at all.
+3. Under **Repository access**, choose "All repositories" or "Selected repositories". Do **not** choose "Public repositories" — that option hides the Issues permission from the dropdown below, which means you cannot grant write access. If you pick "Selected repositories", add the repos you want Rabbit Maximizer to watch. Selecting specific repos limits exposure if the token leaks.
+4. Under **Permissions** → **Repository permissions**, set **Issues** to "Read and write". The default is "No access", so you must change it explicitly.
 5. Generate the token and copy it — you won't see it again
 6. Paste it into `.env` as `GITHUB_PAT=<your-token>`

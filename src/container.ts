@@ -57,6 +57,3 @@ container.bind<PollDetector>(TYPES.PollDetector).to(PollDetector).inSingletonSco
 container.bind<Scheduler>(TYPES.Scheduler).to(Scheduler).inSingletonScope();
 
 export { container };
-
-/** Convenience helper for non-decorator contexts (e.g. main.ts). */
-export const getService = <T>(identifier: symbol): T => container.get<T>(identifier);

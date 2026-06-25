@@ -168,6 +168,30 @@ describe('PollDetector', () => {
     });
   });
 
+  describe('concurrency', () => {
+    it('skips tick when another tick is already in-flight', async () => {
+      let resolveSearch: (value: unknown) => void;
+      const searchPromise = new Promise((resolve) => {
+        resolveSearch = resolve;
+      });
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockReturnValue(searchPromise);
+
+      const detector = createDetector();
+      const { stop } = detector.start();
+
+      await Promise.resolve();
+
+      detector['tick']();
+
+      await Promise.resolve();
+
+      expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(1);
+
+      resolveSearch!([]);
+      await stop();
+    });
+  });
+
   describe('error handling', () => {
     it('logs rate-limit warning when API returns 403 with exhausted quota and sets backoff', async () => {
       const resetEpoch = Math.ceil(Date.now() / MS_PER_SECOND) + 120;
@@ -219,49 +243,35 @@ describe('PollDetector', () => {
     });
 
     it('logs generic warning for non-rate-limit errors and continues', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock<any>).mockRejectedValue(new Error('Network error'));
+      const networkError = new Error('Network error');
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockRejectedValue(networkError);
 
       const detector = createDetector();
       detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: 'Network error' }, 'Poll tick failed; will retry on next interval');
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: networkError }, 'Poll tick failed; will retry on next interval');
     });
 
-    it('logs generic warning with String(err) for non-Error rejections', async () => {
-      (deps.github.searchRateLimitComments as jest.Mock<any>).mockRejectedValue('plain string error');
+    it('logs warning when rate limit response is missing a valid x-ratelimit-reset header', async () => {
+      const badHeaderError = {
+        status: 403,
+        response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
+      };
+      (deps.github.searchRateLimitComments as jest.Mock<any>).mockRejectedValue(badHeaderError);
 
       const detector = createDetector();
       detector.start();
 
-      await drainMicrotasks(TICK_DEPTH);
+      for (let i = 0; i < TICK_DEPTH; i++) {
+        await Promise.resolve();
+      }
 
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: 'plain string error' }, 'Poll tick failed; will retry on next interval');
-    });
-  });
-
-  describe('concurrency', () => {
-    it('skips tick when another tick is already in-flight', async () => {
-      let resolveSearch: (value: unknown) => void;
-      const searchPromise = new Promise((resolve) => {
-        resolveSearch = resolve;
-      });
-      (deps.github.searchRateLimitComments as jest.Mock<any>).mockReturnValue(searchPromise);
-
-      const detector = createDetector();
-      detector.start();
-
-      await Promise.resolve();
-
-      detector['tick']();
-
-      await Promise.resolve();
-
-      expect(deps.github.searchRateLimitComments).toHaveBeenCalledTimes(1);
-
-      resolveSearch!([]);
-      await Promise.resolve();
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'PollDetector.tick', status: 403 },
+        'Rate limit response missing valid x-ratelimit-reset header; skipping backoff',
+      );
     });
   });
 });

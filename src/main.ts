@@ -1,14 +1,19 @@
+import type { EventRepository } from './db/eventRepository.js';
+import type { QueueRepository } from './db/queueRepository.js';
 import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
 import type { PollDetector } from './detectorPoll.js';
+import { setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { TYPES } from './inversify-types.js';
 import { initLogger } from './logger.js';
 import type { Scheduler } from './scheduler.js';
+import { validateGitHubToken } from './validateGitHubToken.js';
 
 import 'reflect-metadata';
-import { getLogger } from '@couimet/logger-contract';
+import { getLogger, type Logger } from '@couimet/logger-contract';
+import type { Octokit } from '@octokit/rest';
 import type { PrismaClient } from '@prisma/client';
 
 initLogger();
@@ -17,6 +22,19 @@ const log = getLogger();
 log.info({ fn: 'main' }, `rabbit-maximizer starting — DETECTION_MODE=${config.DETECTION_MODE}`);
 log.info({ fn: 'main' }, `Watching repos: ${describeRepoFilter(config.REPO_FILTER)}`);
 log.info({ fn: 'main' }, `Poll interval: ${config.POLL_INTERVAL}s`);
+
+const octokit = container.get<Octokit>(TYPES.Octokit);
+try {
+  await validateGitHubToken({ octokit, repoFilter: config.REPO_FILTER, log });
+} catch (err) {
+  log.warn(
+    {
+      fn: 'main',
+      error: err,
+    },
+    'GitHub token validation failed — the app will start but posting retrigger comments may fail with 403',
+  );
+}
 
 const prisma = container.get<PrismaClient>(TYPES.PrismaClient);
 log.info({ fn: 'main' }, `Connected to ${describeDatabaseUrl(config.DATABASE_URL)}`);
@@ -27,7 +45,20 @@ const { stop: stopDetector } = detector.start();
 const scheduler = container.get<Scheduler>(TYPES.Scheduler);
 const { stop: stopScheduler } = scheduler.start();
 
-const gracefulShutdown = createGracefulShutdown({ stopDetector, stopScheduler, prisma, log });
+const queueRepo = container.get<QueueRepository>(TYPES.QueueRepository);
+const eventRepo = container.get<EventRepository>(TYPES.EventRepository);
+const appLogger = container.get<Logger>(TYPES.Logger);
+
+const { stop: stopServer } = setupExpress({
+  queueRepo,
+  eventRepo,
+  logger: appLogger,
+  port: config.WEB_PORT,
+});
+
+log.info({ fn: 'main', port: config.WEB_PORT }, 'Dashboard API server started');
+
+const gracefulShutdown = createGracefulShutdown({ stopDetector, stopScheduler, stopServer, prisma, log });
 
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);

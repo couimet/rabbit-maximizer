@@ -57,14 +57,16 @@ const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
  * Exported so tests can call it without triggering `process.exit`.
  */
 export const parseConfig = (raw: Record<string, string | undefined>): Result<Config, string[]> => {
+  // Keep alphabetically sorted by key.
   const prepped = {
+    DATABASE_URL: emptyToUndefined(raw.DATABASE_URL),
     DETECTION_MODE: emptyToUndefined(raw.DETECTION_MODE),
     GITHUB_PAT: emptyToUndefined(raw.GITHUB_PAT),
     POLL_INTERVAL: emptyToUndefined(raw.POLL_INTERVAL),
-    DATABASE_URL: emptyToUndefined(raw.DATABASE_URL),
     REPO_FILTER: parseRepoFilter(raw.REPO_FILTER),
-    WEBHOOK_SECRET: emptyToUndefined(raw.WEBHOOK_SECRET),
     TUNNEL_URL: emptyToUndefined(raw.TUNNEL_URL),
+    WEB_PORT: emptyToUndefined(raw.WEB_PORT),
+    WEBHOOK_SECRET: emptyToUndefined(raw.WEBHOOK_SECRET),
   };
 
   const result = ConfigSchema.safeParse(prepped);
@@ -83,14 +85,16 @@ export const exitWithConfigErrors = (issues: string[]): never => {
   process.exit(1);
 };
 
+// Keep alphabetically sorted by key.
 const parsed = parseConfig({
+  DATABASE_URL: process.env.DATABASE_URL,
   DETECTION_MODE: process.env.DETECTION_MODE,
   GITHUB_PAT: process.env.GITHUB_PAT,
   POLL_INTERVAL: process.env.POLL_INTERVAL,
-  DATABASE_URL: process.env.DATABASE_URL,
   REPO_FILTER: process.env.REPO_FILTER,
-  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
   TUNNEL_URL: process.env.TUNNEL_URL,
+  WEB_PORT: process.env.WEB_PORT,
+  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET,
 });
 
 /* c8 ignore start */

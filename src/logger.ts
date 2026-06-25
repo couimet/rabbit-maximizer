@@ -19,7 +19,6 @@ class ConsoleLogger implements Logger {
   error = log('ERROR', console.error);
 }
 
-/** Initialize the global logger. Call once at application startup (from main.ts). */
 export const initLogger = (): void => {
   setLogger(new ConsoleLogger());
 };

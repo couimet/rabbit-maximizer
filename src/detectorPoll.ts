@@ -136,7 +136,7 @@ export class PollDetector {
       this.log.warn(
         {
           fn: 'PollDetector.tick',
-          error: err instanceof Error ? err.message : String(err),
+          error: err,
         },
         'Poll tick failed; will retry on next interval',
       );

@@ -9,7 +9,7 @@ import type {
   PostedPayload,
   RejectedPayload,
 } from '../types/EventPayloads.js';
-import { type EventLogEntry, EventType } from '../types/index.js';
+import { type EventLogEntry, EventType, type PaginatedResult } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type Prisma, type PrismaClient } from '@prisma/client';
@@ -35,6 +35,8 @@ export type NewEvent =
 export interface EventRepository {
   record(input: NewEvent, tx: Prisma.TransactionClient): Promise<EventLogEntry>;
   listForPr(repo: string, pr: number): Promise<EventLogEntry[]>;
+  listRecent(skip: number, take: number): Promise<PaginatedResult<EventLogEntry>>;
+  countByType(since: Date): Promise<Record<EventType, number>>;
 }
 
 @injectable()
@@ -81,5 +83,35 @@ export class EventRepositoryImpl implements EventRepository {
 
     this.log.debug({ fn: 'EventRepositoryImpl.listForPr', repo, pr, count: rows.length }, 'Listed events for PR');
     return rows.map((row) => parseEventRow(row));
+  }
+
+  async listRecent(skip: number, take: number): Promise<PaginatedResult<EventLogEntry>> {
+    const [rows, total] = await Promise.all([this.prisma.event.findMany({ orderBy: { ts: 'desc' }, skip, take }), this.prisma.event.count()]);
+
+    this.log.debug({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total }, 'Listed recent events');
+    return { items: rows.map((row) => parseEventRow(row)), total };
+  }
+
+  async countByType(since: Date): Promise<Record<EventType, number>> {
+    const rows = await this.prisma.event.groupBy({
+      by: ['type'],
+      where: { ts: { gte: since } },
+      _count: { type: true },
+    });
+
+    const counts: Record<EventType, number> = {
+      detected: 0,
+      enqueued: 0,
+      posted: 0,
+      rejected: 0,
+      completed: 0,
+      failed: 0,
+    };
+    for (const row of rows) {
+      counts[row.type as EventType] = row._count.type;
+    }
+
+    this.log.debug({ fn: 'EventRepositoryImpl.countByType', counts }, 'Counted events by type');
+    return counts;
   }
 }

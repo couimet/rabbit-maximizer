@@ -1,5 +1,7 @@
 import type { EventRepository } from '../src/db/eventRepository.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
+import { RabbitMaximizerError } from '../src/errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from '../src/errors/RabbitMaximizerErrorCodes.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import { Scheduler } from '../src/scheduler.js';
@@ -12,7 +14,6 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const TICK_INTERVAL_MS = 10_000;
-const TICK_DRAIN = 5;
 const SHORT_DRAIN = 2;
 const SINGLE_TICK = 1;
 
@@ -105,6 +106,8 @@ describe('Scheduler', () => {
 
   const createScheduler = () => new Scheduler(deps.queue, deps.github, deps.events, deps.observation, deps.prisma, deps.logger);
 
+  const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
+
   describe('tick', () => {
     it('posts retrigger, marks posted, and records posted event in a transaction', async () => {
       const item = makeItem();
@@ -115,7 +118,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -158,7 +161,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
@@ -197,7 +200,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
       expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
@@ -209,6 +212,33 @@ describe('Scheduler', () => {
           status: 410,
         },
         'PR closed or merged; marked failed',
+      );
+
+      await stop();
+    });
+
+    it('retries on HTTP 403 (rate limit)', async () => {
+      const item = makeItem();
+      const forbiddenError = { status: 403 };
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(forbiddenError);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markFailed).not.toHaveBeenCalled();
+      expect(deps.queue.markPosted).not.toHaveBeenCalled();
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          error: forbiddenError,
+        },
+        'Post retrigger failed; will retry next tick',
       );
 
       await stop();
@@ -237,12 +267,9 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
-      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', error: 'DB connection lost' },
-        'executeTick failed before item was fetched',
-      );
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.tick', error: dbError }, 'executeTick failed before item was fetched');
 
       await stop();
     });
@@ -253,7 +280,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'Scheduler.tick', error: 'raw string failure' },
@@ -270,7 +297,14 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
+
+      const expectedError = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.MISSING_SOURCE_COMMENT_URL,
+        functionName: 'Scheduler.executeTick',
+        message: 'source_comment_url is required but was null or undefined',
+        details: { queueItemId: item.id, repo: item.repo_full_name, pr: item.pr_number },
+      });
 
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         {
@@ -278,7 +312,7 @@ describe('Scheduler', () => {
           repo: item.repo_full_name,
           pr: item.pr_number,
           queueId: item.id,
-          error: 'source_comment_url is required but was null or undefined',
+          error: expectedError,
         },
         'Post retrigger failed; will retry next tick',
       );
@@ -295,7 +329,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
 
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
@@ -305,7 +339,7 @@ describe('Scheduler', () => {
           repo: item.repo_full_name,
           pr: item.pr_number,
           queueId: item.id,
-          error: 'Network timeout',
+          error: networkError,
         },
         'Post retrigger failed; will retry next tick',
       );
@@ -313,15 +347,23 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('logs warning with String(err) for non-Error postRetrigger failure', async () => {
-      const item = makeItem();
+    it('logs warning on MISSING_SOURCE_COMMENT_URL error', async () => {
+      const item = { ...makeItem(), source_comment_url: null as unknown as string };
       (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
-      (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(42);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(TICK_DRAIN);
+      await awaitTick(scheduler);
+
+      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
+
+      const expectedError = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.MISSING_SOURCE_COMMENT_URL,
+        functionName: 'Scheduler.executeTick',
+        message: 'source_comment_url is required but was null or undefined',
+        details: { queueItemId: item.id, repo: item.repo_full_name, pr: item.pr_number },
+      });
 
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         {
@@ -329,10 +371,25 @@ describe('Scheduler', () => {
           repo: item.repo_full_name,
           pr: item.pr_number,
           queueId: item.id,
-          error: '42',
+          error: expectedError,
         },
         'Post retrigger failed; will retry next tick',
       );
+
+      await stop();
+    });
+
+    it('logs warning when getNextDue rejects (item is null in catch)', async () => {
+      const dbError = new Error('Database connection lost');
+      (deps.queue.getNextDue as jest.Mock<any>).mockRejectedValue(dbError);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.tick', error: dbError }, 'executeTick failed before item was fetched');
 
       await stop();
     });

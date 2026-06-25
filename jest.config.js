@@ -9,15 +9,27 @@ export default {
   restoreMocks: true,
 
   // Test execution settings
+  collectCoverage: true,
   errorOnDeprecated: true,
   testTimeout: 5000,
   maxWorkers: '50%',
   coverageProvider: 'v8',
 
-  roots: ['<rootDir>/src', '<rootDir>/tests'],
-  setupFilesAfterEnv: ['<rootDir>/tests/jest-setup.ts'],
-  testMatch: ['**/*.test.ts'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.test.ts', '!src/main.ts', '!src/container.ts', '!src/**/index.ts', '!src/types/Result.ts'],
+  roots: ['<rootDir>/src', '<rootDir>/tests', '<rootDir>/dashboard'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup/matchers.ts'],
+  testMatch: ['**/*.test.ts', '**/*.test.tsx'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    'dashboard/src/**/*.ts',
+    'dashboard/src/**/*.tsx',
+    '!src/**/*.test.ts',
+    '!src/api-types.ts',
+    '!src/main.ts',
+    '!src/container.ts',
+    '!src/**/*.d.ts',
+    '!src/**/index.ts',
+    '!src/types/Result.ts',
+  ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'text-summary', 'html', 'lcov'],
   coverageThreshold: {
@@ -32,5 +44,6 @@ export default {
   // Map .js extensions → .ts for ts-jest ESM resolution
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '\\.css$': '<rootDir>/tests/helpers/styleMock.ts',
   },
 };
