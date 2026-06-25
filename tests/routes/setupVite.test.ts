@@ -7,7 +7,7 @@ jest.unstable_mockModule('vite', () => viteMock);
 
 describe('setupVite', () => {
   it('sets up Vite dev server and mounts middlewares', async () => {
-    viteMock.createServer.mockResolvedValue({ middlewares: jest.fn() });
+    viteMock.createServer.mockResolvedValue({ middlewares: jest.fn() } as any);
     const { setupVite } = await import('../../src/routes/setupVite.js');
     const { createExpressApp } = await import('../../src/external-deps/couimet/express-tools/createExpressApp.js');
     const { createMockLogger } = await import('../helpers/index.js');
@@ -15,7 +15,7 @@ describe('setupVite', () => {
     const logger = createMockLogger();
     const app = createExpressApp({ logger });
 
-    await setupVite(app, logger, 5173);
+    await setupVite(app as any, logger, 5173);
 
     expect(logger.info).toHaveBeenCalledWith({ fn: 'setupVite', port: 5173 }, 'Dashboard running with Vite HMR');
   });
@@ -30,7 +30,7 @@ describe('setupVite', () => {
     const logger = createMockLogger();
     const app = createExpressApp({ logger });
 
-    trySetupVite(app, logger, 5173);
+    trySetupVite(app as any, logger, 5173);
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 

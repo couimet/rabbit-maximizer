@@ -3,6 +3,7 @@ import { createGracefulShutdown } from '../src/gracefulShutdown.js';
 import { createMockLogger } from './helpers/index.js';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import type { PrismaClient } from '@prisma/client';
 
 describe('createGracefulShutdown', () => {
   const exit = process.exit;
@@ -35,7 +36,7 @@ describe('createGracefulShutdown', () => {
           order.push('prisma');
           return Promise.resolve();
         }),
-      },
+      } as unknown as PrismaClient,
       log: createMockLogger(),
     };
 
@@ -55,7 +56,7 @@ describe('createGracefulShutdown', () => {
       stopDetector: jest.fn<any>().mockRejectedValue(err),
       stopScheduler: jest.fn<any>().mockResolvedValue(undefined),
       stopServer: jest.fn<any>().mockResolvedValue(undefined),
-      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) },
+      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) } as unknown as PrismaClient,
       log: createMockLogger(),
     };
 
@@ -75,7 +76,7 @@ describe('createGracefulShutdown', () => {
       stopDetector: jest.fn<any>().mockResolvedValue(undefined),
       stopScheduler: jest.fn<any>().mockRejectedValue(err),
       stopServer: jest.fn<any>().mockResolvedValue(undefined),
-      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) },
+      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) } as unknown as PrismaClient,
       log: createMockLogger(),
     };
 
@@ -92,7 +93,7 @@ describe('createGracefulShutdown', () => {
     const deps = {
       stopDetector: jest.fn<any>().mockResolvedValue(undefined),
       stopScheduler: jest.fn<any>().mockResolvedValue(undefined),
-      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) },
+      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) } as unknown as PrismaClient,
       log: createMockLogger(),
     };
 
@@ -110,7 +111,7 @@ describe('createGracefulShutdown', () => {
       stopDetector: jest.fn<any>().mockResolvedValue(undefined),
       stopScheduler: jest.fn<any>().mockResolvedValue(undefined),
       stopServer: jest.fn<any>().mockRejectedValue(err),
-      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) },
+      prisma: { $disconnect: jest.fn<any>().mockResolvedValue(undefined) } as unknown as PrismaClient,
       log: createMockLogger(),
     };
 
@@ -128,7 +129,7 @@ describe('createGracefulShutdown', () => {
     const deps = {
       stopDetector: jest.fn<any>().mockResolvedValue(undefined),
       stopScheduler: jest.fn<any>().mockResolvedValue(undefined),
-      prisma: { $disconnect: jest.fn<any>().mockRejectedValue(err) },
+      prisma: { $disconnect: jest.fn<any>().mockRejectedValue(err) } as unknown as PrismaClient,
       log: createMockLogger(),
     };
 

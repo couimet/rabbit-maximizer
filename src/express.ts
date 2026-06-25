@@ -1,11 +1,11 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
-import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
-import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
+import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import { createExpressApp } from './external-deps/couimet/express-tools/createExpressApp.js';
-import { isProduction } from './isProduction.js';
 import { createGetEventsHandler, createGetQueueHandler, createGetSummaryHandler } from './routes/index.js';
 import { trySetupVite } from './routes/setupVite.js';
+import { isProduction } from './isProduction.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
@@ -45,8 +45,8 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   const address = server.address();
   /* c8 ignore start — defensive: numeric ports always return an address object */
   if (!address || typeof address === 'string') {
-    throw new RabbitOptimizerError({
-      code: RabbitOptimizerErrorCodes.SERVER_ADDRESS_NOT_AVAILABLE,
+    throw new RabbitMaximizerError({
+      code: RabbitMaximizerErrorCodes.SERVER_ADDRESS_NOT_AVAILABLE,
       functionName: 'setupExpress',
       message: 'Server did not bind to a TCP port',
     });

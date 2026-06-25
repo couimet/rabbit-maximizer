@@ -1,6 +1,6 @@
-import EventHistory from './components/EventHistory';
-import QueueTable from './components/QueueTable';
-import SummaryStats from './components/SummaryStats';
+import EventHistory from './components/EventHistory.js';
+import QueueTable from './components/QueueTable.js';
+import SummaryStats from './components/SummaryStats.js';
 
 import { useState } from 'react';
 

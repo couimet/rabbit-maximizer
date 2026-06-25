@@ -1,8 +1,8 @@
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import { createMockLogger } from '../helpers/index.js';
 
-import { beforeEach, describe, expect, it } from '@jest/globals';
 import type { Logger } from '@couimet/logger-contract';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 import type { Server } from 'http';
 
 const getBody = (server: Server, path: string): Promise<string> =>

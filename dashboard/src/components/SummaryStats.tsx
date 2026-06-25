@@ -1,7 +1,7 @@
-import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../api';
-import { fetchSummary } from '../api';
-import { formatDate } from '../formatDate';
-import { prUrl, repoUrl } from '../githubUrl';
+import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../api.js';
+import { fetchSummary } from '../api.js';
+import { formatDate } from '../formatDate.js';
+import { prUrl, repoUrl } from '../githubUrl.js';
 
 import { useEffect, useState } from 'react';
 

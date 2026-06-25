@@ -1,20 +1,11 @@
 /** @jest-environment jsdom */
 
 import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
+import { createMockFetch } from '../helpers/index.js';
 
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/jest-globals';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
-
-const mockFetch = (status: number, body: unknown) => {
-  globalThis.fetch = jest.fn(() =>
-    Promise.resolve({
-      ok: status < 400,
-      status,
-      json: () => Promise.resolve(body),
-    } as Response),
-  ) as jest.Mock;
-};
 
 describe('SummaryStats', () => {
   afterEach(() => {
@@ -23,7 +14,7 @@ describe('SummaryStats', () => {
 
   describe('loading', () => {
     it('shows loading text while fetch is in-flight', () => {
-      globalThis.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock;
+      globalThis.fetch = jest.fn(() => new Promise(() => {})) as unknown as typeof fetch;
       render(<SummaryStats />);
       expect(screen.getByText('Loading summary…')).toBeInTheDocument();
     });
@@ -31,7 +22,7 @@ describe('SummaryStats', () => {
 
   describe('data', () => {
     beforeEach(() => {
-      mockFetch(200, {
+      createMockFetch(200, {
         queueCounts: { pending: 5, posted: 12, completed: 10, failed: 2 },
         eventCounts24h: { detected: 8, enqueued: 7, posted: 3, rejected: 1, completed: 14, failed: 1 },
         oldestPending: {
@@ -85,7 +76,7 @@ describe('SummaryStats', () => {
 
   describe('empty', () => {
     it('shows no-pending message when oldestPending is null', async () => {
-      mockFetch(200, {
+      createMockFetch(200, {
         queueCounts: { pending: 0, posted: 0, completed: 0, failed: 0 },
         eventCounts24h: { detected: 0, enqueued: 0, posted: 0, rejected: 0, completed: 0, failed: 0 },
         oldestPending: null,
@@ -105,13 +96,13 @@ describe('SummaryStats', () => {
 
   describe('error', () => {
     it('shows error message on HTTP failure', async () => {
-      mockFetch(500, { error: 'Internal server error' });
+      createMockFetch(500, { error: 'Internal server error' });
       render(<SummaryStats />);
       await waitFor(() => expect(screen.getByText('Failed to load summary: Internal server error')).toBeInTheDocument());
     });
 
     it('shows generic error message when fetch rejects', async () => {
-      globalThis.fetch = jest.fn(() => Promise.reject(new Error('Network error'))) as jest.Mock;
+      globalThis.fetch = jest.fn(() => Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
       render(<SummaryStats />);
       await waitFor(() => expect(screen.getByText('Failed to load summary: Network error')).toBeInTheDocument());
     });

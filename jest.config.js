@@ -26,10 +26,8 @@ export default {
     '!src/api-types.ts',
     '!src/main.ts',
     '!src/container.ts',
+    '!src/**/*.d.ts',
     '!src/**/index.ts',
-    // TODO: remove once @couimet packages provide tests for these
-    // https://github.com/couimet/ts-npm-packages/issues/25
-    '!src/errors/**',
     '!src/types/Result.ts',
   ],
   coverageDirectory: 'coverage',

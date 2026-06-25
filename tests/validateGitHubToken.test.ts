@@ -191,7 +191,7 @@ describe('validateGitHubToken', () => {
       mockAuth();
       rest.repos.listForUser.mockResolvedValue({ data: [] });
 
-      await expect(() => validateGitHubToken({ octokit, repoFilter: [{ pattern: 'owner/*', scope: 'user' }], log: logger })).toThrowRabbitOptimizerErrorAsync(
+      await expect(() => validateGitHubToken({ octokit, repoFilter: [{ pattern: 'owner/*', scope: 'user' }], log: logger })).toThrowDetailedErrorAsync(
         'TOKEN_VALIDATION_EMPTY_FILTER',
         {
           message: 'REPO_FILTER resolved to zero repositories. Check that the filter matches at least one accessible repo.',

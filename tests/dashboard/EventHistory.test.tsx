@@ -1,8 +1,9 @@
 /** @jest-environment jsdom */
 
 import EventHistory from '../../dashboard/src/components/EventHistory.js';
+import { createMockFetch } from '../helpers/index.js';
 
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/jest-globals';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
@@ -23,16 +24,6 @@ const makeEvent = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const mockFetch = (status: number, body: unknown) => {
-  globalThis.fetch = jest.fn(() =>
-    Promise.resolve({
-      ok: status < 400,
-      status,
-      json: () => Promise.resolve(body),
-    } as Response),
-  ) as jest.Mock;
-};
-
 describe('EventHistory', () => {
   afterEach(() => {
     (globalThis.fetch as jest.Mock).mockRestore?.();
@@ -40,7 +31,7 @@ describe('EventHistory', () => {
 
   describe('loading', () => {
     it('shows loading text while fetch is in-flight', () => {
-      globalThis.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock;
+      globalThis.fetch = jest.fn(() => new Promise(() => {})) as unknown as typeof fetch;
       render(<EventHistory />);
       expect(screen.getByText('Loading events…')).toBeInTheDocument();
     });
@@ -48,7 +39,7 @@ describe('EventHistory', () => {
 
   describe('data', () => {
     beforeEach(() => {
-      mockFetch(200, {
+      createMockFetch(200, {
         data: [
           makeEvent({ id: 1, type: 'detected', correlation_id: 'corr-001', ts: '2026-06-23T10:00:00.000Z' }),
           makeEvent({ id: 2, type: 'enqueued', correlation_id: 'corr-001', ts: '2026-06-23T10:05:00.000Z' }),
@@ -99,7 +90,7 @@ describe('EventHistory', () => {
 
   describe('empty', () => {
     it('shows empty message when no events exist', async () => {
-      mockFetch(200, { data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
       render(<EventHistory />);
       await waitFor(() => expect(screen.getByText('No events.')).toBeInTheDocument());
     });
@@ -107,18 +98,18 @@ describe('EventHistory', () => {
 
   describe('pagination', () => {
     it('disables Previous on first page', async () => {
-      mockFetch(200, { data: [makeEvent()], total: 1, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent()], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<EventHistory />);
       await waitFor(() => expect(screen.getByText('detected')).toBeInTheDocument());
       expect(screen.getByText('Previous').closest('button')).toBeDisabled();
     });
 
     it('fetches next page when Next is clicked', async () => {
-      mockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 50, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 50, page: 1, pageSize: PAGE_SIZE });
       render(<EventHistory />);
       await waitFor(() => expect(screen.getByText('detected')).toBeInTheDocument());
 
-      mockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 50, page: 2, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 50, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
       await waitFor(() => expect(screen.getByText('completed')).toBeInTheDocument());
     });
@@ -134,7 +125,7 @@ describe('EventHistory', () => {
 
   describe('error', () => {
     it('shows error message on HTTP failure', async () => {
-      mockFetch(500, { error: 'Internal server error' });
+      createMockFetch(500, { error: 'Internal server error' });
       render(<EventHistory />);
       await waitFor(() => expect(screen.getByText('Failed to load events: Internal server error')).toBeInTheDocument());
     });

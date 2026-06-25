@@ -19,6 +19,7 @@ describe('ConfigSchema', () => {
       POLL_INTERVAL: 90,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
       REPO_FILTER: [{ pattern: 'couimet/*', scope: 'user' as const }],
+      WEB_PORT: 3000,
     };
   });
 

@@ -1,5 +1,5 @@
-import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
-import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
+import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import { splitRepo } from './github/splitRepo.js';
 import type { RepoFilter } from './types/RepoFilter.js';
 
@@ -48,8 +48,8 @@ const resolveAllRepos = async (octokit: Octokit, repoFilter: readonly RepoFilter
   }
 
   if (repos.length === 0) {
-    throw new RabbitOptimizerError({
-      code: RabbitOptimizerErrorCodes.TOKEN_VALIDATION_EMPTY_FILTER,
+    throw new RabbitMaximizerError({
+      code: RabbitMaximizerErrorCodes.TOKEN_VALIDATION_EMPTY_FILTER,
       functionName: 'resolveAllRepos',
       message: 'REPO_FILTER resolved to zero repositories. Check that the filter matches at least one accessible repo.',
     });

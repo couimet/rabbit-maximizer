@@ -2,7 +2,7 @@
 
 import App from '../../dashboard/src/App.js';
 
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/jest-globals';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
@@ -27,7 +27,7 @@ describe('App', () => {
         status: 200,
         json: () => Promise.resolve(responses[url] ?? {}),
       } as Response),
-    ) as jest.Mock;
+    ) as unknown as typeof fetch;
   });
 
   afterEach(() => {

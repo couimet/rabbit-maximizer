@@ -1,9 +1,9 @@
-import type { PaginatedResponse, QueueItem } from '../api';
-import { fetchQueue } from '../api';
-import { formatDate } from '../formatDate';
-import { prUrl, repoUrl } from '../githubUrl';
+import type { PaginatedResponse, QueueItem } from '../api.js';
+import { fetchQueue } from '../api.js';
+import { formatDate } from '../formatDate.js';
+import { prUrl, repoUrl } from '../githubUrl.js';
 
-import Pagination from './Pagination';
+import Pagination from './Pagination.js';
 
 import { useEffect, useState } from 'react';
 

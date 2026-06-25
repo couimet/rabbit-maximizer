@@ -1,8 +1,9 @@
 /** @jest-environment jsdom */
 
 import QueueTable from '../../dashboard/src/components/QueueTable.js';
+import { createMockFetch } from '../helpers/index.js';
 
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/jest-globals';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
@@ -22,16 +23,6 @@ const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const mockFetch = (status: number, body: unknown) => {
-  globalThis.fetch = jest.fn(() =>
-    Promise.resolve({
-      ok: status < 400,
-      status,
-      json: () => Promise.resolve(body),
-    } as Response),
-  ) as jest.Mock;
-};
-
 describe('QueueTable', () => {
   afterEach(() => {
     (globalThis.fetch as jest.Mock).mockRestore?.();
@@ -39,7 +30,7 @@ describe('QueueTable', () => {
 
   describe('loading', () => {
     it('shows loading text while fetch is in-flight', () => {
-      globalThis.fetch = jest.fn(() => new Promise(() => {})) as jest.Mock;
+      globalThis.fetch = jest.fn(() => new Promise(() => {})) as unknown as typeof fetch;
       render(<QueueTable />);
       expect(screen.getByText('Loading queue…')).toBeInTheDocument();
     });
@@ -47,7 +38,7 @@ describe('QueueTable', () => {
 
   describe('data', () => {
     beforeEach(() => {
-      mockFetch(200, {
+      createMockFetch(200, {
         data: [
           makeQueueItem({
             id: 1,
@@ -104,7 +95,7 @@ describe('QueueTable', () => {
 
   describe('empty', () => {
     it('shows empty message when no queue items exist', async () => {
-      mockFetch(200, { data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
       render(<QueueTable />);
       await waitFor(() => expect(screen.getByText('No queue items.')).toBeInTheDocument());
     });
@@ -112,39 +103,39 @@ describe('QueueTable', () => {
 
   describe('pagination', () => {
     it('fetches with page number and disables Previous on first page', async () => {
-      mockFetch(200, { data: [makeQueueItem()], total: 1, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeQueueItem()], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<QueueTable />);
       await waitFor(() => expect(screen.getByText('#42')).toBeInTheDocument());
       expect(screen.getByText('Previous').closest('button')).toBeDisabled();
     });
 
     it('disables Next on last page', async () => {
-      mockFetch(200, { data: [makeQueueItem()], total: 1, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeQueueItem()], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<QueueTable />);
       await waitFor(() => expect(screen.getByText('#42')).toBeInTheDocument());
       expect(screen.getByText('Next').closest('button')).toBeDisabled();
     });
 
     it('fetches next page when Next is clicked', async () => {
-      mockFetch(200, { data: [makeQueueItem()], total: 50, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeQueueItem()], total: 50, page: 1, pageSize: PAGE_SIZE });
       render(<QueueTable />);
       await waitFor(() => expect(screen.getByText('#42')).toBeInTheDocument());
 
-      mockFetch(200, { data: [makeQueueItem({ id: 99, pr_number: 99 })], total: 50, page: 2, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeQueueItem({ id: 99, pr_number: 99 })], total: 50, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
       await waitFor(() => expect(screen.getByText('#99')).toBeInTheDocument());
     });
 
     it('fetches previous page when Previous is clicked', async () => {
-      mockFetch(200, { data: [makeQueueItem({ pr_number: 50 })], total: 50, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeQueueItem({ pr_number: 50 })], total: 50, page: 1, pageSize: PAGE_SIZE });
       render(<QueueTable />);
       await waitFor(() => expect(screen.getByText('#50')).toBeInTheDocument());
 
-      mockFetch(200, { data: [makeQueueItem({ pr_number: 51 })], total: 50, page: 2, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeQueueItem({ pr_number: 51 })], total: 50, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
       await waitFor(() => expect(screen.getByText('#51')).toBeInTheDocument());
 
-      mockFetch(200, { data: [makeQueueItem({ id: 1, pr_number: 1 })], total: 50, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeQueueItem({ id: 1, pr_number: 1 })], total: 50, page: 1, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Previous'));
       await waitFor(() => expect(screen.getByText('#1')).toBeInTheDocument());
     });
@@ -160,7 +151,7 @@ describe('QueueTable', () => {
 
   describe('error', () => {
     it('shows error message on HTTP failure', async () => {
-      mockFetch(500, { error: 'Internal server error' });
+      createMockFetch(500, { error: 'Internal server error' });
       render(<QueueTable />);
       await waitFor(() => expect(screen.getByText('Failed to load queue: Internal server error')).toBeInTheDocument());
     });

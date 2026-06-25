@@ -1,4 +1,5 @@
 export * from './createMockEventRepo.js';
+export * from './createMockFetch.js';
 export * from './createMockLogger.js';
 export * from './createMockOctokit.js';
 export * from './createMockPrismaClient.js';
