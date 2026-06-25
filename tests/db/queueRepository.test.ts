@@ -221,6 +221,31 @@ describe('QueueRepositoryImpl', () => {
     });
   });
 
+  describe('getOldestPending', () => {
+    it('returns the oldest pending item', async () => {
+      const row = makeRow({ status: 'pending' });
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+      const result = await sut.getOldestPending();
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({
+        where: { status: 'pending' },
+        orderBy: { scheduled_for: 'asc' },
+      });
+      expect(result).toStrictEqual(toExpectedItem(row));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getOldestPending', found: true }, 'Fetched oldest pending item');
+    });
+
+    it('returns null when no pending items exist', async () => {
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+      const result = await sut.getOldestPending();
+      expect(result).toBeNull();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getOldestPending', found: false }, 'Fetched oldest pending item');
+    });
+  });
+
   describe('enqueue error paths', () => {
     it('logs warning and rethrows when a non-P2002 error occurs', async () => {
       const { fullName: repo } = makeUniqueRepoName();
