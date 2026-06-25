@@ -4,8 +4,7 @@ import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClien
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import { Scheduler } from '../src/scheduler.js';
 
-import { createMockLogger } from './helpers/createMockLogger.js';
-import { makeUniqueRepoName } from './helpers/index.js';
+import { createMockLogger, drainMicrotasks, makeUniqueRepoName } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -13,6 +12,9 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const TICK_INTERVAL_MS = 10_000;
+const TICK_DRAIN = 5;
+const SHORT_DRAIN = 2;
+const SINGLE_TICK = 1;
 
 interface QueueItemStub {
   id: number;
@@ -113,11 +115,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(TICK_DRAIN);
 
       expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -160,11 +158,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(TICK_DRAIN);
 
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
@@ -203,11 +197,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(TICK_DRAIN);
 
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
       expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
@@ -230,13 +220,68 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(SHORT_DRAIN);
 
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
       expect(deps.queue.markPosted).not.toHaveBeenCalled();
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('logs warning when getNextDue itself rejects', async () => {
+      const dbError = new Error('DB connection lost');
+      (deps.queue.getNextDue as jest.Mock<any>).mockRejectedValue(dbError);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await drainMicrotasks(TICK_DRAIN);
+
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
+        { fn: 'Scheduler.tick', error: 'DB connection lost' },
+        'executeTick failed before item was fetched',
+      );
+
+      await stop();
+    });
+
+    it('logs warning with String(err) when getNextDue rejects a non-Error', async () => {
+      (deps.queue.getNextDue as jest.Mock<any>).mockRejectedValue('raw string failure');
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await drainMicrotasks(TICK_DRAIN);
+
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
+        { fn: 'Scheduler.tick', error: 'raw string failure' },
+        'executeTick failed before item was fetched',
+      );
+
+      await stop();
+    });
+
+    it('logs warning when source_comment_url is null', async () => {
+      const item = { ...makeItem(), source_comment_url: null as unknown as string };
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await drainMicrotasks(TICK_DRAIN);
+
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          error: 'source_comment_url is required but was null or undefined',
+        },
+        'Post retrigger failed; will retry next tick',
+      );
 
       await stop();
     });
@@ -250,11 +295,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(TICK_DRAIN);
 
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
@@ -265,6 +306,30 @@ describe('Scheduler', () => {
           pr: item.pr_number,
           queueId: item.id,
           error: 'Network timeout',
+        },
+        'Post retrigger failed; will retry next tick',
+      );
+
+      await stop();
+    });
+
+    it('logs warning with String(err) for non-Error postRetrigger failure', async () => {
+      const item = makeItem();
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(42);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await drainMicrotasks(TICK_DRAIN);
+
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          error: '42',
         },
         'Post retrigger failed; will retry next tick',
       );
@@ -287,12 +352,11 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(SHORT_DRAIN);
 
       scheduler['tick']();
 
-      await Promise.resolve();
+      await drainMicrotasks(SINGLE_TICK);
 
       expect(deps.github.postRetrigger).toHaveBeenCalledTimes(1);
 
@@ -315,15 +379,14 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(SHORT_DRAIN);
 
       let stopResolved = false;
       const stopPromise = stop().then(() => {
         stopResolved = true;
       });
 
-      await Promise.resolve();
+      await drainMicrotasks(SINGLE_TICK);
       expect(stopResolved).toBe(false);
 
       resolvePost!({ htmlUrl: getUniqueString({ prefix: 'https://gh/' }) });
@@ -339,19 +402,16 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(SHORT_DRAIN);
 
       expect(deps.queue.getNextDue).toHaveBeenCalledTimes(1);
       expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
 
       jest.advanceTimersByTime(TICK_INTERVAL_MS);
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(SHORT_DRAIN);
 
       jest.advanceTimersByTime(TICK_INTERVAL_MS);
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(SHORT_DRAIN);
 
       expect(deps.queue.getNextDue).toHaveBeenCalledTimes(3);
 
@@ -364,8 +424,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(SHORT_DRAIN);
 
       await stop();
 
