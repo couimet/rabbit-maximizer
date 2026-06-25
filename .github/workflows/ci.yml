@@ -12,11 +12,9 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-        with:
-          persist-credentials: false
-      - name: Set up CI environment
-        run: cp .env.ci .env
-      - uses: couimet/github-actions/typescript-ci@main
+    uses: couimet/github-actions/.github/workflows/typescript-ci-checks.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+    with:
+      test-command: 'cp .env.ci .env && pnpm test'
