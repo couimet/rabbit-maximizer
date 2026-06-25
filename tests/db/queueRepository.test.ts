@@ -143,7 +143,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('returns null when no pending items are due', async () => {
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.getNextDue();
@@ -226,7 +226,7 @@ describe('QueueRepositoryImpl', () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const networkError = new Error('Connection lost');
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { create: jest.fn<any>().mockRejectedValue(networkError) } });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({ reviewQueue: { create: jest.fn<any>().mockRejectedValue(networkError) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
@@ -249,7 +249,7 @@ describe('QueueRepositoryImpl', () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
-      const { prisma, reviewQueue } = createMockPrismaClient({
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2002), findFirst: createResolvedMock(null) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };

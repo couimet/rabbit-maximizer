@@ -11,7 +11,6 @@ import type { Octokit } from '@octokit/rest';
 
 const FUNCTION_NAME = 'validateGitHubToken';
 const TOKEN_SETTINGS_URL = 'https://github.com/settings/personal-access-tokens';
-const NONEXISTENT_ISSUE = 99_999_999;
 
 interface MockOctokitRest {
   users: { getAuthenticated: jest.Mock<any> };
@@ -172,7 +171,7 @@ describe('validateGitHubToken', () => {
 
       await validateGitHubToken({ octokit, repoFilter, log: logger });
 
-      const { owner, repo: repoName } = splitRepo(repo);
+      const { owner: _owner, repo: _repoName } = splitRepo(repo);
       expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: FUNCTION_NAME, repo, error: networkError },
         `Unexpected error validating write access to "${repo}"`,

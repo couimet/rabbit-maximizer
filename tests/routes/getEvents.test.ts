@@ -1,7 +1,8 @@
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import { createGetEventsHandler } from '../../src/routes/getEvents.js';
+import { fetchResponse } from '../helpers/fetchResponse.js';
+import { getJson } from '../helpers/getJson.js';
 import { createMockEventRepo, createMockLogger } from '../helpers/index.js';
-import { fetchResponse, getJson } from '../helpers/testHttpClient.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';

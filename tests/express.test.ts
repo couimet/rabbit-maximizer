@@ -1,7 +1,7 @@
 import { setupExpress } from '../src/express.js';
 
+import { fetchResponse } from './helpers/fetchResponse.js';
 import { createMockEventRepo, createMockLogger, createMockQueueRepo } from './helpers/index.js';
-import { fetchResponse } from './helpers/testHttpClient.js';
 
 import { afterEach, describe, expect, it } from '@jest/globals';
 import type { Server } from 'http';
