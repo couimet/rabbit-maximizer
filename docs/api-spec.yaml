@@ -172,8 +172,10 @@ components:
           type: string
         metadata:
           type: object
+          additionalProperties: true
         payload:
           type: object
+          additionalProperties: true
       additionalProperties: false
 
     QueueCounts:

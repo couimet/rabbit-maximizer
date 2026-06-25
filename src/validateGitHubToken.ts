@@ -102,7 +102,12 @@ export const validateGitHubToken = async (params: ValidateTokenParams): Promise<
   const repos = await resolveAllRepos(octokit, repoFilter);
   log.info({ fn: FUNCTION_NAME, repoCount: repos.length }, `Validating token against ${repos.length} repos`);
 
-  const results = await Promise.all(repos.map((repo) => probeWriteAccess(octokit, repo, log)));
+  const CONCURRENCY = 5;
+  const results: boolean[] = [];
+  for (let i = 0; i < repos.length; i += CONCURRENCY) {
+    const batch = repos.slice(i, i + CONCURRENCY);
+    results.push(...(await Promise.all(batch.map((repo) => probeWriteAccess(octokit, repo, log)))));
+  }
 
   const passed = results.filter(Boolean).length;
   const failed = repos.length - passed;

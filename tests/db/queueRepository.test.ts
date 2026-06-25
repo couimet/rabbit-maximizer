@@ -272,7 +272,7 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('getAll', () => {
-    it('returns paginated queue items sorted by scheduled_for descending, with total count', async () => {
+    it('returns paginated queue items sorted by scheduled_for ascending, with total count', async () => {
       const skip = 0;
       const take = 20;
       const rows = [makeRow({ status: 'pending' }), makeRow({ status: 'posted' })];
@@ -290,7 +290,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getAll(skip, take);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        orderBy: { scheduled_for: 'desc' },
+        orderBy: { scheduled_for: 'asc' },
         skip,
         take,
       });

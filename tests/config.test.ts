@@ -69,6 +69,21 @@ describe('parseConfig', () => {
     }
   });
 
+  it('fails when WEB_PORT is zero', () => {
+    const result = parseConfig({ ...BASE, WEB_PORT: '0' });
+    expect(result.success).toBe(false);
+  });
+
+  it('fails when WEB_PORT is negative', () => {
+    const result = parseConfig({ ...BASE, WEB_PORT: '-5' });
+    expect(result.success).toBe(false);
+  });
+
+  it('fails when WEB_PORT is non-numeric', () => {
+    const result = parseConfig({ ...BASE, WEB_PORT: 'abc' });
+    expect(result.success).toBe(false);
+  });
+
   // -- Success cases ---------------------------------------------------------
 
   it('applies default POLL_INTERVAL when absent', () => {
@@ -95,6 +110,22 @@ describe('parseConfig', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.value.DETECTION_MODE).toBe('poll');
+    }
+  });
+
+  it('applies default WEB_PORT of 3000 when absent', () => {
+    const result = parseConfig(BASE);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.WEB_PORT).toBe(3000);
+    }
+  });
+
+  it('applies default WEB_PORT of 3000 when empty string', () => {
+    const result = parseConfig({ ...BASE, WEB_PORT: '' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.WEB_PORT).toBe(3000);
     }
   });
 

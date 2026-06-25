@@ -52,6 +52,7 @@ describe('setupExpress', () => {
       const server = { address: () => ({ port, family: 'IPv6' }) } as unknown as Server;
       const res = await fetchResponse(server, '/api/summary');
       expect(res.status).toBe(200);
+      expect(viteMock.createServer).not.toHaveBeenCalled();
     } finally {
       process.env.NODE_ENV = prev;
     }

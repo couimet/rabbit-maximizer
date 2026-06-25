@@ -26,6 +26,7 @@ export interface QueueRepository {
   reschedule(id: number, newScheduledFor: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
 }
@@ -158,9 +159,18 @@ export class QueueRepositoryImpl implements QueueRepository {
     return rows.map((row) => this.toQueueItem(row));
   }
 
+  async getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null> {
+    const row = await this.client(tx).reviewQueue.findFirst({
+      where: { status: QueueStatus.pending },
+      orderBy: { scheduled_for: 'asc' },
+    });
+    this.log.debug({ fn: 'QueueRepositoryImpl.getOldestPending', found: row !== null }, 'Fetched oldest pending item');
+    return row ? this.toQueueItem(row) : null;
+  }
+
   async getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
     const db = this.client(tx);
-    const [rows, total] = await Promise.all([db.reviewQueue.findMany({ orderBy: { scheduled_for: 'desc' }, skip, take }), db.reviewQueue.count()]);
+    const [rows, total] = await Promise.all([db.reviewQueue.findMany({ orderBy: { scheduled_for: 'asc' }, skip, take }), db.reviewQueue.count()]);
     this.log.debug({ fn: 'QueueRepositoryImpl.getAll', count: rows.length, total }, 'Fetched all queue items');
     return { items: rows.map((row) => this.toQueueItem(row)), total };
   }

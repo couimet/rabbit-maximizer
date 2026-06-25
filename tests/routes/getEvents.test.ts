@@ -13,7 +13,7 @@ describe('getEvents', () => {
   let logger: Logger;
 
   afterEach(async () => {
-    await new Promise<void>((resolve) => server?.close(() => resolve()));
+    if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   const startServer = (over = {}) => {
@@ -24,7 +24,19 @@ describe('getEvents', () => {
   };
 
   it('returns 200 with paginated events', async () => {
-    const items = [{ id: 1, type: 'detected', repo_full_name: 'c/r', pr_number: 42 }];
+    const items = [
+      {
+        id: 1,
+        uuid: 'evt-abc-123',
+        ts: '2026-06-23T14:30:00.000Z',
+        type: 'detected',
+        repo_full_name: 'c/r',
+        pr_number: 42,
+        correlation_id: 'corr-001',
+        version: '1.0.0',
+        payload: {},
+      },
+    ];
     startServer({ listRecent: jest.fn<any>().mockResolvedValue({ items, total: 1 }) });
 
     const json = await getJson(server, '/api/events');

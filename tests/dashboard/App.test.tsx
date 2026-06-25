@@ -3,7 +3,7 @@
 import App from '../../dashboard/src/App.js';
 
 import '@testing-library/jest-dom/jest-globals';
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const emptySummary = {
@@ -28,10 +28,6 @@ describe('App', () => {
         json: () => Promise.resolve(responses[url] ?? {}),
       } as Response),
     ) as unknown as typeof fetch;
-  });
-
-  afterEach(() => {
-    (globalThis.fetch as jest.Mock).mockRestore?.();
   });
 
   it('renders the logo and title', async () => {

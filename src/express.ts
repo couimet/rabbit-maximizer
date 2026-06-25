@@ -10,6 +10,10 @@ import { isProduction } from './isProduction.js';
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
 import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const DASHBOARD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
 
 export interface ExpressDeps {
   eventRepo: EventRepository;
@@ -36,9 +40,9 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.get('/icon_256.png', (_req: Request, res: Response) => res.sendFile('assets/icon_256.png', { root: '.' }));
 
   if (production) {
-    app.use(express.static('dashboard/dist'));
+    app.use(express.static(path.join(DASHBOARD_DIR, 'dist')));
   } else {
-    trySetupVite(app, logger, port);
+    trySetupVite(app, logger, port, DASHBOARD_DIR);
   }
 
   const server = app.listen(port);

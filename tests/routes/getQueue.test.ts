@@ -13,7 +13,7 @@ describe('getQueue', () => {
   let logger: Logger;
 
   afterEach(async () => {
-    await new Promise<void>((resolve) => server?.close(() => resolve()));
+    if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   const startServer = (over = {}) => {

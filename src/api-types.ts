@@ -89,8 +89,12 @@ export interface components {
       correlation_id: string;
       request_id?: string;
       version: string;
-      metadata?: Record<string, never>;
-      payload: Record<string, never>;
+      metadata?: {
+        [key: string]: unknown;
+      };
+      payload: {
+        [key: string]: unknown;
+      };
     };
     QueueCounts: {
       pending: number;

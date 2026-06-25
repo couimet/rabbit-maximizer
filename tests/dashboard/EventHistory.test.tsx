@@ -117,9 +117,11 @@ describe('EventHistory', () => {
 
   describe('cleanup', () => {
     it('cancels in-flight fetch on unmount', () => {
+      const fetchSpy = jest.spyOn(globalThis, 'fetch');
       const { unmount } = render(<EventHistory />);
       unmount();
-      expect(globalThis.fetch).toHaveBeenCalled();
+      expect(fetchSpy).toHaveBeenCalled();
+      fetchSpy.mockRestore();
     });
   });
 

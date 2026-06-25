@@ -19,6 +19,19 @@ const getBody = (server: Server, path: string): Promise<string> =>
       .catch(reject);
   });
 
+const getHeaders = (server: Server, path: string): Promise<Headers> =>
+  new Promise((resolve, reject) => {
+    const addr = server.address();
+    if (!addr || typeof addr === 'string') {
+      reject(new Error('Server not listening'));
+      return;
+    }
+    const url = `http://[::1]:${addr.port}${path}`;
+    fetch(url)
+      .then((res) => resolve(res.headers))
+      .catch(reject);
+  });
+
 describe('createExpressApp', () => {
   let logger: Logger;
 
@@ -37,6 +50,9 @@ describe('createExpressApp', () => {
       const body = await getBody(server, '/smoke');
       expect(body).toBe('ok');
       expect(logger.info).toHaveBeenCalledWith({ fn: 'createExpressApp' }, 'Express app created');
+
+      const headers = await getHeaders(server, '/smoke');
+      expect(headers.get('x-content-type-options')).toBe('nosniff');
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
@@ -53,6 +69,9 @@ describe('createExpressApp', () => {
       const body = await getBody(server, '/smoke');
       expect(body).toBe('ok');
       expect(logger.info).toHaveBeenCalledWith({ fn: 'createExpressApp' }, 'Express app created');
+
+      const headers = await getHeaders(server, '/smoke');
+      expect(headers.get('x-content-type-options')).toBeNull();
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

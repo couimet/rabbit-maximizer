@@ -27,7 +27,7 @@ describe('getSummary', () => {
     startServer(
       {
         getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 5, posted: 3, completed: 10, failed: 2 }),
-        getPendingQueue: jest.fn<any>().mockResolvedValue([{ id: 1, repo_full_name: 'c/r', pr_number: 42, scheduled_for: '2026-01-01T00:00:00.000Z' }]),
+        getOldestPending: jest.fn<any>().mockResolvedValue({ id: 1, repo_full_name: 'c/r', pr_number: 42, scheduled_for: '2026-01-01T00:00:00.000Z' }),
       },
       {
         countByType: jest.fn<any>().mockResolvedValue({ detected: 8, enqueued: 7, posted: 3, rejected: 1, completed: 2, failed: 1 }),

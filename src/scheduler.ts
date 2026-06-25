@@ -13,11 +13,10 @@ import { inject, injectable } from 'inversify';
 import { randomUUID } from 'node:crypto';
 
 const TICK_INTERVAL_MS = 10_000;
-const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_GONE = 410;
 
-const TERMINAL_HTTP_STATUSES = [HTTP_FORBIDDEN, HTTP_NOT_FOUND, HTTP_GONE];
+const TERMINAL_HTTP_STATUSES = [HTTP_NOT_FOUND, HTTP_GONE];
 
 @injectable()
 export class Scheduler {
@@ -152,7 +151,7 @@ export class Scheduler {
               request_id: obs.requestId,
               version: obs.version,
               payload: {
-                reason: error.status === HTTP_FORBIDDEN ? 'Access denied or PR unavailable' : 'PR closed or merged',
+                reason: 'PR closed or merged',
               },
             },
             tx,
@@ -167,7 +166,7 @@ export class Scheduler {
             queueId: item.id,
             status: error.status,
           },
-          error.status === HTTP_FORBIDDEN ? 'Access denied or PR unavailable; marked failed' : 'PR closed or merged; marked failed',
+          'PR closed or merged; marked failed',
         );
         return;
       }
