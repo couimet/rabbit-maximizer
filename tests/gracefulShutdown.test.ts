@@ -14,7 +14,7 @@ describe('createGracefulShutdown', () => {
   let $disconnect: jest.Mock<() => Promise<void>>;
   let prisma: PrismaClient;
   let logger: Logger;
-  let exitSpy: jest.SpyInstance;
+  let exitSpy: jest.SpiedFunction<typeof process.exit>;
 
   beforeEach(() => {
     stopDetector = jest.fn<() => Promise<void>>().mockResolvedValue(undefined);
