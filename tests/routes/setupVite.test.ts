@@ -15,7 +15,7 @@ describe('setupVite', () => {
 
     const logger = createMockLogger();
     const app = createExpressApp({ logger });
-    const appUse = jest.spyOn(app, 'use');
+    const appUse = jest.spyOn(app as any, 'use');
 
     await setupVite(app as any, logger, 5173, 'dashboard');
 

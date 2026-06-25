@@ -237,7 +237,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('returns null when no pending items exist', async () => {
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
+      const { prisma } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.getOldestPending();
