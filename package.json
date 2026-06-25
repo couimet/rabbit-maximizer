@@ -23,9 +23,10 @@
     "postinstall": "prisma generate",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "pnpm test:ts:unit && pnpm test:shellcheck && pnpm test:db:scripts",
+    "test": "pnpm test:ts:unit && pnpm test:shellcheck && pnpm test:bats",
+    "test:bats": "bats bats-tests",
+    "test:bats:db": "bats bats-tests/db/",
     "test:ci": "pnpm test:ts:unit",
-    "test:db:scripts": "bats tests/db/",
     "test:shellcheck": "find . -name '*.sh' -not -path './node_modules/*' -exec shellcheck {} +",
     "test:ts:unit": "NODE_OPTIONS='--experimental-vm-modules' jest --coverage",
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch"

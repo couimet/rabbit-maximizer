@@ -36,4 +36,4 @@ jobs:
           persist-credentials: false
       - uses: couimet/github-actions/bats-test@main
         with:
-          test-directory: tests/db/
+          test-directory: bats-tests
