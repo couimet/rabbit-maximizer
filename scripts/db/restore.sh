@@ -5,12 +5,12 @@ DB_FILE="$PWD/data/rabbit-maximizer.db"
 BACKUP_DIR="$PWD/data/backups"
 
 if [ $# -eq 0 ]; then
-  if [ ! -d "$BACKUP_DIR" ] || [ -z "$(ls -A "$BACKUP_DIR" 2>/dev/null)" ]; then
+  if [ ! -d "$BACKUP_DIR" ] || [ -z "$(find "$BACKUP_DIR" -maxdepth 1 -type f -print -quit 2>/dev/null)" ]; then
     echo "No backups found in data/backups/"
     exit 0
   fi
   echo "Available backups:"
-  ls -lh "$BACKUP_DIR" | tail -n +2
+  find "$BACKUP_DIR" -maxdepth 1 -type f -exec ls -lh {} +
   exit 0
 fi
 

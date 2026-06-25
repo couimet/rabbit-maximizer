@@ -58,3 +58,16 @@ load test_helper
   [ -n "$output" ]
   [[ "$output" == "$BATS_TEST_TMPDIR/data/backups/"* ]]
 }
+
+@test "rotation handles filenames with spaces" {
+  create_test_db
+  for i in $(seq 1 12); do
+    sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/backup $i.sql.gz"
+    sleep 0.1
+  done
+  run bash "$SCRIPT_DIR/backup.sh"
+  [ "$status" -eq 0 ]
+  local count
+  count=$(find "$BATS_TEST_TMPDIR/data/backups" -maxdepth 1 -name '*.sql.gz' -type f | wc -l | tr -d ' ')
+  [ "$count" -eq 10 ]
+}

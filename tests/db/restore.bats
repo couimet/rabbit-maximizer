@@ -22,6 +22,15 @@ setup() {
   [[ "$output" =~ "No backups found" ]]
 }
 
+@test "lists available backups when filenames have spaces" {
+  create_test_db
+  sqlite3 data/rabbit-maximizer.db .dump | gzip > "data/backups/my backup.sql.gz"
+  run bash "$SCRIPT_DIR/restore.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" =~ "Available backups:" ]]
+  [[ "$output" =~ "my backup.sql.gz" ]]
+}
+
 @test "creates pre-restore safety backup before restoring" {
   create_test_db
   local restore_from="$BATS_TEST_TMPDIR/restore-me.sql.gz"
