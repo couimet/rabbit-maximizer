@@ -1,10 +1,14 @@
-import { setupExpress } from '../src/express.js';
-
-import { fetchResponse } from './helpers/fetchResponse.js';
-import { createMockEventRepo, createMockLogger, createMockQueueRepo } from './helpers/index.js';
-
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
+
+const { createMockVite } = await import('./helpers/index.js');
+const viteMock = createMockVite();
+
+jest.unstable_mockModule('vite', () => viteMock);
+
+const { setupExpress } = await import('../src/express.js');
+const { createMockEventRepo, createMockLogger, createMockQueueRepo } = await import('./helpers/index.js');
+const { fetchResponse } = await import('./helpers/fetchResponse.js');
 
 describe('setupExpress', () => {
   let port: number;
