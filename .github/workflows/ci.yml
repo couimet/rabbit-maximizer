@@ -17,4 +17,4 @@ jobs:
       contents: read
       pull-requests: write
     with:
-      test-command: 'cp .env.ci .env && pnpm test'
+      pre-install-command: 'cp .env.ci .env'
