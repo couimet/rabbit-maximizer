@@ -1,5 +1,5 @@
-import { RabbitOptimizerError } from '../errors/RabbitOptimizerError.js';
-import { RabbitOptimizerErrorCodes } from '../errors/RabbitOptimizerErrorCodes.js';
+import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 
 /**
  * Functional error handling Value Object.
@@ -26,8 +26,8 @@ export class Result<T, E> {
 
   private constructor(success: boolean, value?: T, error?: E) {
     if (success && error !== undefined) {
-      throw new RabbitOptimizerError({
-        code: RabbitOptimizerErrorCodes.RESULT_INVALID_STATE,
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RESULT_INVALID_STATE,
         message: 'Result marked as success cannot have an error defined',
         functionName: 'Result.constructor',
         details: {
@@ -38,8 +38,8 @@ export class Result<T, E> {
       });
     }
     if (!success && value !== undefined) {
-      throw new RabbitOptimizerError({
-        code: RabbitOptimizerErrorCodes.RESULT_INVALID_STATE,
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RESULT_INVALID_STATE,
         message: 'Result marked as error cannot have a value defined',
         functionName: 'Result.constructor',
         details: {
@@ -72,8 +72,8 @@ export class Result<T, E> {
   /** Get the success value. Throws if Result is an error. */
   get value(): T {
     if (!this._success) {
-      throw new RabbitOptimizerError({
-        code: RabbitOptimizerErrorCodes.RESULT_VALUE_ACCESS_ON_ERROR,
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RESULT_VALUE_ACCESS_ON_ERROR,
         message: 'Cannot access value on an error Result. Check .success before accessing .value',
         functionName: 'Result.value',
       });
@@ -84,8 +84,8 @@ export class Result<T, E> {
   /** Get the error. Throws if Result is successful. */
   get error(): E {
     if (this._success) {
-      throw new RabbitOptimizerError({
-        code: RabbitOptimizerErrorCodes.RESULT_ERROR_ACCESS_ON_SUCCESS,
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RESULT_ERROR_ACCESS_ON_SUCCESS,
         message: 'Cannot access error on a successful Result. Check .success before accessing .error',
         functionName: 'Result.error',
       });

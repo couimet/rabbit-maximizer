@@ -37,7 +37,7 @@ describe('createPrismaClient', () => {
   it('throws PRISMA_CONNECTION_METHOD_NOT_SUPPORTED for a non-file: url', () => {
     config.DATABASE_URL = 'postgresql://user:pass@localhost:5432/db';
 
-    expect(() => createPrismaClient()).toThrowRabbitOptimizerError('PRISMA_CONNECTION_METHOD_NOT_SUPPORTED', {
+    expect(() => createPrismaClient()).toThrowDetailedError('PRISMA_CONNECTION_METHOD_NOT_SUPPORTED', {
       message: 'Unsupported DATABASE_URL connection method; only "file:" URLs are supported',
       functionName: 'createPrismaClient',
       details: { scheme: 'postgresql' },

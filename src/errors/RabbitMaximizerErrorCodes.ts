@@ -1,5 +1,5 @@
 /**
- * Rabbit Optimizer error codes.
+ * Rabbit Maximizer error codes.
  *
  * Architecture principles:
  * - No ERR_ prefix: If defined here, it's an error
@@ -8,7 +8,7 @@
  *
  * Please keep alphabetical order for ease of maintenance.
  */
-export enum RabbitOptimizerErrorCodes {
+export enum RabbitMaximizerErrorCodes {
   CONFIG_VALIDATION_FAILED = 'CONFIG_VALIDATION_FAILED',
 
   GITHUB_API_ERROR = 'GITHUB_API_ERROR',
@@ -23,4 +23,6 @@ export enum RabbitOptimizerErrorCodes {
   RESULT_ERROR_ACCESS_ON_SUCCESS = 'RESULT_ERROR_ACCESS_ON_SUCCESS',
   RESULT_INVALID_STATE = 'RESULT_INVALID_STATE',
   RESULT_VALUE_ACCESS_ON_ERROR = 'RESULT_VALUE_ACCESS_ON_ERROR',
+
+  UNKNOWN_EVENT_TYPE = 'UNKNOWN_EVENT_TYPE',
 }

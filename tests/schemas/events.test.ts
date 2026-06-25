@@ -145,7 +145,11 @@ describe('parseEventRow', () => {
 
   it('throws on an unknown event type', () => {
     const row = baseRow({ type: 'bogus', payload: '{}' });
-    expect(() => parseEventRow(row)).toThrow('Unknown event type: bogus');
+    expect(() => parseEventRow(row)).toThrowDetailedError('UNKNOWN_EVENT_TYPE', {
+      message: 'Unknown event type: bogus',
+      functionName: 'parseEventRow',
+      details: { eventType: 'bogus' },
+    });
   });
 
   it('rejects an enqueued payload missing scheduled_for', () => {

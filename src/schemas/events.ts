@@ -1,3 +1,5 @@
+import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 import type { EventEnvelope, EventLogEntry } from '../types/EventLogEntry.js';
 import { EventType } from '../types/EventType.js';
 
@@ -94,6 +96,11 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         payload: FailedPayloadSchema.parse(payload),
       };
     default:
-      throw new Error(`Unknown event type: ${row.type}`);
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.UNKNOWN_EVENT_TYPE,
+        message: `Unknown event type: ${row.type}`,
+        functionName: 'parseEventRow',
+        details: { eventType: row.type },
+      });
   }
 };

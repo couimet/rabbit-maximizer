@@ -9,10 +9,10 @@ describe('extractRepoFullName', () => {
     expect(extractRepoFullName(`https://api.github.com/repos/${fullName}`)).toBe(fullName);
   });
 
-  it('throws a RabbitOptimizerError when the URL lacks the expected prefix', () => {
+  it('throws a RabbitMaximizerError when the URL lacks the expected prefix', () => {
     const { fullName } = makeUniqueRepoName();
     const badUrl = `https://example.com/repos/${fullName}`;
-    expect(() => extractRepoFullName(badUrl)).toThrowRabbitOptimizerError('GITHUB_API_ERROR', {
+    expect(() => extractRepoFullName(badUrl)).toThrowDetailedError('GITHUB_API_ERROR', {
       message: 'Invalid repository URL format',
       functionName: 'extractRepoFullName',
       details: { repositoryUrl: badUrl },

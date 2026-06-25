@@ -1,7 +1,7 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
-import { RabbitOptimizerError } from './errors/RabbitOptimizerError.js';
-import { RabbitOptimizerErrorCodes } from './errors/RabbitOptimizerErrorCodes.js';
+import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
 import { EventType } from './types/EventType.js';
@@ -81,8 +81,8 @@ export class Scheduler {
       const runId = randomUUID();
 
       if (item.source_comment_url == null) {
-        throw new RabbitOptimizerError({
-          code: RabbitOptimizerErrorCodes.MISSING_SOURCE_COMMENT_URL,
+        throw new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.MISSING_SOURCE_COMMENT_URL,
           functionName: 'Scheduler.executeTick',
           message: 'source_comment_url is required but was null or undefined',
           details: { queueItemId: item.id, repo: item.repo_full_name, pr: item.pr_number },
