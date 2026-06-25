@@ -19,6 +19,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-examples>
 </rule>
 
+<rule id="C002" priority="critical">
+  <title>couimet/* GitHub Actions always use @main</title>
+  <never>Pin a `couimet/*` GitHub Action to a commit SHA in CI workflows</never>
+  <do>Always reference `couimet/*` actions with `@main` to get the latest version</do>
+  <rationale>The author wants these actions to auto-update across all repos</rationale>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

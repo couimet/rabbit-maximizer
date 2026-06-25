@@ -18,3 +18,22 @@ jobs:
       pull-requests: write
     with:
       pre-install-command: 'cp .env.ci .env'
+      test-command: 'pnpm test:ci'
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: couimet/github-actions/shellcheck@main
+
+  bats-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: couimet/github-actions/bats-test@main
+        with:
+          test-directory: bats-tests
