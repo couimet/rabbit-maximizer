@@ -1,8 +1,9 @@
 # Shared helpers for BATS database tests
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../scripts/db" && pwd)"
+export SCRIPT_DIR
 
 setup() {
-  cd "$BATS_TEST_TMPDIR"
+  cd "$BATS_TEST_TMPDIR" || return
   mkdir -p "data/backups"
 }
 
