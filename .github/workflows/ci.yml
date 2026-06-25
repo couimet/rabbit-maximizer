@@ -37,3 +37,4 @@ jobs:
       - uses: couimet/github-actions/bats-test@main
         with:
           test-directory: bats-tests
+          github-token: ${{ secrets.GITHUB_TOKEN }}
