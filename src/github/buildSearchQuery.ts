@@ -1,4 +1,4 @@
-import { REVIEW_BOT_RATE_LIMIT_SEARCH_TEXT } from '../types/coderabbit.js';
+import { REVIEW_BOT_RATE_LIMIT_SEARCH_TEXTS } from '../types/coderabbit.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -22,7 +22,7 @@ export const buildSearchQuery = (repoFilter: readonly RepoFilter[]): string => {
 
   const twentyFourHoursAgo = new Date(Date.now() - TWENTY_FOUR_HOURS_MS).toISOString();
 
-  return [`"${REVIEW_BOT_RATE_LIMIT_SEARCH_TEXT}"`, 'type:pr', 'state:open', qualifierClause, `created:>=${twentyFourHoursAgo}`]
-    .filter((part): part is string => Boolean(part))
-    .join(' ');
+  const searchClause = `(${REVIEW_BOT_RATE_LIMIT_SEARCH_TEXTS.map((t) => `"${t}"`).join(' OR ')})`;
+
+  return [searchClause, 'type:pr', 'state:open', qualifierClause, `created:>=${twentyFourHoursAgo}`].filter((part): part is string => Boolean(part)).join(' ');
 };

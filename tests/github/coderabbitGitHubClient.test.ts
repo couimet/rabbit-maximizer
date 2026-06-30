@@ -152,7 +152,7 @@ describe('client', () => {
       await client.searchRateLimitComments([userFilter, repoFilter]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
+        q: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -162,7 +162,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchRateLimitComments',
-          query: `"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
         },
         'Searching for rate-limit comments',
       );
@@ -180,7 +180,7 @@ describe('client', () => {
       await client.searchRateLimitComments([]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `"reached your PR review rate limit" type:pr state:open created:>=${twentyFourHoursAgo}`,
+        q: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open created:>=${twentyFourHoursAgo}`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -190,7 +190,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchRateLimitComments',
-          query: `"reached your PR review rate limit" type:pr state:open created:>=${twentyFourHoursAgo}`,
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open created:>=${twentyFourHoursAgo}`,
         },
         'Searching for rate-limit comments',
       );
@@ -242,7 +242,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchRateLimitComments',
-          query: `"reached your PR review rate limit" type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
         },
         'Searching for rate-limit comments',
       );
@@ -284,7 +284,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchRateLimitComments',
-          query: `"reached your PR review rate limit" type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
         },
         'Searching for rate-limit comments',
       );
@@ -306,7 +306,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchRateLimitComments',
-          query: `"reached your PR review rate limit" type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
         },
         'Searching for rate-limit comments',
       );
