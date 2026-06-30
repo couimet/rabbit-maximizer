@@ -5,6 +5,8 @@ import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
 import { EventType } from './types/EventType.js';
+import { computeSchedulerBackoff } from './utils/index.js';
+import type { Config } from './config.js';
 import { TYPES } from './inversify-types.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -15,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 const TICK_INTERVAL_MS = 10_000;
 const HTTP_NOT_FOUND = 404;
 const HTTP_GONE = 410;
+const SECONDS_TO_MS = 1000;
 
 const TERMINAL_HTTP_STATUSES = [HTTP_NOT_FOUND, HTTP_GONE];
 
@@ -23,6 +26,9 @@ export class Scheduler {
   private intervalId: ReturnType<typeof setInterval> | undefined;
   private tickPromise: Promise<void> | null = null;
   private stopped = false;
+  private readonly postCooldownMs: number;
+  private readonly baseBackoff: number;
+  private readonly maxBackoff: number;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
@@ -37,7 +43,12 @@ export class Scheduler {
     @inject(TYPES.PrismaClient)
     private readonly prisma: PrismaClient,
     @inject(TYPES.Logger) private readonly log: Logger,
-  ) {}
+    @inject(TYPES.Config) cfg: Config,
+  ) {
+    this.postCooldownMs = cfg.SCHEDULER_POST_COOLDOWN * SECONDS_TO_MS;
+    this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE * SECONDS_TO_MS;
+    this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX * SECONDS_TO_MS;
+  }
   /* c8 ignore stop */
 
   start(): { stop(): Promise<void> } {
@@ -98,7 +109,7 @@ export class Scheduler {
       const obs = this.observation.current();
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.markPosted(item!.id, tx);
+        await this.queue.markPosted(item!.id, new Date(Date.now() + this.postCooldownMs), tx);
 
         await this.events.record(
           {
@@ -171,15 +182,57 @@ export class Scheduler {
         return;
       }
 
+      if (err instanceof RabbitMaximizerError && err.code === RabbitMaximizerErrorCodes.MISSING_SOURCE_COMMENT_URL) {
+        const obs = this.observation.current();
+        const item_ = item;
+
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.markFailed(item_.id, tx);
+
+          await this.events.record(
+            {
+              type: EventType.failed,
+              repo_full_name: item_.repo_full_name,
+              pr_number: item_.pr_number,
+              correlation_id: obs.correlationId,
+              request_id: obs.requestId,
+              version: obs.version,
+              payload: {
+                reason: 'Missing source comment URL',
+              },
+            },
+            tx,
+          );
+        });
+
+        this.log.info(
+          {
+            fn: 'Scheduler.tick',
+            repo: item.repo_full_name,
+            pr: item.pr_number,
+            queueId: item.id,
+          },
+          'Missing source comment URL; marked failed',
+        );
+        return;
+      }
+
+      const backoffMs = computeSchedulerBackoff(item.attempts, this.baseBackoff, this.maxBackoff);
+
+      await this.prisma.$transaction(async (tx) => {
+        await this.queue.reschedule(item!.id, new Date(Date.now() + backoffMs), tx);
+      });
+
       this.log.warn(
         {
           fn: 'Scheduler.tick',
           repo: item.repo_full_name,
           pr: item.pr_number,
           queueId: item.id,
-          error: err,
+          backoffMs,
+          attempts: item.attempts,
         },
-        'Post retrigger failed; will retry next tick',
+        'Post retrigger failed; rescheduled with backoff',
       );
     }
   }

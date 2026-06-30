@@ -6,7 +6,7 @@ import { CoderabbitGitHubClientImpl } from './github/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
 import { ProbeFactory } from './probes/ProbeFactory.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { config } from './config.js';
+import { type Config, config } from './config.js';
 import { PollDetector } from './detectorPoll.js';
 import { EnqueueService } from './EnqueueService.js';
 import { TYPES } from './inversify-types.js';
@@ -19,6 +19,8 @@ import { PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
 const container = new Container();
+
+container.bind<Config>(TYPES.Config).toConstantValue(config);
 
 container
   .bind<Octokit>(TYPES.Octokit)

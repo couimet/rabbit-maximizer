@@ -21,7 +21,7 @@ export interface QueueRepository {
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem>;
   getNextDue(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
-  markPosted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markPosted(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   reschedule(id: number, newScheduledFor: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -55,6 +55,19 @@ export class QueueRepositoryImpl implements QueueRepository {
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem> {
     const db = this.client(tx);
+    const recentPosted = await db.reviewQueue.findFirst({
+      where: {
+        repo_full_name: repo,
+        pr_number: pr,
+        status: QueueStatus.posted,
+        scheduled_for: { gt: new Date() },
+      },
+    });
+    if (recentPosted) {
+      this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'PR was recently retriggered; skipping');
+      return this.toQueueItem(recentPosted);
+    }
+
     try {
       const row = await db.reviewQueue.create({
         data: {
@@ -89,11 +102,11 @@ export class QueueRepositoryImpl implements QueueRepository {
           where: {
             repo_full_name: repo,
             pr_number: pr,
-            status: QueueStatus.pending,
+            status: { in: [QueueStatus.pending, QueueStatus.posted] },
           },
         });
         if (existing) {
-          this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Already queued; returning existing pending row');
+          this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, status: existing.status }, 'Already queued; returning existing row');
           return this.toQueueItem(existing);
         }
       }
@@ -114,12 +127,16 @@ export class QueueRepositoryImpl implements QueueRepository {
     return row ? this.toQueueItem(row) : null;
   }
 
-  async markPosted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async markPosted(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem> {
+    const data: { status: string; scheduled_for?: Date } = { status: QueueStatus.posted };
+    if (cooldownUntil !== undefined) {
+      data.scheduled_for = cooldownUntil;
+    }
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
-      data: { status: QueueStatus.posted },
+      data,
     });
-    this.log.debug({ fn: 'QueueRepositoryImpl.markPosted', id }, 'Marked review posted');
+    this.log.debug({ fn: 'QueueRepositoryImpl.markPosted', id, cooldownUntil }, 'Marked review posted');
     return this.toQueueItem(row);
   }
 
