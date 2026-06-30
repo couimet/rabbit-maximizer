@@ -102,11 +102,11 @@ export class QueueRepositoryImpl implements QueueRepository {
           where: {
             repo_full_name: repo,
             pr_number: pr,
-            status: QueueStatus.pending,
+            status: { in: [QueueStatus.pending, QueueStatus.posted] },
           },
         });
         if (existing) {
-          this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Already queued; returning existing pending row');
+          this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, status: existing.status }, 'Already queued; returning existing row');
           return this.toQueueItem(existing);
         }
       }

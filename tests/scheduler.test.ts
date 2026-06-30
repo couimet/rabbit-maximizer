@@ -244,7 +244,7 @@ describe('Scheduler', () => {
       expect(deps.queue.markPosted).not.toHaveBeenCalled();
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        expect.objectContaining({ fn: 'Scheduler.tick', backoffMs: expect.any(Number) }),
+        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: 60_000, attempts: 0 },
         'Post retrigger failed; rescheduled with backoff',
       );
 
@@ -312,14 +312,14 @@ describe('Scheduler', () => {
       expect(deps.events.record).not.toHaveBeenCalled();
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        expect.objectContaining({ fn: 'Scheduler.tick', backoffMs: expect.any(Number), attempts: expect.any(Number) }),
+        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: 60_000, attempts: 0 },
         'Post retrigger failed; rescheduled with backoff',
       );
 
       await stop();
     });
 
-    it('reschedules with backoff on MISSING_SOURCE_COMMENT_URL error', async () => {
+    it('marks failed on MISSING_SOURCE_COMMENT_URL error', async () => {
       const item = { ...makeItem(), source_comment_url: null as unknown as string };
       (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
 
@@ -329,19 +329,37 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
-      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        expect.objectContaining({ fn: 'Scheduler.tick', backoffMs: expect.any(Number) }),
-        'Post retrigger failed; rescheduled with backoff',
+      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'failed',
+          repo_full_name: item.repo_full_name,
+          pr_number: item.pr_number,
+          correlation_id: deps.observation.current().correlationId,
+          request_id: deps.observation.current().requestId,
+          version: deps.observation.current().version,
+          payload: { reason: 'Missing source comment URL' },
+        },
+        deps.tx,
+      );
+      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+        },
+        'Missing source comment URL; marked failed',
       );
 
       await stop();
     });
 
     it('doubles backoff on successive unknown errors', async () => {
-      const firstItem = { ...makeItem(), attempts: 2 };
+      const item1 = makeItem({ attempts: 0 });
+      const item2 = makeItem({ attempts: 1 });
       const networkError = new Error('Network timeout');
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(firstItem);
+      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValueOnce(item1).mockResolvedValueOnce(item2);
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
@@ -349,11 +367,21 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      const firstCall = (deps.queue.reschedule as jest.Mock<any>).mock.calls[0];
-      const firstBackoffDate = firstCall[1] as Date;
-      const firstBackoffMs = firstBackoffDate.getTime() - Date.now();
-      expect(firstBackoffMs).toBeGreaterThanOrEqual(60_000 * Math.pow(2, 2) - 5_000);
-      expect(firstBackoffMs).toBeLessThanOrEqual(60_000 * Math.pow(2, 2) + 5_000);
+      scheduler['tick']();
+      await awaitTick(scheduler);
+
+      expect(deps.queue.reschedule).toHaveBeenNthCalledWith(1, item1.id, expect.any(Date), deps.tx);
+      expect(deps.queue.reschedule).toHaveBeenNthCalledWith(2, item2.id, expect.any(Date), deps.tx);
+
+      const firstDate = (deps.queue.reschedule as jest.Mock<any>).mock.calls[0][1] as Date;
+      const firstMs = firstDate.getTime() - Date.now();
+      expect(firstMs).toBeGreaterThanOrEqual(60_000 * Math.pow(2, 0) - 5_000);
+      expect(firstMs).toBeLessThanOrEqual(60_000 * Math.pow(2, 0) + 5_000);
+
+      const secondDate = (deps.queue.reschedule as jest.Mock<any>).mock.calls[1][1] as Date;
+      const secondMs = secondDate.getTime() - Date.now();
+      expect(secondMs).toBeGreaterThanOrEqual(60_000 * Math.pow(2, 1) - 5_000);
+      expect(secondMs).toBeLessThanOrEqual(60_000 * Math.pow(2, 1) + 5_000);
 
       await stop();
     });

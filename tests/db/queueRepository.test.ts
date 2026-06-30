@@ -123,10 +123,10 @@ describe('QueueRepositoryImpl', () => {
         prisma as unknown as Prisma.TransactionClient,
       );
 
-      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: repo, pr_number: pr, status: 'pending' } });
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: repo, pr_number: pr, status: { in: ['pending', 'posted'] } } });
       expect(result).toStrictEqual(toExpectedItem(existing));
       expect(events.record).not.toHaveBeenCalled();
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Already queued; returning existing pending row');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, status: 'pending' }, 'Already queued; returning existing row');
     });
 
     it('returns the existing posted item when a recent posted row exists (within cooldown)', async () => {
@@ -187,6 +187,7 @@ describe('QueueRepositoryImpl', () => {
         data: { repo_full_name: repo, pr_number: pr, scheduled_for: scheduledFor, source_comment_url: expect.any(String) },
       });
       expect(result).toStrictEqual(toExpectedItem(newRow));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
     });
   });
 

@@ -105,6 +105,14 @@ describe('ConfigSchema', () => {
     ).toBe(false);
   });
 
+  it('rejects RETRY_BACKOFF_MAX lower than RETRY_BACKOFF_BASE', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, SCHEDULER_RETRY_BACKOFF_BASE: 120, SCHEDULER_RETRY_BACKOFF_MAX: 60 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('SCHEDULER_RETRY_BACKOFF_MAX'))).toBe(true);
+    }
+  });
+
   // -- Webhook refinement ------------------------------------------------------
 
   it('rejects webhook mode without WEBHOOK_SECRET', () => {

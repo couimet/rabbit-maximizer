@@ -30,17 +30,25 @@ export const ConfigSchema = z
     WEBHOOK_SECRET: z.string().optional(),
   })
   .superRefine((cfg, ctx) => {
+    if (cfg.SCHEDULER_RETRY_BACKOFF_MAX < cfg.SCHEDULER_RETRY_BACKOFF_BASE) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'SCHEDULER_RETRY_BACKOFF_MAX must be >= SCHEDULER_RETRY_BACKOFF_BASE',
+        path: ['SCHEDULER_RETRY_BACKOFF_MAX'],
+      });
+    }
+
     if (cfg.DETECTION_MODE === 'webhook') {
       if (!cfg.WEBHOOK_SECRET || cfg.WEBHOOK_SECRET.length === 0) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'WEBHOOK_SECRET is required when DETECTION_MODE=webhook',
           path: ['WEBHOOK_SECRET'],
         });
       }
       if (!cfg.TUNNEL_URL || cfg.TUNNEL_URL.length === 0) {
         ctx.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: 'TUNNEL_URL is required when DETECTION_MODE=webhook',
           path: ['TUNNEL_URL'],
         });

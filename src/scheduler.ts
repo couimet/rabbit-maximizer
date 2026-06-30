@@ -182,6 +182,41 @@ export class Scheduler {
         return;
       }
 
+      if (err instanceof RabbitMaximizerError && err.code === RabbitMaximizerErrorCodes.MISSING_SOURCE_COMMENT_URL) {
+        const obs = this.observation.current();
+        const item_ = item;
+
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.markFailed(item_.id, tx);
+
+          await this.events.record(
+            {
+              type: EventType.failed,
+              repo_full_name: item_.repo_full_name,
+              pr_number: item_.pr_number,
+              correlation_id: obs.correlationId,
+              request_id: obs.requestId,
+              version: obs.version,
+              payload: {
+                reason: 'Missing source comment URL',
+              },
+            },
+            tx,
+          );
+        });
+
+        this.log.info(
+          {
+            fn: 'Scheduler.tick',
+            repo: item.repo_full_name,
+            pr: item.pr_number,
+            queueId: item.id,
+          },
+          'Missing source comment URL; marked failed',
+        );
+        return;
+      }
+
       const backoffMs = computeSchedulerBackoff(item.attempts, this.baseBackoff, this.maxBackoff);
 
       await this.prisma.$transaction(async (tx) => {
