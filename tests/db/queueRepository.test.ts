@@ -73,7 +73,7 @@ describe('QueueRepositoryImpl', () => {
       const obs = makeObservation();
       const row = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_url: sourceUrl });
 
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { create: createResolvedMock(row) } });
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
@@ -105,7 +105,10 @@ describe('QueueRepositoryImpl', () => {
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
 
       const { prisma, reviewQueue } = createMockPrismaClient({
-        reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2002), findFirst: createResolvedMock(existing) },
+        reviewQueue: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(existing),
+          create: jest.fn<any>().mockRejectedValue(p2002),
+        },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
@@ -124,6 +127,66 @@ describe('QueueRepositoryImpl', () => {
       expect(result).toStrictEqual(toExpectedItem(existing));
       expect(events.record).not.toHaveBeenCalled();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Already queued; returning existing pending row');
+    });
+
+    it('returns the existing posted item when a recent posted row exists (within cooldown)', async () => {
+      const { fullName: repo } = makeUniqueRepoName();
+      const pr = getUniqueInt();
+      const recentPosted = makeRow({ repo_full_name: repo, pr_number: pr, status: 'posted', scheduled_for: new Date(Date.now() + 3_600_000) });
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentPosted) },
+      });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+
+      const result = await sut.enqueue(
+        repo,
+        pr,
+        getUniqueDate(),
+        getUniqueString({ prefix: 'https://gh/c/' }),
+        60,
+        makeObservation(),
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({
+        where: { repo_full_name: repo, pr_number: pr, status: 'posted', scheduled_for: { gt: expect.any(Date) } },
+      });
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(result).toStrictEqual(toExpectedItem(recentPosted));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'PR was recently retriggered; skipping');
+    });
+
+    it('creates a new pending row when the cooldown has expired', async () => {
+      const { fullName: repo } = makeUniqueRepoName();
+      const pr = getUniqueInt();
+      const newRow = makeRow({ repo_full_name: repo, pr_number: pr, status: 'pending' });
+      const scheduledFor = getUniqueDate();
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(newRow) },
+      });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+
+      const result = await sut.enqueue(
+        repo,
+        pr,
+        scheduledFor,
+        getUniqueString({ prefix: 'https://gh/c/' }),
+        60,
+        makeObservation(),
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({
+        where: { repo_full_name: repo, pr_number: pr, status: 'posted', scheduled_for: { gt: expect.any(Date) } },
+      });
+      expect(reviewQueue.create).toHaveBeenCalledWith({
+        data: { repo_full_name: repo, pr_number: pr, scheduled_for: scheduledFor, source_comment_url: expect.any(String) },
+      });
+      expect(result).toStrictEqual(toExpectedItem(newRow));
     });
   });
 
@@ -158,10 +221,22 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
-      const result = await sut.markPosted(row.id, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.markPosted(row.id, undefined, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'posted' } });
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markPosted', id: row.id }, 'Marked review posted');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markPosted', id: row.id, cooldownUntil: undefined }, 'Marked review posted');
+    });
+
+    it('writes scheduled_for when cooldownUntil is provided', async () => {
+      const cooldownUntil = getUniqueDate();
+      const row = makeRow({ status: 'posted' });
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+      const result = await sut.markPosted(row.id, cooldownUntil, prisma as unknown as Prisma.TransactionClient);
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'posted', scheduled_for: cooldownUntil } });
+      expect(result).toStrictEqual(toExpectedItem(row));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markPosted', id: row.id, cooldownUntil }, 'Marked review posted');
     });
   });
 
@@ -251,7 +326,9 @@ describe('QueueRepositoryImpl', () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const networkError = new Error('Connection lost');
-      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({ reviewQueue: { create: jest.fn<any>().mockRejectedValue(networkError) } });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(null), create: jest.fn<any>().mockRejectedValue(networkError) },
+      });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 

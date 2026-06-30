@@ -22,6 +22,9 @@ export const ConfigSchema = z
         { error: 'REPO_FILTER is required' },
       )
       .min(1, 'REPO_FILTER must have at least one entry'),
+    SCHEDULER_POST_COOLDOWN: z.coerce.number().int().positive('SCHEDULER_POST_COOLDOWN must be a positive integer').default(3600),
+    SCHEDULER_RETRY_BACKOFF_BASE: z.coerce.number().int().positive('SCHEDULER_RETRY_BACKOFF_BASE must be a positive integer').default(60),
+    SCHEDULER_RETRY_BACKOFF_MAX: z.coerce.number().int().positive('SCHEDULER_RETRY_BACKOFF_MAX must be a positive integer').default(3600),
     TUNNEL_URL: z.string().optional(),
     WEB_PORT: z.coerce.number().int().positive('WEB_PORT must be a positive integer').default(3000),
     WEBHOOK_SECRET: z.string().optional(),
