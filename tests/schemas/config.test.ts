@@ -19,6 +19,9 @@ describe('ConfigSchema', () => {
       POLL_INTERVAL: 90,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
       REPO_FILTER: [{ pattern: 'couimet/*', scope: 'user' as const }],
+      SCHEDULER_POST_COOLDOWN: 3600,
+      SCHEDULER_RETRY_BACKOFF_BASE: 60,
+      SCHEDULER_RETRY_BACKOFF_MAX: 3600,
       WEB_PORT: 3000,
     };
   });
