@@ -25,16 +25,20 @@ describe('buildSearchQuery', () => {
 
   it('wraps multiple qualifiers in an OR group', () => {
     const query = buildSearchQuery([userFilter, repoFilter]);
-    expect(query).toBe(`"reached your PR review rate limit" type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`);
+    expect(query).toBe(
+      `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
+    );
   });
 
   it('uses a bare qualifier for a single filter', () => {
     const query = buildSearchQuery([userFilter]);
-    expect(query).toBe(`"reached your PR review rate limit" type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`);
+    expect(query).toBe(
+      `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
+    );
   });
 
   it('omits the qualifier clause when the filter list is empty', () => {
     const query = buildSearchQuery([]);
-    expect(query).toBe(`"reached your PR review rate limit" type:pr state:open created:>=${twentyFourHoursAgo}`);
+    expect(query).toBe(`("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open created:>=${twentyFourHoursAgo}`);
   });
 });
