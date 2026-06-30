@@ -20,5 +20,8 @@ dist/
 *.db-shm
 data/backups/
 
+# Logs
+logs/
+
 # Coverage
 coverage/
