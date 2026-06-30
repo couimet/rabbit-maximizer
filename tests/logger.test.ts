@@ -1,53 +1,52 @@
-import { initLogger } from '../src/logger.js';
-
-import { makeUniqueRepoName } from './helpers/index.js';
-
-import { getUniqueInt } from '@couimet/dynamic-testing';
-import { getLogger } from '@couimet/logger-contract';
 import { describe, expect, it, jest } from '@jest/globals';
 
+const mockMkdirSync = jest.fn();
+
+jest.unstable_mockModule('node:fs', () => ({
+  mkdirSync: mockMkdirSync,
+}));
+
+const mockPinoLogger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+const mockPinoFn = jest.fn();
+const mockTransportFn = jest.fn();
+
+jest.unstable_mockModule('pino', () => ({
+  default: Object.assign(mockPinoFn, { transport: mockTransportFn }),
+}));
+
+const mockSetLogger = jest.fn();
+
+jest.unstable_mockModule('@couimet/logger-contract', () => ({
+  setLogger: mockSetLogger,
+}));
+
+const MockPinoAdapter = jest.fn();
+
+jest.unstable_mockModule('@couimet/logger-contract-adapters', () => ({
+  PinoAdapter: MockPinoAdapter,
+}));
+
+const { initLogger } = await import('../src/logger.js');
+
 describe('initLogger', () => {
-  it('registers a ConsoleLogger that logs to console at all four levels', () => {
-    const mockDebug = jest.spyOn(console, 'debug').mockImplementation(() => {});
-    const mockInfo = jest.spyOn(console, 'info').mockImplementation(() => {});
-    const mockWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const mockError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  it('creates the logs directory, builds dual-target pino transport, wraps it in PinoAdapter, and registers via setLogger', () => {
+    const mockTransport = {};
+    mockTransportFn.mockReturnValue(mockTransport);
+    mockPinoFn.mockReturnValue(mockPinoLogger);
 
     initLogger();
 
-    const logger = getLogger();
-    logger.debug({ fn: 'testFn' }, 'debug msg');
-    logger.info({ fn: 'testFn' }, 'info msg');
-    logger.warn({ fn: 'testFn' }, 'warn msg');
-    logger.error({ fn: 'testFn' }, 'error msg');
+    expect(mockMkdirSync).toHaveBeenCalledWith('./logs', { recursive: true });
 
-    expect(mockDebug).toHaveBeenCalledWith('[DEBUG] {"fn":"testFn"} debug msg');
-    expect(mockInfo).toHaveBeenCalledWith('[INFO] {"fn":"testFn"} info msg');
-    expect(mockWarn).toHaveBeenCalledWith('[WARN] {"fn":"testFn"} warn msg');
-    expect(mockError).toHaveBeenCalledWith('[ERROR] {"fn":"testFn"} error msg');
-  });
+    expect(mockTransportFn).toHaveBeenCalledWith({
+      targets: [
+        { target: 'pino/file', options: { destination: './logs/rabbit-maximizer.log' } },
+        { target: 'pino-pretty', options: { destination: 1, colorize: true } },
+      ],
+    });
 
-  it('includes extra context keys in the log output', () => {
-    const { fullName } = makeUniqueRepoName();
-    const prNumber = getUniqueInt();
-
-    const mockDebug = jest.spyOn(console, 'debug').mockImplementation(() => {});
-    const mockInfo = jest.spyOn(console, 'info').mockImplementation(() => {});
-    const mockWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    const mockError = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-    initLogger();
-    const logger = getLogger();
-    const ctx = { fn: 'testFn', pr: prNumber, repo: fullName };
-
-    logger.debug(ctx, 'debug msg');
-    logger.info(ctx, 'info msg');
-    logger.warn(ctx, 'warn msg');
-    logger.error(ctx, 'error msg');
-
-    expect(mockDebug).toHaveBeenCalledWith(`[DEBUG] {"fn":"testFn","pr":${prNumber},"repo":"${fullName}"} debug msg`);
-    expect(mockInfo).toHaveBeenCalledWith(`[INFO] {"fn":"testFn","pr":${prNumber},"repo":"${fullName}"} info msg`);
-    expect(mockWarn).toHaveBeenCalledWith(`[WARN] {"fn":"testFn","pr":${prNumber},"repo":"${fullName}"} warn msg`);
-    expect(mockError).toHaveBeenCalledWith(`[ERROR] {"fn":"testFn","pr":${prNumber},"repo":"${fullName}"} error msg`);
+    expect(mockPinoFn).toHaveBeenCalledWith(mockTransport);
+    expect(MockPinoAdapter).toHaveBeenCalledWith(mockPinoLogger);
+    expect(mockSetLogger).toHaveBeenCalledWith(MockPinoAdapter.mock.instances[0]);
   });
 });

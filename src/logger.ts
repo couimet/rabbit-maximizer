@@ -1,24 +1,25 @@
-import { Logger, LoggingContext, setLogger } from '@couimet/logger-contract';
+import { setLogger } from '@couimet/logger-contract';
+import { PinoAdapter } from '@couimet/logger-contract-adapters';
+import { mkdirSync } from 'node:fs';
+import pino from 'pino';
 
-/** Ensure `fn` appears first in the serialized context. */
-const orderedCtx = (ctx: LoggingContext): Record<string, unknown> => {
-  const { fn, ...rest } = ctx;
-  return { fn, ...rest };
-};
-
-const log =
-  (level: string, sink: (msg: string) => void) =>
-  (ctx: LoggingContext, message: string): void => {
-    sink(`[${level}] ${JSON.stringify(orderedCtx(ctx))} ${message}`);
-  };
-
-class ConsoleLogger implements Logger {
-  debug = log('DEBUG', console.debug);
-  info = log('INFO', console.info);
-  warn = log('WARN', console.warn);
-  error = log('ERROR', console.error);
-}
+const LOG_FILE = './logs/rabbit-maximizer.log';
 
 export const initLogger = (): void => {
-  setLogger(new ConsoleLogger());
+  mkdirSync('./logs', { recursive: true });
+
+  const transport = pino.transport({
+    targets: [
+      {
+        target: 'pino/file',
+        options: { destination: LOG_FILE },
+      },
+      {
+        target: 'pino-pretty',
+        options: { destination: 1, colorize: true },
+      },
+    ],
+  });
+
+  setLogger(new PinoAdapter(pino(transport)));
 };
