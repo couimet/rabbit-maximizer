@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import pino from 'pino';
 
 const LOG_FILE = './logs/rabbit-maximizer.log';
+const STDOUT_FD = 1;
 
 export const initLogger = (): void => {
   mkdirSync('./logs', { recursive: true });
@@ -16,7 +17,7 @@ export const initLogger = (): void => {
       },
       {
         target: 'pino-pretty',
-        options: { destination: 1, colorize: true },
+        options: { destination: STDOUT_FD, colorize: true },
       },
     ],
   });
