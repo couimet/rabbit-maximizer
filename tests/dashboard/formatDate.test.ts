@@ -1,4 +1,4 @@
-import { formatDate } from '../../dashboard/src/formatDate.js';
+import { formatDate } from '../../src/utils/formatDate.js';
 
 import { describe, expect, it } from '@jest/globals';
 
@@ -34,6 +34,10 @@ describe('formatDate', () => {
 
     it('returns fallback string for invalid date with timezone param', () => {
       expect(formatDate('not-a-date', 'America/New_York')).toBe('Invalid date');
+    });
+
+    it('returns fallback string for invalid timezone', () => {
+      expect(formatDate('2026-06-23T14:30:00.000Z', 'Not/AZone')).toBe('Invalid date');
     });
   });
 });

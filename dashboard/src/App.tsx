@@ -3,7 +3,7 @@ import QueueTable from './components/QueueTable.js';
 import SummaryStats from './components/SummaryStats.js';
 import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone } from './timezone.js';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type Tab = 'summary' | 'queue' | 'events';
 
@@ -16,7 +16,7 @@ const TABS: { key: Tab; label: string }[] = [
 const AppContent = () => {
   const [activeTab, setActiveTab] = useState<Tab>('summary');
   const { timezone, setTimezone } = useTimezone();
-  const localTz = detectLocalTimezone();
+  const localTz = useMemo(() => detectLocalTimezone(), []);
 
   return (
     <div className="dashboard">

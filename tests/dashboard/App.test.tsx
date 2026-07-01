@@ -101,7 +101,8 @@ describe('App', () => {
     it('persists selection to localStorage', async () => {
       render(<App />);
       const select = screen.getByRole('combobox', { name: 'Timezone:' }) as HTMLSelectElement;
-      const newValue = select.value === 'UTC' ? 'America/Toronto' : 'UTC';
+      const options = Array.from(select.options).map((opt) => opt.value);
+      const newValue = options.find((opt) => opt !== select.value) ?? options[0];
       fireEvent.change(select, { target: { value: newValue } });
       expect(localStorage.getItem('rm-timezone')).toBe(newValue);
       await screen.findByText('No pending items.');

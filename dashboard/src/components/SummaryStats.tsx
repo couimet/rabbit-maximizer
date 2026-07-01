@@ -1,15 +1,14 @@
+import { formatDate } from '../../../src/utils/formatDate.js';
 import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../api.js';
 import { fetchSummary } from '../api.js';
-import { formatDate } from '../formatDate.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
-import { useTimezone } from '../timezone.js';
+import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
 import { useEffect, useState } from 'react';
 
 const SummaryStats = () => {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { timezone } = useTimezone();
 
   useEffect(() => {
     let cancelled = false;
@@ -53,13 +52,14 @@ const SummaryStats = () => {
       </div>
 
       <h3>Oldest Pending</h3>
-      <OldestPending item={data.oldestPending} timezone={timezone} />
+      <OldestPending item={data.oldestPending} />
     </section>
   );
 };
 
-const OldestPending = ({ item, timezone }: { item: QueueItem | null; timezone: string }) => {
-  const suffix = timezone === 'UTC' ? ' (UTC)' : '';
+const OldestPending = ({ item }: { item: QueueItem | null }) => {
+  const { timezone } = useTimezone();
+  const suffix = useTimezoneSuffix();
   if (!item) return <p>No pending items.</p>;
 
   return (

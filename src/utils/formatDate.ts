@@ -1,3 +1,5 @@
+import { isValidTimezone } from './isValidTimezone.js';
+
 const TIMESTAMP_LENGTH = 19;
 
 export const formatDate = (iso: string, timezone?: string): string => {
@@ -7,6 +9,8 @@ export const formatDate = (iso: string, timezone?: string): string => {
   if (!timezone || timezone === 'UTC') {
     return date.toISOString().replace('T', ' ').slice(0, TIMESTAMP_LENGTH);
   }
+
+  if (!isValidTimezone(timezone)) return 'Invalid date';
 
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: timezone,
