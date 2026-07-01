@@ -81,21 +81,29 @@ describe('App', () => {
   });
 
   describe('timezone selector', () => {
-    it('renders with UTC and Local options', async () => {
+    it('renders timezone selector with UTC option', async () => {
       render(<App />);
       expect(screen.getByText('Timezone:')).toBeInTheDocument();
-      const select = screen.getByRole('combobox', { name: 'Timezone:' });
-      expect(select).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Timezone:' })).toBeInTheDocument();
       expect(screen.getByText('UTC')).toBeInTheDocument();
-      expect(screen.getByText(/^Local \(/)).toBeInTheDocument();
+      await screen.findByText('No pending items.');
+    });
+
+    it('shows Local option when browser timezone differs from UTC', async () => {
+      const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      render(<App />);
+      if (localTz !== 'UTC') {
+        expect(screen.getByText(/^Local \(/)).toBeInTheDocument();
+      }
       await screen.findByText('No pending items.');
     });
 
     it('persists selection to localStorage', async () => {
       render(<App />);
       const select = screen.getByRole('combobox', { name: 'Timezone:' });
-      fireEvent.change(select, { target: { value: select.querySelector('option[value]:not([value="UTC"])')?.getAttribute('value') ?? 'America/Toronto' } });
-      expect(localStorage.getItem('rm-timezone')).not.toBe('UTC');
+      const newValue = select.value === 'UTC' ? 'America/Toronto' : 'UTC';
+      fireEvent.change(select, { target: { value: newValue } });
+      expect(localStorage.getItem('rm-timezone')).toBe(newValue);
       await screen.findByText('No pending items.');
     });
   });

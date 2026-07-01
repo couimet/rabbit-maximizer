@@ -27,7 +27,7 @@ const AppContent = () => {
           <label htmlFor="timezone-select">Timezone:</label>
           <select id="timezone-select" className="timezone-select" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
             <option value="UTC">{getTimezoneLabel('UTC')}</option>
-            <option value={localTz}>{getTimezoneLabel(localTz)}</option>
+            {localTz !== 'UTC' && <option value={localTz}>{getTimezoneLabel(localTz)}</option>}
           </select>
         </div>
         <nav className="tabs" role="tablist">
