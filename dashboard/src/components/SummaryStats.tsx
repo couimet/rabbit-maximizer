@@ -2,7 +2,7 @@ import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../ap
 import { fetchSummary } from '../api.js';
 import { formatDate } from '../formatDate.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
-import { useTimezone, useTimezoneSuffix } from '../timezone.js';
+import { useTimezone } from '../timezone.js';
 
 import { useEffect, useState } from 'react';
 
@@ -59,6 +59,7 @@ const SummaryStats = () => {
 };
 
 const OldestPending = ({ item, timezone }: { item: QueueItem | null; timezone: string }) => {
+  const suffix = timezone === 'UTC' ? ' (UTC)' : '';
   if (!item) return <p>No pending items.</p>;
 
   return (
@@ -67,7 +68,7 @@ const OldestPending = ({ item, timezone }: { item: QueueItem | null; timezone: s
         <tr>
           <th>Repo</th>
           <th>PR</th>
-          <th>Scheduled For{useTimezoneSuffix()}</th>
+          <th>Scheduled For{suffix}</th>
           <th>Attempts</th>
         </tr>
       </thead>

@@ -15,6 +15,7 @@ const QueueTable = () => {
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const { timezone } = useTimezone();
+  const suffix = useTimezoneSuffix();
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +46,7 @@ const QueueTable = () => {
             <th>Status</th>
             <th>Repo</th>
             <th>PR</th>
-            <th>Scheduled For{useTimezoneSuffix()}</th>
+            <th>Scheduled For{suffix}</th>
             <th>Attempts</th>
           </tr>
         </thead>

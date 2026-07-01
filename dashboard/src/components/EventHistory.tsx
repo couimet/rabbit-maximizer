@@ -22,6 +22,7 @@ const EventHistory = () => {
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const { timezone } = useTimezone();
+  const suffix = useTimezoneSuffix();
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +78,7 @@ const EventHistory = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Time{useTimezoneSuffix()}</th>
+                  <th>Time{suffix}</th>
                   <th>Type</th>
                   <th>Correlation ID</th>
                 </tr>
