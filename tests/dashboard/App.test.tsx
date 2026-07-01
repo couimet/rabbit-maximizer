@@ -16,6 +16,7 @@ const emptyEvents = { data: [], total: 0, page: 1, pageSize: 20 };
 
 describe('App', () => {
   beforeEach(() => {
+    localStorage.clear();
     const responses: Record<string, unknown> = {
       '/api/summary': emptySummary,
       '/api/queue?page=1&pageSize=20': emptyQueue,
@@ -77,5 +78,25 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Summary'));
     await waitFor(() => expect(screen.getByText('No pending items.')).toBeInTheDocument());
+  });
+
+  describe('timezone selector', () => {
+    it('renders with UTC and Local options', async () => {
+      render(<App />);
+      expect(screen.getByText('Timezone:')).toBeInTheDocument();
+      const select = screen.getByRole('combobox', { name: 'Timezone:' });
+      expect(select).toBeInTheDocument();
+      expect(screen.getByText('UTC')).toBeInTheDocument();
+      expect(screen.getByText(/^Local \(/)).toBeInTheDocument();
+      await screen.findByText('No pending items.');
+    });
+
+    it('persists selection to localStorage', async () => {
+      render(<App />);
+      const select = screen.getByRole('combobox', { name: 'Timezone:' });
+      fireEvent.change(select, { target: { value: select.querySelector('option[value]:not([value="UTC"])')?.getAttribute('value') ?? 'America/Toronto' } });
+      expect(localStorage.getItem('rm-timezone')).not.toBe('UTC');
+      await screen.findByText('No pending items.');
+    });
   });
 });

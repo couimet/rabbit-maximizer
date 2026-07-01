@@ -2,10 +2,18 @@
 
 import EventHistory from '../../dashboard/src/components/EventHistory.js';
 import { createMockFetch } from '../helpers/index.js';
+import { TimezoneProvider } from '../../dashboard/src/timezone.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
+const renderEventHistory = () =>
+  render(
+    <TimezoneProvider>
+      <EventHistory />
+    </TimezoneProvider>,
+  );
 
 const PAGE_SIZE = 20;
 
@@ -27,12 +35,13 @@ const makeEvent = (over: Record<string, unknown> = {}) => ({
 describe('EventHistory', () => {
   afterEach(() => {
     (globalThis.fetch as jest.Mock).mockRestore?.();
+    localStorage.clear();
   });
 
   describe('loading', () => {
     it('shows loading text while fetch is in-flight', () => {
       globalThis.fetch = jest.fn(() => new Promise(() => {})) as unknown as typeof fetch;
-      render(<EventHistory />);
+      renderEventHistory();
       expect(screen.getByText('Loading events…')).toBeInTheDocument();
     });
   });
@@ -53,13 +62,13 @@ describe('EventHistory', () => {
     });
 
     it('groups events by repo and PR', async () => {
-      render(<EventHistory />);
+      renderEventHistory();
       await waitFor(() => expect(screen.getByText('couimet/rabbit-maximizer')).toBeInTheDocument());
       expect(screen.getByText('couimet/other')).toBeInTheDocument();
     });
 
     it('renders event types and timestamps within each group', async () => {
-      render(<EventHistory />);
+      renderEventHistory();
       await waitFor(() => expect(screen.getByText('detected')).toBeInTheDocument());
       expect(screen.getByText('enqueued')).toBeInTheDocument();
       expect(screen.getByText('posted')).toBeInTheDocument();
@@ -69,7 +78,7 @@ describe('EventHistory', () => {
     });
 
     it('renders repo and PR links opening in new tabs', async () => {
-      render(<EventHistory />);
+      renderEventHistory();
       await waitFor(() => expect(screen.getByText('couimet/rabbit-maximizer')).toBeInTheDocument());
 
       const repoLink = screen.getByText('couimet/rabbit-maximizer').closest('a');
@@ -82,7 +91,7 @@ describe('EventHistory', () => {
     });
 
     it('shows correlation IDs for each event', async () => {
-      render(<EventHistory />);
+      renderEventHistory();
       await waitFor(() => expect(screen.getByText('corr-002')).toBeInTheDocument());
       expect(screen.getAllByText('corr-001')).toHaveLength(3);
     });
@@ -91,7 +100,7 @@ describe('EventHistory', () => {
   describe('empty', () => {
     it('shows empty message when no events exist', async () => {
       createMockFetch(200, { data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
-      render(<EventHistory />);
+      renderEventHistory();
       await waitFor(() => expect(screen.getByText('No events.')).toBeInTheDocument());
     });
   });
@@ -99,14 +108,14 @@ describe('EventHistory', () => {
   describe('pagination', () => {
     it('disables Previous on first page', async () => {
       createMockFetch(200, { data: [makeEvent()], total: 1, page: 1, pageSize: PAGE_SIZE });
-      render(<EventHistory />);
+      renderEventHistory();
       await waitFor(() => expect(screen.getByText('detected')).toBeInTheDocument());
       expect(screen.getByText('Previous').closest('button')).toBeDisabled();
     });
 
     it('fetches next page when Next is clicked', async () => {
       createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 50, page: 1, pageSize: PAGE_SIZE });
-      render(<EventHistory />);
+      renderEventHistory();
       await waitFor(() => expect(screen.getByText('detected')).toBeInTheDocument());
 
       createMockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 50, page: 2, pageSize: PAGE_SIZE });
@@ -118,7 +127,7 @@ describe('EventHistory', () => {
   describe('cleanup', () => {
     it('cancels in-flight fetch on unmount', () => {
       const fetchSpy = jest.spyOn(globalThis, 'fetch');
-      const { unmount } = render(<EventHistory />);
+      const { unmount } = renderEventHistory();
       unmount();
       expect(fetchSpy).toHaveBeenCalled();
       fetchSpy.mockRestore();
@@ -128,8 +137,30 @@ describe('EventHistory', () => {
   describe('error', () => {
     it('shows error message on HTTP failure', async () => {
       createMockFetch(500, { error: 'Internal server error' });
-      render(<EventHistory />);
+      renderEventHistory();
       await waitFor(() => expect(screen.getByText('Failed to load events: Internal server error')).toBeInTheDocument());
+    });
+  });
+
+  describe('timezone', () => {
+    beforeEach(() => {
+      localStorage.setItem('rm-timezone', 'America/New_York');
+      createMockFetch(200, {
+        data: [makeEvent({ id: 1, type: 'detected', ts: '2026-06-23T14:30:00.000Z' })],
+        total: 1,
+        page: 1,
+        pageSize: PAGE_SIZE,
+      });
+    });
+
+    it('renders column header without timezone suffix for non-UTC', async () => {
+      renderEventHistory();
+      await waitFor(() => expect(screen.getByText('Time')).toBeInTheDocument());
+    });
+
+    it('formats dates in the selected timezone', async () => {
+      renderEventHistory();
+      await waitFor(() => expect(screen.getByText('2026-06-23 10:30:00')).toBeInTheDocument());
     });
   });
 });

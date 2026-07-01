@@ -2,6 +2,7 @@ import type { EventEntry, PaginatedResponse } from '../api.js';
 import { fetchEvents } from '../api.js';
 import { formatDate } from '../formatDate.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
+import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
 import Pagination from './Pagination.js';
 
@@ -20,6 +21,7 @@ const EventHistory = () => {
   const [data, setData] = useState<PaginatedResponse<EventEntry> | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const { timezone } = useTimezone();
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +77,7 @@ const EventHistory = () => {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Time (UTC)</th>
+                  <th>Time{useTimezoneSuffix()}</th>
                   <th>Type</th>
                   <th>Correlation ID</th>
                 </tr>
@@ -83,7 +85,7 @@ const EventHistory = () => {
               <tbody>
                 {group.events.map((event) => (
                   <tr key={event.id} className={`row-event-${event.type}`}>
-                    <td>{formatDate(event.ts)}</td>
+                    <td>{formatDate(event.ts, timezone)}</td>
                     <td>{event.type}</td>
                     <td className="correlation-id">{event.correlation_id}</td>
                   </tr>

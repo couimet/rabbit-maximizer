@@ -2,12 +2,14 @@ import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../ap
 import { fetchSummary } from '../api.js';
 import { formatDate } from '../formatDate.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
+import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
 import { useEffect, useState } from 'react';
 
 const SummaryStats = () => {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { timezone } = useTimezone();
 
   useEffect(() => {
     let cancelled = false;
@@ -51,12 +53,12 @@ const SummaryStats = () => {
       </div>
 
       <h3>Oldest Pending</h3>
-      <OldestPending item={data.oldestPending} />
+      <OldestPending item={data.oldestPending} timezone={timezone} />
     </section>
   );
 };
 
-const OldestPending = ({ item }: { item: QueueItem | null }) => {
+const OldestPending = ({ item, timezone }: { item: QueueItem | null; timezone: string }) => {
   if (!item) return <p>No pending items.</p>;
 
   return (
@@ -65,7 +67,7 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
         <tr>
           <th>Repo</th>
           <th>PR</th>
-          <th>Scheduled For (UTC)</th>
+          <th>Scheduled For{useTimezoneSuffix()}</th>
           <th>Attempts</th>
         </tr>
       </thead>
@@ -81,7 +83,7 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
               #{item.pr_number}
             </a>
           </td>
-          <td>{formatDate(item.scheduled_for)}</td>
+          <td>{formatDate(item.scheduled_for, timezone)}</td>
           <td>{item.attempts}</td>
         </tr>
       </tbody>

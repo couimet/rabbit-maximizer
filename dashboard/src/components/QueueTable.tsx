@@ -2,6 +2,7 @@ import type { PaginatedResponse, QueueItem } from '../api.js';
 import { fetchQueue } from '../api.js';
 import { formatDate } from '../formatDate.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
+import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
 import Pagination from './Pagination.js';
 
@@ -13,6 +14,7 @@ const QueueTable = () => {
   const [data, setData] = useState<PaginatedResponse<QueueItem> | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const { timezone } = useTimezone();
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +45,7 @@ const QueueTable = () => {
             <th>Status</th>
             <th>Repo</th>
             <th>PR</th>
-            <th>Scheduled For (UTC)</th>
+            <th>Scheduled For{useTimezoneSuffix()}</th>
             <th>Attempts</th>
           </tr>
         </thead>
@@ -68,7 +70,7 @@ const QueueTable = () => {
                     #{item.pr_number}
                   </a>
                 </td>
-                <td>{formatDate(item.scheduled_for)}</td>
+                <td>{formatDate(item.scheduled_for, timezone)}</td>
                 <td>{item.attempts}</td>
               </tr>
             ))

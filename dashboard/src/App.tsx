@@ -1,6 +1,7 @@
 import EventHistory from './components/EventHistory.js';
 import QueueTable from './components/QueueTable.js';
 import SummaryStats from './components/SummaryStats.js';
+import { TimezoneProvider, useTimezone, detectLocalTimezone, getTimezoneLabel } from './timezone.js';
 
 import { useState } from 'react';
 
@@ -12,14 +13,23 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'events', label: 'Events' },
 ];
 
-const App = () => {
+const AppContent = () => {
   const [activeTab, setActiveTab] = useState<Tab>('summary');
+  const { timezone, setTimezone } = useTimezone();
+  const localTz = detectLocalTimezone();
 
   return (
     <div className="dashboard">
       <header className="dashboard-header">
         <img src="/icon_256.png" alt="Rabbit Maximizer" className="logo" />
         <h1>Rabbit Maximizer</h1>
+        <div className="timezone-selector">
+          <label htmlFor="timezone-select">Timezone:</label>
+          <select id="timezone-select" className="timezone-select" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+            <option value="UTC">{getTimezoneLabel('UTC')}</option>
+            <option value={localTz}>{getTimezoneLabel(localTz)}</option>
+          </select>
+        </div>
         <nav className="tabs" role="tablist">
           {TABS.map(({ key, label }) => (
             <button
@@ -55,5 +65,11 @@ const App = () => {
     </div>
   );
 };
+
+const App = () => (
+  <TimezoneProvider>
+    <AppContent />
+  </TimezoneProvider>
+);
 
 export default App;
