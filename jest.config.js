@@ -2,6 +2,9 @@
 export default {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
+  transform: {
+    '^.+\\.m?tsx?$': ['ts-jest', { useESM: true, diagnostics: true }],
+  },
 
   // Mock cleanup — automatic between tests
   clearMocks: true,

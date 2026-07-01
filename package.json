@@ -30,7 +30,7 @@
     "test:bats:db": "bats bats-tests/db/",
     "test:ci": "pnpm test:ts:unit",
     "test:shellcheck": "find . \\( -name '*.sh' -o -name '*.bash' \\) -not -path './node_modules/*' -exec shellcheck {} +",
-    "test:ts:unit": "pnpm clean && NODE_OPTIONS='--experimental-vm-modules' jest",
+    "test:ts:unit": "pnpm clean && tsc --noEmit && NODE_OPTIONS='--experimental-vm-modules' jest",
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch"
   },
   "prettier": "@couimet/eslint-config/prettier",

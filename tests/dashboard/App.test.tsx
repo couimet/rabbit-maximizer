@@ -100,7 +100,7 @@ describe('App', () => {
 
     it('persists selection to localStorage', async () => {
       render(<App />);
-      const select = screen.getByRole('combobox', { name: 'Timezone:' });
+      const select = screen.getByRole('combobox', { name: 'Timezone:' }) as HTMLSelectElement;
       const newValue = select.value === 'UTC' ? 'America/Toronto' : 'UTC';
       fireEvent.change(select, { target: { value: newValue } });
       expect(localStorage.getItem('rm-timezone')).toBe(newValue);
