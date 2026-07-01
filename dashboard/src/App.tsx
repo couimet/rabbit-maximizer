@@ -1,7 +1,7 @@
 import EventHistory from './components/EventHistory.js';
 import QueueTable from './components/QueueTable.js';
 import SummaryStats from './components/SummaryStats.js';
-import { TimezoneProvider, useTimezone, detectLocalTimezone, getTimezoneLabel } from './timezone.js';
+import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone } from './timezone.js';
 
 import { useState } from 'react';
 

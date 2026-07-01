@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 
 import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
-import { createMockFetch } from '../helpers/index.js';
 import { TimezoneProvider } from '../../dashboard/src/timezone.js';
+import { createMockFetch } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
