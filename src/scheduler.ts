@@ -1,10 +1,11 @@
 import type { EventRepository } from './db/eventRepository.js';
+import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
-import { EventType } from './types/EventType.js';
+import { EventType, type QueueItem } from './types/index.js';
 import { computeSchedulerBackoff } from './utils/index.js';
 import type { Config } from './config.js';
 import { TYPES } from './inversify-types.js';
@@ -34,6 +35,8 @@ export class Scheduler {
   constructor(
     @inject(TYPES.QueueRepository)
     private readonly queue: QueueRepository,
+    @inject(TYPES.QueueOrderRepository)
+    private readonly queueOrder: QueueOrderRepository,
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
     @inject(TYPES.EventRepository)
@@ -86,9 +89,10 @@ export class Scheduler {
   }
 
   private async executeTick(): Promise<void> {
-    let item: Awaited<ReturnType<typeof this.queue.getNextDue>> | null = null;
+    let item: QueueItem | undefined;
     try {
-      item = await this.queue.getNextDue();
+      const eligible = await this.queueOrder.getEffectiveOrder();
+      item = eligible[0];
       if (!item) return;
 
       const runId = randomUUID();

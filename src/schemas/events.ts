@@ -13,8 +13,18 @@ export const DetectedPayloadSchema = z.object({
   source_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH).optional(),
 });
 
+/** Pre-process stored payload JSON before Zod validation. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const normalizePayload = (type: string, raw: Record<string, any>): Record<string, any> => {
+  if (type === 'enqueued' && 'scheduled_for' in raw && !('not_before' in raw)) {
+    raw.not_before = raw.scheduled_for;
+    delete raw.scheduled_for;
+  }
+  return raw;
+};
+
 export const EnqueuedPayloadSchema = z.object({
-  scheduled_for: z.coerce.date(),
+  not_before: z.coerce.date(),
   new_wait: z.number().int().positive(),
 });
 
@@ -56,7 +66,7 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
     metadata: row.metadata ? EventMetadataSchema.parse(JSON.parse(row.metadata)) : undefined,
   };
 
-  const payload: unknown = JSON.parse(row.payload);
+  const payload = normalizePayload(row.type, JSON.parse(row.payload));
 
   switch (row.type) {
     case EventType.detected:

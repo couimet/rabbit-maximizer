@@ -23,7 +23,7 @@ const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   repo_full_name: 'couimet/rabbit-maximizer',
   pr_number: 42,
   status: 'pending',
-  scheduled_for: '2026-06-23T14:30:00.000Z',
+  not_before: '2026-06-23T14:30:00.000Z',
   attempts: 2,
   source_comment_url: 'https://gh/c/1',
   created_at: '2026-06-22T10:00:00.000Z',
@@ -55,7 +55,7 @@ describe('QueueTable', () => {
             repo_full_name: 'couimet/rabbit-maximizer',
             pr_number: 42,
             attempts: 2,
-            scheduled_for: '2026-06-23T14:30:00.000Z',
+            not_before: '2026-06-23T14:30:00.000Z',
           }),
           makeQueueItem({
             id: 2,
@@ -63,7 +63,7 @@ describe('QueueTable', () => {
             repo_full_name: 'couimet/ts-npm-packages',
             pr_number: 7,
             attempts: 1,
-            scheduled_for: '2026-06-24T09:15:00.000Z',
+            not_before: '2026-06-24T09:15:00.000Z',
           }),
         ],
         total: 2,
@@ -170,7 +170,7 @@ describe('QueueTable', () => {
     beforeEach(() => {
       localStorage.setItem('rm-timezone', 'America/New_York');
       createMockFetch(200, {
-        data: [makeQueueItem({ id: 1, scheduled_for: '2026-06-23T14:30:00.000Z' })],
+        data: [makeQueueItem({ id: 1, not_before: '2026-06-23T14:30:00.000Z' })],
         total: 1,
         page: 1,
         pageSize: PAGE_SIZE,
@@ -179,7 +179,7 @@ describe('QueueTable', () => {
 
     it('renders column header without timezone suffix for non-UTC', async () => {
       renderQueueTable();
-      await waitFor(() => expect(screen.getByText('Scheduled For')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Not Before')).toBeInTheDocument());
     });
 
     it('formats dates in the selected timezone', async () => {

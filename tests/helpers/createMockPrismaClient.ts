@@ -17,15 +17,46 @@ export interface MockEventDelegate {
   groupBy: jest.Mock<any>;
 }
 
+export interface MockQueueOrderDelegate {
+  create: jest.Mock<any>;
+  findMany: jest.Mock<any>;
+  findFirst: jest.Mock<any>;
+  update: jest.Mock<any>;
+  updateMany: jest.Mock<any>;
+  findUnique: jest.Mock<any>;
+  upsert: jest.Mock<any>;
+  delete: jest.Mock<any>;
+  deleteMany: jest.Mock<any>;
+  count: jest.Mock<any>;
+  groupBy: jest.Mock<any>;
+  aggregate: jest.Mock<any>;
+}
+
+export interface MockSystemStateDelegate {
+  findUnique: jest.Mock<any>;
+  upsert: jest.Mock<any>;
+  findFirst: jest.Mock<any>;
+  findMany: jest.Mock<any>;
+  create: jest.Mock<any>;
+  update: jest.Mock<any>;
+  delete: jest.Mock<any>;
+}
+
 export interface MockPrismaOptions {
   reviewQueue?: Partial<MockReviewQueueDelegate>;
   event?: Partial<MockEventDelegate>;
+  queueOrder?: Partial<MockQueueOrderDelegate>;
+  systemState?: Partial<MockSystemStateDelegate>;
+  $executeRawUnsafe?: jest.Mock<any>;
+  $executeRaw?: jest.Mock<any>;
 }
 
 export interface MockPrismaResult {
   prisma: PrismaClient;
   reviewQueue: MockReviewQueueDelegate;
   event: MockEventDelegate;
+  queueOrder: MockQueueOrderDelegate;
+  systemState: MockSystemStateDelegate;
 }
 
 export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockPrismaResult => {
@@ -45,10 +76,39 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
     groupBy: jest.fn<any>(),
     ...overrides.event,
   };
+  const queueOrder: MockQueueOrderDelegate = {
+    create: jest.fn<any>(),
+    findMany: jest.fn<any>(),
+    findFirst: jest.fn<any>(),
+    update: jest.fn<any>(),
+    updateMany: jest.fn<any>(),
+    findUnique: jest.fn<any>(),
+    upsert: jest.fn<any>(),
+    delete: jest.fn<any>(),
+    deleteMany: jest.fn<any>(),
+    count: jest.fn<any>(),
+    groupBy: jest.fn<any>(),
+    aggregate: jest.fn<any>(),
+    ...overrides.queueOrder,
+  };
+  const systemState: MockSystemStateDelegate = {
+    findUnique: jest.fn<any>(),
+    upsert: jest.fn<any>(),
+    findFirst: jest.fn<any>(),
+    findMany: jest.fn<any>(),
+    create: jest.fn<any>(),
+    update: jest.fn<any>(),
+    delete: jest.fn<any>(),
+    ...overrides.systemState,
+  };
+  const $executeRawUnsafe: jest.Mock<any> = overrides.$executeRawUnsafe ?? jest.fn<any>();
+  const $executeRaw: jest.Mock<any> = overrides.$executeRaw ?? jest.fn<any>();
 
   return {
-    prisma: { reviewQueue, event } as unknown as PrismaClient,
+    prisma: { reviewQueue, event, queueOrder, systemState, $executeRawUnsafe, $executeRaw } as unknown as PrismaClient,
     reviewQueue,
     event,
+    queueOrder,
+    systemState,
   };
 };

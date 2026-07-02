@@ -1,18 +1,18 @@
 import type { RabbitMaximizerErrorCodes } from './RabbitMaximizerErrorCodes.js';
 
-import { DetailedError, type ErrorOptions } from '@couimet/detailed-error';
+import { DetailedError, type ErrorOptions, SharedErrorCodes } from '@couimet/detailed-error';
 
 /**
  * Base error class for all Rabbit Maximizer errors.
  *
  * Extends DetailedError to provide structured error information with:
- * - Typed error codes (RabbitMaximizerErrorCodes enum)
+ * - Typed error codes (RabbitMaximizerErrorCodes | SharedErrorCodes)
  * - Function name tracking
  * - Contextual details object
  * - Cause chaining
  */
-export class RabbitMaximizerError extends DetailedError<RabbitMaximizerErrorCodes> {
-  constructor(options: ErrorOptions<RabbitMaximizerErrorCodes>) {
+export class RabbitMaximizerError extends DetailedError<RabbitMaximizerErrorCodes | SharedErrorCodes> {
+  constructor(options: ErrorOptions<RabbitMaximizerErrorCodes | SharedErrorCodes>) {
     super(options);
     this.name = 'RabbitMaximizerError';
 

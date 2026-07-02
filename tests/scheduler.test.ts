@@ -1,5 +1,6 @@
 import type { Config } from '../src/config.js';
 import type { EventRepository } from '../src/db/eventRepository.js';
+import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
@@ -22,7 +23,7 @@ interface QueueItemStub {
   repo_full_name: string;
   pr_number: number;
   status: string;
-  scheduled_for: Date;
+  not_before: Date;
   attempts: number;
   source_comment_url: string;
   created_at: Date;
@@ -32,6 +33,7 @@ interface QueueItemStub {
 interface MockSchedulerDeps {
   config: Config;
   queue: QueueRepository;
+  queueOrder: QueueOrderRepository;
   github: CoderabbitGitHubClient;
   events: EventRepository;
   observation: ObservationContextProvider;
@@ -46,7 +48,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => ({
   repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
   pr_number: over.pr_number ?? getUniqueInt(),
   status: over.status ?? 'pending',
-  scheduled_for: over.scheduled_for ?? new Date(Date.now() - 60_000),
+  not_before: over.not_before ?? new Date(Date.now() - 60_000),
   attempts: over.attempts ?? 0,
   source_comment_url: over.source_comment_url ?? getUniqueString({ prefix: 'https://gh/c/' }),
   created_at: over.created_at ?? getUniqueDate(),
@@ -56,13 +58,17 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => ({
 const setup = (): MockSchedulerDeps => {
   const queue = {
     enqueue: jest.fn<any>(),
-    getNextDue: jest.fn<any>(),
     markPosted: jest.fn<any>(),
     markCompleted: jest.fn<any>(),
     reschedule: jest.fn<any>(),
     markFailed: jest.fn<any>(),
     getPendingQueue: jest.fn<any>(),
   } as unknown as QueueRepository;
+
+  const queueOrder = {
+    getEffectiveOrder: jest.fn<any>(),
+    moveItems: jest.fn<any>(),
+  } as unknown as QueueOrderRepository;
 
   const github = {
     searchRateLimitComments: jest.fn<any>(),
@@ -105,7 +111,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_RETRY_BACKOFF_MAX: 3600,
   };
 
-  return { config, queue, github, events, observation, prisma, tx, logger };
+  return { config, queue, queueOrder, github, events, observation, prisma, tx, logger };
 };
 
 describe('Scheduler', () => {
@@ -116,7 +122,7 @@ describe('Scheduler', () => {
     jest.useFakeTimers();
   });
 
-  const createScheduler = () => new Scheduler(deps.queue, deps.github, deps.events, deps.observation, deps.prisma, deps.logger, deps.config);
+  const createScheduler = () => new Scheduler(deps.queue, deps.queueOrder, deps.github, deps.events, deps.observation, deps.prisma, deps.logger, deps.config);
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
@@ -124,7 +130,7 @@ describe('Scheduler', () => {
     it('posts retrigger, marks posted, and records posted event in a transaction', async () => {
       const item = makeItem();
       const postedHtmlUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
       (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: postedHtmlUrl });
 
       const scheduler = createScheduler();
@@ -167,7 +173,7 @@ describe('Scheduler', () => {
     it('marks failed and records failed event on HTTP 404', async () => {
       const item = makeItem();
       const notFoundError = { status: 404 };
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(notFoundError);
 
       const scheduler = createScheduler();
@@ -206,7 +212,7 @@ describe('Scheduler', () => {
     it('marks failed on HTTP 410', async () => {
       const item = makeItem();
       const goneError = { status: 410 };
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(goneError);
 
       const scheduler = createScheduler();
@@ -232,7 +238,7 @@ describe('Scheduler', () => {
     it('reschedules with backoff on HTTP 403 (rate limit)', async () => {
       const item = makeItem();
       const forbiddenError = { status: 403 };
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(forbiddenError);
 
       const scheduler = createScheduler();
@@ -252,7 +258,7 @@ describe('Scheduler', () => {
     });
 
     it('returns early when no items are due', async () => {
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(null);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([]);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -267,9 +273,9 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('logs warning when getNextDue itself rejects', async () => {
+    it('logs warning when getEffectiveOrder itself rejects', async () => {
       const dbError = new Error('DB connection lost');
-      (deps.queue.getNextDue as jest.Mock<any>).mockRejectedValue(dbError);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockRejectedValue(dbError);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -281,8 +287,8 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('logs warning with String(err) when getNextDue rejects a non-Error', async () => {
-      (deps.queue.getNextDue as jest.Mock<any>).mockRejectedValue('raw string failure');
+    it('logs warning with String(err) when getEffectiveOrder rejects a non-Error', async () => {
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockRejectedValue('raw string failure');
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -300,7 +306,7 @@ describe('Scheduler', () => {
     it('reschedules with backoff on unknown error', async () => {
       const item = makeItem();
       const networkError = new Error('Network timeout');
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
@@ -321,7 +327,7 @@ describe('Scheduler', () => {
 
     it('marks failed on MISSING_SOURCE_COMMENT_URL error', async () => {
       const item = { ...makeItem(), source_comment_url: null as unknown as string };
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -359,7 +365,7 @@ describe('Scheduler', () => {
       const item1 = makeItem({ attempts: 0 });
       const item2 = makeItem({ attempts: 1 });
       const networkError = new Error('Network timeout');
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValueOnce(item1).mockResolvedValueOnce(item2);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValueOnce([item1]).mockResolvedValueOnce([item2]);
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
@@ -386,9 +392,9 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('logs warning when getNextDue rejects (item is null in catch)', async () => {
+    it('logs warning when getEffectiveOrder rejects (item is null in catch)', async () => {
       const dbError = new Error('Database connection lost');
-      (deps.queue.getNextDue as jest.Mock<any>).mockRejectedValue(dbError);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockRejectedValue(dbError);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -405,7 +411,7 @@ describe('Scheduler', () => {
   describe('concurrency', () => {
     it('skips tick when another tick is already in-flight', async () => {
       const item = makeItem();
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
 
       let resolvePost: (value: unknown) => void;
       const postPromise = new Promise((resolve) => {
@@ -432,7 +438,7 @@ describe('Scheduler', () => {
   describe('stop', () => {
     it('drains the in-flight tick before resolving stop', async () => {
       const item = makeItem();
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(item);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
 
       let resolvePost: (value: unknown) => void;
       const postPromise = new Promise((resolve) => {
@@ -461,14 +467,14 @@ describe('Scheduler', () => {
 
   describe('start', () => {
     it('fires first tick immediately and starts an interval', async () => {
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(null);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([]);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await drainMicrotasks(SHORT_DRAIN);
 
-      expect(deps.queue.getNextDue).toHaveBeenCalledTimes(1);
+      expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalledTimes(1);
       expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
 
       jest.advanceTimersByTime(TICK_INTERVAL_MS);
@@ -477,13 +483,13 @@ describe('Scheduler', () => {
       jest.advanceTimersByTime(TICK_INTERVAL_MS);
       await drainMicrotasks(SHORT_DRAIN);
 
-      expect(deps.queue.getNextDue).toHaveBeenCalledTimes(3);
+      expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalledTimes(3);
 
       await stop();
     });
 
     it('stop clears the interval and logs', async () => {
-      (deps.queue.getNextDue as jest.Mock<any>).mockResolvedValue(null);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([]);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -494,7 +500,7 @@ describe('Scheduler', () => {
 
       jest.advanceTimersByTime(TICK_INTERVAL_MS * 2);
 
-      expect(deps.queue.getNextDue).toHaveBeenCalledTimes(1);
+      expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalledTimes(1);
       expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
     });
   });

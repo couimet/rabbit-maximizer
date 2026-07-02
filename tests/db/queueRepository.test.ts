@@ -15,9 +15,12 @@ interface RowOverrides {
   repo_full_name?: string;
   pr_number?: number;
   status?: string;
-  scheduled_for?: Date;
+  not_before?: Date;
   attempts?: number;
   source_comment_url?: string | null;
+  posted_at?: Date | null;
+  failed_at?: Date | null;
+  completed_at?: Date | null;
 }
 
 const makeRow = (over: RowOverrides = {}) => ({
@@ -26,9 +29,12 @@ const makeRow = (over: RowOverrides = {}) => ({
   repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
   pr_number: over.pr_number ?? getUniqueInt(),
   status: over.status ?? 'pending',
-  scheduled_for: over.scheduled_for ?? getUniqueDate(),
+  not_before: over.not_before ?? getUniqueDate(),
   attempts: over.attempts ?? 0,
   source_comment_url: over.source_comment_url ?? null,
+  posted_at: over.posted_at ?? null,
+  failed_at: over.failed_at ?? null,
+  completed_at: over.completed_at ?? null,
   created_at: getUniqueDate(),
   updated_at: getUniqueDate(),
 });
@@ -39,9 +45,12 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
   repo_full_name: row.repo_full_name,
   pr_number: row.pr_number,
   status: row.status as QueueStatus,
-  scheduled_for: row.scheduled_for,
+  not_before: row.not_before,
   attempts: row.attempts,
   source_comment_url: row.source_comment_url ?? undefined,
+  posted_at: row.posted_at ?? undefined,
+  failed_at: row.failed_at ?? undefined,
+  completed_at: row.completed_at ?? undefined,
   created_at: row.created_at,
   updated_at: row.updated_at,
 });
@@ -64,24 +73,27 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('enqueue', () => {
-    it('creates a pending row, records enqueued event, and returns it', async () => {
+    it('creates a pending row, records enqueued event, inserts queue_order, and returns it', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const scheduledFor = getUniqueDate();
+      const notBefore = getUniqueDate();
       const sourceUrl = getUniqueString({ prefix: 'https://gh/c/' });
       const newWait = 330;
       const obs = makeObservation();
       const row = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_url: sourceUrl });
 
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(row) } });
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(row) },
+      });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
-      const result = await sut.enqueue(repo, pr, scheduledFor, sourceUrl, newWait, obs, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.enqueue(repo, pr, notBefore, sourceUrl, newWait, obs, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.create).toHaveBeenCalledWith({
-        data: { repo_full_name: repo, pr_number: pr, scheduled_for: scheduledFor, source_comment_url: sourceUrl },
+        data: { repo_full_name: repo, pr_number: pr, not_before: notBefore, source_comment_url: sourceUrl },
       });
+      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: row.id } });
       expect(events.record).toHaveBeenCalledWith(
         {
           type: 'enqueued',
@@ -90,7 +102,7 @@ describe('QueueRepositoryImpl', () => {
           correlation_id: obs.correlationId,
           request_id: obs.requestId,
           version: obs.version,
-          payload: { scheduled_for: scheduledFor, new_wait: newWait },
+          payload: { not_before: notBefore, new_wait: newWait },
         },
         prisma,
       );
@@ -132,7 +144,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns the existing posted item when a recent posted row exists (within cooldown)', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const recentPosted = makeRow({ repo_full_name: repo, pr_number: pr, status: 'posted', scheduled_for: new Date(Date.now() + 3_600_000) });
+      const recentPosted = makeRow({ repo_full_name: repo, pr_number: pr, status: 'posted', not_before: new Date(Date.now() + 3_600_000) });
 
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(recentPosted) },
@@ -151,7 +163,7 @@ describe('QueueRepositoryImpl', () => {
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr, status: 'posted', scheduled_for: { gt: expect.any(Date) } },
+        where: { repo_full_name: repo, pr_number: pr, status: 'posted', not_before: { gt: expect.any(Date) } },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(result).toStrictEqual(toExpectedItem(recentPosted));
@@ -162,9 +174,9 @@ describe('QueueRepositoryImpl', () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const newRow = makeRow({ repo_full_name: repo, pr_number: pr, status: 'pending' });
-      const scheduledFor = getUniqueDate();
+      const notBefore = getUniqueDate();
 
-      const { prisma, reviewQueue } = createMockPrismaClient({
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(newRow) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -173,7 +185,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.enqueue(
         repo,
         pr,
-        scheduledFor,
+        notBefore,
         getUniqueString({ prefix: 'https://gh/c/' }),
         60,
         makeObservation(),
@@ -181,38 +193,14 @@ describe('QueueRepositoryImpl', () => {
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr, status: 'posted', scheduled_for: { gt: expect.any(Date) } },
+        where: { repo_full_name: repo, pr_number: pr, status: 'posted', not_before: { gt: expect.any(Date) } },
       });
       expect(reviewQueue.create).toHaveBeenCalledWith({
-        data: { repo_full_name: repo, pr_number: pr, scheduled_for: scheduledFor, source_comment_url: expect.any(String) },
+        data: { repo_full_name: repo, pr_number: pr, not_before: notBefore, source_comment_url: expect.any(String) },
       });
+      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
       expect(result).toStrictEqual(toExpectedItem(newRow));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
-    });
-  });
-
-  describe('getNextDue', () => {
-    it('returns the earliest due pending item', async () => {
-      const row = makeRow({ status: 'pending' });
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
-      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
-      const result = await sut.getNextDue();
-      expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { status: 'pending', scheduled_for: { lte: frozenNow } },
-        orderBy: { scheduled_for: 'asc' },
-      });
-      expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getNextDue', found: true }, 'Fetched next due review');
-    });
-
-    it('returns null when no pending items are due', async () => {
-      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
-      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
-      const result = await sut.getNextDue();
-      expect(result).toBeNull();
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getNextDue', found: false }, 'Fetched next due review');
     });
   });
 
@@ -223,19 +211,22 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markPosted(row.id, undefined, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'posted' } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'posted', posted_at: expect.any(Date) } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markPosted', id: row.id, cooldownUntil: undefined }, 'Marked review posted');
     });
 
-    it('writes scheduled_for when cooldownUntil is provided', async () => {
+    it('writes not_before when cooldownUntil is provided', async () => {
       const cooldownUntil = getUniqueDate();
       const row = makeRow({ status: 'posted' });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markPosted(row.id, cooldownUntil, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'posted', scheduled_for: cooldownUntil } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: row.id },
+        data: { status: 'posted', posted_at: expect.any(Date), not_before: cooldownUntil },
+      });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markPosted', id: row.id, cooldownUntil }, 'Marked review posted');
     });
@@ -248,7 +239,7 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markFailed(row.id, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'failed' } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'failed', failed_at: expect.any(Date) } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markFailed', id: row.id }, 'Marked review failed');
     });
@@ -261,28 +252,28 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markCompleted(row.id, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'completed' } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'completed', completed_at: expect.any(Date) } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markCompleted', id: row.id }, 'Marked review completed');
     });
   });
 
   describe('reschedule', () => {
-    it('increments attempts and sets new scheduled_for', async () => {
+    it('increments attempts and sets new not_before', async () => {
       const newDate = getUniqueDate();
       const row = makeRow({ attempts: 2 });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.reschedule(row.id, newDate, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { attempts: { increment: 1 }, scheduled_for: newDate } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { attempts: { increment: 1 }, not_before: newDate } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
     });
   });
 
   describe('getPendingQueue', () => {
-    it('returns all pending items sorted by scheduled_for', async () => {
+    it('returns all pending items sorted by not_before', async () => {
       const rows = [makeRow({ status: 'pending' }), makeRow({ status: 'pending' })];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -290,7 +281,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getPendingQueue();
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { status: 'pending' },
-        orderBy: { scheduled_for: 'asc' },
+        orderBy: { not_before: 'asc' },
       });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getPendingQueue', count: 2 }, 'Fetched pending queue');
@@ -306,7 +297,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getOldestPending();
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
         where: { status: 'pending' },
-        orderBy: { scheduled_for: 'asc' },
+        orderBy: { not_before: 'asc' },
       });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getOldestPending', found: true }, 'Fetched oldest pending item');
@@ -375,7 +366,7 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('getAll', () => {
-    it('returns paginated queue items sorted by scheduled_for ascending, with total count', async () => {
+    it('returns paginated queue items sorted by not_before ascending, with total count', async () => {
       const skip = 0;
       const take = 20;
       const rows = [makeRow({ status: 'pending' }), makeRow({ status: 'posted' })];
@@ -393,7 +384,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getAll(skip, take);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        orderBy: { scheduled_for: 'asc' },
+        orderBy: { not_before: 'asc' },
         skip,
         take,
       });
@@ -428,6 +419,16 @@ describe('QueueRepositoryImpl', () => {
         { fn: 'QueueRepositoryImpl.getCountsByStatus', counts: { pending: 7, posted: 3, completed: 1, failed: 0 } },
         'Fetched queue counts by status',
       );
+    });
+  });
+
+  describe('toQueueItem null timestamp mapping', () => {
+    it('returns existing rows with NULL timestamps', () => {
+      const row = makeRow({ posted_at: null, failed_at: null, completed_at: null });
+      const expected = toExpectedItem(row);
+      expect(expected.posted_at).toBeUndefined();
+      expect(expected.failed_at).toBeUndefined();
+      expect(expected.completed_at).toBeUndefined();
     });
   });
 

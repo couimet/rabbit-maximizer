@@ -1,6 +1,8 @@
 import { type EventRepository, EventRepositoryImpl } from './db/eventRepository.js';
 import { createPrismaClient } from './db/prismaClientFactory.js';
+import { type QueueOrderRepository, QueueOrderRepositoryImpl } from './db/queueOrderRepository.js';
 import { type QueueRepository, QueueRepositoryImpl } from './db/queueRepository.js';
+import { type SystemStateRepository, SystemStateRepositoryImpl } from './db/systemStateRepository.js';
 import type { CoderabbitGitHubClient } from './github/index.js';
 import { CoderabbitGitHubClientImpl } from './github/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
@@ -41,7 +43,11 @@ container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(Coderabb
 
 container.bind<EventRepository>(TYPES.EventRepository).to(EventRepositoryImpl).inSingletonScope();
 
+container.bind<QueueOrderRepository>(TYPES.QueueOrderRepository).to(QueueOrderRepositoryImpl).inSingletonScope();
+
 container.bind<QueueRepository>(TYPES.QueueRepository).to(QueueRepositoryImpl).inSingletonScope();
+
+container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStateRepositoryImpl).inSingletonScope();
 
 container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(UuidObservationContextProvider).inSingletonScope();
 

@@ -36,7 +36,7 @@ describe('SummaryStats', () => {
           repo_full_name: 'couimet/rabbit-maximizer',
           pr_number: 42,
           status: 'pending',
-          scheduled_for: '2026-06-23T14:30:00.000Z',
+          not_before: '2026-06-23T14:30:00.000Z',
           attempts: 99,
           source_comment_url: 'https://gh/c/1',
           created_at: '2026-06-22T10:00:00.000Z',
@@ -125,7 +125,7 @@ describe('SummaryStats', () => {
           repo_full_name: 'couimet/rabbit-maximizer',
           pr_number: 42,
           status: 'pending',
-          scheduled_for: '2026-06-23T14:30:00.000Z',
+          not_before: '2026-06-23T14:30:00.000Z',
           attempts: 1,
           source_comment_url: 'https://gh/c/1',
           created_at: '2026-06-22T10:00:00.000Z',
@@ -136,7 +136,7 @@ describe('SummaryStats', () => {
 
     it('renders column header without timezone suffix for non-UTC', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Scheduled For')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Not Before')).toBeInTheDocument());
     });
 
     it('formats dates in the selected timezone', async () => {

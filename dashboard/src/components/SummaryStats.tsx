@@ -68,7 +68,7 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
         <tr>
           <th>Repo</th>
           <th>PR</th>
-          <th>Scheduled For{suffix}</th>
+          <th>Not Before{suffix}</th>
           <th>Attempts</th>
         </tr>
       </thead>
@@ -84,7 +84,7 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
               #{item.pr_number}
             </a>
           </td>
-          <td>{formatDate(item.scheduled_for, timezone)}</td>
+          <td>{formatDate(item.not_before, timezone)}</td>
           <td>{item.attempts}</td>
         </tr>
       </tbody>

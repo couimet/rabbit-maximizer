@@ -62,11 +62,11 @@ describe('parseEventRow', () => {
   });
 
   it('parses an enqueued event coercing dates', () => {
-    const scheduledFor = getUniqueDate();
+    const notBefore = getUniqueDate();
     const row = baseRow({
       type: 'enqueued',
       payload: JSON.stringify({
-        scheduled_for: scheduledFor.toISOString(),
+        not_before: notBefore.toISOString(),
         new_wait: DEFAULT_NEW_WAIT,
       }),
     });
@@ -75,7 +75,7 @@ describe('parseEventRow', () => {
 
     expect(result.type).toBe('enqueued');
     expect(result.payload).toStrictEqual({
-      scheduled_for: scheduledFor,
+      not_before: notBefore,
       new_wait: 60,
     });
     expect(result.request_id).toBeUndefined();
@@ -152,7 +152,26 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('rejects an enqueued payload missing scheduled_for', () => {
+  it('remaps legacy scheduled_for key to not_before in enqueued payloads', () => {
+    const notBefore = getUniqueDate();
+    const row = baseRow({
+      type: 'enqueued',
+      payload: JSON.stringify({
+        scheduled_for: notBefore.toISOString(),
+        new_wait: DEFAULT_NEW_WAIT,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('enqueued');
+    expect(result.payload).toStrictEqual({
+      not_before: notBefore,
+      new_wait: 60,
+    });
+  });
+
+  it('rejects an enqueued payload missing not_before', () => {
     const row = baseRow({
       type: 'enqueued',
       payload: JSON.stringify({ new_wait: 60 }),
@@ -187,7 +206,7 @@ describe('payload length limits', () => {
     const row = baseRow({
       type: 'enqueued',
       payload: JSON.stringify({
-        scheduled_for: getUniqueDate().toISOString(),
+        not_before: getUniqueDate().toISOString(),
         new_wait: -1,
       }),
     });
