@@ -2,11 +2,6 @@
 
 load test_helper
 
-setup() {
-  cd "$BATS_TEST_TMPDIR"
-  mkdir -p data/backups
-}
-
 @test "lists available backups with sizes when no argument" {
   create_test_db
   sqlite3 data/rabbit-maximizer.db .dump | gzip > data/backups/test-backup.sql.gz

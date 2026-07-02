@@ -5,6 +5,7 @@ export SCRIPT_DIR
 setup() {
   cd "$BATS_TEST_TMPDIR" || return
   mkdir -p "data/backups"
+  export RABBIT_MAXIMIZER_DATA_DIR="$BATS_TEST_TMPDIR/data"
 }
 
 teardown() {
