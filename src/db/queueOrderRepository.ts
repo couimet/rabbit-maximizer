@@ -18,10 +18,7 @@ export interface QueueOrderRepository {
 
 @injectable()
 export class QueueOrderRepositoryImpl extends BasePrismaRepository implements QueueOrderRepository {
-  constructor(
-    @inject(TYPES.PrismaClient) prisma: PrismaClient,
-    @inject(TYPES.Logger) log: Logger,
-  ) {
+  constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
     super(prisma, log);
   }
 

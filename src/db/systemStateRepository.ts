@@ -55,10 +55,7 @@ export interface SystemStateRepository {
 
 @injectable()
 export class SystemStateRepositoryImpl extends BasePrismaRepository implements SystemStateRepository {
-  constructor(
-    @inject(TYPES.PrismaClient) prisma: PrismaClient,
-    @inject(TYPES.Logger) log: Logger,
-  ) {
+  constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
     super(prisma, log);
   }
 
