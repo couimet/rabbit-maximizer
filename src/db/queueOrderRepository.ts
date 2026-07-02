@@ -9,10 +9,8 @@ import { inject, injectable } from 'inversify';
 
 export type MoveDirection = 'up' | 'down';
 
-const POSITION_BUMP_OFFSET = 10000;
-
 export interface QueueOrderRepository {
-  getEffectiveOrder(): Promise<QueueItem[]>;
+  getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]>;
   moveItems(queueItemIds: number[], direction: MoveDirection): Promise<QueueItem[]>;
 }
 
@@ -22,24 +20,28 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     super(prisma, log);
   }
 
-  getEffectiveOrder(): Promise<QueueItem[]> {
-    return this.readEffectiveOrder();
+  getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]> {
+    return this.readEffectiveOrder(undefined, options?.eligibleOnly ?? true);
   }
 
-  private async readEffectiveOrder(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
+  private async readEffectiveOrder(tx?: Prisma.TransactionClient, eligibleOnly = true): Promise<QueueItem[]> {
     const db = this.client(tx);
+    const where: Prisma.ReviewQueueWhereInput = { status: 'pending' };
+    if (eligibleOnly) {
+      where.not_before = { lte: new Date() };
+    }
     const rows = await db.reviewQueue.findMany({
-      where: { status: 'pending', not_before: { lte: new Date() } },
+      where,
       include: { queueOrder: true },
       orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
     });
-    this.log.debug({ fn: 'QueueOrderRepositoryImpl.getEffectiveOrder', count: rows.length }, 'Fetched effective order');
+    this.log.debug({ fn: 'QueueOrderRepositoryImpl.getEffectiveOrder', count: rows.length, eligibleOnly }, 'Fetched effective order');
     return rows.map((row) => this.toQueueItem(row));
   }
 
   moveItems(queueItemIds: number[], direction: MoveDirection): Promise<QueueItem[]> {
     return this.transaction(async (tx) => {
-      const ordered = await this.readEffectiveOrder(tx);
+      const ordered = await this.readEffectiveOrder(tx, false);
       const orderedIds = ordered.map((item) => item.id);
 
       const sortedSelected = [...new Set(queueItemIds)].sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
@@ -63,31 +65,39 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemIds, direction }, 'Moved items in queue order');
 
-      return this.readEffectiveOrder(tx);
+      return this.readEffectiveOrder(tx, false);
     });
   }
 
   private async normalizePositionsToOrder(db: Prisma.TransactionClient, orderedIds: number[]): Promise<void> {
-    await db.$executeRawUnsafe(`UPDATE queue_order SET position = position + ${POSITION_BUMP_OFFSET} WHERE position IS NOT NULL`);
-
-    const rows = await db.reviewQueue.findMany({
-      where: { id: { in: orderedIds } },
+    const pendingItems = await db.reviewQueue.findMany({
+      where: { status: 'pending' },
       include: { queueOrder: true },
     });
 
-    const idToQO = new Map<number, QueueOrder>();
-    for (const row of rows) {
-      if (row.queueOrder) {
-        idToQO.set(row.id, row.queueOrder);
-      }
+    const qoIds = pendingItems.map((item) => item.queueOrder?.id).filter((id): id is number => id != null);
+    if (qoIds.length > 0) {
+      await db.queueOrder.updateMany({
+        where: { id: { in: qoIds } },
+        data: { position: null },
+      });
     }
 
+    // Assign new positions, creating queue_order rows for items that lack them (pre-migration backfill)
+    const itemById = new Map(pendingItems.map((item) => [item.id, item]));
     for (let i = 0; i < orderedIds.length; i++) {
-      const qo = idToQO.get(orderedIds[i]);
-      if (qo) {
+      const item = itemById.get(orderedIds[i]);
+      /* c8 ignore next 2 — defensive: orderedIds are derived from readEffectiveOrder which returns pending items */
+      if (!item) continue;
+
+      if (item.queueOrder) {
         await db.queueOrder.update({
-          where: { id: qo.id },
+          where: { id: item.queueOrder.id },
           data: { position: i + 1 },
+        });
+      } else {
+        await db.queueOrder.create({
+          data: { queue_item_id: orderedIds[i], position: i + 1 },
         });
       }
     }
