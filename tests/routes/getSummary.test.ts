@@ -6,6 +6,7 @@ import { createMockEventRepo, createMockLogger, createMockQueueRepo } from '../h
 
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'http';
 
 describe('getSummary', () => {
@@ -55,12 +56,13 @@ describe('getSummary', () => {
   });
 
   it('returns 500 and logs error on repository failure', async () => {
+    const repoError = new Error('DB down');
     logger = createMockLogger();
-    startServer({ getCountsByStatus: jest.fn<any>().mockRejectedValue(new Error('DB down')) });
+    startServer({ getCountsByStatus: jest.fn<any>().mockRejectedValue(repoError) });
 
     const res = await fetchResponse(server, '/api/summary');
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get summary' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: expect.any(Error) }, 'Failed to get summary');
+    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
   });
 });

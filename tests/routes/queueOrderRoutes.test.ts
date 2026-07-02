@@ -8,6 +8,7 @@ import { postJson } from '../helpers/postJson.js';
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
+import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'http';
 
 interface QueueItemStub {
@@ -50,12 +51,13 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 500 and logs error on repository failure', async () => {
-      startServer({ getEffectiveOrder: jest.fn<any>().mockRejectedValue(new Error('DB down')) });
+      const repoError = new Error('DB down');
+      startServer({ getEffectiveOrder: jest.fn<any>().mockRejectedValue(repoError) });
 
       const res = await fetchResponse(server, '/api/queue/order');
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to get queue order' });
-      expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.queueOrder.get', error: expect.any(Error) }, 'Failed to get queue order');
+      expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.queueOrder.get', error: repoError }, 'Failed to get queue order');
     });
   });
 
@@ -78,7 +80,7 @@ describe('queueOrderRoutes', () => {
       });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [2], direction: 'up' });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: moved });
     });
 
@@ -91,7 +93,7 @@ describe('queueOrderRoutes', () => {
       });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [2], direction: 'down' });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: moved });
     });
 
@@ -103,7 +105,7 @@ describe('queueOrderRoutes', () => {
       });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [1], direction: 'up' });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: items });
     });
 
@@ -115,7 +117,7 @@ describe('queueOrderRoutes', () => {
       });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [2], direction: 'down' });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: items });
     });
 
@@ -128,7 +130,7 @@ describe('queueOrderRoutes', () => {
       });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [3, 4], direction: 'up' });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: moved });
     });
 
@@ -141,7 +143,7 @@ describe('queueOrderRoutes', () => {
       });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [2, 3], direction: 'up' });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: moved });
     });
 
@@ -150,7 +152,7 @@ describe('queueOrderRoutes', () => {
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [1], direction: 'left' });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
       expect(await res.json()).toStrictEqual({ error: 'direction must be "up" or "down"' });
     });
 
@@ -158,7 +160,7 @@ describe('queueOrderRoutes', () => {
       startServer();
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [], direction: 'up' });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
       expect(await res.json()).toStrictEqual({ error: 'queueItemIds must be a non-empty array of positive integers' });
     });
 
@@ -166,8 +168,17 @@ describe('queueOrderRoutes', () => {
       startServer();
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [1.5], direction: 'up' });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
       expect(await res.json()).toStrictEqual({ error: 'queueItemIds must be a non-empty array of positive integers' });
+    });
+
+    it('returns 400 when request body is missing', async () => {
+      startServer();
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/order/move`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     });
 
     it('returns 404 when a queueItemId does not exist', async () => {
@@ -175,7 +186,7 @@ describe('queueOrderRoutes', () => {
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [999], direction: 'up' });
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(StatusCodes.NOT_FOUND);
       expect(await res.json()).toStrictEqual({ error: 'Queue items not found: 999' });
     });
 
@@ -188,7 +199,7 @@ describe('queueOrderRoutes', () => {
       });
 
       const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [1], direction: 'up' });
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to move queue items' });
       expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.queueOrder.move', error: repoError }, 'Failed to move queue items');
     });

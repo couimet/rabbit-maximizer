@@ -4,6 +4,7 @@ import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from '.
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 
 export const createGetQueueHandler = (queueRepo: QueueRepository, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
@@ -17,7 +18,7 @@ export const createGetQueueHandler = (queueRepo: QueueRepository, logger: Logger
       res.json({ data: items, total, page, pageSize });
     } catch (error) {
       logger.error({ fn: 'api.getQueue', error }, 'Failed to get queue');
-      res.status(500).json({ error: 'Failed to get queue' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get queue' });
     }
   };
 };

@@ -253,6 +253,33 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
     });
 
+    it('deduplicates repeated ids so each item moves only one position', async () => {
+      const itemA = makeMoveRow(1, 1);
+      const itemB = makeMoveRow(2, 2);
+      const itemC = makeMoveRow(3, 3);
+
+      const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
+        reviewQueue: {
+          findMany: jest
+            .fn<any>()
+            .mockResolvedValueOnce([itemA, itemB, itemC])
+            .mockResolvedValueOnce([itemA, itemB, itemC])
+            .mockResolvedValueOnce([itemB, itemA, itemC]),
+        },
+        $executeRawUnsafe: jest.fn<any>().mockResolvedValue(undefined),
+      });
+      queueOrderMock.update = jest.fn<any>().mockResolvedValue({});
+
+      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+
+      const result = await sut.moveItems([2, 2], 'up');
+
+      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 2 } });
+      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: 3 } });
+      expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemA), toExpectedItem(itemC)]);
+    });
+
     it('does not swap when the neighbor is also selected (blocks at boundary)', async () => {
       const itemA = makeMoveRow(1, 1);
       const itemB = makeMoveRow(2, 2);

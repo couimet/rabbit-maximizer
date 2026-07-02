@@ -42,7 +42,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       const ordered = await this.readEffectiveOrder(tx);
       const orderedIds = ordered.map((item) => item.id);
 
-      const sortedSelected = [...queueItemIds].sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
+      const sortedSelected = [...new Set(queueItemIds)].sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
       if (direction === 'down') {
         sortedSelected.reverse();
       }

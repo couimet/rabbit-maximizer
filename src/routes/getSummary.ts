@@ -3,6 +3,7 @@ import type { QueueRepository } from '../db/queueRepository.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 
 const MILLISECONDS_IN_24_HOURS = 86_400_000;
 
@@ -18,7 +19,7 @@ export const createGetSummaryHandler = (queueRepo: QueueRepository, eventRepo: E
       res.json({ queueCounts, eventCounts24h, oldestPending });
     } catch (error) {
       logger.error({ fn: 'api.getSummary', error }, 'Failed to get summary');
-      res.status(500).json({ error: 'Failed to get summary' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get summary' });
     }
   };
 };
