@@ -47,6 +47,50 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/queue/order:
+    get:
+      operationId: getQueueOrder
+      responses:
+        '200':
+          description: Pending items in effective order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueOrderResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/queue/order/move:
+    post:
+      operationId: moveQueueOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueueOrderMoveRequest'
+      responses:
+        '200':
+          description: Updated effective order after move
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueOrderResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Queue items not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/events:
     get:
       operationId: getEvents
@@ -269,4 +313,28 @@ components:
           type: integer
         pageSize:
           type: integer
+      additionalProperties: false
+
+    QueueOrderMoveRequest:
+      type: object
+      required: [queueItemIds, direction]
+      properties:
+        queueItemIds:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+        direction:
+          type: string
+          enum: [up, down]
+      additionalProperties: false
+
+    QueueOrderResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
       additionalProperties: false

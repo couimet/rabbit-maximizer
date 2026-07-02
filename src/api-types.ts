@@ -36,6 +36,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/queue/order': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getQueueOrder'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/queue/order/move': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['moveQueueOrder'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/events': {
     parameters: {
       query?: never;
@@ -136,6 +168,14 @@ export interface components {
       page: number;
       pageSize: number;
     };
+    QueueOrderMoveRequest: {
+      queueItemIds: number[];
+      /** @enum {string} */
+      direction: 'up' | 'down';
+    };
+    QueueOrderResponse: {
+      data: components['schemas']['QueueItem'][];
+    };
   };
   responses: {
     /** @description Unexpected server error */
@@ -195,6 +235,70 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PaginatedQueue'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  getQueueOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Pending items in effective order */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['QueueOrderResponse'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  moveQueueOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['QueueOrderMoveRequest'];
+      };
+    };
+    responses: {
+      /** @description Updated effective order after move */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['QueueOrderResponse'];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Queue items not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
         };
       };
       500: components['responses']['InternalError'];

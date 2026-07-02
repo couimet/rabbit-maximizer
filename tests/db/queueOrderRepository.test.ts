@@ -6,7 +6,7 @@ import { createMockLogger, createMockPrismaClient, createResolvedMock, makeUniqu
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
 interface MakeRowOverrides {
@@ -133,7 +133,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([3], 'up', prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.moveItems([3], 'up');
 
       expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith('UPDATE queue_order SET position = position + 10000 WHERE position IS NOT NULL');
 
@@ -164,7 +164,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([1], 'down', prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.moveItems([1], 'down');
 
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 2 } });
@@ -193,7 +193,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([2, 3], 'up', prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.moveItems([2, 3], 'up');
 
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: 2 } });
@@ -223,7 +223,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([2, 3], 'down', prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.moveItems([2, 3], 'down');
 
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemD.queueOrder.id }, data: { position: 2 } });
@@ -247,7 +247,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await sut.moveItems([1, 999], 'up', prisma as unknown as Prisma.TransactionClient);
+      await sut.moveItems([1, 999], 'up');
 
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
@@ -272,7 +272,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([1, 2], 'up', prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.moveItems([1, 2], 'up');
 
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
@@ -294,7 +294,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([1], 'up', prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.moveItems([1], 'up');
 
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
@@ -315,7 +315,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([2], 'down', prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.moveItems([2], 'down');
 
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
@@ -341,7 +341,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await sut.moveItems([3], 'up', prisma as unknown as Prisma.TransactionClient);
+      await sut.moveItems([3], 'up');
 
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: 2 } });
