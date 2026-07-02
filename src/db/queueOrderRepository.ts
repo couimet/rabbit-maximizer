@@ -75,14 +75,12 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       include: { queueOrder: true },
     });
 
-    // Clear existing positions
-    for (const item of pendingItems) {
-      if (item.queueOrder) {
-        await db.queueOrder.update({
-          where: { id: item.queueOrder.id },
-          data: { position: null },
-        });
-      }
+    const qoIds = pendingItems.map((item) => item.queueOrder?.id).filter((id): id is number => id != null);
+    if (qoIds.length > 0) {
+      await db.queueOrder.updateMany({
+        where: { id: { in: qoIds } },
+        data: { position: null },
+      });
     }
 
     // Assign new positions, creating queue_order rows for items that lack them (pre-migration backfill)

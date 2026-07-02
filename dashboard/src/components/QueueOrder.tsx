@@ -4,9 +4,9 @@ import { fetchQueueOrder, moveQueueItems } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-const QueueOrder = () => {
+const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}) => {
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -16,15 +16,26 @@ const QueueOrder = () => {
 
   const [moveError, setMoveError] = useState<string | null>(null);
 
-  const loadOrder = () => {
-    setError(null);
-    fetchQueueOrder()
-      .then((res) => setItems(res.data))
-      .catch((err: Error) => setError(err.message));
-  };
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
-    loadOrder();
+    let cancelled = false;
+    setError(null);
+    fetchQueueOrder()
+      .then((res) => {
+        if (!cancelled) setItems(res.data);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setError(err.message);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const toggleSelect = (id: number) => {
@@ -51,6 +62,7 @@ const QueueOrder = () => {
     setMoveError(null);
     moveQueueItems(ids, direction)
       .then((res) => {
+        if (!mountedRef.current) return;
         if (Array.isArray(res.data)) {
           setItems(res.data);
         } else {
@@ -60,6 +72,7 @@ const QueueOrder = () => {
         setMoving(false);
       })
       .catch((err: Error) => {
+        if (!mountedRef.current) return;
         setMoveError(err.message);
         setMoving(false);
       });
@@ -72,6 +85,8 @@ const QueueOrder = () => {
     handleMove(direction, Array.from(selectedIds));
   };
 
+  const Heading = headingLevel;
+
   if (error) return <div className="error">Failed to load queue order: {error}</div>;
   if (!items) return <div className="loading">Loading queue order…</div>;
 
@@ -80,7 +95,7 @@ const QueueOrder = () => {
 
   return (
     <section>
-      <h2>Queue Order</h2>
+      <Heading>Queue Order</Heading>
       {moveError && <div className="error">Move failed: {moveError}</div>}
       {items.length === 0 ? (
         <p>No pending items.</p>
@@ -98,7 +113,7 @@ const QueueOrder = () => {
             <thead>
               <tr>
                 <th className="col-select">
-                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} disabled={moving} />
+                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} disabled={moving} aria-label="Select all pending items" />
                 </th>
                 <th className="col-position">#</th>
                 <th>Status</th>
@@ -114,7 +129,13 @@ const QueueOrder = () => {
                 return (
                   <tr key={item.id} className={`${isSelected ? 'row-selected' : ''}`}>
                     <td className="col-select">
-                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(item.id)} disabled={moving} />
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(item.id)}
+                        disabled={moving}
+                        aria-label={`Select ${item.repo_full_name} #${item.pr_number}`}
+                      />
                     </td>
                     <td className="col-position">{index + 1}</td>
                     <td>{item.status}</td>

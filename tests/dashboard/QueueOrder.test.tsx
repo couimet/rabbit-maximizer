@@ -109,10 +109,78 @@ describe('QueueOrder', () => {
   });
 
   describe('cleanup', () => {
-    it('cancels in-flight fetch on unmount', () => {
+    it('does not update state after unmount when fetch resolves', async () => {
+      let resolvePromise!: (value: { data: ReturnType<typeof makeQueueItem>[] }) => void;
+      const fetchPromise = new Promise<{ data: ReturnType<typeof makeQueueItem>[] }>((resolve) => {
+        resolvePromise = resolve;
+      });
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => fetchPromise,
+        } as Response),
+      ) as unknown as typeof fetch;
+
       const { unmount } = renderQueueOrder();
       unmount();
-      expect(globalThis.fetch).toHaveBeenCalled();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      resolvePromise({ data: [makeQueueItem(), makeQueueItem()] });
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
+    });
+
+    it('does not update state after unmount when move request resolves', async () => {
+      createMockFetch(200, { data: [makeQueueItem(), makeQueueItem()] });
+      const { unmount } = renderQueueOrder();
+      await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument());
+
+      let resolveMove!: (value: { data: ReturnType<typeof makeQueueItem>[] }) => void;
+      const movePromise = new Promise<{ data: ReturnType<typeof makeQueueItem>[] }>((resolve) => {
+        resolveMove = resolve;
+      });
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => movePromise,
+        } as Response),
+      ) as unknown as typeof fetch;
+
+      fireEvent.click(screen.getAllByLabelText('Move up')[0]);
+      unmount();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      resolveMove({ data: [makeQueueItem(), makeQueueItem()] });
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
+    });
+
+    it('does not update state after unmount when move request fails', async () => {
+      createMockFetch(200, { data: [makeQueueItem(), makeQueueItem()] });
+      const { unmount } = renderQueueOrder();
+      await waitFor(() => expect(screen.getByText('1')).toBeInTheDocument());
+
+      let rejectMove!: (reason: Error) => void;
+      const moveFetchPromise = new Promise<Response>((_, reject) => {
+        rejectMove = reject;
+      });
+      globalThis.fetch = jest.fn(() => moveFetchPromise) as unknown as typeof fetch;
+
+      fireEvent.click(screen.getAllByLabelText('Move up')[0]);
+      unmount();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      rejectMove(new Error('Network error'));
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
     });
   });
 

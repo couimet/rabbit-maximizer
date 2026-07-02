@@ -50,7 +50,7 @@ const SummaryStats = () => {
         ))}
       </div>
 
-      <QueueOrder />
+      <QueueOrder headingLevel="h3" />
     </section>
   );
 };

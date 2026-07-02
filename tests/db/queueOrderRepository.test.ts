@@ -138,6 +138,7 @@ describe('QueueOrderRepositoryImpl', () => {
         },
       });
       queueOrderMock.update = jest.fn<any>().mockResolvedValue({});
+      queueOrderMock.updateMany = jest.fn<any>().mockResolvedValue({ count: 0 });
       return { prisma, queueOrderMock };
     };
 
@@ -151,13 +152,13 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const result = await sut.moveItems([3], 'up');
 
-      // Clear: all positions set to null, then reassigned
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(5, { where: { id: itemC.queueOrder.id }, data: { position: 2 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(6, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
+        data: { position: null },
+      });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemC.queueOrder.id }, data: { position: 2 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
 
       expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemC), toExpectedItem(itemB)]);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: [3], direction: 'up' }, 'Moved items in queue order');
@@ -173,12 +174,13 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const result = await sut.moveItems([1], 'down');
 
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemB.queueOrder.id }, data: { position: 1 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(5, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(6, { where: { id: itemC.queueOrder.id }, data: { position: 3 } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
+        data: { position: null },
+      });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: itemB.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: 3 } });
 
       expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemA), toExpectedItem(itemC)]);
     });
@@ -194,14 +196,14 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const result = await sut.moveItems([2, 3], 'up');
 
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemD.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(5, { where: { id: itemB.queueOrder.id }, data: { position: 1 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(6, { where: { id: itemC.queueOrder.id }, data: { position: 2 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(7, { where: { id: itemA.queueOrder.id }, data: { position: 3 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(8, { where: { id: itemD.queueOrder.id }, data: { position: 4 } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id, itemD.queueOrder.id] } },
+        data: { position: null },
+      });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: itemB.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemC.queueOrder.id }, data: { position: 2 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemA.queueOrder.id }, data: { position: 3 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemD.queueOrder.id }, data: { position: 4 } });
 
       expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemC), toExpectedItem(itemA), toExpectedItem(itemD)]);
     });
@@ -217,14 +219,14 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const result = await sut.moveItems([2, 3], 'down');
 
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemD.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(5, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(6, { where: { id: itemD.queueOrder.id }, data: { position: 2 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(7, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
-      expect(queueOrderMock.update).toHaveBeenNthCalledWith(8, { where: { id: itemC.queueOrder.id }, data: { position: 4 } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id, itemD.queueOrder.id] } },
+        data: { position: null },
+      });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemD.queueOrder.id }, data: { position: 2 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemC.queueOrder.id }, data: { position: 4 } });
 
       expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemD), toExpectedItem(itemB), toExpectedItem(itemC)]);
     });
@@ -238,8 +240,10 @@ describe('QueueOrderRepositoryImpl', () => {
 
       await sut.moveItems([1, 999], 'up');
 
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: null } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
+        data: { position: null },
+      });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
     });
@@ -267,9 +271,10 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const result = await sut.moveItems([1, 2], 'up');
 
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: null } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
+        data: { position: null },
+      });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: 3 } });
@@ -285,8 +290,10 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const result = await sut.moveItems([1], 'up');
 
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: null } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
+        data: { position: null },
+      });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
       expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemB)]);
@@ -301,8 +308,10 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const result = await sut.moveItems([2], 'down');
 
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: null } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
+        data: { position: null },
+      });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
       expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemB)]);
@@ -318,9 +327,10 @@ describe('QueueOrderRepositoryImpl', () => {
 
       await sut.moveItems([3], 'up');
 
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: null } });
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: null } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
+        data: { position: null },
+      });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: 2 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 3 } });
@@ -336,13 +346,17 @@ describe('QueueOrderRepositoryImpl', () => {
         },
       });
       queueOrderMock.update = jest.fn<any>().mockResolvedValue({});
+      queueOrderMock.updateMany = jest.fn<any>().mockResolvedValue({ count: 0 });
       queueOrderMock.create = jest.fn<any>().mockResolvedValue({ id: getUniqueInt(), position: 2, queue_item_id: 2 });
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
       const result = await sut.moveItems([2], 'up');
 
-      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder!.id }, data: { position: null } });
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder!.id] } },
+        data: { position: null },
+      });
       expect(queueOrderMock.create).toHaveBeenCalledWith({ data: { queue_item_id: 2, position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder!.id }, data: { position: 2 } });
       expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemA)]);
