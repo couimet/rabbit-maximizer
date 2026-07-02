@@ -132,7 +132,7 @@ export class QueueRepositoryImpl implements QueueRepository {
   async markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
-      data: { status: QueueStatus.completed },
+      data: { status: QueueStatus.completed, completed_at: new Date() },
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.markCompleted', id }, 'Marked review completed');
     return this.toQueueItem(row);

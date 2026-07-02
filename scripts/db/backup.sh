@@ -9,7 +9,7 @@ TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
 BACKUP_FILE="$BACKUP_DIR/$TIMESTAMP.sql.gz"
 
 if [ ! -f "$DB_FILE" ]; then
-  echo "No database found at data/rabbit-maximizer.db" >&2
+  echo "No database found at $DB_FILE" >&2
   exit 1
 fi
 

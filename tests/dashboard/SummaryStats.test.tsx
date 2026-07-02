@@ -136,7 +136,7 @@ describe('SummaryStats', () => {
 
     it('renders column header without timezone suffix for non-UTC', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Scheduled For')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Not Before')).toBeInTheDocument());
     });
 
     it('formats dates in the selected timezone', async () => {

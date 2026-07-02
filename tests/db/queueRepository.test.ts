@@ -252,7 +252,7 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markCompleted(row.id, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'completed' } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'completed', completed_at: expect.any(Date) } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markCompleted', id: row.id }, 'Marked review completed');
     });

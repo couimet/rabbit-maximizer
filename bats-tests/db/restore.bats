@@ -36,7 +36,7 @@ load test_helper
   run bash -c "yes | bash '$SCRIPT_DIR/restore.sh' '$restore_from'"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "Pre-restore backup:" ]]
-  [[ "$output" =~ "Restored data/rabbit-maximizer.db" ]]
+  [[ "$output" == *"Restored $RABBIT_MAXIMIZER_DATA_DIR/rabbit-maximizer.db from"* ]]
 }
 
 @test "restores from .sql.gz correctly" {
@@ -104,5 +104,5 @@ load test_helper
   sqlite3 "$source_db" .dump | gzip > "$restore_from"
   run bash -c "echo 'y' | bash '$SCRIPT_DIR/restore.sh' '$restore_from'"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"About to replace data/rabbit-maximizer.db with $restore_from. Continue?"* ]]
+  [[ "$output" == *"About to replace $RABBIT_MAXIMIZER_DATA_DIR/rabbit-maximizer.db with $restore_from. Continue?"* ]]
 }

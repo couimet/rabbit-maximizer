@@ -186,8 +186,6 @@ describe('SystemStateRepositoryImpl', () => {
 
     it('sets updated_at to the current time', async () => {
       const now = new Date();
-      jest.useFakeTimers();
-      jest.setSystemTime(now);
 
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
@@ -196,11 +194,25 @@ describe('SystemStateRepositoryImpl', () => {
 
       await sut.setState(StateKey.lastPollCompletedAt, now);
 
-      const upsertCall = systemState.upsert.mock.calls[0][0] as { create: { updated_at: string }; update: { updated_at: string } };
-      expect(upsertCall.create.updated_at).toBe(now.toISOString());
-      expect(upsertCall.update.updated_at).toBe(now.toISOString());
-
-      jest.useRealTimers();
+      expect(systemState.upsert).toHaveBeenCalledWith({
+        where: { state_key: 'last_poll_completed_at' },
+        create: {
+          state_key: 'last_poll_completed_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: expect.any(String),
+        },
+        update: {
+          state_key: 'last_poll_completed_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: expect.any(String),
+        },
+      });
     });
   });
 

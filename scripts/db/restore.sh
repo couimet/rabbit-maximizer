@@ -8,7 +8,7 @@ BACKUP_DIR="$DATA_DIR/backups"
 
 if [ $# -eq 0 ]; then
   if [ ! -d "$BACKUP_DIR" ] || [ -z "$(find "$BACKUP_DIR" -maxdepth 1 -type f -print -quit 2>/dev/null)" ]; then
-    echo "No backups found in data/backups/"
+    echo "No backups found in $BACKUP_DIR"
     exit 0
   fi
   echo "Available backups:"
@@ -23,7 +23,7 @@ if [ ! -f "$BACKUP_FILE" ]; then
   exit 1
 fi
 
-echo -n "About to replace data/rabbit-maximizer.db with $BACKUP_FILE. Continue? [y/N] " >&2
+echo -n "About to replace $DB_FILE with $BACKUP_FILE. Continue? [y/N] " >&2
 read -r CONFIRM
 
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
@@ -57,4 +57,4 @@ fi
 
 mv -f "$TEMP_DB" "$DB_FILE"
 
-echo "Restored data/rabbit-maximizer.db from $BACKUP_FILE"
+echo "Restored $DB_FILE from $BACKUP_FILE"

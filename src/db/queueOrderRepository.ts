@@ -7,6 +7,8 @@ import { inject, injectable } from 'inversify';
 
 export type MoveDirection = 'up' | 'down';
 
+const POSITION_BUMP_OFFSET = 10000;
+
 export interface QueueOrderRepository {
   getEffectiveOrder(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   moveItems(queueItemIds: number[], direction: MoveDirection, tx: Prisma.TransactionClient): Promise<QueueItem[]>;
@@ -65,7 +67,7 @@ export class QueueOrderRepositoryImpl implements QueueOrderRepository {
   }
 
   private async normalizePositionsToOrder(db: Prisma.TransactionClient, orderedIds: number[]): Promise<void> {
-    await db.$executeRawUnsafe('UPDATE queue_order SET position = position + 10000 WHERE position IS NOT NULL');
+    await db.$executeRawUnsafe(`UPDATE queue_order SET position = position + ${POSITION_BUMP_OFFSET} WHERE position IS NOT NULL`);
 
     const rows = await db.reviewQueue.findMany({
       where: { id: { in: orderedIds } },

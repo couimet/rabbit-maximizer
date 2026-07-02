@@ -47,7 +47,7 @@ export const VALUE_SETTER: Record<ValueColumn, (base: SystemStateRow, value: unk
 };
 
 export interface SystemStateRepository {
-  getState<K extends StateKey>(key: K): Promise<StateKeyToType[K] | undefined>;
+  getState<K extends StateKey>(key: K, tx?: Prisma.TransactionClient): Promise<StateKeyToType[K] | undefined>;
   setState<K extends StateKey>(key: K, value: StateKeyToType[K], tx?: Prisma.TransactionClient): Promise<void>;
 }
 
@@ -62,8 +62,8 @@ export class SystemStateRepositoryImpl implements SystemStateRepository {
     return tx ?? this.prisma;
   }
 
-  async getState<K extends StateKey>(key: K): Promise<StateKeyToType[K] | undefined> {
-    const row = await this.prisma.systemState.findUnique({
+  async getState<K extends StateKey>(key: K, tx?: Prisma.TransactionClient): Promise<StateKeyToType[K] | undefined> {
+    const row = await this.client(tx).systemState.findUnique({
       where: { state_key: key },
     });
     if (!row) return undefined;

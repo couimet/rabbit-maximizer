@@ -68,7 +68,7 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
         <tr>
           <th>Repo</th>
           <th>PR</th>
-          <th>Scheduled For{suffix}</th>
+          <th>Not Before{suffix}</th>
           <th>Attempts</th>
         </tr>
       </thead>

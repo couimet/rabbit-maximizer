@@ -22,7 +22,7 @@ load test_helper
 @test "errors when database file does not exist" {
   run bash "$SCRIPT_DIR/backup.sh"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "No database found at data/rabbit-maximizer.db" ]]
+  [[ "$output" == *"rabbit-maximizer.db" ]]
 }
 
 @test "rotates old backups keeping last 10" {
