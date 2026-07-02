@@ -59,7 +59,7 @@
   "devDependencies": {
     "@couimet/detailed-error-testing": "^0.1.1",
     "@couimet/dynamic-testing": "^0.1.1",
-    "@couimet/eslint-config": "^0.4.0",
+    "@couimet/eslint-config": "^0.6.0",
     "@couimet/logger-contract-testing": "^1.0.1",
     "@jest/expect": "^30.4.1",
     "@jest/globals": "^30.4.1",
@@ -72,6 +72,9 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^10.5.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-unicorn": "^70.0.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "openapi-typescript": "^7.13.0",
