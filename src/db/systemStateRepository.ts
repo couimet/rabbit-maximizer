@@ -1,5 +1,7 @@
 import { TYPES } from '../inversify-types.js';
 
+import { BasePrismaRepository } from './BasePrismaRepository.js';
+
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
@@ -52,14 +54,12 @@ export interface SystemStateRepository {
 }
 
 @injectable()
-export class SystemStateRepositoryImpl implements SystemStateRepository {
+export class SystemStateRepositoryImpl extends BasePrismaRepository implements SystemStateRepository {
   constructor(
-    @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
-    @inject(TYPES.Logger) private readonly log: Logger,
-  ) {}
-
-  private client(tx?: Prisma.TransactionClient): Prisma.TransactionClient {
-    return tx ?? this.prisma;
+    @inject(TYPES.PrismaClient) prisma: PrismaClient,
+    @inject(TYPES.Logger) log: Logger,
+  ) {
+    super(prisma, log);
   }
 
   async getState<K extends StateKey>(key: K, tx?: Prisma.TransactionClient): Promise<StateKeyToType[K] | undefined> {

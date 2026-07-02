@@ -1,6 +1,8 @@
 import { TYPES } from '../inversify-types.js';
 import type { QueueItem, QueueStatus } from '../types/index.js';
 
+import { BasePrismaRepository } from './BasePrismaRepository.js';
+
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type QueueOrder, type ReviewQueue } from '@prisma/client';
 import { inject, injectable } from 'inversify';
@@ -15,14 +17,12 @@ export interface QueueOrderRepository {
 }
 
 @injectable()
-export class QueueOrderRepositoryImpl implements QueueOrderRepository {
+export class QueueOrderRepositoryImpl extends BasePrismaRepository implements QueueOrderRepository {
   constructor(
-    @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
-    @inject(TYPES.Logger) private readonly log: Logger,
-  ) {}
-
-  private client(tx?: Prisma.TransactionClient): Prisma.TransactionClient {
-    return tx ?? this.prisma;
+    @inject(TYPES.PrismaClient) prisma: PrismaClient,
+    @inject(TYPES.Logger) log: Logger,
+  ) {
+    super(prisma, log);
   }
 
   async getEffectiveOrder(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {

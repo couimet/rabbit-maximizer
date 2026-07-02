@@ -2,6 +2,7 @@ import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import { EventType, type PaginatedResult, type QueueItem, QueueStatus } from '../types/index.js';
 
+import { BasePrismaRepository } from './BasePrismaRepository.js';
 import type { EventRepository } from './eventRepository.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -31,18 +32,16 @@ export interface QueueRepository {
 }
 
 @injectable()
-export class QueueRepositoryImpl implements QueueRepository {
+export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRepository {
   /* c8 ignore start — decorator emit branches */
   constructor(
-    @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
+    @inject(TYPES.PrismaClient) prisma: PrismaClient,
     @inject(TYPES.EventRepository) private readonly events: EventRepository,
-    @inject(TYPES.Logger) private readonly log: Logger,
-  ) {}
-  /* c8 ignore stop */
-
-  private client(tx?: Prisma.TransactionClient): Prisma.TransactionClient {
-    return tx ?? this.prisma;
+    @inject(TYPES.Logger) log: Logger,
+  ) {
+    super(prisma, log);
   }
+  /* c8 ignore stop */
 
   async enqueue(
     repo: string,
