@@ -16,6 +16,7 @@ const emptyEvents = { data: [], total: 0, page: 1, pageSize: 20 };
 
 describe('App', () => {
   beforeEach(() => {
+    localStorage.clear();
     const responses: Record<string, unknown> = {
       '/api/summary': emptySummary,
       '/api/queue?page=1&pageSize=20': emptyQueue,
@@ -77,5 +78,43 @@ describe('App', () => {
 
     fireEvent.click(screen.getByText('Summary'));
     await waitFor(() => expect(screen.getByText('No pending items.')).toBeInTheDocument());
+  });
+
+  describe('timezone selector', () => {
+    it('renders timezone selector with UTC option', async () => {
+      render(<App />);
+      expect(screen.getByText('Timezone:')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Timezone:' })).toBeInTheDocument();
+      expect(screen.getByText('UTC')).toBeInTheDocument();
+      await screen.findByText('No pending items.');
+    });
+
+    it('shows Local option when browser timezone differs from UTC', async () => {
+      const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      render(<App />);
+      if (localTz !== 'UTC') {
+        expect(screen.getByText(/^Local \(/)).toBeInTheDocument();
+      }
+      await screen.findByText('No pending items.');
+    });
+
+    it('shows Local option when detectLocalTimezone returns non-UTC', async () => {
+      jest.spyOn(Intl, 'DateTimeFormat').mockReturnValue({
+        resolvedOptions: () => ({ timeZone: 'America/New_York' }),
+      } as Intl.DateTimeFormat);
+      render(<App />);
+      expect(screen.getByText('Local (America/New_York)')).toBeInTheDocument();
+      await screen.findByText('No pending items.');
+    });
+
+    it('persists selection to localStorage', async () => {
+      render(<App />);
+      const select = screen.getByRole('combobox', { name: 'Timezone:' }) as HTMLSelectElement;
+      const options = Array.from(select.options).map((opt) => opt.value);
+      const newValue = options.find((opt) => opt !== select.value) ?? options[0];
+      fireEvent.change(select, { target: { value: newValue } });
+      expect(localStorage.getItem('rm-timezone')).toBe(newValue);
+      await screen.findByText('No pending items.');
+    });
   });
 });

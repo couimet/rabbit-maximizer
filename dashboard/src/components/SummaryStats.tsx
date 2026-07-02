@@ -1,7 +1,8 @@
+import { formatDate } from '../../../src/utils/formatDate.js';
 import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../api.js';
 import { fetchSummary } from '../api.js';
-import { formatDate } from '../formatDate.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
+import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
 import { useEffect, useState } from 'react';
 
@@ -57,6 +58,8 @@ const SummaryStats = () => {
 };
 
 const OldestPending = ({ item }: { item: QueueItem | null }) => {
+  const { timezone } = useTimezone();
+  const suffix = useTimezoneSuffix();
   if (!item) return <p>No pending items.</p>;
 
   return (
@@ -65,7 +68,7 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
         <tr>
           <th>Repo</th>
           <th>PR</th>
-          <th>Scheduled For (UTC)</th>
+          <th>Scheduled For{suffix}</th>
           <th>Attempts</th>
         </tr>
       </thead>
@@ -81,7 +84,7 @@ const OldestPending = ({ item }: { item: QueueItem | null }) => {
               #{item.pr_number}
             </a>
           </td>
-          <td>{formatDate(item.scheduled_for)}</td>
+          <td>{formatDate(item.scheduled_for, timezone)}</td>
           <td>{item.attempts}</td>
         </tr>
       </tbody>
