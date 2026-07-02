@@ -5,7 +5,7 @@ import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { RateLimitComment } from '../src/types/RateLimitComment.js';
 
-import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
@@ -16,7 +16,7 @@ const makeComment = (): RateLimitComment => ({
   repo_full_name: `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: getUniqueInt(),
   comment_id: getUniqueInt(),
-  created_at: new Date().toISOString(),
+  created_at: getUniqueDate().toISOString(),
 });
 
 describe('EnqueueService', () => {

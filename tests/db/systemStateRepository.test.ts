@@ -2,6 +2,7 @@ import { StateKey, type SystemStateRepository, SystemStateRepositoryImpl, VALUE_
 import { TYPES } from '../../src/inversify-types.js';
 import { createMockLogger, createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -16,7 +17,7 @@ describe('SystemStateRepositoryImpl', () => {
 
   describe('getState', () => {
     it('returns a Date for datetime keys (lastPollStartedAt)', async () => {
-      const now = new Date();
+      const now = getUniqueDate();
       const row = {
         state_key: 'last_poll_started_at',
         value_text: null,
@@ -39,7 +40,7 @@ describe('SystemStateRepositoryImpl', () => {
     });
 
     it('returns a string for text keys (lastPollOutcome)', async () => {
-      const now = new Date();
+      const now = getUniqueDate();
       const row = {
         state_key: 'last_poll_outcome',
         value_text: 'success',
@@ -67,7 +68,7 @@ describe('SystemStateRepositoryImpl', () => {
         value_integer: null,
         value_float: null,
         value_datetime: null,
-        updated_at: new Date().toISOString(),
+        updated_at: getUniqueDate().toISOString(),
       };
 
       const { prisma } = createMockPrismaClient({
@@ -95,7 +96,7 @@ describe('SystemStateRepositoryImpl', () => {
 
   describe('setState', () => {
     it('upserts a new row with the correct value column set', async () => {
-      const now = new Date('2026-06-29T12:00:00.000Z');
+      const now = getUniqueDate();
 
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
@@ -185,7 +186,7 @@ describe('SystemStateRepositoryImpl', () => {
     });
 
     it('sets updated_at to the current time', async () => {
-      const now = new Date();
+      const now = getUniqueDate();
 
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
@@ -223,21 +224,23 @@ describe('SystemStateRepositoryImpl', () => {
       value_integer: null,
       value_float: null,
       value_datetime: null,
-      updated_at: new Date().toISOString(),
+      updated_at: getUniqueDate().toISOString(),
     };
 
     it('value_text sets the value_text column', () => {
-      const result = VALUE_SETTER.value_text(base, 'hello');
-      expect(result.value_text).toBe('hello');
+      const value = getUniqueString();
+      const result = VALUE_SETTER.value_text(base, value);
+      expect(result.value_text).toBe(value);
       expect(result.value_integer).toBeNull();
       expect(result.value_float).toBeNull();
       expect(result.value_datetime).toBeNull();
     });
 
     it('value_integer sets the value_integer column', () => {
-      const result = VALUE_SETTER.value_integer(base, 42);
+      const value = getUniqueInt();
+      const result = VALUE_SETTER.value_integer(base, value);
       expect(result.value_text).toBeNull();
-      expect(result.value_integer).toBe(42);
+      expect(result.value_integer).toBe(value);
       expect(result.value_float).toBeNull();
       expect(result.value_datetime).toBeNull();
     });
@@ -251,12 +254,12 @@ describe('SystemStateRepositoryImpl', () => {
     });
 
     it('value_datetime sets the value_datetime column as ISO string', () => {
-      const now = new Date('2026-07-02T12:00:00.000Z');
+      const now = getUniqueDate();
       const result = VALUE_SETTER.value_datetime(base, now);
       expect(result.value_text).toBeNull();
       expect(result.value_integer).toBeNull();
       expect(result.value_float).toBeNull();
-      expect(result.value_datetime).toBe('2026-07-02T12:00:00.000Z');
+      expect(result.value_datetime).toBe(now.toISOString());
     });
   });
 
