@@ -10,4 +10,8 @@ export abstract class BasePrismaRepository {
   protected client(tx?: Prisma.TransactionClient): Prisma.TransactionClient {
     return tx ?? this.prisma;
   }
+
+  protected transaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(fn);
+  }
 }

@@ -4,6 +4,7 @@ import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from '.
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
 
 export const createGetEventsHandler = (eventRepo: EventRepository, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
@@ -17,7 +18,7 @@ export const createGetEventsHandler = (eventRepo: EventRepository, logger: Logge
       res.json({ data: items, total, page, pageSize });
     } catch (error) {
       logger.error({ fn: 'api.getEvents', error }, 'Failed to get events');
-      res.status(500).json({ error: 'Failed to get events' });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get events' });
     }
   };
 };

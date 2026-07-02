@@ -12,8 +12,8 @@ export type MoveDirection = 'up' | 'down';
 const POSITION_BUMP_OFFSET = 10000;
 
 export interface QueueOrderRepository {
-  getEffectiveOrder(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  moveItems(queueItemIds: number[], direction: MoveDirection, tx: Prisma.TransactionClient): Promise<QueueItem[]>;
+  getEffectiveOrder(): Promise<QueueItem[]>;
+  moveItems(queueItemIds: number[], direction: MoveDirection): Promise<QueueItem[]>;
 }
 
 @injectable()
@@ -22,7 +22,11 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     super(prisma, log);
   }
 
-  async getEffectiveOrder(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
+  getEffectiveOrder(): Promise<QueueItem[]> {
+    return this.readEffectiveOrder();
+  }
+
+  private async readEffectiveOrder(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
     const db = this.client(tx);
     const rows = await db.reviewQueue.findMany({
       where: { status: 'pending', not_before: { lte: new Date() } },
@@ -33,34 +37,34 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     return rows.map((row) => this.toQueueItem(row));
   }
 
-  async moveItems(queueItemIds: number[], direction: MoveDirection, tx: Prisma.TransactionClient): Promise<QueueItem[]> {
-    const db = this.client(tx);
+  moveItems(queueItemIds: number[], direction: MoveDirection): Promise<QueueItem[]> {
+    return this.transaction(async (tx) => {
+      const ordered = await this.readEffectiveOrder(tx);
+      const orderedIds = ordered.map((item) => item.id);
 
-    const ordered = await this.getEffectiveOrder(tx);
-    const orderedIds = ordered.map((item) => item.id);
+      const sortedSelected = [...new Set(queueItemIds)].sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
+      if (direction === 'down') {
+        sortedSelected.reverse();
+      }
 
-    const sortedSelected = [...queueItemIds].sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
-    if (direction === 'down') {
-      sortedSelected.reverse();
-    }
+      const newOrder = [...orderedIds];
+      for (const id of sortedSelected) {
+        const idx = newOrder.indexOf(id);
+        if (idx === -1) continue;
 
-    const newOrder = [...orderedIds];
-    for (const id of sortedSelected) {
-      const idx = newOrder.indexOf(id);
-      if (idx === -1) continue;
+        const neighborIdx = direction === 'up' ? idx - 1 : idx + 1;
+        if (neighborIdx < 0 || neighborIdx >= newOrder.length) continue;
+        if (queueItemIds.includes(newOrder[neighborIdx])) continue;
 
-      const neighborIdx = direction === 'up' ? idx - 1 : idx + 1;
-      if (neighborIdx < 0 || neighborIdx >= newOrder.length) continue;
-      if (queueItemIds.includes(newOrder[neighborIdx])) continue;
+        [newOrder[idx], newOrder[neighborIdx]] = [newOrder[neighborIdx], newOrder[idx]];
+      }
 
-      [newOrder[idx], newOrder[neighborIdx]] = [newOrder[neighborIdx], newOrder[idx]];
-    }
+      await this.normalizePositionsToOrder(tx, newOrder);
 
-    await this.normalizePositionsToOrder(db, newOrder);
+      this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemIds, direction }, 'Moved items in queue order');
 
-    this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemIds, direction }, 'Moved items in queue order');
-
-    return this.getEffectiveOrder(tx);
+      return this.readEffectiveOrder(tx);
+    });
   }
 
   private async normalizePositionsToOrder(db: Prisma.TransactionClient, orderedIds: number[]): Promise<void> {

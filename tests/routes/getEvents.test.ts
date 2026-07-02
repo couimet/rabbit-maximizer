@@ -7,6 +7,7 @@ import { createMockEventRepo, createMockLogger } from '../helpers/index.js';
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
+import { StatusCodes } from 'http-status-codes';
 
 describe('getEvents', () => {
   let server: Server;
@@ -57,11 +58,12 @@ describe('getEvents', () => {
   });
 
   it('returns 500 and logs error on repository failure', async () => {
-    startServer({ listRecent: jest.fn<any>().mockRejectedValue(new Error('DB down')) });
+    const repoError = new Error('DB down');
+    startServer({ listRecent: jest.fn<any>().mockRejectedValue(repoError) });
 
     const res = await fetchResponse(server, '/api/events');
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get events' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getEvents', error: expect.any(Error) }, 'Failed to get events');
+    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getEvents', error: repoError }, 'Failed to get events');
   });
 });
