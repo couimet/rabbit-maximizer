@@ -19,6 +19,29 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-examples>
 </rule>
 
+<rule id="C003" priority="critical">
+  <title>switch default blocks use forUnexpectedSwitchDefault() and are tested</title>
+  <do>End every switch with a `default` that throws via `RabbitMaximizerError.forUnexpectedSwitchDefault()`. Test the default path. Only use `/* c8 ignore */` when the default is provably unreachable through the public API (e.g. all enum members exhaustively handled and mapped).</do>
+  <do>Import `toBeDetailedError` or `toThrowDetailedError` from `@couimet/detailed-error-testing` to assert the thrown error's code, message, functionName, and details</do>
+  <never>Use `/* c8 ignore */` on a switch default that can be reached by tests — write the test instead</never>
+  <rationale>The default is a safety net for future values. `forUnexpectedSwitchDefault()` standardizes the error shape (code, message, unexpectedValue in details). Testing it verifies both the error factory and the call site.</rationale>
+  <good-example>
+    ```typescript
+    switch (config.column) {
+      case 'value_text':
+        data = { ...base, value_text: value as string };
+        break;
+      case 'value_datetime':
+        data = { ...base, value_datetime: (value as Date).toISOString() };
+        break;
+      /* c8 ignore next 3 — unreachable: every StateKey maps to a handled column */
+      default:
+        throw RabbitMaximizerError.forUnexpectedSwitchDefault('state column', config.column, 'SystemStateRepositoryImpl.setState');
+    }
+    ```
+  </good-example>
+</rule>
+
 <rule id="C002" priority="critical">
   <title>couimet/* GitHub Actions always use @main</title>
   <never>Pin a `couimet/*` GitHub Action to a commit SHA in CI workflows</never>

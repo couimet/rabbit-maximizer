@@ -67,10 +67,19 @@ export interface components {
       repo_full_name: string;
       pr_number: number;
       status: components['schemas']['QueueStatus'];
-      /** Format: date-time */
-      scheduled_for: string;
+      /**
+       * Format: date-time
+       * @description Eligibility gate — item cannot be processed before this timestamp
+       */
+      not_before: string;
       attempts: number;
       source_comment_url?: string;
+      /** Format: date-time */
+      posted_at?: string | null;
+      /** Format: date-time */
+      failed_at?: string | null;
+      /** Format: date-time */
+      completed_at?: string | null;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */

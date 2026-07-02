@@ -179,7 +179,7 @@ describe('EventRepositoryImpl', () => {
         request_id: null,
         version: getUniqueString(),
         payload: JSON.stringify({
-          scheduled_for: scheduledFor.toISOString(),
+          not_before: scheduledFor.toISOString(),
           new_wait: 60,
         }),
         metadata: null,
@@ -223,7 +223,7 @@ describe('EventRepositoryImpl', () => {
           metadata: undefined,
           type: 'enqueued',
           payload: {
-            scheduled_for: scheduledFor,
+            not_before: scheduledFor,
             new_wait: 60,
           },
         },

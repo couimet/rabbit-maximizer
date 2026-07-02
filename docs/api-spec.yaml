@@ -104,7 +104,7 @@ components:
         - repo_full_name
         - pr_number
         - status
-        - scheduled_for
+        - not_before
         - attempts
         - created_at
         - updated_at
@@ -119,13 +119,26 @@ components:
           type: integer
         status:
           $ref: '#/components/schemas/QueueStatus'
-        scheduled_for:
+        not_before:
           type: string
           format: date-time
+          description: Eligibility gate — item cannot be processed before this timestamp
         attempts:
           type: integer
         source_comment_url:
           type: string
+        posted_at:
+          type: string
+          format: date-time
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
         created_at:
           type: string
           format: date-time

@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@couimet/detailed-error':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       '@couimet/logger-contract':
         specifier: ^1.0.0
         version: 1.0.0
@@ -68,7 +68,7 @@ importers:
     devDependencies:
       '@couimet/detailed-error-testing':
         specifier: ^0.1.1
-        version: 0.1.1(@couimet/detailed-error@0.1.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
+        version: 0.1.1(@couimet/detailed-error@0.2.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
       '@couimet/dynamic-testing':
         specifier: ^0.1.1
         version: 0.1.1(decimal.js@10.6.0)
@@ -324,8 +324,8 @@ packages:
       '@jest/expect':
         optional: true
 
-  '@couimet/detailed-error@0.1.0':
-    resolution: {integrity: sha512-z/XgDH7Ut+yrZ4+fo4MdjU7H+iorE5HUXkgpjWZDZUhc2zhtB5v5s2qWwCGCHgujywPYhv/7pxnNyyoi2xCoFQ==}
+  '@couimet/detailed-error@0.2.0':
+    resolution: {integrity: sha512-YQctP5mVbA66c9MlhDizEoR6pbspA2Mz0wAlq4KHw0jo8sV+m5dqo/M1Y25q3SlRjF4Zft9FDlFWfimfjGbqEQ==}
 
   '@couimet/dynamic-testing@0.1.1':
     resolution: {integrity: sha512-7rf2k8GYRRxk2X5lhOV+HDZuG3dPdgfyzj6qaNz4Ms4JBGebqmsrtNZbOgwNmteaJawwaqbDwE9fJf1ro2oDjg==}
@@ -3080,6 +3080,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.8.5:
+    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   send@1.2.1:
     resolution: {integrity: sha512-1gnZf7DFcoIcajTjTwjwuDjzuz4PPcY2StKPlsGAQ1+YH20IRVrBaXSWmdjowTJ6u8Rc01PoYOGHXfP1mYcZNQ==}
     engines: {node: '>= 18'}
@@ -3748,15 +3753,15 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@couimet/detailed-error-testing@0.1.1(@couimet/detailed-error@0.1.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))':
+  '@couimet/detailed-error-testing@0.1.1(@couimet/detailed-error@0.2.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))':
     dependencies:
-      '@couimet/detailed-error': 0.1.0
+      '@couimet/detailed-error': 0.2.0
       '@jest/globals': 30.4.1
       jest: 30.4.2(@types/node@26.0.0)
     optionalDependencies:
       '@jest/expect': 30.4.1
 
-  '@couimet/detailed-error@0.1.0': {}
+  '@couimet/detailed-error@0.2.0': {}
 
   '@couimet/dynamic-testing@0.1.1(decimal.js@10.6.0)':
     optionalDependencies:
@@ -4748,7 +4753,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.61.1
       debug: 4.4.3(supports-color@10.2.2)
       minimatch: 10.2.5
-      semver: 7.8.4
+      semver: 7.8.5
       tinyglobby: 0.2.17
       ts-api-utils: 2.5.0(typescript@6.0.3)
       typescript: 6.0.3
@@ -6677,6 +6682,8 @@ snapshots:
   semver@6.3.1: {}
 
   semver@7.8.4: {}
+
+  semver@7.8.5: {}
 
   send@1.2.1:
     dependencies:

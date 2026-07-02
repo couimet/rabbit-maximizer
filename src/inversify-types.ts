@@ -16,7 +16,9 @@ export const TYPES = {
   PollDetector: Symbol.for('PollDetector'),
   PrismaClient: Symbol.for('PrismaClient'),
   ProbeFactory: Symbol.for('ProbeFactory'),
+  QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
   Scheduler: Symbol.for('Scheduler'),
+  SystemStateRepository: Symbol.for('SystemStateRepository'),
   // Keep this object alphabetically sorted by key.
 } as const;

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_FILE="$PWD/data/rabbit-maximizer.db"
-BACKUP_DIR="$PWD/data/backups"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DATA_DIR="$("$SCRIPT_DIR/data-dir.sh")"
+DB_FILE="$DATA_DIR/rabbit-maximizer.db"
+BACKUP_DIR="$DATA_DIR/backups"
 
 if [ $# -eq 0 ]; then
   if [ ! -d "$BACKUP_DIR" ] || [ -z "$(find "$BACKUP_DIR" -maxdepth 1 -type f -print -quit 2>/dev/null)" ]; then

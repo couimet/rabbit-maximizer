@@ -33,7 +33,6 @@ describe('EnqueueService', () => {
 
     queue = {
       enqueue: jest.fn(),
-      getNextDue: jest.fn(),
       markPosted: jest.fn(),
       markCompleted: jest.fn(),
       reschedule: jest.fn(),

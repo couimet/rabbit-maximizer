@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_FILE="$PWD/data/rabbit-maximizer.db"
-BACKUP_DIR="$PWD/data/backups"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DATA_DIR="$("$SCRIPT_DIR/data-dir.sh")"
+DB_FILE="$DATA_DIR/rabbit-maximizer.db"
+BACKUP_DIR="$DATA_DIR/backups"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)
 BACKUP_FILE="$BACKUP_DIR/$TIMESTAMP.sql.gz"
 

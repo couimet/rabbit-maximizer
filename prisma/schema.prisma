@@ -12,29 +12,33 @@ generator client {
 // Column notes:
 //   id              Internal auto-increment PK (pagination, FKs).
 //   uuid            External-facing stable identifier (UUID v4).
-//   scheduled_for   When the scheduler should next attempt a retrigger.
+//   not_before      Eligibility gate — item cannot be processed before this timestamp.
 //   created_at      Set by us when the row is inserted.
 //   updated_at      Set by us on every update.
 // ---------------------------------------------------------------------------
 
 /// Tracks a PR that needs (or has received) a review retrigger.
 model ReviewQueue {
-  id             Int      @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   /// Max 36 (UUID v4). Enforced by CHECK in the init migration.
-  uuid           String   @unique @default(uuid())
+  uuid           String    @unique @default(uuid())
   /// Max 140: GitHub owner/org (<=39) + "/" + repo (<=100). Sources and CHECK in the init migration; mirrored in src/schemas/lengths.ts.
   repo_full_name String
   pr_number      Int
   /// Max 25; one of 'pending' | 'posted' | 'completed' | 'failed' (CHECK in the init migration).
-  status         String   @default("pending")
-  scheduled_for  DateTime
-  attempts       Int      @default(0)
+  status         String    @default("pending")
+  not_before     DateTime
+  attempts       Int       @default(0)
   /// Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
   source_comment_url String?
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  posted_at      DateTime?
+  failed_at      DateTime?
+  completed_at   DateTime?
+  queueOrder     QueueOrder?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
 
-  @@index([status, scheduled_for], map: "review_queue_status_scheduled_for_idx")
+  @@index([status, not_before], map: "review_queue_status_not_before_idx")
   @@map("review_queue")
 }
 
@@ -78,4 +82,43 @@ model Event {
 
   @@index([repo_full_name, pr_number, ts], map: "events_repo_pr_ts_idx")
   @@map("events")
+}
+
+// ---------------------------------------------------------------------------
+// QueueOrder — ordering of pending review queue items.
+//
+//   id              Auto-increment PK; provides FIFO ordering when position is NULL.
+//   position        User-assigned position (1, 2, 3…). NULL until first move.
+// ---------------------------------------------------------------------------
+
+/// Determines the effective processing order of the pending queue.
+model QueueOrder {
+  id            Int      @id @default(autoincrement())
+  queue_item_id Int      @unique
+  position      Int?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  queueItem ReviewQueue @relation(fields: [queue_item_id], references: [id], onDelete: Cascade)
+
+  @@map("queue_order")
+}
+
+// ---------------------------------------------------------------------------
+// SystemState — typed key-value store for operational state.
+//
+// Exactly one value column must be non-null per row, enforced by CHECK in the
+// migration. Each StateKey maps to a specific value column.
+// ---------------------------------------------------------------------------
+
+/// Operational state values (poll health, scheduler status, countdown).
+model SystemState {
+  state_key      String  @id
+  value_text     String?
+  value_integer  Int?
+  value_float    Float?
+  value_datetime String?
+  updated_at     String
+
+  @@map("system_state")
 }

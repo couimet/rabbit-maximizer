@@ -4,7 +4,6 @@ import { jest } from '@jest/globals';
 
 export const createMockQueueRepo = (overrides: Partial<QueueRepository> = {}): QueueRepository => ({
   enqueue: jest.fn<any>(),
-  getNextDue: jest.fn<any>(),
   markPosted: jest.fn<any>(),
   markCompleted: jest.fn<any>(),
   reschedule: jest.fn<any>(),

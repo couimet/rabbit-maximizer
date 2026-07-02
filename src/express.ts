@@ -53,6 +53,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
       code: RabbitMaximizerErrorCodes.SERVER_ADDRESS_NOT_AVAILABLE,
       functionName: 'setupExpress',
       message: 'Server did not bind to a TCP port',
+      details: { port },
     });
   }
   /* c8 ignore stop */

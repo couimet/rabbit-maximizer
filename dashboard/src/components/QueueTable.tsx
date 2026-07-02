@@ -71,7 +71,7 @@ const QueueTable = () => {
                     #{item.pr_number}
                   </a>
                 </td>
-                <td>{formatDate(item.scheduled_for, timezone)}</td>
+                <td>{formatDate(item.not_before, timezone)}</td>
                 <td>{item.attempts}</td>
               </tr>
             ))
