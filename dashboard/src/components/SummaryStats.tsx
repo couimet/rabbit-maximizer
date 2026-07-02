@@ -1,8 +1,7 @@
-import { formatDate } from '../../../src/utils/formatDate.js';
-import type { EventCounts, QueueCounts, QueueItem, SummaryResponse } from '../api.js';
+import type { EventCounts, QueueCounts, SummaryResponse } from '../api.js';
 import { fetchSummary } from '../api.js';
-import { prUrl, repoUrl } from '../githubUrl.js';
-import { useTimezone, useTimezoneSuffix } from '../timezone.js';
+
+import QueueOrder from './QueueOrder.js';
 
 import { useEffect, useState } from 'react';
 
@@ -51,44 +50,8 @@ const SummaryStats = () => {
         ))}
       </div>
 
-      <h3>Oldest Pending</h3>
-      <OldestPending item={data.oldestPending} />
+      <QueueOrder />
     </section>
-  );
-};
-
-const OldestPending = ({ item }: { item: QueueItem | null }) => {
-  const { timezone } = useTimezone();
-  const suffix = useTimezoneSuffix();
-  if (!item) return <p>No pending items.</p>;
-
-  return (
-    <table className="data-table">
-      <thead>
-        <tr>
-          <th>Repo</th>
-          <th>PR</th>
-          <th>Not Before{suffix}</th>
-          <th>Attempts</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>
-            <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
-              {item.repo_full_name}
-            </a>
-          </td>
-          <td>
-            <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
-              #{item.pr_number}
-            </a>
-          </td>
-          <td>{formatDate(item.not_before, timezone)}</td>
-          <td>{item.attempts}</td>
-        </tr>
-      </tbody>
-    </table>
   );
 };
 

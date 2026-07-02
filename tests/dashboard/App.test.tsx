@@ -13,6 +13,7 @@ const emptySummary = {
 };
 const emptyQueue = { data: [], total: 0, page: 1, pageSize: 20 };
 const emptyEvents = { data: [], total: 0, page: 1, pageSize: 20 };
+const emptyQueueOrder = { data: [] };
 
 describe('App', () => {
   beforeEach(() => {
@@ -21,6 +22,7 @@ describe('App', () => {
       '/api/summary': emptySummary,
       '/api/queue?page=1&pageSize=20': emptyQueue,
       '/api/events?page=1&pageSize=20': emptyEvents,
+      '/api/queue/order': emptyQueueOrder,
     };
     globalThis.fetch = jest.fn((url: string) =>
       Promise.resolve({

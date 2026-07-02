@@ -1,4 +1,5 @@
 import EventHistory from './components/EventHistory.js';
+import QueueOrder from './components/QueueOrder.js';
 import QueueTable from './components/QueueTable.js';
 import SummaryStats from './components/SummaryStats.js';
 import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone } from './timezone.js';
@@ -51,7 +52,12 @@ const AppContent = () => {
           {activeTab === 'summary' && <SummaryStats />}
         </div>
         <div role="tabpanel" id="panel-queue" aria-labelledby="tab-queue" hidden={activeTab !== 'queue'}>
-          {activeTab === 'queue' && <QueueTable />}
+          {activeTab === 'queue' && (
+            <>
+              <QueueOrder />
+              <QueueTable />
+            </>
+          )}
         </div>
         <div role="tabpanel" id="panel-events" aria-labelledby="tab-events" hidden={activeTab !== 'events'}>
           {activeTab === 'events' && <EventHistory />}

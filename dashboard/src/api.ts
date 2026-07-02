@@ -15,8 +15,8 @@ export interface PaginatedResponse<T> {
 
 const API_BASE = '/api';
 
-const fetchJson = async <T>(url: string): Promise<T> => {
-  const res = await fetch(url);
+const fetchJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
+  const res = await fetch(url, init);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
@@ -31,3 +31,12 @@ export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedRes
 
 export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedResponse<EventEntry>> =>
   fetchJson<PaginatedResponse<EventEntry>>(`${API_BASE}/events?page=${page}&pageSize=${pageSize}`);
+
+export const fetchQueueOrder = (): Promise<{ data: QueueItem[] }> => fetchJson<{ data: QueueItem[] }>(`${API_BASE}/queue/order`);
+
+export const moveQueueItems = (queueItemIds: number[], direction: 'up' | 'down'): Promise<{ data: QueueItem[] }> =>
+  fetchJson<{ data: QueueItem[] }>(`${API_BASE}/queue/order/move`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ queueItemIds, direction }),
+  });
