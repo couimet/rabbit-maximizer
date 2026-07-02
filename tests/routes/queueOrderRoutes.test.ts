@@ -8,8 +8,8 @@ import { postJson } from '../helpers/postJson.js';
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
-import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'http';
+import { StatusCodes } from 'http-status-codes';
 
 interface QueueItemStub {
   id: number;

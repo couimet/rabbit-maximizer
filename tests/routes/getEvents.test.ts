@@ -6,8 +6,8 @@ import { createMockEventRepo, createMockLogger } from '../helpers/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'http';
+import { StatusCodes } from 'http-status-codes';
 
 describe('getEvents', () => {
   let server: Server;
