@@ -4,7 +4,7 @@ import type { RateLimitComment } from '../src/types/RateLimitComment.js';
 
 import { createMockLogger, drainMicrotasks } from './helpers/index.js';
 
-import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -26,7 +26,7 @@ const makeComment = (overrides: { commentId?: number; repoFullName?: string; prN
   repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: overrides.prNumber ?? getUniqueInt(),
   comment_id: overrides.commentId ?? getUniqueInt(),
-  created_at: overrides.createdAt ?? new Date().toISOString(),
+  created_at: overrides.createdAt ?? getUniqueDate().toISOString(),
 });
 
 const setup = (): MockDetectorDeps => {
