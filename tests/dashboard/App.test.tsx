@@ -98,6 +98,15 @@ describe('App', () => {
       await screen.findByText('No pending items.');
     });
 
+    it('shows Local option when detectLocalTimezone returns non-UTC', async () => {
+      jest.spyOn(Intl, 'DateTimeFormat').mockReturnValue({
+        resolvedOptions: () => ({ timeZone: 'America/New_York' }),
+      } as Intl.DateTimeFormat);
+      render(<App />);
+      expect(screen.getByText('Local (America/New_York)')).toBeInTheDocument();
+      await screen.findByText('No pending items.');
+    });
+
     it('persists selection to localStorage', async () => {
       render(<App />);
       const select = screen.getByRole('combobox', { name: 'Timezone:' }) as HTMLSelectElement;
