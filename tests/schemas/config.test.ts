@@ -15,7 +15,7 @@ describe('ConfigSchema', () => {
     tunnelUrl = `https://${getRandomString({ charset: 'alpha', length: 8 })}.com`;
     BASE = {
       DETECTION_MODE: 'poll' as const,
-      GITHUB_API_TIMEOUT: 10_000,
+      GITHUB_API_TIMEOUT_MS: 10_000,
       GITHUB_PAT: githubPat,
       POLL_INTERVAL: 90,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
