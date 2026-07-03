@@ -118,7 +118,7 @@ export interface components {
       updated_at: string;
     };
     /** @enum {string} */
-    EventType: 'detected' | 'enqueued' | 'posted' | 'rejected' | 'completed' | 'failed';
+    EventType: 'detected' | 'enqueued' | 'posted' | 'bypassed' | 'completed' | 'failed';
     EventEntry: {
       id: number;
       uuid: string;
@@ -147,7 +147,7 @@ export interface components {
       detected: number;
       enqueued: number;
       posted: number;
-      rejected: number;
+      bypassed: number;
       completed: number;
       failed: number;
     };

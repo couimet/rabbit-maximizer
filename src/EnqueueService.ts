@@ -1,7 +1,9 @@
 import type { QueueRepository } from './db/queueRepository.js';
+import type { PRStateFetcher } from './github/PRStateFetcher.js';
+import { isPRClosedWithoutMerge, isPRMerged } from './github/prStateUtils.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
 import type { ProbeFactory } from './probes/ProbeFactory.js';
-import type { OnDetectedCallback } from './types/index.js';
+import { type OnDetectedCallback } from './types/index.js';
 import { TYPES } from './inversify-types.js';
 
 import { type PrismaClient } from '@prisma/client';
@@ -21,6 +23,8 @@ export class EnqueueService {
     private readonly probes: ProbeFactory,
     @inject(TYPES.ObservationContextProvider)
     private readonly observation: ObservationContextProvider,
+    @inject(TYPES.PRStateFetcher)
+    private readonly fetcher: PRStateFetcher,
   ) {}
   /* c8 ignore stop */
 
@@ -39,9 +43,17 @@ export class EnqueueService {
     );
     await probe.processStarted();
 
+    const prState = await this.fetcher.fetch(comment.repo_full_name, comment.pr_number, 'EnqueueService.handle');
+
     await this.prisma.$transaction(async (tx) => {
-      await this.queue.enqueue(comment.repo_full_name, comment.pr_number, scheduledFor, comment.url, jitteredWait, obs, tx);
-      await probe.processCompleted(tx);
+      if (prState !== undefined && isPRMerged(prState)) {
+        await probe.processMerged(tx);
+      } else if (prState !== undefined && isPRClosedWithoutMerge(prState)) {
+        await probe.processClosedWithoutMerge(tx);
+      } else {
+        await this.queue.enqueue(comment.repo_full_name, comment.pr_number, scheduledFor, comment.url, jitteredWait, obs, tx);
+        await probe.processCompleted(tx);
+      }
     });
   };
 }

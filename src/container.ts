@@ -5,6 +5,7 @@ import { type QueueRepository, QueueRepositoryImpl } from './db/queueRepository.
 import { type SystemStateRepository, SystemStateRepositoryImpl } from './db/systemStateRepository.js';
 import type { CoderabbitGitHubClient } from './github/index.js';
 import { CoderabbitGitHubClientImpl } from './github/index.js';
+import { type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
 import { ProbeFactory } from './probes/ProbeFactory.js';
 import type { OnDetectedCallback } from './types/index.js';
@@ -12,6 +13,8 @@ import { type Config, config } from './config.js';
 import { PollDetector } from './detectorPoll.js';
 import { EnqueueService } from './EnqueueService.js';
 import { TYPES } from './inversify-types.js';
+import { type PruneEvaluator, PruneEvaluatorImpl } from './PruneEvaluator.js';
+import { type Pruner, PrunerImpl } from './Pruner.js';
 import { Scheduler } from './scheduler.js';
 
 import 'reflect-metadata';
@@ -41,6 +44,8 @@ container
 
 container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClientImpl).inSingletonScope();
 
+container.bind<PRStateFetcher>(TYPES.PRStateFetcher).to(PRStateFetcherImpl).inSingletonScope();
+
 container.bind<EventRepository>(TYPES.EventRepository).to(EventRepositoryImpl).inSingletonScope();
 
 container.bind<QueueOrderRepository>(TYPES.QueueOrderRepository).to(QueueOrderRepositoryImpl).inSingletonScope();
@@ -52,6 +57,10 @@ container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStat
 container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(UuidObservationContextProvider).inSingletonScope();
 
 container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory).inSingletonScope();
+
+container.bind<PruneEvaluator>(TYPES.PruneEvaluator).to(PruneEvaluatorImpl).inSingletonScope();
+
+container.bind<Pruner>(TYPES.Pruner).to(PrunerImpl).inSingletonScope();
 
 container.bind<EnqueueService>(TYPES.EnqueueService).to(EnqueueService).inSingletonScope();
 

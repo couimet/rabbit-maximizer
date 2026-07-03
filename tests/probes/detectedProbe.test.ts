@@ -88,4 +88,72 @@ describe('DetectedProbe', () => {
     );
     expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Review-limit comment detected and enqueued');
   });
+
+  it('records a bypassed event for merged PRs', async () => {
+    const { fullName: repo } = makeUniqueRepoName();
+    const pr = getUniqueInt();
+    const correlationId = getUniqueString({ prefix: 'corr-' });
+    const requestId = getUniqueString({ prefix: 'req-' });
+    const version = getUniqueString({ prefix: 'v' });
+    const entryUuid = getUniqueString({ prefix: 'uuid-' });
+    const tx = makeTx();
+
+    const entry = { uuid: entryUuid } as unknown as EventLogEntry;
+    const { eventRepository, record } = makeEventRepository(entry);
+    const logger = createMockLogger();
+    const observation: ObservationContext = { correlationId, requestId, version };
+
+    const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, eventRepository, observation, logger);
+
+    const result = await probe.processMerged(tx);
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        type: 'bypassed',
+        repo_full_name: repo,
+        pr_number: pr,
+        correlation_id: correlationId,
+        request_id: requestId,
+        version,
+        payload: { reason: 'prMerged' },
+      },
+      tx,
+    );
+    expect(result).toBe(entry);
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Review-limit comment bypassed: PR already merged');
+  });
+
+  it('records a bypassed event for closed-without-merge PRs', async () => {
+    const { fullName: repo } = makeUniqueRepoName();
+    const pr = getUniqueInt();
+    const correlationId = getUniqueString({ prefix: 'corr-' });
+    const requestId = getUniqueString({ prefix: 'req-' });
+    const version = getUniqueString({ prefix: 'v' });
+    const entryUuid = getUniqueString({ prefix: 'uuid-' });
+    const tx = makeTx();
+
+    const entry = { uuid: entryUuid } as unknown as EventLogEntry;
+    const { eventRepository, record } = makeEventRepository(entry);
+    const logger = createMockLogger();
+    const observation: ObservationContext = { correlationId, requestId, version };
+
+    const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, eventRepository, observation, logger);
+
+    const result = await probe.processClosedWithoutMerge(tx);
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        type: 'bypassed',
+        repo_full_name: repo,
+        pr_number: pr,
+        correlation_id: correlationId,
+        request_id: requestId,
+        version,
+        payload: { reason: 'prClosedWithoutMerge' },
+      },
+      tx,
+    );
+    expect(result).toBe(entry);
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Review-limit comment bypassed: PR closed without merge');
+  });
 });

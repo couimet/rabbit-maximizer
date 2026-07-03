@@ -1,13 +1,13 @@
 import { TYPES } from '../inversify-types.js';
 import { parseEventRow } from '../schemas/events.js';
 import type {
+  BypassedPayload,
   CompletedPayload,
   DetectedPayload,
   EnqueuedPayload,
   EventMetadata,
   FailedPayload,
   PostedPayload,
-  RejectedPayload,
 } from '../types/EventPayloads.js';
 import { type EventLogEntry, EventType, type PaginatedResult } from '../types/index.js';
 
@@ -28,7 +28,7 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.detected; payload: DetectedPayload })
   | (NewEventBase & { type: EventType.enqueued; payload: EnqueuedPayload })
   | (NewEventBase & { type: EventType.posted; payload: PostedPayload })
-  | (NewEventBase & { type: EventType.rejected; payload: RejectedPayload })
+  | (NewEventBase & { type: EventType.bypassed; payload: BypassedPayload })
   | (NewEventBase & { type: EventType.completed; payload: CompletedPayload })
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
@@ -103,7 +103,7 @@ export class EventRepositoryImpl implements EventRepository {
       detected: 0,
       enqueued: 0,
       posted: 0,
-      rejected: 0,
+      bypassed: 0,
       completed: 0,
       failed: 0,
     };

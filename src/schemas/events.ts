@@ -1,6 +1,7 @@
 import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 import type { EventEnvelope, EventLogEntry } from '../types/EventLogEntry.js';
+import type { BypassedPayload } from '../types/EventPayloads.js';
 import { EventType } from '../types/EventType.js';
 
 import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from './lengths.js';
@@ -33,12 +34,13 @@ export const PostedPayloadSchema = z.object({
   posted_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH),
 });
 
-export const RejectedPayloadSchema = z.object({
-  reason: z.string().max(REASON_MAX_LENGTH),
+export const BypassedPayloadSchema = z.object({
+  reason: z.enum(['prMerged', 'prClosedWithoutMerge', 'other']),
+  detail: z.string().max(REASON_MAX_LENGTH).optional(),
 });
 
 export const CompletedPayloadSchema = z.object({
-  posted_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH),
+  posted_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH).optional(),
 });
 
 export const FailedPayloadSchema = z.object({
@@ -87,11 +89,11 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         type: EventType.posted,
         payload: PostedPayloadSchema.parse(payload),
       };
-    case EventType.rejected:
+    case EventType.bypassed:
       return {
         ...envelope,
-        type: EventType.rejected,
-        payload: RejectedPayloadSchema.parse(payload),
+        type: EventType.bypassed,
+        payload: BypassedPayloadSchema.parse(payload) as BypassedPayload,
       };
     case EventType.completed:
       return {

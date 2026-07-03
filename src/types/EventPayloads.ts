@@ -19,16 +19,23 @@ export interface PostedPayload {
   readonly posted_comment_url: string;
 }
 
-export interface RejectedPayload {
-  readonly reason: string;
-}
-
 export interface CompletedPayload {
-  readonly posted_comment_url: string;
+  readonly posted_comment_url?: string;
 }
 
 export interface FailedPayload {
   readonly reason: string;
+}
+
+export enum BypassReason {
+  prMerged = 'prMerged',
+  prClosedWithoutMerge = 'prClosedWithoutMerge',
+  other = 'other',
+}
+
+export interface BypassedPayload {
+  readonly reason: BypassReason;
+  readonly detail?: string;
 }
 
 /** Rarely-queried provenance, persisted as the JSON `metadata` column. */

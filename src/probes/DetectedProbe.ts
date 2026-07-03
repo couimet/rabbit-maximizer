@@ -1,6 +1,6 @@
 import type { EventRepository } from '../db/eventRepository.js';
 import type { ObservationContext } from '../observability/observationContext.js';
-import { type EventLogEntry, EventType } from '../types/index.js';
+import { BypassReason, type EventLogEntry, EventType } from '../types/index.js';
 
 import { EventProbe } from './EventProbe.js';
 
@@ -54,6 +54,42 @@ export class DetectedProbe extends EventProbe {
     );
 
     this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'Review-limit comment detected and enqueued');
+    return event;
+  }
+
+  async processMerged(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+    const event = await this.eventRepository.record(
+      {
+        type: EventType.bypassed,
+        repo_full_name: this.context.repo_full_name,
+        pr_number: this.context.pr_number,
+        correlation_id: this.observation.correlationId,
+        request_id: this.observation.requestId,
+        version: this.observation.version,
+        payload: { reason: BypassReason.prMerged },
+      },
+      tx,
+    );
+
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'Review-limit comment bypassed: PR already merged');
+    return event;
+  }
+
+  async processClosedWithoutMerge(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+    const event = await this.eventRepository.record(
+      {
+        type: EventType.bypassed,
+        repo_full_name: this.context.repo_full_name,
+        pr_number: this.context.pr_number,
+        correlation_id: this.observation.correlationId,
+        request_id: this.observation.requestId,
+        version: this.observation.version,
+        payload: { reason: BypassReason.prClosedWithoutMerge },
+      },
+      tx,
+    );
+
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'Review-limit comment bypassed: PR closed without merge');
     return event;
   }
 }

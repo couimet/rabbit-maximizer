@@ -40,7 +40,7 @@ describe('SummaryStats', () => {
   describe('data', () => {
     const summaryData = {
       queueCounts: { pending: 5, posted: 12, completed: 10, failed: 2 },
-      eventCounts24h: { detected: 8, enqueued: 7, posted: 3, rejected: 1, completed: 14, failed: 1 },
+      eventCounts24h: { detected: 8, enqueued: 7, posted: 3, bypassed: 1, completed: 14, failed: 1 },
       oldestPending: null,
     };
 

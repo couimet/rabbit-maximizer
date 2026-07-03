@@ -306,7 +306,7 @@ describe('EventRepositoryImpl', () => {
         { type: 'detected', _count: { type: 11 } },
         { type: 'enqueued', _count: { type: 8 } },
         { type: 'posted', _count: { type: 5 } },
-        { type: 'rejected', _count: { type: 3 } },
+        { type: 'bypassed', _count: { type: 3 } },
         { type: 'completed', _count: { type: 2 } },
         { type: 'failed', _count: { type: 1 } },
       ];
@@ -328,14 +328,14 @@ describe('EventRepositoryImpl', () => {
         detected: 11,
         enqueued: 8,
         posted: 5,
-        rejected: 3,
+        bypassed: 3,
         completed: 2,
         failed: 1,
       });
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'EventRepositoryImpl.countByType',
-          counts: { detected: 11, enqueued: 8, posted: 5, rejected: 3, completed: 2, failed: 1 },
+          counts: { detected: 11, enqueued: 8, posted: 5, bypassed: 3, completed: 2, failed: 1 },
         },
         'Counted events by type',
       );

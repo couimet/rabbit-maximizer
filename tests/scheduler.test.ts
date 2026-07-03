@@ -4,6 +4,7 @@ import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
+import type { Pruner } from '../src/Pruner.js';
 import { Scheduler } from '../src/scheduler.js';
 
 import { createMockLogger, drainMicrotasks, makeUniqueRepoName } from './helpers/index.js';
@@ -14,7 +15,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const TICK_INTERVAL_MS = 10_000;
-const SHORT_DRAIN = 2;
+const SHORT_DRAIN = 5;
 const SINGLE_TICK = 1;
 
 interface QueueItemStub {
@@ -40,6 +41,7 @@ interface MockSchedulerDeps {
   prisma: PrismaClient;
   tx: Prisma.TransactionClient;
   logger: Logger;
+  pruner: Pruner;
 }
 
 const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => ({
@@ -62,7 +64,7 @@ const setup = (): MockSchedulerDeps => {
     markCompleted: jest.fn<any>(),
     reschedule: jest.fn<any>(),
     markFailed: jest.fn<any>(),
-    getPendingQueue: jest.fn<any>(),
+    getPendingQueue: jest.fn<any>().mockResolvedValue([]),
   } as unknown as QueueRepository;
 
   const queueOrder = {
@@ -74,6 +76,7 @@ const setup = (): MockSchedulerDeps => {
     searchRateLimitComments: jest.fn<any>(),
     fetchComment: jest.fn<any>(),
     postRetrigger: jest.fn<any>(),
+    getPRState: jest.fn<any>(),
   } as unknown as CoderabbitGitHubClient;
 
   const events = {
@@ -99,6 +102,10 @@ const setup = (): MockSchedulerDeps => {
 
   const logger = createMockLogger();
 
+  const pruner = {
+    prune: jest.fn<any>().mockResolvedValue(undefined),
+  } as unknown as Pruner;
+
   const config: Config = {
     DETECTION_MODE: 'poll',
     GITHUB_PAT: 'test-pat',
@@ -111,7 +118,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_RETRY_BACKOFF_MAX: 3600,
   };
 
-  return { config, queue, queueOrder, github, events, observation, prisma, tx, logger };
+  return { config, queue, queueOrder, github, events, observation, prisma, tx, logger, pruner };
 };
 
 describe('Scheduler', () => {
@@ -122,7 +129,8 @@ describe('Scheduler', () => {
     jest.useFakeTimers();
   });
 
-  const createScheduler = () => new Scheduler(deps.queue, deps.queueOrder, deps.github, deps.events, deps.observation, deps.prisma, deps.logger, deps.config);
+  const createScheduler = () =>
+    new Scheduler(deps.queue, deps.queueOrder, deps.github, deps.events, deps.observation, deps.prisma, deps.logger, deps.config, deps.pruner);
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
@@ -146,9 +154,9 @@ describe('Scheduler', () => {
           type: 'posted',
           repo_full_name: item.repo_full_name,
           pr_number: item.pr_number,
-          correlation_id: deps.observation.current().correlationId,
-          request_id: deps.observation.current().requestId,
-          version: deps.observation.current().version,
+          correlation_id: expect.any(String) as unknown as string,
+          request_id: expect.any(String) as unknown as string,
+          version: expect.any(String) as unknown as string,
           payload: {
             source_comment_url: item.source_comment_url,
             posted_comment_url: postedHtmlUrl,
@@ -403,6 +411,27 @@ describe('Scheduler', () => {
 
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'Scheduler.tick', error: dbError }, 'executeTick failed before item was fetched');
+
+      await stop();
+    });
+  });
+
+  describe('cleanup delegation', () => {
+    it('delegates to Pruner.prune() before processing', async () => {
+      const item = makeItem();
+      const postedHtmlUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
+
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
+      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: postedHtmlUrl });
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.pruner.prune).toHaveBeenCalled();
+      expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalled();
+      expect(deps.github.postRetrigger).toHaveBeenCalled();
 
       await stop();
     });

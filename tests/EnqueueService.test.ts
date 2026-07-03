@@ -1,5 +1,6 @@
 import type { QueueRepository } from '../src/db/queueRepository.js';
 import { EnqueueService } from '../src/EnqueueService.js';
+import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
@@ -25,7 +26,8 @@ describe('EnqueueService', () => {
   let observation: ObservationContextProvider;
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
-  let probe: { processStarted: jest.Mock; processCompleted: jest.Mock };
+  let probe: { processStarted: jest.Mock; processCompleted: jest.Mock; processMerged: jest.Mock; processClosedWithoutMerge: jest.Mock };
+  let fetcher: PRStateFetcher;
 
   beforeEach(() => {
     jest.useFakeTimers();
@@ -48,6 +50,8 @@ describe('EnqueueService', () => {
     probe = {
       processStarted: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
       processCompleted: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
+      processMerged: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
+      processClosedWithoutMerge: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
     };
     probes = { createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) } as unknown as ProbeFactory;
 
@@ -56,11 +60,45 @@ describe('EnqueueService', () => {
         .fn()
         .mockReturnValue({ correlationId: getUniqueString({ prefix: 'corr-' }), requestId: getUniqueString({ prefix: 'req-' }), version: '1.0.0' }),
     } as unknown as ObservationContextProvider;
+
+    fetcher = {
+      fetch: jest.fn<any>().mockResolvedValue({ state: 'open', merged_at: null }),
+    } as unknown as PRStateFetcher;
   });
 
+  const createService = () => new EnqueueService(queue, prisma, probes, observation, fetcher);
+
   describe('handle', () => {
-    it('creates probe, calls processStarted, enqueues, and completes in a transaction', async () => {
-      const svc = new EnqueueService(queue, prisma, probes, observation);
+    it('bypasses via probe when PR is already merged', async () => {
+      (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: '2026-06-22T10:00:00Z' });
+      const svc = createService();
+      const comment = makeComment();
+
+      await svc.handle(comment, 330);
+
+      expect(probe.processStarted).toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(probe.processMerged).toHaveBeenCalledWith(tx);
+      expect(queue.enqueue).not.toHaveBeenCalled();
+      expect(probe.processCompleted).not.toHaveBeenCalled();
+    });
+
+    it('bypasses via probe when PR is closed without merge', async () => {
+      (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: null });
+      const svc = createService();
+      const comment = makeComment();
+
+      await svc.handle(comment, 330);
+
+      expect(probe.processStarted).toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(probe.processClosedWithoutMerge).toHaveBeenCalledWith(tx);
+      expect(queue.enqueue).not.toHaveBeenCalled();
+      expect(probe.processCompleted).not.toHaveBeenCalled();
+    });
+
+    it('creates probe, enqueues, and completes probe in a transaction when PR is open', async () => {
+      const svc = createService();
       const comment = makeComment();
       const jitteredWait = 330;
 
@@ -82,10 +120,25 @@ describe('EnqueueService', () => {
         tx,
       );
       expect(probe.processCompleted).toHaveBeenCalledWith(tx);
+      expect(probe.processMerged).not.toHaveBeenCalled();
+    });
+
+    it('proceeds with enqueue when getPRState fails', async () => {
+      (fetcher.fetch as jest.Mock<any>).mockResolvedValue(undefined);
+      const svc = createService();
+      const comment = makeComment();
+      const jitteredWait = 330;
+
+      await svc.handle(comment, jitteredWait);
+
+      expect(probe.processStarted).toHaveBeenCalled();
+      expect(queue.enqueue).toHaveBeenCalled();
+      expect(probe.processCompleted).toHaveBeenCalledWith(tx);
+      expect(probe.processMerged).not.toHaveBeenCalled();
     });
 
     it('schedules the enqueue for now + jittered wait', async () => {
-      const svc = new EnqueueService(queue, prisma, probes, observation);
+      const svc = createService();
       const comment = makeComment();
       const jitteredWait = 120;
 
