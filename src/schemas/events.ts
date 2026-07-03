@@ -1,8 +1,7 @@
 import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 import type { EventEnvelope, EventLogEntry } from '../types/EventLogEntry.js';
-import type { BypassedPayload } from '../types/EventPayloads.js';
 import { EventType } from '../types/EventType.js';
+import { BypassReason } from '../types/index.js';
 
 import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from './lengths.js';
 
@@ -35,7 +34,7 @@ export const PostedPayloadSchema = z.object({
 });
 
 export const BypassedPayloadSchema = z.object({
-  reason: z.enum(['prMerged', 'prClosedWithoutMerge', 'other']),
+  reason: z.enum(BypassReason),
   detail: z.string().max(REASON_MAX_LENGTH).optional(),
 });
 
@@ -93,7 +92,7 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
       return {
         ...envelope,
         type: EventType.bypassed,
-        payload: BypassedPayloadSchema.parse(payload) as BypassedPayload,
+        payload: BypassedPayloadSchema.parse(payload),
       };
     case EventType.completed:
       return {
@@ -108,11 +107,6 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         payload: FailedPayloadSchema.parse(payload),
       };
     default:
-      throw new RabbitMaximizerError({
-        code: RabbitMaximizerErrorCodes.UNKNOWN_EVENT_TYPE,
-        message: `Unknown event type: ${row.type}`,
-        functionName: 'parseEventRow',
-        details: { eventType: row.type },
-      });
+      throw RabbitMaximizerError.forUnexpectedSwitchDefault('event type', row.type, 'parseEventRow');
   }
 };

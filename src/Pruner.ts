@@ -4,6 +4,7 @@ import type { ProbeFactory } from './probes/ProbeFactory.js';
 import { TYPES } from './inversify-types.js';
 import type { PruneEvaluator } from './PruneEvaluator.js';
 
+import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
@@ -25,6 +26,8 @@ export class PrunerImpl implements Pruner {
     private readonly observation: ObservationContextProvider,
     @inject(TYPES.PrismaClient)
     private readonly prisma: PrismaClient,
+    @inject(TYPES.Logger)
+    private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
 
@@ -35,15 +38,22 @@ export class PrunerImpl implements Pruner {
     if (enriched.length === 0) return;
 
     const obs = this.observation.current();
-    await this.prisma.$transaction(async (tx) => {
-      for (const e of enriched) {
-        const probe = this.probeFactory.createQueueItemProbe(e.item, obs);
-        if (e.outcome === 'merged') {
-          await probe.processMergedBeforeRetrigger(tx);
-        } else {
-          await probe.processClosedBeforeRetrigger(tx);
-        }
+    for (const e of enriched) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          const probe = this.probeFactory.createQueueItemProbe(e.item, obs);
+          if (e.outcome === 'merged') {
+            await probe.processMergedBeforeRetrigger(tx);
+          } else {
+            await probe.processClosedBeforeRetrigger(tx);
+          }
+        });
+      } catch (err: unknown) {
+        this.log.warn(
+          { fn: 'Pruner.prune', repo: e.item.repo_full_name, pr: e.item.pr_number, queueId: e.item.id, error: err },
+          'Failed to prune item; continuing',
+        );
       }
-    });
+    }
   }
 }

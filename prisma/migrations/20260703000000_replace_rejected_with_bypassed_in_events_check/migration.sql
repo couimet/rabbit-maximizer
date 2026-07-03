@@ -18,7 +18,8 @@ CREATE TABLE "new_events" (
 );
 
 -- 2. Copy all existing rows
-INSERT INTO "new_events" SELECT * FROM "events";
+INSERT INTO "new_events" ("id", "uuid", "ts", "type", "repo_full_name", "pr_number", "correlation_id", "request_id", "version", "payload", "metadata")
+SELECT "id", "uuid", "ts", CASE WHEN "type" = 'rejected' THEN 'bypassed' ELSE "type" END, "repo_full_name", "pr_number", "correlation_id", "request_id", "version", "payload", "metadata" FROM "events";
 
 -- 3. Drop the old table
 DROP TABLE "events";

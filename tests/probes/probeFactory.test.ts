@@ -38,11 +38,7 @@ describe('ProbeFactory', () => {
   });
 
   it('creates a DetectedProbe with the provided observation context', () => {
-    const observation: ObservationContext = {
-      correlationId: getUniqueString(),
-      requestId: getUniqueString(),
-      version: getUniqueString(),
-    };
+    const observation = makeObservation();
     const { eventRepository, queueRepository, logger } = makeMocks();
 
     const factory = new ProbeFactory(eventRepository, queueRepository, logger);

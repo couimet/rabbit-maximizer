@@ -81,5 +81,35 @@ describe('PruneEvaluator', () => {
       expect(result).toStrictEqual([]);
       expect(fetcher.fetch).not.toHaveBeenCalled();
     });
+
+    it('evaluates multiple items concurrently', async () => {
+      const { fullName: repo1 } = makeUniqueRepoName();
+      const { fullName: repo2 } = makeUniqueRepoName();
+      const { fullName: repo3 } = makeUniqueRepoName();
+      const pr1 = getUniqueInt();
+      const pr2 = getUniqueInt();
+      const pr3 = getUniqueInt();
+
+      const item1 = makeItem(repo1, pr1);
+      const item2 = makeItem(repo2, pr2);
+      const item3 = makeItem(repo3, pr3);
+
+      (fetcher.fetch as jest.Mock<any>)
+        .mockResolvedValueOnce({ state: 'closed', merged_at: '2026-01-01T00:00:00Z' }) // merged
+        .mockResolvedValueOnce({ state: 'closed', merged_at: null }) // closed without merge
+        .mockResolvedValueOnce({ state: 'open', merged_at: null }); // open → skipped
+
+      const evaluator = createEvaluator();
+      const result = await evaluator.evaluate([item1, item2, item3]);
+
+      expect(result).toStrictEqual([
+        { item: item1, outcome: 'merged' },
+        { item: item2, outcome: 'closed-without-merge' },
+      ]);
+      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
+        { fn: 'PruneEvaluator.evaluate', repo: repo3, pr: pr3, queueId: item3.id },
+        'PR still open; skipping',
+      );
+    });
   });
 });

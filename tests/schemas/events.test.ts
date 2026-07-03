@@ -144,12 +144,12 @@ describe('parseEventRow', () => {
     expect(result.payload).toStrictEqual({ reason });
   });
 
-  it('throws on an unknown event type', () => {
+  it('throws on an unexpected event type', () => {
     const row = baseRow({ type: 'bogus', payload: '{}' });
-    expect(() => parseEventRow(row)).toThrowDetailedError('UNKNOWN_EVENT_TYPE', {
-      message: 'Unknown event type: bogus',
+    expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_CODE_PATH', {
+      message: 'Unexpected event type: "bogus"',
       functionName: 'parseEventRow',
-      details: { eventType: 'bogus' },
+      details: { unexpectedValue: 'bogus' },
     });
   });
 

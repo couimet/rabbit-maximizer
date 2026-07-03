@@ -61,6 +61,7 @@ export const parseConfig = (raw: Record<string, string | undefined>): Result<Con
   const prepped = {
     DATABASE_URL: emptyToUndefined(raw.DATABASE_URL),
     DETECTION_MODE: emptyToUndefined(raw.DETECTION_MODE),
+    GITHUB_API_TIMEOUT: emptyToUndefined(raw.GITHUB_API_TIMEOUT),
     GITHUB_PAT: emptyToUndefined(raw.GITHUB_PAT),
     POLL_INTERVAL: emptyToUndefined(raw.POLL_INTERVAL),
     REPO_FILTER: parseRepoFilter(raw.REPO_FILTER),
@@ -92,6 +93,7 @@ export const exitWithConfigErrors = (issues: string[]): never => {
 const parsed = parseConfig({
   DATABASE_URL: process.env.DATABASE_URL,
   DETECTION_MODE: process.env.DETECTION_MODE,
+  GITHUB_API_TIMEOUT: process.env.GITHUB_API_TIMEOUT,
   GITHUB_PAT: process.env.GITHUB_PAT,
   POLL_INTERVAL: process.env.POLL_INTERVAL,
   REPO_FILTER: process.env.REPO_FILTER,

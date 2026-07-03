@@ -8,12 +8,14 @@ import type { QueueItem } from '../src/types/index.js';
 import { makeUniqueRepoName } from './helpers/index.js';
 
 import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import type { Logger } from '@couimet/logger-contract';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
 
 const makeItem = (): QueueItem => ({ id: getUniqueInt(), repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() }) as unknown as QueueItem;
 
 describe('Pruner', () => {
+  let log: Logger;
   let queue: QueueRepository;
   let pruneEvaluator: PruneEvaluator;
   let probeFactory: ProbeFactory;
@@ -23,6 +25,10 @@ describe('Pruner', () => {
   let mockProbe: { processMergedBeforeRetrigger: jest.Mock; processClosedBeforeRetrigger: jest.Mock };
 
   beforeEach(() => {
+    log = {
+      warn: jest.fn<any>(),
+    } as unknown as Logger;
+
     queue = {
       getPendingQueue: jest.fn<any>(),
     } as unknown as QueueRepository;
@@ -54,7 +60,7 @@ describe('Pruner', () => {
     } as unknown as PrismaClient;
   });
 
-  const createPruner = () => new PrunerImpl(queue, pruneEvaluator, probeFactory, observation, prisma);
+  const createPruner = () => new PrunerImpl(queue, pruneEvaluator, probeFactory, observation, prisma, log);
 
   describe('prune', () => {
     it('evaluates pending items and applies prune decisions in a transaction', async () => {
@@ -71,7 +77,7 @@ describe('Pruner', () => {
 
       expect(queue.getPendingQueue).toHaveBeenCalled();
       expect(pruneEvaluator.evaluate).toHaveBeenCalledWith([mergedItem, closedItem]);
-      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
       expect(mockProbe.processMergedBeforeRetrigger).toHaveBeenCalledWith(tx);
       expect(mockProbe.processClosedBeforeRetrigger).toHaveBeenCalledWith(tx);
     });
@@ -95,6 +101,31 @@ describe('Pruner', () => {
       await pruner.prune();
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('continues with remaining items when one transaction fails', async () => {
+      const item1 = makeItem();
+      const item2 = makeItem();
+      (queue.getPendingQueue as jest.Mock<any>).mockResolvedValue([item1, item2]);
+      const failingProbe = {
+        processMergedBeforeRetrigger: jest.fn<any>().mockRejectedValue(new Error('probe failure')),
+        processClosedBeforeRetrigger: jest.fn<any>().mockRejectedValue(new Error('probe failure')),
+      };
+      (pruneEvaluator.evaluate as jest.Mock<any>).mockResolvedValue([
+        { item: item1, outcome: 'merged' },
+        { item: item2, outcome: 'closed-without-merge' },
+      ]);
+      (probeFactory.createQueueItemProbe as jest.Mock<any>).mockReturnValue(failingProbe);
+
+      const pruner = createPruner();
+      await pruner.prune();
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(log.warn).toHaveBeenCalledTimes(2);
+      expect(log.warn).toHaveBeenCalledWith(
+        { fn: 'Pruner.prune', repo: item1.repo_full_name, pr: item1.pr_number, queueId: item1.id, error: expect.any(Error) },
+        'Failed to prune item; continuing',
+      );
     });
   });
 });

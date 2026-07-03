@@ -17,6 +17,8 @@ import { type Prisma, type PrismaClient } from '@prisma/client';
 const TICK_INTERVAL_MS = 10_000;
 const SHORT_DRAIN = 5;
 const SINGLE_TICK = 1;
+const BASE_BACKOFF_MS = 60_000;
+const BACKOFF_TOLERANCE_MS = 5_000;
 
 interface QueueItemStub {
   id: number;
@@ -108,6 +110,7 @@ const setup = (): MockSchedulerDeps => {
 
   const config: Config = {
     DETECTION_MODE: 'poll',
+    GITHUB_API_TIMEOUT: 10_000,
     GITHUB_PAT: 'test-pat',
     POLL_INTERVAL: 90,
     REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
@@ -130,7 +133,7 @@ describe('Scheduler', () => {
   });
 
   const createScheduler = () =>
-    new Scheduler(deps.queue, deps.queueOrder, deps.github, deps.events, deps.observation, deps.prisma, deps.logger, deps.config, deps.pruner);
+    new Scheduler(deps.queue, deps.queueOrder, deps.github, deps.events, deps.observation, deps.prisma, deps.config, deps.pruner, deps.logger);
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
@@ -149,14 +152,15 @@ describe('Scheduler', () => {
       expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(deps.queue.markPosted).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      const obs = deps.observation.current();
       expect(deps.events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'posted',
           repo_full_name: item.repo_full_name,
           pr_number: item.pr_number,
-          correlation_id: expect.any(String) as unknown as string,
-          request_id: expect.any(String) as unknown as string,
-          version: expect.any(String) as unknown as string,
+          correlation_id: obs.correlationId,
+          request_id: obs.requestId,
+          version: obs.version,
           payload: {
             source_comment_url: item.source_comment_url,
             posted_comment_url: postedHtmlUrl,
@@ -258,7 +262,7 @@ describe('Scheduler', () => {
       expect(deps.queue.markPosted).not.toHaveBeenCalled();
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: 60_000, attempts: 0 },
+        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, attempts: 0 },
         'Post retrigger failed; rescheduled with backoff',
       );
 
@@ -326,7 +330,7 @@ describe('Scheduler', () => {
       expect(deps.events.record).not.toHaveBeenCalled();
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: 60_000, attempts: 0 },
+        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, attempts: 0 },
         'Post retrigger failed; rescheduled with backoff',
       );
 
@@ -376,6 +380,12 @@ describe('Scheduler', () => {
       (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValueOnce([item1]).mockResolvedValueOnce([item2]);
       (deps.github.postRetrigger as jest.Mock<any>).mockRejectedValue(networkError);
 
+      const capturedDates: Date[] = [];
+      (deps.queue.reschedule as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+        capturedDates.push(date);
+        return Promise.resolve();
+      });
+
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
@@ -387,15 +397,14 @@ describe('Scheduler', () => {
       expect(deps.queue.reschedule).toHaveBeenNthCalledWith(1, item1.id, expect.any(Date), deps.tx);
       expect(deps.queue.reschedule).toHaveBeenNthCalledWith(2, item2.id, expect.any(Date), deps.tx);
 
-      const firstDate = (deps.queue.reschedule as jest.Mock<any>).mock.calls[0][1] as Date;
-      const firstMs = firstDate.getTime() - Date.now();
-      expect(firstMs).toBeGreaterThanOrEqual(60_000 * Math.pow(2, 0) - 5_000);
-      expect(firstMs).toBeLessThanOrEqual(60_000 * Math.pow(2, 0) + 5_000);
+      expect(capturedDates).toHaveLength(2);
+      const firstMs = capturedDates[0].getTime() - Date.now();
+      expect(firstMs).toBeGreaterThanOrEqual(BASE_BACKOFF_MS * Math.pow(2, 0) - BACKOFF_TOLERANCE_MS);
+      expect(firstMs).toBeLessThanOrEqual(BASE_BACKOFF_MS * Math.pow(2, 0) + BACKOFF_TOLERANCE_MS);
 
-      const secondDate = (deps.queue.reschedule as jest.Mock<any>).mock.calls[1][1] as Date;
-      const secondMs = secondDate.getTime() - Date.now();
-      expect(secondMs).toBeGreaterThanOrEqual(60_000 * Math.pow(2, 1) - 5_000);
-      expect(secondMs).toBeLessThanOrEqual(60_000 * Math.pow(2, 1) + 5_000);
+      const secondMs = capturedDates[1].getTime() - Date.now();
+      expect(secondMs).toBeGreaterThanOrEqual(BASE_BACKOFF_MS * Math.pow(2, 1) - BACKOFF_TOLERANCE_MS);
+      expect(secondMs).toBeLessThanOrEqual(BASE_BACKOFF_MS * Math.pow(2, 1) + BACKOFF_TOLERANCE_MS);
 
       await stop();
     });
@@ -432,6 +441,10 @@ describe('Scheduler', () => {
       expect(deps.pruner.prune).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalled();
       expect(deps.github.postRetrigger).toHaveBeenCalled();
+
+      expect((deps.pruner.prune as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+        (deps.queueOrder.getEffectiveOrder as jest.Mock).mock.invocationCallOrder[0],
+      );
 
       await stop();
     });

@@ -2,7 +2,7 @@ import pkg from '../../package.json' with { type: 'json' };
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/coderabbitGitHubClient.js';
 import { TYPES } from '../../src/inversify-types.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
-import type { MockIssuesRest, MockSearchRest } from '../helpers/index.js';
+import type { MockIssuesRest, MockPullsRest, MockSearchRest } from '../helpers/index.js';
 import { createMockLogger, createMockOctokit } from '../helpers/index.js';
 import { makeUniqueRepoName } from '../helpers/index.js';
 
@@ -23,6 +23,7 @@ const SEARCH_START_PAGE = 1;
 describe('client', () => {
   let octokit: Octokit;
   let issues: MockIssuesRest;
+  let pulls: MockPullsRest;
   let search: MockSearchRest;
   let logger: Logger;
 
@@ -43,7 +44,7 @@ describe('client', () => {
     jest.setSystemTime(frozenDate);
     ({
       octokit,
-      rest: { issues, search },
+      rest: { issues, pulls, search },
     } = createMockOctokit());
     logger = createMockLogger();
   });
@@ -310,6 +311,38 @@ describe('client', () => {
         },
         'Searching for rate-limit comments',
       );
+    });
+  });
+
+  describe('getPRState', () => {
+    it('splits the repo string and calls pulls.get', async () => {
+      const { owner, repo, fullName } = makeUniqueRepoName();
+      pulls.get.mockResolvedValue({
+        data: { state: 'open', merged_at: null },
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      await client.getPRState(fullName, prNumber);
+
+      expect(pulls.get).toHaveBeenCalledWith({
+        owner,
+        repo,
+        pull_number: prNumber,
+      });
+
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'getPRState', owner, repo, pr: prNumber }, 'Fetching PR state');
+    });
+
+    it('maps response to PRState', async () => {
+      const { fullName } = makeUniqueRepoName();
+      pulls.get.mockResolvedValue({
+        data: { state: 'closed', merged_at: '2026-01-01T00:00:00Z' },
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.getPRState(fullName, prNumber);
+
+      expect(result).toStrictEqual({ state: 'closed', merged_at: '2026-01-01T00:00:00Z' });
     });
   });
 

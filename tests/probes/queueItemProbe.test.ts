@@ -44,7 +44,7 @@ describe('QueueItemProbe', () => {
   const createProbe = (item: QueueItem) => new QueueItemProbe(item, queue, events, observation, logger);
 
   describe('processMergedBeforeRetrigger', () => {
-    it('marks completed, records completed event, and logs', async () => {
+    it('marks completed, records bypassed event, and logs', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);

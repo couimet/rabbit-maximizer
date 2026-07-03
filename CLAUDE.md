@@ -19,6 +19,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-examples>
 </rule>
 
+<rule id="C002" priority="critical">
+  <title>couimet/* GitHub Actions always use @main</title>
+  <never>Pin a `couimet/*` GitHub Action to a commit SHA in CI workflows</never>
+  <do>Always reference `couimet/*` actions with `@main` to get the latest version</do>
+  <rationale>The author wants these actions to auto-update across all repos</rationale>
+</rule>
+
 <rule id="C003" priority="critical">
   <title>switch default blocks use forUnexpectedSwitchDefault() and are tested</title>
   <do>End every switch with a `default` that throws via `RabbitMaximizerError.forUnexpectedSwitchDefault()`. Test the default path. Only use `/* c8 ignore */` when the default is provably unreachable through the public API (e.g. all enum members exhaustively handled and mapped).</do>
@@ -42,11 +49,11 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-example>
 </rule>
 
-<rule id="C002" priority="critical">
-  <title>couimet/* GitHub Actions always use @main</title>
-  <never>Pin a `couimet/*` GitHub Action to a commit SHA in CI workflows</never>
-  <do>Always reference `couimet/*` actions with `@main` to get the latest version</do>
-  <rationale>The author wants these actions to auto-update across all repos</rationale>
+<rule id="C004" priority="critical">
+  <title>Logger is always the last constructor parameter</title>
+  <do>Place `@inject(TYPES.Logger) private readonly log: Logger` as the last parameter in every DI constructor</do>
+  <never>Add Logger anywhere other than last in the constructor parameter list</never>
+  <rationale>Consistent ordering makes constructors predictable and diffs cleaner</rationale>
 </rule>
 
 <rule id="T001" priority="critical">

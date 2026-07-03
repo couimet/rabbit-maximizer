@@ -46,10 +46,10 @@ export class Scheduler {
     private readonly observation: ObservationContextProvider,
     @inject(TYPES.PrismaClient)
     private readonly prisma: PrismaClient,
-    @inject(TYPES.Logger) private readonly log: Logger,
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.Pruner)
     private readonly pruner: Pruner,
+    @inject(TYPES.Logger) private readonly log: Logger,
   ) {
     this.postCooldownMs = cfg.SCHEDULER_POST_COOLDOWN * SECONDS_TO_MS;
     this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE * SECONDS_TO_MS;
