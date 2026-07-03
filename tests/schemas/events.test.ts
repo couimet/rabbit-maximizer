@@ -102,17 +102,18 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses a rejected event', () => {
-    const reason = getUniqueString();
+  it('parses a bypassed event', () => {
+    const reason = 'prMerged';
+    const detail = getUniqueString();
     const row = baseRow({
-      type: 'rejected',
-      payload: JSON.stringify({ reason }),
+      type: 'bypassed',
+      payload: JSON.stringify({ reason, detail }),
     });
 
     const result = parseEventRow(row);
 
-    expect(result.type).toBe('rejected');
-    expect(result.payload).toStrictEqual({ reason });
+    expect(result.type).toBe('bypassed');
+    expect(result.payload).toStrictEqual({ reason: 'prMerged', detail });
   });
 
   it('parses a completed event', () => {
@@ -143,12 +144,12 @@ describe('parseEventRow', () => {
     expect(result.payload).toStrictEqual({ reason });
   });
 
-  it('throws on an unknown event type', () => {
+  it('throws on an unexpected event type', () => {
     const row = baseRow({ type: 'bogus', payload: '{}' });
-    expect(() => parseEventRow(row)).toThrowDetailedError('UNKNOWN_EVENT_TYPE', {
-      message: 'Unknown event type: bogus',
+    expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_CODE_PATH', {
+      message: 'Unexpected event type: "bogus"',
       functionName: 'parseEventRow',
-      details: { eventType: 'bogus' },
+      details: { unexpectedValue: 'bogus' },
     });
   });
 

@@ -19,6 +19,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-examples>
 </rule>
 
+<rule id="C002" priority="critical">
+  <title>couimet/* GitHub Actions always use @main</title>
+  <never>Pin a `couimet/*` GitHub Action to a commit SHA in CI workflows</never>
+  <do>Always reference `couimet/*` actions with `@main` to get the latest version</do>
+  <rationale>The author wants these actions to auto-update across all repos</rationale>
+</rule>
+
 <rule id="C003" priority="critical">
   <title>switch default blocks use forUnexpectedSwitchDefault() and are tested</title>
   <do>End every switch with a `default` that throws via `RabbitMaximizerError.forUnexpectedSwitchDefault()`. Test the default path. Only use `/* c8 ignore */` when the default is provably unreachable through the public API (e.g. all enum members exhaustively handled and mapped).</do>
@@ -42,11 +49,11 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-example>
 </rule>
 
-<rule id="C002" priority="critical">
-  <title>couimet/* GitHub Actions always use @main</title>
-  <never>Pin a `couimet/*` GitHub Action to a commit SHA in CI workflows</never>
-  <do>Always reference `couimet/*` actions with `@main` to get the latest version</do>
-  <rationale>The author wants these actions to auto-update across all repos</rationale>
+<rule id="C004" priority="critical">
+  <title>Logger is always the last constructor parameter</title>
+  <do>Place `@inject(TYPES.Logger) private readonly log: Logger` as the last parameter in every DI constructor</do>
+  <never>Add Logger anywhere other than last in the constructor parameter list</never>
+  <rationale>Consistent ordering makes constructors predictable and diffs cleaner</rationale>
 </rule>
 
 <rule id="T001" priority="critical">
@@ -171,4 +178,49 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <title>Never stage without approval</title>
   <never>Run `git add` or `git stage` without explicit user approval</never>
   <rationale>The user stages files manually while reviewing changes</rationale>
+</rule>
+
+<rule id="P003" priority="critical">
+  <title>API clients throw; callers catch and decide</title>
+  <do>Let API client methods (Octokit wrappers, HTTP calls) propagate errors to callers without internal try/catch</do>
+  <do>Catch errors at call sites and handle contextually — retry, skip the item and continue, fall back to a safe default, or rethrow if truly unrecoverable</do>
+  <never>Swallow errors inside API client methods — callers cannot react to what they cannot see</never>
+  <rationale>Thin clients are composable and testable. The caller knows the context: a scheduler tick should skip one bad item and continue; an enqueue should fall back to optimistic enqueue; a startup validation should fail fast. The client cannot know which context it runs in.</rationale>
+  <good-example>
+    ```typescript
+    // Client: thin wrapper, no try/catch
+    async getPRState(repo: string, pr: number): Promise<PRState> {
+      const { owner, repo: repoName } = splitRepo(repo);
+      const response = await this.octokit.rest.pulls.get({ owner, repo: repoName, pull_number: pr });
+      return { state: response.data.state, merged_at: response.data.merged_at };
+    }
+
+    // Caller: catches and decides
+    try {
+      prState = await this.github.getPRState(repo, pr);
+    } catch (err: unknown) {
+      this.log.warn({ fn: 'handle', repo, pr, error: err }, 'Failed to fetch PR state; proceeding with enqueue');
+    }
+    ```
+
+  </good-example>
+  <bad-example>
+    ```typescript
+    // BAD: client swallows the error — callers can't distinguish "open" from "API error"
+    async getPRState(repo: string, pr: number): Promise<PRState | null> {
+      try {
+        const response = await this.octokit.rest.pulls.get({ ... });
+        return { state: response.data.state, merged_at: response.data.merged_at };
+      } catch {
+        return null;
+      }
+    }
+    ```
+  </bad-example>
+</rule>
+
+<rule id="P004" priority="critical">
+  <title>Run pnpm fix after editing files</title>
+  <do>Run `pnpm fix` after every set of file edits — it runs `eslint --fix` and `prettier --write` to normalize formatting and fix auto-fixable lint violations</do>
+  <rationale>Keeps the diff clean of formatting noise. Linter auto-fixes handle import sorting, whitespace, and other mechanical concerns.</rationale>
 </rule>

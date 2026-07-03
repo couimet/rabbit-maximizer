@@ -1,4 +1,5 @@
 import { TYPES } from '../inversify-types.js';
+import type { PRState } from '../types/PRState.js';
 import type { RateLimitComment } from '../types/RateLimitComment.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
 
@@ -22,6 +23,8 @@ export interface CoderabbitGitHubClient {
   fetchComment(owner: string, repo: string, commentId: number): Promise<string>;
 
   postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string): Promise<{ htmlUrl: string }>;
+
+  getPRState(repo: string, pr: number): Promise<PRState>;
 }
 
 @injectable()
@@ -110,5 +113,19 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     });
 
     return { htmlUrl: response.data.html_url };
+  }
+
+  async getPRState(repo: string, pr: number): Promise<PRState> {
+    const { owner, repo: repoName } = splitRepo(repo);
+
+    this.log.debug({ fn: 'getPRState', owner, repo: repoName, pr }, 'Fetching PR state');
+
+    const response = await this.octokit.rest.pulls.get({
+      owner,
+      repo: repoName,
+      pull_number: pr,
+    });
+
+    return { state: response.data.state, merged_at: response.data.merged_at };
   }
 }

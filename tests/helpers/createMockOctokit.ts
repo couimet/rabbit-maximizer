@@ -11,10 +11,15 @@ export interface MockIssuesRest {
   listComments: jest.Mock<any>;
 }
 
+export interface MockPullsRest {
+  get: jest.Mock<any>;
+}
+
 export interface MockOctokitOptions {
   rest?: {
     search?: Partial<MockSearchRest>;
     issues?: Partial<MockIssuesRest>;
+    pulls?: Partial<MockPullsRest>;
   };
 }
 
@@ -23,6 +28,7 @@ export interface MockOctokitResult {
   rest: {
     search: MockSearchRest;
     issues: MockIssuesRest;
+    pulls: MockPullsRest;
   };
 }
 
@@ -37,9 +43,13 @@ export const createMockOctokit = (options?: MockOctokitOptions): MockOctokitResu
     listComments: jest.fn<any>(),
     ...options?.rest?.issues,
   };
+  const pulls: MockPullsRest = {
+    get: jest.fn<any>(),
+    ...options?.rest?.pulls,
+  };
 
   return {
-    octokit: { rest: { search, issues } } as unknown as Octokit,
-    rest: { search, issues },
+    octokit: { rest: { search, issues, pulls } } as unknown as Octokit,
+    rest: { search, issues, pulls },
   };
 };

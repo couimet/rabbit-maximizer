@@ -5,6 +5,7 @@ export const ConfigSchema = z
   .object({
     DATABASE_URL: z.string().min(1).default('file:./data/rabbit-maximizer.db'),
     DETECTION_MODE: z.enum(['poll', 'webhook']).default('poll'),
+    GITHUB_API_TIMEOUT_MS: z.coerce.number().int().positive('GITHUB_API_TIMEOUT_MS must be a positive integer').default(10_000),
     GITHUB_PAT: z.string({ error: 'GITHUB_PAT is required' }).min(1, 'GITHUB_PAT is required'),
     POLL_INTERVAL: z.coerce.number().int().positive('POLL_INTERVAL must be a positive integer').default(90),
     REPO_FILTER: z

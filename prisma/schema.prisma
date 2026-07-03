@@ -64,7 +64,7 @@ model Event {
   /// Max 36 (UUID v4).
   uuid           String   @unique @default(uuid())
   ts             DateTime @default(now())
-  /// Max 25; one of the EventType values (CHECK in the init migration).
+  /// Max 25; one of 'detected' | 'enqueued' | 'posted' | 'bypassed' | 'completed' | 'failed' (CHECK in the init + bypass migration).
   type           String
   /// Max 140: GitHub owner/org + "/" + repo. See review_queue / init migration for sources.
   repo_full_name String

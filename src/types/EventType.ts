@@ -2,7 +2,7 @@ export enum EventType {
   detected = 'detected',
   enqueued = 'enqueued',
   posted = 'posted',
-  rejected = 'rejected',
+  bypassed = 'bypassed',
   completed = 'completed',
   failed = 'failed',
 }

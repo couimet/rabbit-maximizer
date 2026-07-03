@@ -1,4 +1,4 @@
-import type { CompletedPayload, DetectedPayload, EnqueuedPayload, EventMetadata, FailedPayload, PostedPayload, RejectedPayload } from './EventPayloads.js';
+import type { BypassedPayload, CompletedPayload, DetectedPayload, EnqueuedPayload, EventMetadata, FailedPayload, PostedPayload } from './EventPayloads.js';
 import { EventType } from './EventType.js';
 
 /** Always-present columns shared by every event, regardless of type. */
@@ -14,7 +14,16 @@ export interface EventEnvelope {
   readonly metadata?: EventMetadata;
 }
 
+// Keep union members in alphabetical order by EventType.
 export type EventLogEntry =
+  | (EventEnvelope & {
+      readonly type: EventType.bypassed;
+      readonly payload: BypassedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.completed;
+      readonly payload: CompletedPayload;
+    })
   | (EventEnvelope & {
       readonly type: EventType.detected;
       readonly payload: DetectedPayload;
@@ -24,18 +33,10 @@ export type EventLogEntry =
       readonly payload: EnqueuedPayload;
     })
   | (EventEnvelope & {
-      readonly type: EventType.posted;
-      readonly payload: PostedPayload;
-    })
-  | (EventEnvelope & {
-      readonly type: EventType.rejected;
-      readonly payload: RejectedPayload;
-    })
-  | (EventEnvelope & {
-      readonly type: EventType.completed;
-      readonly payload: CompletedPayload;
-    })
-  | (EventEnvelope & {
       readonly type: EventType.failed;
       readonly payload: FailedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.posted;
+      readonly payload: PostedPayload;
     });
