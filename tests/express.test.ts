@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 
 const { createMockVite } = await import('./helpers/index.js');
+
 const viteMock = createMockVite();
 
 jest.unstable_mockModule('vite', () => viteMock);
 
-const { setupExpress } = await import('../src/express.js');
 const { createMockEventRepo, createMockLogger, createMockQueueOrderRepo, createMockQueueRepo } = await import('./helpers/index.js');
+
+const { setupExpress } = await import('../src/express.js');
 const { fetchResponse } = await import('./helpers/fetchResponse.js');
 
 describe('setupExpress', () => {
@@ -18,16 +20,17 @@ describe('setupExpress', () => {
     if (stop) await stop();
   });
 
-  const start = () => {
+  const start = (logger = createMockLogger()) => {
     const app = setupExpress({
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),
-      logger: createMockLogger(),
+      logger,
       port: 0,
     });
     stop = app.stop;
     port = app.port;
+    return app;
   };
 
   it('responds 200 on all three API endpoints', async () => {
@@ -64,5 +67,15 @@ describe('setupExpress', () => {
     await stop();
     await expect(stop()).rejects.toThrow();
     stop = async () => {}; // Prevent afterEach from re-closing
+  });
+
+  it('logs API requests via morgan with http.request context', async () => {
+    const logger = createMockLogger();
+    start(logger);
+    const server = { address: () => ({ port, family: 'IPv6' }) } as unknown as Server;
+
+    await fetchResponse(server, '/api/summary');
+
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'http.request' }, expect.stringMatching(/^GET \/api\/summary 200 \d+\.\d+ ms$/));
   });
 });
