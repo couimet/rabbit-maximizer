@@ -11,7 +11,10 @@ pnpm add @couimet/express-tools
 ## Usage
 
 ```typescript
-import { createExpressApp } from '@couimet/express-tools';
+import { buildDefaultMiddlewares, createExpressApp, createMorganMiddleware, MiddlewareIdentifier } from '@couimet/express-tools';
+import { getLogger } from '@couimet/logger-contract';
+
+const logger = getLogger();
 
 // Defaults: helmet on, request logging via morgan
 const app = createExpressApp({ logger });
@@ -46,6 +49,9 @@ Returns a configured Express `Application`. Options:
 Returns a morgan request-logging middleware wired to the given logger:
 
 ```typescript
+import { createMorganMiddleware } from '@couimet/express-tools';
+import { getLogger } from '@couimet/logger-contract';
+
 const logger = getLogger();
 app.use(createMorganMiddleware({ logger }));
 app.use(createMorganMiddleware({ format: ':method :url', logger }));

@@ -1,3 +1,4 @@
+import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { RequestHandler } from 'express';
 import type { Server } from 'http';
@@ -40,8 +41,10 @@ const getHeaders = (server: Server, path: string): Promise<Headers> =>
       .catch(reject);
   });
 
-const assertNoMiddlewareApplied = (logger: { info: ReturnType<typeof jest.fn> }) => {
-  const middlewareApplyCalls = logger.info.mock.calls.filter((call: unknown[]) => (call[0] as Record<string, unknown>)?.middleware !== undefined);
+const assertNoMiddlewareApplied = (logger: Logger) => {
+  const middlewareApplyCalls = (logger.info as ReturnType<typeof jest.fn>).mock.calls.filter(
+    (call: unknown[]) => (call[0] as Record<string, unknown>)?.middleware !== undefined,
+  );
   expect(middlewareApplyCalls).toHaveLength(0);
 };
 
