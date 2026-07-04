@@ -84,6 +84,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/state/next_review_available_at': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getNextReviewAvailable'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -140,15 +156,12 @@ export interface components {
     QueueCounts: {
       pending: number;
       posted: number;
-      completed: number;
       failed: number;
     };
     EventCounts: {
       detected: number;
       enqueued: number;
       posted: number;
-      bypassed: number;
-      completed: number;
       failed: number;
     };
     Summary: {
@@ -176,6 +189,10 @@ export interface components {
     QueueOrderResponse: {
       data: components['schemas']['QueueItem'][];
     };
+    StateResponse: {
+      /** Format: date-time */
+      next_review_available_at: string | null;
+    };
   };
   responses: {
     /** @description Unexpected server error */
@@ -197,7 +214,9 @@ export type $defs = Record<string, never>;
 export interface operations {
   getSummary: {
     parameters: {
-      query?: never;
+      query?: {
+        duration?: '24h' | '2d' | '3d' | '5d' | '1w';
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -323,6 +342,27 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PaginatedEvents'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  getNextReviewAvailable: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Next review availability timestamp */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StateResponse'];
         };
       };
       500: components['responses']['InternalError'];

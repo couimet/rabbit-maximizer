@@ -333,22 +333,21 @@ describe('QueueOrder', () => {
     });
   });
 
-  describe('timezone', () => {
-    beforeEach(() => {
-      localStorage.setItem('rm-timezone', 'America/New_York');
+  describe('not_before display', () => {
+    it('renders column header', async () => {
       createMockFetch(200, {
-        data: [makeQueueItem({ not_before: '2026-06-23T14:30:00.000Z' })],
+        data: [makeQueueItem({ not_before: new Date(Date.now() + 300_000).toISOString() })],
       });
-    });
-
-    it('renders column header without timezone suffix for non-UTC', async () => {
       renderQueueOrder();
       await waitFor(() => expect(screen.getByText('Not Before')).toBeInTheDocument());
     });
 
-    it('formats dates in the selected timezone', async () => {
+    it('shows eligible now for not_before in the past', async () => {
+      createMockFetch(200, {
+        data: [makeQueueItem({ not_before: new Date(Date.now() - 60_000).toISOString() })],
+      });
       renderQueueOrder();
-      await waitFor(() => expect(screen.getByText('2026-06-23 10:30:00')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('eligible now')).toBeInTheDocument());
     });
   });
 });

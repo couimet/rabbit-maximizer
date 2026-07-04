@@ -1,3 +1,4 @@
+import { DEFAULT_DURATION } from '../../../src/utils/durations.js';
 import type { EventCounts, QueueCounts, SummaryResponse } from '../api.js';
 import { fetchSummary } from '../api.js';
 
@@ -8,10 +9,11 @@ import { useEffect, useState } from 'react';
 const SummaryStats = () => {
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [duration, setDuration] = useState(DEFAULT_DURATION);
 
   useEffect(() => {
     let cancelled = false;
-    fetchSummary()
+    fetchSummary(duration)
       .then((d) => {
         if (!cancelled) setData(d);
       })
@@ -21,7 +23,7 @@ const SummaryStats = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [duration]);
 
   if (error) return <div className="error">Failed to load summary: {error}</div>;
   if (!data) return <div className="loading">Loading summary…</div>;
@@ -40,7 +42,16 @@ const SummaryStats = () => {
         ))}
       </div>
 
-      <h3>Events (last 24h)</h3>
+      <h3>
+        Events —{' '}
+        <select className="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)}>
+          <option value={DEFAULT_DURATION}>Last 24h</option>
+          <option value="2d">Last 2d</option>
+          <option value="3d">Last 3d</option>
+          <option value="5d">Last 5d</option>
+          <option value="1w">Last 1w</option>
+        </select>
+      </h3>
       <div className="summary-grid">
         {Object.entries(data.eventCounts24h as EventCounts).map(([type, count]) => (
           <div key={type} className="summary-card">

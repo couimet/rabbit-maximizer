@@ -37,8 +37,8 @@ describe('getSummary', () => {
 
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
-      queueCounts: { pending: 5, posted: 3, completed: 10, failed: 2 },
-      eventCounts24h: { detected: 8, enqueued: 7, posted: 3, bypassed: 1, completed: 2, failed: 1 },
+      queueCounts: { pending: 5, posted: 3, failed: 2 },
+      eventCounts24h: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
       oldestPending: { id: 1, repo_full_name: 'c/r', pr_number: 42, not_before: '2026-01-01T00:00:00.000Z' },
     });
   });
@@ -49,8 +49,8 @@ describe('getSummary', () => {
 
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
-      queueCounts: { pending: 0, posted: 0, completed: 0, failed: 0 },
-      eventCounts24h: { detected: 0, enqueued: 0, posted: 0, bypassed: 0, completed: 0, failed: 0 },
+      queueCounts: { pending: 0, posted: 0, failed: 0 },
+      eventCounts24h: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
       oldestPending: null,
     });
   });
@@ -64,5 +64,62 @@ describe('getSummary', () => {
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get summary' });
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
+  });
+
+  it('response omits "completed" from queueCounts', async () => {
+    logger = createMockLogger();
+    startServer({
+      getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 5, posted: 3, completed: 10, failed: 2 }),
+    });
+
+    const json = await getJson(server, '/api/summary');
+    expect(json).toStrictEqual({
+      queueCounts: { pending: 5, posted: 3, failed: 2 },
+      eventCounts24h: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
+      oldestPending: null,
+    });
+  });
+
+  it('response omits "bypassed" and "completed" from eventCounts24h', async () => {
+    logger = createMockLogger();
+    startServer(
+      {},
+      {
+        countByType: jest.fn<any>().mockResolvedValue({ detected: 1, enqueued: 2, posted: 3, bypassed: 4, completed: 5, failed: 6 }),
+      },
+    );
+
+    const json = await getJson(server, '/api/summary');
+    expect(json).toStrictEqual({
+      queueCounts: { pending: 0, posted: 0, failed: 0 },
+      eventCounts24h: { detected: 1, enqueued: 2, posted: 3, failed: 6 },
+      oldestPending: null,
+    });
+  });
+
+  it('duration param "2d" passes correct since window', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+    const countByType = jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, posted: 0, bypassed: 0, completed: 0, failed: 0 });
+    startServer({}, { countByType });
+
+    await getJson(server, '/api/summary?duration=2d');
+
+    expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 172_800_000));
+  });
+
+  it('invalid duration defaults to "24h"', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+    const countByType = jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, posted: 0, bypassed: 0, completed: 0, failed: 0 });
+    startServer({}, { countByType });
+
+    await getJson(server, '/api/summary?duration=invalid');
+
+    expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 86_400_000));
   });
 });

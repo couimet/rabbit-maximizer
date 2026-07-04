@@ -12,7 +12,7 @@ body {
 }
 
 .dashboard {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 24px 16px;
   position: relative;
@@ -120,9 +120,6 @@ body {
 .summary-card.status-posted {
   border-left: 4px solid #629988;
 }
-.summary-card.status-completed {
-  border-left: 4px solid #5cb85c;
-}
 .summary-card.status-failed {
   border-left: 4px solid #d9534f;
 }
@@ -222,9 +219,6 @@ h3 {
   background: #fdf0f0;
   font-weight: 600;
 }
-.row-status-completed {
-  background: #f5fdf5;
-}
 
 .row-event-detected {
   border-left: 3px solid #f38222;
@@ -240,11 +234,41 @@ h3 {
   background: #fdf0f0;
   font-weight: 600;
 }
-.row-event-completed {
-  border-left: 3px solid #5cb85c;
+
+/* Event type badges */
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
 }
-.row-event-rejected {
-  border-left: 3px solid #999;
+
+.badge.pending {
+  background: #fef5e7;
+  color: #b86e1a;
+}
+
+.badge.posted {
+  background: #eaf5f1;
+  color: #3d6b5c;
+}
+
+.badge.failed {
+  background: #fdf0f0;
+  color: #a33;
+}
+
+.badge.detected {
+  background: #fdf5ed;
+  color: #8b6b3d;
+}
+
+.badge.enqueued {
+  background: #eaf5f1;
+  color: #3d6b5c;
 }
 
 /* Links */
@@ -256,20 +280,6 @@ a {
 
 a:hover {
   text-decoration: underline;
-}
-
-/* Event group */
-
-.event-group {
-  margin-bottom: 24px;
-}
-
-.event-group h3 {
-  text-transform: none;
-  letter-spacing: normal;
-  font-size: 1rem;
-  color: #472e22;
-  margin: 0 0 8px;
 }
 
 /* Pagination */
@@ -412,6 +422,27 @@ a:hover {
 
 .row-selected td {
   border-color: #f5d5b0;
+}
+
+/* Duration filter */
+
+.duration-select {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8b7d6b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid #d5c9b5;
+  border-radius: 4px;
+  padding: 2px 6px;
+  background: #faf7f2;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.duration-select:focus {
+  outline: none;
+  border-color: #c7b899;
 }
 
 /* Footer */

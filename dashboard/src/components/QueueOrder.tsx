@@ -1,8 +1,7 @@
-import { formatDate } from '../../../src/utils/formatDate.js';
+import { formatRelativeFuture } from '../../../src/utils/formatRelativeFuture.js';
 import type { QueueItem } from '../api.js';
 import { fetchQueueOrder, moveQueueItems } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
-import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
 import { useEffect, useRef, useState } from 'react';
 
@@ -11,9 +10,6 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
-  const { timezone } = useTimezone();
-  const suffix = useTimezoneSuffix();
-
   const [moveError, setMoveError] = useState<string | null>(null);
 
   const mountedRef = useRef(true);
@@ -119,7 +115,7 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
                 <th>Status</th>
                 <th>Repo</th>
                 <th>PR</th>
-                <th>Not Before{suffix}</th>
+                <th>Not Before</th>
                 <th className="col-actions"></th>
               </tr>
             </thead>
@@ -149,7 +145,7 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
                         #{item.pr_number}
                       </a>
                     </td>
-                    <td>{formatDate(item.not_before, timezone)}</td>
+                    <td>{formatRelativeFuture(item.not_before)}</td>
                     <td className="col-actions">
                       <button className="btn-arrow" onClick={() => moveSingle(item.id, 'up')} disabled={moving} aria-label="Move up">
                         ↑

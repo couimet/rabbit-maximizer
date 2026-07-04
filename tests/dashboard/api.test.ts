@@ -1,4 +1,4 @@
-import { fetchQueueOrder, fetchSummary, moveQueueItems } from '../../dashboard/src/api.js';
+import { fetchEvents, fetchQueue, fetchQueueOrder, fetchSummary, moveQueueItems } from '../../dashboard/src/api.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -28,6 +28,35 @@ describe('api', () => {
     it('throws with HTTP status when body has no error field', async () => {
       globalThis.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 502, json: () => Promise.resolve({}) } as Response)) as unknown as typeof fetch;
       await expect(fetchSummary()).rejects.toThrow('HTTP 502');
+    });
+
+    it('appends duration query param when provided', async () => {
+      const data = {
+        queueCounts: { pending: 0, posted: 0, failed: 0 },
+        eventCounts24h: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
+        oldestPending: null,
+      };
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;
+      await fetchSummary('2d');
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/summary?duration=2d', undefined);
+    });
+  });
+
+  describe('fetchQueue', () => {
+    it('returns parsed JSON on success', async () => {
+      const data = { data: [], total: 0, page: 1, pageSize: 20 };
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;
+      await expect(fetchQueue(1, 20)).resolves.toStrictEqual(data);
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue?page=1&pageSize=20', undefined);
+    });
+  });
+
+  describe('fetchEvents', () => {
+    it('returns parsed JSON on success', async () => {
+      const data = { data: [], total: 0, page: 1, pageSize: 50 };
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;
+      await expect(fetchEvents(1, 50)).resolves.toStrictEqual(data);
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/events?page=1&pageSize=50', undefined);
     });
   });
 

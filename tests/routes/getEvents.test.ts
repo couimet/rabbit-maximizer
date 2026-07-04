@@ -41,13 +41,13 @@ describe('getEvents', () => {
     startServer({ listRecent: jest.fn<any>().mockResolvedValue({ items, total: 1 }) });
 
     const json = await getJson(server, '/api/events');
-    expect(json).toStrictEqual({ data: items, total: 1, page: 1, pageSize: 20 });
+    expect(json).toStrictEqual({ data: items, total: 1, page: 1, pageSize: 50 });
   });
 
   it('returns empty data when no events exist', async () => {
     startServer();
     const json = await getJson(server, '/api/events');
-    expect(json).toStrictEqual({ data: [], total: 0, page: 1, pageSize: 20 });
+    expect(json).toStrictEqual({ data: [], total: 0, page: 1, pageSize: 50 });
   });
 
   it('parses page and pageSize from query string', async () => {
@@ -55,6 +55,26 @@ describe('getEvents', () => {
     startServer({ listRecent });
     await getJson(server, '/api/events?page=2&pageSize=10');
     expect(listRecent).toHaveBeenCalledWith(10, 10);
+  });
+
+  it('custom pageSize query param still works', async () => {
+    const items = [
+      {
+        id: 3,
+        uuid: 'evt-custom',
+        ts: '2026-06-25T10:00:00.000Z',
+        type: 'detected',
+        repo_full_name: 'o/r',
+        pr_number: 99,
+        correlation_id: 'corr-003',
+        version: '1.0.0',
+        payload: {},
+      },
+    ];
+    startServer({ listRecent: jest.fn<any>().mockResolvedValue({ items, total: 10 }) });
+
+    const json = await getJson(server, '/api/events?pageSize=5');
+    expect(json).toStrictEqual({ data: items, total: 10, page: 1, pageSize: 5 });
   });
 
   it('returns 500 and logs error on repository failure', async () => {
