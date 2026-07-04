@@ -24,7 +24,10 @@ const fetchJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
   return res.json();
 };
 
-export const fetchSummary = (): Promise<SummaryResponse> => fetchJson<SummaryResponse>(`${API_BASE}/summary`);
+export const fetchSummary = (duration?: string): Promise<SummaryResponse> => {
+  const params = duration ? `?duration=${duration}` : '';
+  return fetchJson<SummaryResponse>(`${API_BASE}/summary${params}`);
+};
 
 export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedResponse<QueueItem>> =>
   fetchJson<PaginatedResponse<QueueItem>>(`${API_BASE}/queue?page=${page}&pageSize=${pageSize}`);

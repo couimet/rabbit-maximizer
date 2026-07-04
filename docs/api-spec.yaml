@@ -10,6 +10,13 @@ paths:
   /api/summary:
     get:
       operationId: getSummary
+      parameters:
+        - name: duration
+          in: query
+          schema:
+            type: string
+            enum: [24h, 2d, 3d, 5d, 1w]
+            default: 24h
       responses:
         '200':
           description: Aggregate status summary
@@ -107,7 +114,7 @@ paths:
             type: integer
             minimum: 1
             maximum: 100
-            default: 20
+            default: 50
       responses:
         '200':
           description: Paginated events
@@ -115,6 +122,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedEvents'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/state/next_review_available_at:
+    get:
+      operationId: getNextReviewAvailable
+      responses:
+        '200':
+          description: Next review availability timestamp
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StateResponse'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -193,7 +213,7 @@ components:
 
     EventType:
       type: string
-      enum: [detected, enqueued, posted, rejected, completed, failed]
+      enum: [detected, enqueued, posted, bypassed, completed, failed]
 
     EventEntry:
       type: object
@@ -237,13 +257,11 @@ components:
 
     QueueCounts:
       type: object
-      required: [pending, posted, completed, failed]
+      required: [pending, posted, failed]
       properties:
         pending:
           type: integer
         posted:
-          type: integer
-        completed:
           type: integer
         failed:
           type: integer
@@ -251,7 +269,7 @@ components:
 
     EventCounts:
       type: object
-      required: [detected, enqueued, posted, rejected, completed, failed]
+      required: [detected, enqueued, posted, failed]
       properties:
         detected:
           type: integer
@@ -259,21 +277,17 @@ components:
           type: integer
         posted:
           type: integer
-        rejected:
-          type: integer
-        completed:
-          type: integer
         failed:
           type: integer
       additionalProperties: false
 
     Summary:
       type: object
-      required: [queueCounts, eventCounts24h, oldestPending]
+      required: [queueCounts, eventCounts, oldestPending]
       properties:
         queueCounts:
           $ref: '#/components/schemas/QueueCounts'
-        eventCounts24h:
+        eventCounts:
           $ref: '#/components/schemas/EventCounts'
         oldestPending:
           oneOf:
@@ -338,4 +352,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/QueueItem'
+      additionalProperties: false
+
+    StateResponse:
+      type: object
+      required: [next_review_available_at]
+      properties:
+        next_review_available_at:
+          type: string
+          format: date-time
+          nullable: true
       additionalProperties: false

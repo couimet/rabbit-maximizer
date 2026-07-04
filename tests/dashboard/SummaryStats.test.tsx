@@ -5,7 +5,7 @@ import { TimezoneProvider } from '../../dashboard/src/timezone.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
 
 const renderSummaryStats = (ui?: ReactElement) => render(<TimezoneProvider>{ui ?? <SummaryStats />}</TimezoneProvider>);
@@ -39,8 +39,8 @@ describe('SummaryStats', () => {
 
   describe('data', () => {
     const summaryData = {
-      queueCounts: { pending: 5, posted: 12, completed: 10, failed: 2 },
-      eventCounts24h: { detected: 8, enqueued: 7, posted: 3, bypassed: 1, completed: 14, failed: 1 },
+      queueCounts: { pending: 5, posted: 12, failed: 2 },
+      eventCounts: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
       oldestPending: null,
     };
 
@@ -58,10 +58,33 @@ describe('SummaryStats', () => {
 
     it('renders event counts from last 24h', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(String(summaryData.eventCounts24h.detected))).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(String(summaryData.eventCounts.detected))).toBeInTheDocument());
       expect(screen.getByText('detected')).toBeInTheDocument();
-      expect(screen.getByText(String(summaryData.eventCounts24h.enqueued))).toBeInTheDocument();
+      expect(screen.getByText(String(summaryData.eventCounts.enqueued))).toBeInTheDocument();
       expect(screen.getByText('enqueued')).toBeInTheDocument();
+    });
+
+    it('changes duration and re-fetches summary', async () => {
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Queue Counts')).toBeInTheDocument());
+
+      const newSummary = {
+        queueCounts: { pending: 1, posted: 0, failed: 0 },
+        eventCounts: { detected: 5, enqueued: 3, posted: 2, failed: 0 },
+        oldestPending: null,
+      };
+      const fetchCalls: string[] = [];
+      globalThis.fetch = jest.fn((url: string) => {
+        fetchCalls.push(url as string);
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve((url as string).includes('/api/queue/order') ? EMPTY_QUEUE_ORDER : newSummary),
+        } as Response);
+      }) as unknown as typeof fetch;
+
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '2d' } });
+      await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
     });
 
     it('renders the QueueOrder component on the Summary tab', async () => {

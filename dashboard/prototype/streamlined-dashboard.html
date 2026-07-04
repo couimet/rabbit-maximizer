@@ -1,0 +1,1020 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rabbit Maximizer — Streamlined Prototype</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      /* --- Reset & base (matches App.css) --- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f4f0e7;
+        color: #472e22;
+      }
+      .dashboard {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 24px 16px;
+        position: relative;
+      }
+
+      /* --- Header --- */
+      .dashboard-header {
+        margin-bottom: 24px;
+        text-align: center;
+      }
+      .logo {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 4px;
+        opacity: 0.85;
+      }
+      .dashboard-header h1 {
+        margin: 0 0 16px;
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #472e22;
+      }
+
+      /* --- Tabs --- */
+      .tabs {
+        display: flex;
+        gap: 0;
+        justify-content: center;
+        border-bottom: 2px solid #e3d6c3;
+      }
+      .tab {
+        padding: 8px 20px;
+        border: none;
+        background: none;
+        font-size: 0.95rem;
+        cursor: pointer;
+        color: #8b7d6b;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+      }
+      .tab:hover {
+        color: #472e22;
+      }
+      .tab.active {
+        color: #f38222;
+        font-weight: 600;
+        border-bottom-color: #f38222;
+      }
+
+      /* --- Countdown (signature element) --- */
+      .countdown-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 16px 24px;
+        margin-bottom: 20px;
+        background: #fff;
+        border: 1px solid #e3d6c3;
+        border-radius: 8px;
+      }
+      .countdown-bar.waiting {
+        border-left: 4px solid #f38222;
+        background: linear-gradient(135deg, #fff 0%, #fef9f2 100%);
+      }
+      .countdown-bar.available {
+        border-left: 4px solid #5cb85c;
+        background: linear-gradient(135deg, #fff 0%, #f4faf5 100%);
+      }
+      .countdown-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .countdown-dot.waiting {
+        background: #f38222;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .countdown-dot.available {
+        background: #5cb85c;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(1.3);
+        }
+      }
+      .countdown-label {
+        font-size: 0.8rem;
+        color: #8b7d6b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .countdown-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #472e22;
+      }
+      .countdown-value.available {
+        color: #2d6a4f;
+      }
+
+      /* --- Summary cards --- */
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .summary-card {
+        background: #fff;
+        border: 1px solid #e3d6c3;
+        border-radius: 6px;
+        padding: 14px 16px;
+        text-align: center;
+      }
+      .summary-card.pending {
+        border-left: 4px solid #f38222;
+      }
+      .summary-card.posted {
+        border-left: 4px solid #629988;
+      }
+      .summary-card.failed {
+        border-left: 4px solid #d9534f;
+      }
+      .summary-card.detected {
+        border-left: 4px solid #b0885c;
+      }
+      .summary-card.enqueued {
+        border-left: 4px solid #629988;
+      }
+      .stat-label {
+        display: block;
+        font-size: 0.75rem;
+        color: #8b7d6b;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .stat-value {
+        display: block;
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #472e22;
+      }
+
+      /* --- Duration selector (inline in h3) --- */
+      .duration-select {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #8b7d6b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border: 1px solid #d5c9b5;
+        border-radius: 4px;
+        padding: 2px 6px;
+        background: #faf7f2;
+        cursor: pointer;
+        margin-left: 4px;
+      }
+      .duration-select:focus {
+        outline: none;
+        border-color: #c7b899;
+      }
+
+      /* --- Section headings --- */
+      h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #472e22;
+        margin: 0 0 10px;
+      }
+      h3 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #8b7d6b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0 0 8px;
+      }
+
+      /* --- Tables --- */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border: 1px solid #e3d6c3;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 16px;
+      }
+      .data-table th,
+      .data-table td {
+        padding: 8px 12px;
+        text-align: left;
+        font-size: 0.85rem;
+      }
+      .data-table thead {
+        background: #f4f0e7;
+        border-bottom: 2px solid #e3d6c3;
+      }
+      .data-table th {
+        font-weight: 600;
+        color: #8b7d6b;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.04em;
+      }
+      .data-table tbody tr + tr {
+        border-top: 1px solid #f4f0e7;
+      }
+      .data-table tbody tr:nth-child(even) {
+        background: #faf8f4;
+      }
+      .empty-row {
+        text-align: center;
+        color: #8b7d6b;
+        padding: 24px;
+      }
+
+      /* --- Status badges --- */
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .badge.pending {
+        background: #fef5e7;
+        color: #b86e1a;
+      }
+      .badge.posted {
+        background: #eaf5f1;
+        color: #3d6b5c;
+      }
+      .badge.failed {
+        background: #fdf0f0;
+        color: #a33;
+      }
+      .badge.detected {
+        background: #fdf5ed;
+        color: #8b6b3d;
+      }
+      .badge.enqueued {
+        background: #eaf5f1;
+        color: #3d6b5c;
+      }
+
+      /* --- Queue order --- */
+      .queue-order-toolbar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+        align-items: center;
+      }
+      .queue-order-toolbar button {
+        padding: 6px 16px;
+        border: 1px solid #e3d6c3;
+        background: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: #472e22;
+        transition:
+          background 0.15s,
+          border-color 0.15s;
+      }
+      .queue-order-toolbar button:hover {
+        background: #f4f0e7;
+        border-color: #f38222;
+      }
+      .queue-order-toolbar button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .col-select {
+        width: 36px;
+        text-align: center;
+      }
+      .col-position {
+        width: 40px;
+        text-align: center;
+        color: #8b7d6b;
+        font-weight: 600;
+      }
+      .col-actions {
+        width: 64px;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .btn-arrow {
+        padding: 2px 8px;
+        border: 1px solid #e3d6c3;
+        background: #fff;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        color: #8b7d6b;
+        line-height: 1;
+      }
+      .btn-arrow + .btn-arrow {
+        margin-left: 4px;
+      }
+      .btn-arrow:hover {
+        background: #f4f0e7;
+        border-color: #f38222;
+        color: #f38222;
+      }
+
+      /* --- Selected rows --- */
+      .row-selected {
+        background: #fef7f0 !important;
+      }
+      .row-selected td {
+        border-color: #f5d5b0;
+      }
+
+      /* --- Event groups --- */
+      .event-group {
+        background: #fff;
+        border: 1px solid #e3d6c3;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        overflow: hidden;
+      }
+      .event-group-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.1s;
+      }
+      .event-group-header:hover {
+        background: #faf8f4;
+      }
+      .event-group-header .expand-arrow {
+        font-size: 0.7rem;
+        color: #8b7d6b;
+        transition: transform 0.15s;
+        width: 14px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .event-group-header .expand-arrow.open {
+        transform: rotate(90deg);
+      }
+      .event-group-pr {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #472e22;
+        flex: 1;
+      }
+      .event-group-summary {
+        font-size: 0.8rem;
+        color: #8b7d6b;
+      }
+      .event-group-time {
+        font-size: 0.78rem;
+        color: #8b7d6b;
+        white-space: nowrap;
+      }
+      .event-group-body {
+        border-top: 1px solid #e3d6c3;
+      }
+      .event-group-body .data-table {
+        border: none;
+        border-radius: 0;
+        margin-bottom: 0;
+      }
+      .event-group-body .data-table thead {
+        background: #faf8f4;
+      }
+
+      /* --- Pagination --- */
+      .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        margin-top: 8px;
+      }
+      .pagination button {
+        padding: 6px 16px;
+        border: 1px solid #e3d6c3;
+        background: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        color: #472e22;
+      }
+      .pagination button:hover:not(:disabled) {
+        background: #f4f0e7;
+        border-color: #f38222;
+      }
+      .pagination button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .page-info {
+        font-size: 0.8rem;
+        color: #8b7d6b;
+      }
+
+      /* --- Footer --- */
+      .dashboard-footer {
+        margin-top: 48px;
+        padding: 16px 0;
+        text-align: center;
+        border-top: 1px solid #e3d6c3;
+      }
+      .dashboard-footer a {
+        font-size: 0.8rem;
+        color: #8b7d6b;
+      }
+
+      /* --- Links --- */
+      a {
+        color: #629988;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+
+      /* --- Prototype banner --- */
+      .prototype-banner {
+        position: fixed;
+        bottom: 12px;
+        right: 12px;
+        background: #f38222;
+        color: #fff;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        opacity: 0.85;
+        z-index: 100;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div class="prototype-banner">Prototype — mock data</div>
+
+    <script type="text/babel">
+      const { useState, useEffect, useCallback, useMemo } = React;
+
+      // ── Mock data ──────────────────────────────────────────────────────────────
+
+      const NOW = new Date();
+      const minAgo = (m) => new Date(NOW - m * 60_000).toISOString();
+      const hrsAgo = (h) => new Date(NOW - h * 3_600_000).toISOString();
+
+      const minFromNow = (m) => new Date(NOW.getTime() + m * 60_000).toISOString();
+      const hrsFromNow = (h) => new Date(NOW.getTime() + h * 3_600_000).toISOString();
+
+      const COUNTDOWN_TARGET = new Date(NOW.getTime() + 2.1 * 3_600_000); // ~2h 6m from now
+
+      const QUEUE_COUNTS = { pending: 3, posted: 2, failed: 1 };
+
+      const EVENT_COUNTS_BY_DURATION = {
+        '24h': { detected: 12, enqueued: 8, posted: 5, failed: 1 },
+        '2d': { detected: 20, enqueued: 15, posted: 10, failed: 2 },
+        '3d': { detected: 28, enqueued: 22, posted: 15, failed: 3 },
+        '5d': { detected: 40, enqueued: 32, posted: 22, failed: 4 },
+        '7d': { detected: 52, enqueued: 41, posted: 29, failed: 5 },
+      };
+
+      const EVENT_DURATIONS = Object.keys(EVENT_COUNTS_BY_DURATION);
+
+      const PENDING_ITEMS = [
+        {
+          id: 5,
+          position: 1,
+          repo: 'couimet/rabbit-maximizer',
+          pr: 42,
+          not_before: minAgo(10),
+          attempts: 0,
+          source_comment_url: 'https://github.com/couimet/rabbit-maximizer/issues/42#issuecomment-1',
+        },
+        {
+          id: 3,
+          position: 2,
+          repo: 'couimet/configs',
+          pr: 17,
+          not_before: minFromNow(25),
+          attempts: 1,
+          source_comment_url: 'https://github.com/couimet/configs/issues/17#issuecomment-2',
+        },
+        {
+          id: 7,
+          position: 3,
+          repo: 'couimet/dotfiles',
+          pr: 9,
+          not_before: hrsFromNow(1),
+          attempts: 0,
+          source_comment_url: 'https://github.com/couimet/dotfiles/issues/9#issuecomment-3',
+        },
+        {
+          id: 2,
+          position: 4,
+          repo: 'couimet/notes',
+          pr: 23,
+          not_before: hrsFromNow(2),
+          attempts: 2,
+          source_comment_url: 'https://github.com/couimet/notes/issues/23#issuecomment-4',
+        },
+        {
+          id: 9,
+          position: 5,
+          repo: 'couimet/scripts',
+          pr: 5,
+          not_before: hrsFromNow(4),
+          attempts: 0,
+          source_comment_url: 'https://github.com/couimet/scripts/issues/5#issuecomment-5',
+        },
+      ];
+
+      // Each PR group has a list of events
+      const PR_GROUPS = [
+        {
+          repo: 'couimet/rabbit-maximizer',
+          pr: 42,
+          latestEvent: hrsAgo(0.5),
+          summary: 'posted',
+          events: [
+            { type: 'detected', ts: hrsAgo(2), detail: 'Rate-limit comment detected' },
+            { type: 'enqueued', ts: hrsAgo(1.9), detail: 'Enqueued with 65m wait' },
+            { type: 'posted', ts: hrsAgo(0.5), detail: 'Retrigger posted' },
+          ],
+        },
+        {
+          repo: 'couimet/configs',
+          pr: 17,
+          latestEvent: hrsAgo(3),
+          summary: 'failed',
+          events: [
+            { type: 'detected', ts: hrsAgo(4), detail: 'Rate-limit comment detected' },
+            { type: 'enqueued', ts: hrsAgo(3.9), detail: 'Enqueued with 60m wait' },
+            { type: 'posted', ts: hrsAgo(3.5), detail: 'Retrigger posted (attempt 1)' },
+            { type: 'failed', ts: hrsAgo(3), detail: 'PR closed without merge (404)' },
+          ],
+        },
+        {
+          repo: 'couimet/dotfiles',
+          pr: 9,
+          latestEvent: hrsAgo(1.2),
+          summary: 'posted',
+          events: [
+            { type: 'detected', ts: hrsAgo(2.5), detail: 'Rate-limit comment detected' },
+            { type: 'enqueued', ts: hrsAgo(2.4), detail: 'Enqueued with 72m wait' },
+            { type: 'posted', ts: hrsAgo(1.2), detail: 'Retrigger posted' },
+          ],
+        },
+        {
+          repo: 'couimet/notes',
+          pr: 23,
+          latestEvent: hrsAgo(5),
+          summary: 'posted',
+          events: [
+            { type: 'detected', ts: hrsAgo(6), detail: 'Rate-limit comment detected' },
+            { type: 'enqueued', ts: hrsAgo(5.9), detail: 'Enqueued with 55m wait' },
+            { type: 'posted', ts: hrsAgo(5), detail: 'Retrigger posted' },
+          ],
+        },
+        {
+          repo: 'couimet/scripts',
+          pr: 5,
+          latestEvent: hrsAgo(8),
+          summary: 'posted',
+          events: [
+            { type: 'detected', ts: hrsAgo(9), detail: 'Rate-limit comment detected' },
+            { type: 'enqueued', ts: hrsAgo(8.9), detail: 'Enqueued with 48m wait' },
+            { type: 'posted', ts: hrsAgo(8), detail: 'Retrigger posted' },
+          ],
+        },
+        {
+          repo: 'couimet/old-project',
+          pr: 12,
+          latestEvent: hrsAgo(10),
+          summary: 'posted',
+          events: [
+            { type: 'detected', ts: hrsAgo(11), detail: 'Rate-limit comment detected' },
+            { type: 'enqueued', ts: hrsAgo(10.9), detail: 'Enqueued with 60m wait' },
+            { type: 'posted', ts: hrsAgo(10), detail: 'Retrigger posted' },
+          ],
+        },
+        {
+          repo: 'couimet/legacy',
+          pr: 3,
+          latestEvent: hrsAgo(14),
+          summary: 'failed',
+          events: [
+            { type: 'detected', ts: hrsAgo(15), detail: 'Rate-limit comment detected' },
+            { type: 'enqueued', ts: hrsAgo(14.9), detail: 'Enqueued with 60m wait' },
+            { type: 'posted', ts: hrsAgo(14.5), detail: 'Retrigger posted (attempt 1)' },
+            { type: 'posted', ts: hrsAgo(14.3), detail: 'Retrigger posted (attempt 2)' },
+            { type: 'failed', ts: hrsAgo(14), detail: 'PR closed without merge (410)' },
+          ],
+        },
+      ];
+
+      const EVENTS_PER_PAGE = 50;
+
+      // Flatten all events for row-based pagination (PR grouping is visual, not pagination boundary)
+      const ALL_EVENTS = PR_GROUPS.flatMap((g) => g.events.map((ev) => ({ ...ev, repo: g.repo, pr: g.pr, summary: g.summary, latestEvent: g.latestEvent })));
+
+      // ── Helpers ─────────────────────────────────────────────────────────────────
+
+      const formatTime = (iso) => {
+        const d = new Date(iso);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      };
+      const formatDateTime = (iso) => {
+        const d = new Date(iso);
+        return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      };
+      const formatRelative = (iso) => {
+        const diffMin = Math.round((NOW - new Date(iso)) / 60_000);
+        if (diffMin < 1) return 'just now';
+        if (diffMin < 60) return `${diffMin}m ago`;
+        const hrs = Math.floor(diffMin / 60);
+        return `${hrs}h ago`;
+      };
+
+      const formatNotBefore = (iso) => {
+        const diffMin = Math.round((new Date(iso) - NOW) / 60_000);
+        if (diffMin <= 0) return 'eligible now';
+        if (diffMin < 60) return `in ${diffMin}m`;
+        const hrs = Math.floor(diffMin / 60);
+        const mins = diffMin % 60;
+        if (hrs < 24) return mins > 0 ? `in ${hrs}h ${mins}m` : `in ${hrs}h`;
+        const days = Math.floor(hrs / 24);
+        return `in ${days}d ${hrs % 24}h`;
+      };
+      const statusBadge = (status) => <span className={`badge ${status}`}>{status}</span>;
+
+      // ── Countdown ───────────────────────────────────────────────────────────────
+
+      const Countdown = ({ target }) => {
+        const [now, setNow] = useState(Date.now());
+
+        useEffect(() => {
+          const id = setInterval(() => setNow(Date.now()), 1000);
+          return () => clearInterval(id);
+        }, [target]);
+
+        const diffMs = target.getTime() - now;
+
+        if (diffMs <= 0) {
+          return (
+            <div className="countdown-bar available">
+              <div className="countdown-dot available" />
+              <span className="countdown-label">Next review</span>
+              <span className="countdown-value available">Available now</span>
+            </div>
+          );
+        }
+
+        const totalSec = Math.floor(diffMs / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+
+        return (
+          <div className="countdown-bar waiting">
+            <div className="countdown-dot waiting" />
+            <span className="countdown-label">Next review available in</span>
+            <span className="countdown-value">
+              {h}h {String(m).padStart(2, '0')}m {String(s).padStart(2, '0')}s
+            </span>
+          </div>
+        );
+      };
+
+      // ── Summary Tab ─────────────────────────────────────────────────────────────
+
+      const SummaryTab = () => {
+        const [waiting, setWaiting] = useState(true);
+        const [eventDuration, setEventDuration] = useState('24h');
+        const target = waiting ? COUNTDOWN_TARGET : new Date(Date.now() - 1);
+        const eventCounts = EVENT_COUNTS_BY_DURATION[eventDuration];
+
+        return (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ flex: 1 }}>
+                <Countdown target={target} />
+              </div>
+              <button
+                onClick={() => setWaiting((w) => !w)}
+                style={{
+                  padding: '4px 12px',
+                  border: '1px solid #e3d6c3',
+                  background: '#fff',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  color: '#8b7d6b',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                }}
+              >
+                {waiting ? 'Show: Available' : 'Show: Waiting'}
+              </button>
+            </div>
+
+            <h3>Queue Counts</h3>
+            <div className="summary-grid">
+              {Object.entries(QUEUE_COUNTS).map(([status, count]) => (
+                <div key={status} className={`summary-card ${status}`}>
+                  <span className="stat-label">{status}</span>
+                  <span className="stat-value">{count}</span>
+                </div>
+              ))}
+            </div>
+
+            <h3>
+              Events —{' '}
+              <select className="duration-select" value={eventDuration} onChange={(e) => setEventDuration(e.target.value)}>
+                {EVENT_DURATIONS.map((d) => (
+                  <option key={d} value={d}>
+                    Last {d}
+                  </option>
+                ))}
+              </select>
+            </h3>
+            <div className="summary-grid">
+              {Object.entries(eventCounts).map(([type, count]) => (
+                <div key={type} className={`summary-card ${type}`}>
+                  <span className="stat-label">{type}</span>
+                  <span className="stat-value">{count}</span>
+                </div>
+              ))}
+            </div>
+
+            <QueueOrderSection />
+          </div>
+        );
+      };
+
+      // ── Queue Order (shared between Summary and Queue tabs) ─────────────────────
+
+      const QueueOrderSection = () => {
+        const [items, setItems] = useState(PENDING_ITEMS);
+        const [selected, setSelected] = useState(new Set());
+
+        const toggleSelect = (id) => {
+          setSelected((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+          });
+        };
+
+        const moveUp = () => {
+          const sel = [...selected].sort((a, b) => {
+            const pa = items.find((i) => i.id === a)?.position ?? 0;
+            const pb = items.find((i) => i.id === b)?.position ?? 0;
+            return pa - pb;
+          });
+          if (!sel.length) return;
+          setItems((prev) => {
+            const next = [...prev];
+            const targetPos = Math.max(1, (next.find((i) => i.id === sel[0])?.position ?? 1) - 1);
+            for (const id of sel) {
+              const item = next.find((i) => i.id === id);
+              if (item) item.position = targetPos + sel.indexOf(id);
+            }
+            return [...next].sort((a, b) => a.position - b.position);
+          });
+        };
+
+        const moveDown = () => {
+          const sel = [...selected].sort((a, b) => {
+            const pa = items.find((i) => i.id === a)?.position ?? 0;
+            const pb = items.find((i) => i.id === b)?.position ?? 0;
+            return pa - pb;
+          });
+          if (!sel.length) return;
+          setItems((prev) => {
+            const next = [...prev];
+            const targetPos = (next.find((i) => i.id === sel[sel.length - 1])?.position ?? 1) + 1;
+            if (targetPos > next.length) return next;
+            for (const id of sel) {
+              const item = next.find((i) => i.id === id);
+              if (item) item.position = targetPos + sel.indexOf(id);
+            }
+            return [...next].sort((a, b) => a.position - b.position);
+          });
+        };
+
+        return (
+          <div>
+            <h3>Pending Queue Order</h3>
+            <div className="queue-order-toolbar">
+              <button onClick={moveUp} disabled={selected.size === 0}>
+                ▲ Move Up
+              </button>
+              <button onClick={moveDown} disabled={selected.size === 0}>
+                ▼ Move Down
+              </button>
+              <span style={{ fontSize: '0.8rem', color: '#8b7d6b', marginLeft: 8 }}>
+                {selected.size > 0 ? `${selected.size} selected` : 'Select items to reorder'}
+              </span>
+            </div>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th className="col-select"></th>
+                  <th className="col-position">#</th>
+                  <th>Repository</th>
+                  <th>PR</th>
+                  <th>Not Before</th>
+                  <th>Attempts</th>
+                  <th className="col-actions"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id} className={selected.has(item.id) ? 'row-selected' : ''}>
+                    <td className="col-select">
+                      <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggleSelect(item.id)} />
+                    </td>
+                    <td className="col-position">{item.position}</td>
+                    <td>{item.repo}</td>
+                    <td>
+                      <a href={`https://github.com/${item.repo}/pull/${item.pr}`} target="_blank" rel="noopener">
+                        #{item.pr}
+                      </a>
+                    </td>
+                    <td>{formatNotBefore(item.not_before)}</td>
+                    <td>{item.attempts}</td>
+                    <td className="col-actions">
+                      <button
+                        className="btn-arrow"
+                        title="Move up"
+                        onClick={() => {
+                          setSelected(new Set([item.id]));
+                          setTimeout(() => moveUp(), 0);
+                        }}
+                      >
+                        ▲
+                      </button>
+                      <button
+                        className="btn-arrow"
+                        title="Move down"
+                        onClick={() => {
+                          setSelected(new Set([item.id]));
+                          setTimeout(() => moveDown(), 0);
+                        }}
+                      >
+                        ▼
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      };
+
+      // ── Events Tab ──────────────────────────────────────────────────────────────
+
+      const EventsTab = () => {
+        const [page, setPage] = useState(1);
+        const totalPages = Math.ceil(ALL_EVENTS.length / EVENTS_PER_PAGE);
+        const pageEvents = ALL_EVENTS.slice((page - 1) * EVENTS_PER_PAGE, page * EVENTS_PER_PAGE);
+
+        // Build rows with group headers when PR changes
+        const rows = [];
+        let lastKey = '';
+        for (const ev of pageEvents) {
+          const key = `${ev.repo}#${ev.pr}`;
+          if (key !== lastKey) {
+            rows.push({ type: 'header', key, repo: ev.repo, pr: ev.pr, summary: ev.summary, latestEvent: ev.latestEvent });
+            lastKey = key;
+          }
+          rows.push({ type: 'event', key: `${key}-${ev.ts}`, ...ev });
+        }
+
+        return (
+          <div>
+            <p style={{ fontSize: '0.85rem', color: '#8b7d6b', margin: '0 0 12px' }}>
+              All events, newest first. Events from the same PR are grouped visually. {ALL_EVENTS.length} total events.
+            </p>
+
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Repository</th>
+                  <th>PR</th>
+                  <th>Type</th>
+                  <th>When</th>
+                  <th>Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) =>
+                  row.type === 'header' ? (
+                    <tr key={row.key} style={{ background: '#f4f0e7', borderTop: '2px solid #e3d6c3' }}>
+                      <td style={{ fontWeight: 600 }}>
+                        <a href={`https://github.com/${row.repo}/pull/${row.pr}`} target="_blank" rel="noopener">
+                          {row.repo}
+                        </a>
+                      </td>
+                      <td style={{ fontWeight: 600 }}>#{row.pr}</td>
+                      <td>{statusBadge(row.summary)}</td>
+                      <td style={{ color: '#8b7d6b', fontSize: '0.8rem' }}>{formatRelative(row.latestEvent)}</td>
+                      <td></td>
+                    </tr>
+                  ) : (
+                    <tr key={row.key} className={`row-event-${row.type}`}>
+                      <td></td>
+                      <td></td>
+                      <td>{statusBadge(row.type)}</td>
+                      <td style={{ fontSize: '0.8rem' }}>{formatDateTime(row.ts)}</td>
+                      <td style={{ color: '#8b7d6b', fontSize: '0.8rem' }}>{row.detail}</td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+
+            <div className="pagination">
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                ← Previous
+              </button>
+              <span className="page-info">
+                Page {page} of {totalPages} ({EVENTS_PER_PAGE} events/page)
+              </span>
+              <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                Next →
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      // ── App ─────────────────────────────────────────────────────────────────────
+
+      const TABS = [
+        { key: 'summary', label: 'Summary' },
+        { key: 'events', label: 'Events' },
+      ];
+
+      const App = () => {
+        const [tab, setTab] = useState('summary');
+
+        return (
+          <div className="dashboard">
+            <header className="dashboard-header">
+              <img src="/icon_256.png" alt="Rabbit Maximizer" className="logo" />
+              <h1>Rabbit Maximizer</h1>
+              <nav className="tabs" role="tablist">
+                {TABS.map(({ key, label }) => (
+                  <button key={key} className={`tab${tab === key ? ' active' : ''}`} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>
+                    {label}
+                  </button>
+                ))}
+              </nav>
+            </header>
+
+            <main>
+              {tab === 'summary' && <SummaryTab />}
+              {tab === 'events' && <EventsTab />}
+            </main>
+
+            <footer className="dashboard-footer">
+              <a href="https://github.com/couimet/rabbit-maximizer" target="_blank" rel="noopener noreferrer">
+                github.com/couimet/rabbit-maximizer
+              </a>
+            </footer>
+          </div>
+        );
+      };
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>

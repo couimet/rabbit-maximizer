@@ -7,21 +7,19 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const emptySummary = {
-  queueCounts: { pending: 0, posted: 0, completed: 0, failed: 0 },
-  eventCounts24h: { detected: 0, enqueued: 0, posted: 0, bypassed: 0, completed: 0, failed: 0 },
+  queueCounts: { pending: 0, posted: 0, failed: 0 },
+  eventCounts: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
   oldestPending: null,
 };
-const emptyQueue = { data: [], total: 0, page: 1, pageSize: 20 };
-const emptyEvents = { data: [], total: 0, page: 1, pageSize: 20 };
+const emptyEvents = { data: [], total: 0, page: 1, pageSize: 50 };
 const emptyQueueOrder = { data: [] };
 
 describe('App', () => {
   beforeEach(() => {
     localStorage.clear();
     const responses: Record<string, unknown> = {
-      '/api/summary': emptySummary,
-      '/api/queue?page=1&pageSize=20': emptyQueue,
-      '/api/events?page=1&pageSize=20': emptyEvents,
+      '/api/summary?duration=24h': emptySummary,
+      '/api/events?page=1&pageSize=50': emptyEvents,
       '/api/queue/order': emptyQueueOrder,
     };
     globalThis.fetch = jest.fn((url: string) =>
@@ -40,10 +38,9 @@ describe('App', () => {
     await screen.findByText('No pending items.');
   });
 
-  it('renders all three tab buttons', async () => {
+  it('renders two tab buttons', async () => {
     render(<App />);
     expect(screen.getByText('Summary')).toBeInTheDocument();
-    expect(screen.getByText('Queue')).toBeInTheDocument();
     expect(screen.getByText('Events')).toBeInTheDocument();
     await screen.findByText('No pending items.');
   });
@@ -59,12 +56,6 @@ describe('App', () => {
   it('shows Summary tab content by default', async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText('No pending items.')).toBeInTheDocument());
-  });
-
-  it('switches to Queue tab and shows empty state', async () => {
-    render(<App />);
-    fireEvent.click(screen.getByText('Queue'));
-    await waitFor(() => expect(screen.getByText('No queue items.')).toBeInTheDocument());
   });
 
   it('switches to Events tab and shows empty state', async () => {

@@ -6,7 +6,7 @@ import { createMockFetch } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 const renderEventHistory = () =>
   render(
@@ -15,7 +15,7 @@ const renderEventHistory = () =>
     </TimezoneProvider>,
   );
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
 const makeEvent = (over: Record<string, unknown> = {}) => ({
   id: 1,
@@ -61,25 +61,30 @@ describe('EventHistory', () => {
       });
     });
 
-    it('groups events by repo and PR', async () => {
+    it('renders repo links for each PR group header row', async () => {
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('couimet/rabbit-maximizer')).toBeInTheDocument());
+      await screen.findByText('couimet/rabbit-maximizer');
       expect(screen.getByText('couimet/other')).toBeInTheDocument();
     });
 
-    it('renders event types and timestamps within each group', async () => {
+    it('renders event types as badges within rows', async () => {
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('detected')).toBeInTheDocument());
+      await screen.findAllByText('2026-06-23 10:00:00');
+      expect(screen.getByText('detected')).toBeInTheDocument();
       expect(screen.getByText('enqueued')).toBeInTheDocument();
       expect(screen.getByText('posted')).toBeInTheDocument();
-      expect(screen.getByText('failed')).toBeInTheDocument();
-      expect(screen.getByText('2026-06-23 10:00:00')).toBeInTheDocument();
-      expect(screen.getByText('2026-06-23 11:30:00')).toBeInTheDocument();
+      expect(screen.getAllByText('failed')).toHaveLength(1);
+    });
+
+    it('renders absolute timestamps in the When column', async () => {
+      renderEventHistory();
+      await screen.findAllByText('2026-06-23 10:00:00');
+      expect(screen.getAllByText('2026-06-23 11:30:00')).toHaveLength(1);
     });
 
     it('renders repo and PR links opening in new tabs', async () => {
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('couimet/rabbit-maximizer')).toBeInTheDocument());
+      await screen.findByText('couimet/rabbit-maximizer');
 
       const repoLink = screen.getByText('couimet/rabbit-maximizer').closest('a');
       expect(repoLink).toHaveAttribute('href', 'https://github.com/couimet/rabbit-maximizer');
@@ -90,9 +95,31 @@ describe('EventHistory', () => {
       expect(prLink).toHaveAttribute('target', '_blank');
     });
 
-    it('shows correlation IDs for each event', async () => {
+    it('shows payload JSON in Detail column when payload is non-empty', async () => {
+      createMockFetch(200, {
+        data: [makeEvent({ id: 10, type: 'detected', payload: { reason: 'rate limited' } })],
+        total: 1,
+        page: 1,
+        pageSize: PAGE_SIZE,
+      });
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('corr-002')).toBeInTheDocument());
+      await screen.findByText('{"reason":"rate limited"}');
+    });
+
+    it('falls back to correlation_id when payload is null', async () => {
+      createMockFetch(200, {
+        data: [makeEvent({ id: 11, type: 'detected', correlation_id: 'fallback-99', payload: null as unknown as Record<string, unknown> })],
+        total: 1,
+        page: 1,
+        pageSize: PAGE_SIZE,
+      });
+      renderEventHistory();
+      await screen.findByText('fallback-99');
+    });
+
+    it('shows correlation IDs in the Detail column', async () => {
+      renderEventHistory();
+      await screen.findByText('corr-002');
       expect(screen.getAllByText('corr-001')).toHaveLength(3);
     });
   });
@@ -101,7 +128,7 @@ describe('EventHistory', () => {
     it('shows empty message when no events exist', async () => {
       createMockFetch(200, { data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('No events.')).toBeInTheDocument());
+      await screen.findByText('No events.');
     });
   });
 
@@ -109,18 +136,28 @@ describe('EventHistory', () => {
     it('disables Previous on first page', async () => {
       createMockFetch(200, { data: [makeEvent()], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('detected')).toBeInTheDocument());
+      await screen.findByText('corr-001');
       expect(screen.getByText('Previous').closest('button')).toBeDisabled();
     });
 
     it('fetches next page when Next is clicked', async () => {
-      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 50, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 100, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('detected')).toBeInTheDocument());
+      await screen.findByText('corr-001');
 
-      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 50, page: 2, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 100, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
-      await waitFor(() => expect(screen.getByText('completed')).toBeInTheDocument());
+      await screen.findByText('corr-001');
+    });
+
+    it('fetches previous page when Previous is clicked from page 2', async () => {
+      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 100, page: 2, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('corr-001');
+
+      createMockFetch(200, { data: [makeEvent({ id: 88, type: 'enqueued' })], total: 100, page: 1, pageSize: PAGE_SIZE });
+      fireEvent.click(screen.getByText('Previous'));
+      await screen.findByText('corr-001');
     });
   });
 
@@ -138,7 +175,7 @@ describe('EventHistory', () => {
     it('shows error message on HTTP failure', async () => {
       createMockFetch(500, { error: 'Internal server error' });
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('Failed to load events: Internal server error')).toBeInTheDocument());
+      await screen.findByText('Failed to load events: Internal server error');
     });
   });
 
@@ -153,14 +190,14 @@ describe('EventHistory', () => {
       });
     });
 
-    it('renders column header without timezone suffix for non-UTC', async () => {
+    it('renders When column header without timezone suffix for non-UTC', async () => {
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('Time')).toBeInTheDocument());
+      await screen.findByText('When');
     });
 
-    it('formats dates in the selected timezone', async () => {
+    it('formats timestamps in the selected timezone', async () => {
       renderEventHistory();
-      await waitFor(() => expect(screen.getByText('2026-06-23 10:30:00')).toBeInTheDocument());
+      await screen.findAllByText('2026-06-23 10:30:00');
     });
   });
 });

@@ -1,16 +1,13 @@
 import EventHistory from './components/EventHistory.js';
-import QueueOrder from './components/QueueOrder.js';
-import QueueTable from './components/QueueTable.js';
 import SummaryStats from './components/SummaryStats.js';
 import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone } from './timezone.js';
 
 import { useMemo, useState } from 'react';
 
-type Tab = 'summary' | 'queue' | 'events';
+type Tab = 'summary' | 'events';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'summary', label: 'Summary' },
-  { key: 'queue', label: 'Queue' },
   { key: 'events', label: 'Events' },
 ];
 
@@ -50,14 +47,6 @@ const AppContent = () => {
       <main className="dashboard-content">
         <div role="tabpanel" id="panel-summary" aria-labelledby="tab-summary" hidden={activeTab !== 'summary'}>
           {activeTab === 'summary' && <SummaryStats />}
-        </div>
-        <div role="tabpanel" id="panel-queue" aria-labelledby="tab-queue" hidden={activeTab !== 'queue'}>
-          {activeTab === 'queue' && (
-            <>
-              <QueueOrder />
-              <QueueTable />
-            </>
-          )}
         </div>
         <div role="tabpanel" id="panel-events" aria-labelledby="tab-events" hidden={activeTab !== 'events'}>
           {activeTab === 'events' && <EventHistory />}
