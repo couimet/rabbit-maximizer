@@ -61,11 +61,7 @@ const EventHistory = () => {
               #{event.pr_number}
             </a>
           </td>
-          <td>
-            <span className={`badge ${event.type}`}>{event.type}</span>
-          </td>
-          <td style={{ whiteSpace: 'nowrap' }}>{formatDate(event.ts, timezone)}</td>
-          <td />
+          <td colSpan={3} />
         </tr>,
       );
       lastKey = key;

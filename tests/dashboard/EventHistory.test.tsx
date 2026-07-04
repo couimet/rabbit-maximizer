@@ -70,15 +70,16 @@ describe('EventHistory', () => {
     it('renders event types as badges within rows', async () => {
       renderEventHistory();
       await screen.findAllByText('2026-06-23 10:00:00');
+      expect(screen.getByText('detected')).toBeInTheDocument();
       expect(screen.getByText('enqueued')).toBeInTheDocument();
       expect(screen.getByText('posted')).toBeInTheDocument();
-      expect(screen.getAllByText('failed')).toHaveLength(2);
+      expect(screen.getAllByText('failed')).toHaveLength(1);
     });
 
     it('renders absolute timestamps in the When column', async () => {
       renderEventHistory();
       await screen.findAllByText('2026-06-23 10:00:00');
-      expect(screen.getAllByText('2026-06-23 11:30:00')).toHaveLength(2);
+      expect(screen.getAllByText('2026-06-23 11:30:00')).toHaveLength(1);
     });
 
     it('renders repo and PR links opening in new tabs', async () => {

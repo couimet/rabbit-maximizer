@@ -5,7 +5,10 @@ import { prUrl, repoUrl } from '../githubUrl.js';
 
 import { useEffect, useRef, useState } from 'react';
 
+const RELATIVE_TIME_REFRESH_MS = 60_000;
+
 const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}) => {
+  const [, forceTick] = useState(0);
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +20,11 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
     return () => {
       mountedRef.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => forceTick((t) => t + 1), RELATIVE_TIME_REFRESH_MS);
+    return () => clearInterval(id);
   }, []);
 
   useEffect(() => {

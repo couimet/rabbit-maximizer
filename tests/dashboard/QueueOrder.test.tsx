@@ -1,7 +1,6 @@
 /** @jest-environment jsdom */
 
 import QueueOrder from '../../dashboard/src/components/QueueOrder.js';
-import { TimezoneProvider } from '../../dashboard/src/timezone.js';
 import { createMockFetch } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
@@ -9,12 +8,7 @@ import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-t
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-const renderQueueOrder = () =>
-  render(
-    <TimezoneProvider>
-      <QueueOrder />
-    </TimezoneProvider>,
-  );
+const renderQueueOrder = () => render(<QueueOrder />);
 
 const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   id: getUniqueInt(),

@@ -18,7 +18,7 @@ export const createGetSummaryHandler = (queueRepo: QueueRepository, eventRepo: E
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const rawDuration = typeof req.query.duration === 'string' ? req.query.duration : '';
-      const duration = rawDuration in DURATION_MS ? rawDuration : DEFAULT_DURATION;
+      const duration = Object.hasOwn(DURATION_MS, rawDuration) ? rawDuration : DEFAULT_DURATION;
       const since = new Date(Date.now() - DURATION_MS[duration]);
 
       const [queueCounts, eventCounts, oldestPending] = await Promise.all([
@@ -30,7 +30,7 @@ export const createGetSummaryHandler = (queueRepo: QueueRepository, eventRepo: E
       const { completed: _qcCompleted, ...activeQueueCounts } = queueCounts;
       const { bypassed: _ecBypassed, completed: _ecCompleted, ...activeEventCounts } = eventCounts;
 
-      res.json({ queueCounts: activeQueueCounts, eventCounts24h: activeEventCounts, oldestPending });
+      res.json({ queueCounts: activeQueueCounts, eventCounts: activeEventCounts, oldestPending });
     } catch (error) {
       logger.error({ fn: 'api.getSummary', error }, 'Failed to get summary');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get summary' });

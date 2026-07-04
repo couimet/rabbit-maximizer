@@ -8,7 +8,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const emptySummary = {
   queueCounts: { pending: 0, posted: 0, failed: 0 },
-  eventCounts24h: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
+  eventCounts: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
   oldestPending: null,
 };
 const emptyEvents = { data: [], total: 0, page: 1, pageSize: 50 };

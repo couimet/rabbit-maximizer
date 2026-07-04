@@ -44,7 +44,7 @@ const SummaryStats = () => {
 
       <h3>
         Events —{' '}
-        <select className="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)}>
+        <select className="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)} aria-label="Events time range">
           <option value={DEFAULT_DURATION}>Last 24h</option>
           <option value="2d">Last 2d</option>
           <option value="3d">Last 3d</option>
@@ -53,7 +53,7 @@ const SummaryStats = () => {
         </select>
       </h3>
       <div className="summary-grid">
-        {Object.entries(data.eventCounts24h as EventCounts).map(([type, count]) => (
+        {Object.entries(data.eventCounts as EventCounts).map(([type, count]) => (
           <div key={type} className="summary-card">
             <span className="stat-label">{type}</span>
             <span className="stat-value">{count}</span>

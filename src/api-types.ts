@@ -166,7 +166,7 @@ export interface components {
     };
     Summary: {
       queueCounts: components['schemas']['QueueCounts'];
-      eventCounts24h: components['schemas']['EventCounts'];
+      eventCounts: components['schemas']['EventCounts'];
       oldestPending: components['schemas']['QueueItem'] | null;
     };
     PaginatedQueue: {

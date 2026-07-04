@@ -38,7 +38,7 @@ describe('getSummary', () => {
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
       queueCounts: { pending: 5, posted: 3, failed: 2 },
-      eventCounts24h: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
+      eventCounts: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
       oldestPending: { id: 1, repo_full_name: 'c/r', pr_number: 42, not_before: '2026-01-01T00:00:00.000Z' },
     });
   });
@@ -50,7 +50,7 @@ describe('getSummary', () => {
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
       queueCounts: { pending: 0, posted: 0, failed: 0 },
-      eventCounts24h: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
+      eventCounts: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
       oldestPending: null,
     });
   });
@@ -75,12 +75,12 @@ describe('getSummary', () => {
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
       queueCounts: { pending: 5, posted: 3, failed: 2 },
-      eventCounts24h: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
+      eventCounts: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
       oldestPending: null,
     });
   });
 
-  it('response omits "bypassed" and "completed" from eventCounts24h', async () => {
+  it('response omits "bypassed" and "completed" from eventCounts', async () => {
     logger = createMockLogger();
     startServer(
       {},
@@ -92,7 +92,7 @@ describe('getSummary', () => {
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
       queueCounts: { pending: 0, posted: 0, failed: 0 },
-      eventCounts24h: { detected: 1, enqueued: 2, posted: 3, failed: 6 },
+      eventCounts: { detected: 1, enqueued: 2, posted: 3, failed: 6 },
       oldestPending: null,
     });
   });
@@ -119,6 +119,19 @@ describe('getSummary', () => {
     startServer({}, { countByType });
 
     await getJson(server, '/api/summary?duration=invalid');
+
+    expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 86_400_000));
+  });
+
+  it('rejects prototype keys like "toString" for duration', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+
+    const countByType = jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, posted: 0, bypassed: 0, completed: 0, failed: 0 });
+    startServer({}, { countByType });
+
+    await getJson(server, '/api/summary?duration=toString');
 
     expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 86_400_000));
   });

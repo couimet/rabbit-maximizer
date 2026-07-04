@@ -11,7 +11,7 @@ describe('api', () => {
     it('returns parsed JSON on success', async () => {
       const data = {
         queueCounts: { pending: 1, posted: 0, completed: 0, failed: 0 },
-        eventCounts24h: { detected: 1, enqueued: 0, posted: 0, bypassed: 0, completed: 0, failed: 0 },
+        eventCounts: { detected: 1, enqueued: 0, posted: 0, bypassed: 0, completed: 0, failed: 0 },
         oldestPending: null,
       };
       globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;
@@ -33,7 +33,7 @@ describe('api', () => {
     it('appends duration query param when provided', async () => {
       const data = {
         queueCounts: { pending: 0, posted: 0, failed: 0 },
-        eventCounts24h: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
+        eventCounts: { detected: 0, enqueued: 0, posted: 0, failed: 0 },
         oldestPending: null,
       };
       globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;

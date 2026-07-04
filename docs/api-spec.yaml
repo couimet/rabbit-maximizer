@@ -283,11 +283,11 @@ components:
 
     Summary:
       type: object
-      required: [queueCounts, eventCounts24h, oldestPending]
+      required: [queueCounts, eventCounts, oldestPending]
       properties:
         queueCounts:
           $ref: '#/components/schemas/QueueCounts'
-        eventCounts24h:
+        eventCounts:
           $ref: '#/components/schemas/EventCounts'
         oldestPending:
           oneOf:

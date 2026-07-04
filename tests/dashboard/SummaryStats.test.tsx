@@ -40,7 +40,7 @@ describe('SummaryStats', () => {
   describe('data', () => {
     const summaryData = {
       queueCounts: { pending: 5, posted: 12, failed: 2 },
-      eventCounts24h: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
+      eventCounts: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
       oldestPending: null,
     };
 
@@ -58,9 +58,9 @@ describe('SummaryStats', () => {
 
     it('renders event counts from last 24h', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(String(summaryData.eventCounts24h.detected))).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(String(summaryData.eventCounts.detected))).toBeInTheDocument());
       expect(screen.getByText('detected')).toBeInTheDocument();
-      expect(screen.getByText(String(summaryData.eventCounts24h.enqueued))).toBeInTheDocument();
+      expect(screen.getByText(String(summaryData.eventCounts.enqueued))).toBeInTheDocument();
       expect(screen.getByText('enqueued')).toBeInTheDocument();
     });
 
@@ -70,7 +70,7 @@ describe('SummaryStats', () => {
 
       const newSummary = {
         queueCounts: { pending: 1, posted: 0, failed: 0 },
-        eventCounts24h: { detected: 5, enqueued: 3, posted: 2, failed: 0 },
+        eventCounts: { detected: 5, enqueued: 3, posted: 2, failed: 0 },
         oldestPending: null,
       };
       const fetchCalls: string[] = [];
