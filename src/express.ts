@@ -1,11 +1,13 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
+import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import { createExpressApp } from './external-deps/couimet/express-tools/createExpressApp.js';
 import {
   createGetEventsHandler,
+  createGetNextReviewAvailableHandler,
   createGetQueueHandler,
   createGetQueueOrderHandler,
   createGetSummaryHandler,
@@ -26,6 +28,7 @@ export interface ExpressDeps {
   eventRepo: EventRepository;
   queueOrderRepo: QueueOrderRepository;
   queueRepo: QueueRepository;
+  systemStateRepo: SystemStateRepository;
   logger: Logger;
   port: number;
 }
@@ -36,7 +39,7 @@ export interface ExpressApp {
 }
 
 export const setupExpress = (deps: ExpressDeps): ExpressApp => {
-  const { queueRepo, queueOrderRepo, eventRepo, logger, port } = deps;
+  const { queueRepo, queueOrderRepo, eventRepo, systemStateRepo, logger, port } = deps;
   const production = isProduction();
   const app = createExpressApp({ logger, helmet: production });
 
@@ -46,6 +49,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, logger));
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, logger));
+  app.get('/api/state/next_review_available_at', createGetNextReviewAvailableHandler(systemStateRepo, logger));
 
   app.get('/icon.png', (_req: Request, res: Response) => res.sendFile('assets/icon.png', { root: '.' }));
   app.get('/icon_256.png', (_req: Request, res: Response) => res.sendFile('assets/icon_256.png', { root: '.' }));

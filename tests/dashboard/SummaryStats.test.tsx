@@ -12,13 +12,27 @@ const renderSummaryStats = (ui?: ReactElement) => render(<TimezoneProvider>{ui ?
 
 const EMPTY_QUEUE_ORDER = { data: [] };
 
-const mockSummaryFetch = (summaryData: unknown, queueOrderData: unknown = EMPTY_QUEUE_ORDER) => {
+const mockSummaryFetch = (summaryData: unknown, queueOrderData: unknown = EMPTY_QUEUE_ORDER, stateData: unknown = null) => {
   globalThis.fetch = jest.fn((url: string) => {
-    const data = (url as string).includes('/api/queue/order') ? queueOrderData : summaryData;
+    const urlStr = url as string;
+    if (urlStr.includes('/api/state/next_review_available_at')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ next_review_available_at: stateData }),
+      } as Response);
+    }
+    if (urlStr.includes('/api/queue/order')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(queueOrderData),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
       status: 200,
-      json: () => Promise.resolve(data),
+      json: () => Promise.resolve(summaryData),
     } as Response);
   }) as unknown as typeof fetch;
 };
@@ -76,10 +90,25 @@ describe('SummaryStats', () => {
       const fetchCalls: string[] = [];
       globalThis.fetch = jest.fn((url: string) => {
         fetchCalls.push(url as string);
+        const urlStr = url as string;
+        if (urlStr.includes('/api/state/next_review_available_at')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ next_review_available_at: null }),
+          } as Response);
+        }
+        if (urlStr.includes('/api/queue/order')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(EMPTY_QUEUE_ORDER),
+          } as Response);
+        }
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve((url as string).includes('/api/queue/order') ? EMPTY_QUEUE_ORDER : newSummary),
+          json: () => Promise.resolve(newSummary),
         } as Response);
       }) as unknown as typeof fetch;
 
@@ -90,6 +119,32 @@ describe('SummaryStats', () => {
     it('renders the QueueOrder component on the Summary tab', async () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Queue Order')).toBeInTheDocument());
+    });
+  });
+
+  describe('review countdown', () => {
+    const summaryData = {
+      queueCounts: { pending: 5, posted: 12, failed: 2 },
+      eventCounts: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
+      oldestPending: null,
+    };
+
+    it('renders Available now when next_review_available_at is null', async () => {
+      mockSummaryFetch(summaryData, { data: [] }, null);
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Available now')).toBeInTheDocument());
+    });
+
+    it('renders Available now when next_review_available_at is in the past', async () => {
+      mockSummaryFetch(summaryData, { data: [] }, new Date(Date.now() - 60_000).toISOString());
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Available now')).toBeInTheDocument());
+    });
+
+    it('renders countdown text when next_review_available_at is in the future', async () => {
+      mockSummaryFetch(summaryData, { data: [] }, new Date(Date.now() + 120_000).toISOString());
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Next review available in')).toBeInTheDocument());
     });
   });
 

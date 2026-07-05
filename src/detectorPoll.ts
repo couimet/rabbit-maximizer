@@ -1,3 +1,5 @@
+import type { SystemStateRepository } from './db/systemStateRepository.js';
+import { StateKey } from './db/systemStateRepository.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
@@ -32,6 +34,8 @@ export class PollDetector {
     private readonly github: CoderabbitGitHubClient,
     @inject(TYPES.OnDetectedCallback)
     private readonly onDetected: OnDetectedCallback,
+    @inject(TYPES.SystemStateRepository)
+    private readonly systemStateRepo: SystemStateRepository,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
@@ -80,6 +84,7 @@ export class PollDetector {
   private async executeTick(): Promise<void> {
     try {
       const comments = await this.github.searchRateLimitComments(config.REPO_FILTER);
+      let earliestNextReview: Date | undefined;
 
       for (const c of comments) {
         if (this.seenCommentIds.has(c.comment_id)) continue;
@@ -96,9 +101,21 @@ export class PollDetector {
         const effectiveWait = waitSeconds ?? DEFAULT_FALLBACK_WAIT_SECONDS;
         const jitteredWait = getJitter(effectiveWait);
 
+        const candidate = new Date(new Date(c.created_at).getTime() + effectiveWait * MILLISECONDS_PER_SECOND);
+        if (!earliestNextReview || candidate < earliestNextReview) {
+          earliestNextReview = candidate;
+        }
+
         await this.onDetected(c, jitteredWait);
 
         this.seenCommentIds.add(c.comment_id);
+      }
+
+      if (earliestNextReview) {
+        const existing = await this.systemStateRepo.getState(StateKey.nextReviewAvailableAt);
+        if (!existing || earliestNextReview < existing) {
+          await this.systemStateRepo.setState(StateKey.nextReviewAvailableAt, earliestNextReview);
+        }
       }
     } catch (err: unknown) {
       const error = err as {

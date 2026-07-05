@@ -25,6 +25,7 @@ describe('setupExpress', () => {
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),
+      systemStateRepo: { getState: jest.fn<any>(), setState: jest.fn<any>() },
       logger,
       port: 0,
     });
@@ -46,6 +47,14 @@ describe('setupExpress', () => {
     expect(summaryRes.status).toBe(200);
     expect(queueRes.status).toBe(200);
     expect(eventsRes.status).toBe(200);
+  });
+
+  it('registers the next_review_available_at endpoint', async () => {
+    start();
+    const server = { address: () => ({ port, family: 'IPv6' }) } as unknown as Server;
+
+    const res = await fetchResponse(server, '/api/state/next_review_available_at');
+    expect(res.status).toBe(200);
   });
 
   it('starts in production mode without Vite', async () => {
