@@ -10,19 +10,16 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Octokit } from '@octokit/rest';
 
 const FUNCTION_NAME = 'validateGitHubToken';
-const TOKEN_SETTINGS_URL = 'https://github.com/settings/personal-access-tokens';
 
 interface MockOctokitRest {
   users: { getAuthenticated: jest.Mock<any> };
-  repos: { get: jest.Mock<any>; listForUser: jest.Mock<any> };
-  issues: { createComment: jest.Mock<any> };
+  repos: { listForUser: jest.Mock<any> };
 }
 
 const createMockOctokit = (): { octokit: Octokit; rest: MockOctokitRest } => {
   const rest: MockOctokitRest = {
     users: { getAuthenticated: jest.fn<any>() },
-    repos: { get: jest.fn<any>(), listForUser: jest.fn<any>() },
-    issues: { createComment: jest.fn<any>() },
+    repos: { listForUser: jest.fn<any>() },
   };
   return { octokit: { rest } as unknown as Octokit, rest };
 };
@@ -41,8 +38,8 @@ describe('validateGitHubToken', () => {
 
   const mockAuth = () => rest.users.getAuthenticated.mockResolvedValue({ data: { login: userLogin } });
 
-  describe('all repos pass', () => {
-    it('validates concrete repos in parallel and logs success', async () => {
+  describe('repo resolution', () => {
+    it('resolves concrete repos and logs the count', async () => {
       mockAuth();
       const { fullName: repo1 } = makeUniqueRepoName();
       const { fullName: repo2 } = makeUniqueRepoName();
@@ -50,21 +47,11 @@ describe('validateGitHubToken', () => {
         { pattern: repo1, scope: 'repo' },
         { pattern: repo2, scope: 'repo' },
       ];
-      rest.repos.get.mockResolvedValue({ data: {} });
-      rest.issues.createComment.mockRejectedValue({ status: 404 });
 
       await validateGitHubToken({ octokit, repoFilter, log: logger });
 
-      const { owner: o1, repo: r1 } = splitRepo(repo1);
-      const { owner: o2, repo: r2 } = splitRepo(repo2);
-      expect(rest.repos.get).toHaveBeenCalledWith({ owner: o1, repo: r1 });
-      expect(rest.repos.get).toHaveBeenCalledWith({ owner: o2, repo: r2 });
-      expect(rest.issues.createComment).toHaveBeenCalledTimes(2);
-
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: FUNCTION_NAME, repoCount: 2 },
-        'GitHub token validated — Issues read & write confirmed for all repos',
-      );
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, login: userLogin }, 'GitHub token authenticated');
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 2 }, 'Resolved 2 repos from filter');
     });
 
     it('expands user-scope wildcards via listForUser', async () => {
@@ -74,8 +61,6 @@ describe('validateGitHubToken', () => {
       const repoFilter: RepoFilter[] = [{ pattern: `${owner}/*`, scope: 'user' }];
 
       rest.repos.listForUser.mockResolvedValue({ data: [{ full_name: repo }] });
-      rest.repos.get.mockResolvedValue({ data: {} });
-      rest.issues.createComment.mockRejectedValue({ status: 404 });
 
       await validateGitHubToken({ octokit, repoFilter, log: logger });
 
@@ -86,7 +71,7 @@ describe('validateGitHubToken', () => {
         sort: 'updated',
         type: 'owner',
       });
-      expect(rest.issues.createComment).toHaveBeenCalledTimes(1);
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 1 }, 'Resolved 1 repos from filter');
     });
 
     it('paginates listForUser when results span multiple pages', async () => {
@@ -97,85 +82,11 @@ describe('validateGitHubToken', () => {
       rest.repos.listForUser
         .mockResolvedValueOnce({ data: repos.slice(0, 100).map((fn) => ({ full_name: fn })) })
         .mockResolvedValueOnce({ data: repos.slice(100).map((fn) => ({ full_name: fn })) });
-      rest.repos.get.mockResolvedValue({ data: {} });
-      rest.issues.createComment.mockRejectedValue({ status: 404 });
 
       await validateGitHubToken({ octokit, repoFilter, log: logger });
 
       expect(rest.repos.listForUser).toHaveBeenCalledTimes(2);
-      expect(rest.issues.createComment).toHaveBeenCalledTimes(150);
-    });
-
-    it('treats createComment resolving as write access confirmed', async () => {
-      mockAuth();
-      const { fullName: repo } = makeUniqueRepoName();
-      const repoFilter: RepoFilter[] = [{ pattern: repo, scope: 'repo' }];
-      rest.repos.get.mockResolvedValue({ data: {} });
-      rest.issues.createComment.mockResolvedValue({ data: {} });
-
-      await validateGitHubToken({ octokit, repoFilter, log: logger });
-
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: FUNCTION_NAME, repoCount: 1 },
-        'GitHub token validated — Issues read & write confirmed for all repos',
-      );
-    });
-  });
-
-  describe('some repos fail', () => {
-    it('logs a warning for each repo with 403 and summarizes at the end', async () => {
-      mockAuth();
-      const { fullName: passRepo } = makeUniqueRepoName();
-      const { fullName: failRepo } = makeUniqueRepoName();
-      const repoFilter: RepoFilter[] = [
-        { pattern: passRepo, scope: 'repo' },
-        { pattern: failRepo, scope: 'repo' },
-      ];
-
-      rest.repos.get.mockResolvedValue({ data: {} });
-      rest.issues.createComment.mockRejectedValueOnce({ status: 404 }).mockRejectedValueOnce({ status: 403 });
-
-      await validateGitHubToken({ octokit, repoFilter, log: logger });
-
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: FUNCTION_NAME, repo: failRepo },
-        `Token lacks Issues write on "${failRepo}". Edit the token at ${TOKEN_SETTINGS_URL} and grant Issues read & write to this repository.`,
-      );
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: FUNCTION_NAME, passed: 1, failed: 1, total: 2 },
-        'GitHub token lacks Issues write on 1 out of 2 repos. See warnings above for details.',
-      );
-    });
-
-    it('logs a warning when a repo is not accessible', async () => {
-      mockAuth();
-      const { fullName: repo } = makeUniqueRepoName();
-      const repoFilter: RepoFilter[] = [{ pattern: repo, scope: 'repo' }];
-
-      rest.repos.get.mockRejectedValue({ status: 404 });
-
-      await validateGitHubToken({ octokit, repoFilter, log: logger });
-
-      expect(rest.issues.createComment).not.toHaveBeenCalled();
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repo }, 'Repository not accessible with this token');
-    });
-
-    it('logs a warning for unexpected write-probe errors', async () => {
-      mockAuth();
-      const { fullName: repo } = makeUniqueRepoName();
-      const repoFilter: RepoFilter[] = [{ pattern: repo, scope: 'repo' }];
-
-      rest.repos.get.mockResolvedValue({ data: {} });
-      const networkError = new Error('Network error');
-      rest.issues.createComment.mockRejectedValue(networkError);
-
-      await validateGitHubToken({ octokit, repoFilter, log: logger });
-
-      const { owner: _owner, repo: _repoName } = splitRepo(repo);
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: FUNCTION_NAME, repo, error: networkError },
-        `Unexpected error validating write access to "${repo}"`,
-      );
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 150 }, 'Resolved 150 repos from filter');
     });
   });
 
