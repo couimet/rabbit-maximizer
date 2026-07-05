@@ -113,7 +113,8 @@ export class PollDetector {
 
       if (earliestNextReview) {
         const existing = await this.systemStateRepo.getState(StateKey.nextReviewAvailableAt);
-        if (!existing || earliestNextReview < existing) {
+        const existingIsActive = existing !== undefined && existing.getTime() > Date.now();
+        if (!existingIsActive || earliestNextReview < existing) {
           await this.systemStateRepo.setState(StateKey.nextReviewAvailableAt, earliestNextReview);
         }
       }

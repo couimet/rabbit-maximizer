@@ -303,14 +303,14 @@ describe('PollDetector', () => {
     });
 
     it('updates when new comment has an earlier available time than existing state', async () => {
-      const createdAt = '2026-01-01T00:00:00.000Z';
-      const comment = makeComment({ createdAt });
+      const now = Date.now();
+      const comment = makeComment({ createdAt: new Date(now).toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
       (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 5 * 60 + 30;
-      const expectedDate = new Date(new Date(createdAt).getTime() + expectedWaitSeconds * 1000);
+      const expectedDate = new Date(now + expectedWaitSeconds * 1000);
       const laterDate = new Date(expectedDate.getTime() + 3600_000);
 
       deps.systemStateRepo.getState.mockResolvedValue(laterDate);
@@ -324,15 +324,14 @@ describe('PollDetector', () => {
     });
 
     it('skips update when new comment has a later available time than existing state', async () => {
-      const createdAt = '2026-01-01T00:00:00.000Z';
-      const comment = makeComment({ createdAt });
+      const now = Date.now();
+      const comment = makeComment({ createdAt: new Date(now).toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
       (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 5 * 60 + 30;
-      const expectedDate = new Date(new Date(createdAt).getTime() + expectedWaitSeconds * 1000);
-      const earlierDate = new Date(expectedDate.getTime() - 3600_000);
+      const earlierDate = new Date(now + 60_000);
 
       deps.systemStateRepo.getState.mockResolvedValue(earlierDate);
 

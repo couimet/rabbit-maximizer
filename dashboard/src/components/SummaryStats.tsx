@@ -40,7 +40,7 @@ const SummaryStats = () => {
           }
         })
         .catch(() => {
-          if (!cancelled) setNextReview(null);
+          // Preserve last known nextReview on transient fetch failures
         });
     };
 
