@@ -247,7 +247,7 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('reschedules with backoff on HTTP 403 (rate limit)', async () => {
+    it('reschedules with backoff on HTTP 403, includes error in log', async () => {
       const item = makeItem();
       const forbiddenError = { status: 403 };
       (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
@@ -262,7 +262,15 @@ describe('Scheduler', () => {
       expect(deps.queue.markPosted).not.toHaveBeenCalled();
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, attempts: 0 },
+        {
+          fn: 'Scheduler.tick',
+          repo: item.repo_full_name,
+          pr: item.pr_number,
+          queueId: item.id,
+          backoffMs: BASE_BACKOFF_MS,
+          attempts: 0,
+          error: forbiddenError,
+        },
         'Post retrigger failed; rescheduled with backoff',
       );
 
@@ -330,7 +338,7 @@ describe('Scheduler', () => {
       expect(deps.events.record).not.toHaveBeenCalled();
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, attempts: 0 },
+        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, attempts: 0, error: networkError },
         'Post retrigger failed; rescheduled with backoff',
       );
 
