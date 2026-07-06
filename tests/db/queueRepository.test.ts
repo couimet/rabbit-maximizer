@@ -129,18 +129,57 @@ describe('QueueRepositoryImpl', () => {
       const { item: result, created } = await sut.enqueue(
         repo,
         pr,
-        getUniqueDate(),
+        existing.not_before,
         getUniqueString({ prefix: 'https://gh/c/' }),
         60,
         makeObservation(),
         prisma as unknown as Prisma.TransactionClient,
       );
 
-      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: repo, pr_number: pr, status: { in: ['pending', 'retriggered'] } } });
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: repo, pr_number: pr, status: 'pending' } });
       expect(created).toBe(false);
       expect(result).toStrictEqual(toExpectedItem(existing));
       expect(events.record).not.toHaveBeenCalled();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, status: 'pending' }, 'Already queued; returning existing row');
+    });
+
+    it('updates not_before on the existing pending item when re-detected with a different value', async () => {
+      const { fullName: repo } = makeUniqueRepoName();
+      const pr = getUniqueInt();
+      const originalNotBefore = getUniqueDate();
+      const newNotBefore = new Date(originalNotBefore.getTime() - 600_000);
+      const existing = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.pending, not_before: originalNotBefore });
+      const updated = { ...existing, not_before: newNotBefore };
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(existing),
+          create: jest.fn<any>().mockRejectedValue(p2002),
+          update: jest.fn<any>().mockResolvedValue(updated),
+        },
+      });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+
+      const { item: result, created } = await sut.enqueue(
+        repo,
+        pr,
+        newNotBefore,
+        getUniqueString({ prefix: 'https://gh/c/' }),
+        60,
+        makeObservation(),
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: existing.id }, data: { not_before: newNotBefore } });
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(toExpectedItem(updated));
+      expect(events.record).not.toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.enqueue', repo, pr, oldNotBefore: originalNotBefore, newNotBefore },
+        'Updated not_before on re-detection',
+      );
     });
 
     it('returns the existing retriggered item when a recent retriggered row exists (within cooldown)', async () => {

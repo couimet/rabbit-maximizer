@@ -160,21 +160,22 @@ describe('EnqueueService', () => {
       expect(probe.processMerged).not.toHaveBeenCalled();
     });
 
-    it('schedules the enqueue for now + wait seconds', async () => {
+    it('schedules the enqueue based on comment.updated_at and wait', async () => {
       const svc = createService();
       const comment = makeComment();
       const waitSeconds = 120;
+      const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       await svc.handle(comment, waitSeconds);
 
       expect(queue.enqueue).toHaveBeenCalledWith(
         comment.repo_full_name,
         comment.pr_number,
-        new Date(Date.now() + waitSeconds * MS_PER_SECOND),
+        expectedScheduledFor,
         comment.url,
         waitSeconds,
-        expect.anything(),
-        expect.anything(),
+        observation.current(),
+        tx,
       );
     });
   });

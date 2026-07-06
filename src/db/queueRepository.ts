@@ -103,10 +103,18 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           where: {
             repo_full_name: repo,
             pr_number: pr,
-            status: { in: [QueueStatus.pending, QueueStatus.retriggered] },
+            status: QueueStatus.pending,
           },
         });
         if (existing) {
+          if (existing.not_before.getTime() !== notBefore.getTime()) {
+            const updated = await db.reviewQueue.update({ where: { id: existing.id }, data: { not_before: notBefore } });
+            this.log.debug(
+              { fn: 'QueueRepositoryImpl.enqueue', repo, pr, oldNotBefore: existing.not_before, newNotBefore: notBefore },
+              'Updated not_before on re-detection',
+            );
+            return { item: this.toQueueItem(updated), created: false };
+          }
           this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, status: existing.status }, 'Already queued; returning existing row');
           return { item: this.toQueueItem(existing), created: false };
         }
