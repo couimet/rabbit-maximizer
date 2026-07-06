@@ -167,9 +167,15 @@ describe('EnqueueService', () => {
 
       await svc.handle(comment, waitSeconds);
 
-      const enqueuedScheduledFor = (queue.enqueue as jest.Mock).mock.calls[0][2] as Date;
-      const expectedTime = Date.now() + waitSeconds * MS_PER_SECOND;
-      expect(Math.abs(enqueuedScheduledFor.getTime() - expectedTime)).toBeLessThan(MS_PER_SECOND);
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        comment.repo_full_name,
+        comment.pr_number,
+        new Date(Date.now() + waitSeconds * MS_PER_SECOND),
+        comment.url,
+        waitSeconds,
+        expect.anything(),
+        expect.anything(),
+      );
     });
   });
 });
