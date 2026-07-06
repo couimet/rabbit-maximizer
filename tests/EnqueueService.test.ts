@@ -26,7 +26,13 @@ describe('EnqueueService', () => {
   let observation: ObservationContextProvider;
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
-  let probe: { processStarted: jest.Mock; processCompleted: jest.Mock; processMerged: jest.Mock; processClosedWithoutMerge: jest.Mock };
+  let probe: {
+    processStarted: jest.Mock;
+    processCompleted: jest.Mock;
+    processMerged: jest.Mock;
+    processClosedWithoutMerge: jest.Mock;
+    processAlreadyQueued: jest.Mock;
+  };
   let fetcher: PRStateFetcher;
 
   beforeEach(() => {
@@ -34,7 +40,7 @@ describe('EnqueueService', () => {
     jest.setSystemTime(new Date('2026-06-22T12:00:00Z'));
 
     queue = {
-      enqueue: jest.fn(),
+      enqueue: jest.fn<any>().mockResolvedValue({ item: {}, created: true }),
       markPosted: jest.fn(),
       markCompleted: jest.fn(),
       reschedule: jest.fn(),
@@ -52,6 +58,7 @@ describe('EnqueueService', () => {
       processCompleted: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
       processMerged: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
       processClosedWithoutMerge: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
+      processAlreadyQueued: jest.fn(),
     };
     probes = { createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) } as unknown as ProbeFactory;
 
@@ -134,6 +141,21 @@ describe('EnqueueService', () => {
       expect(probe.processStarted).toHaveBeenCalled();
       expect(queue.enqueue).toHaveBeenCalled();
       expect(probe.processCompleted).toHaveBeenCalledWith(tx);
+      expect(probe.processMerged).not.toHaveBeenCalled();
+    });
+
+    it('skips processCompleted when enqueue returns created: false', async () => {
+      (queue.enqueue as jest.Mock<any>).mockResolvedValue({ item: {}, created: false });
+      const svc = createService();
+      const comment = makeComment();
+
+      await svc.handle(comment, 330);
+
+      expect(probe.processStarted).toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(queue.enqueue).toHaveBeenCalled();
+      expect(probe.processCompleted).not.toHaveBeenCalled();
+      expect(probe.processAlreadyQueued).toHaveBeenCalled();
       expect(probe.processMerged).not.toHaveBeenCalled();
     });
 

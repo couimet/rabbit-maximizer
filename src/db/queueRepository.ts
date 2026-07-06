@@ -1,6 +1,6 @@
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
-import { EventType, type PaginatedResult, type QueueItem, QueueStatus } from '../types/index.js';
+import { type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus } from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 import type { EventRepository } from './eventRepository.js';
@@ -20,7 +20,7 @@ export interface QueueRepository {
     newWait: number,
     observation: ObservationContext,
     tx: Prisma.TransactionClient,
-  ): Promise<QueueItem>;
+  ): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -52,7 +52,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     newWait: number,
     observation: ObservationContext,
     tx: Prisma.TransactionClient,
-  ): Promise<QueueItem> {
+  ): Promise<EnqueueResult> {
     const db = this.client(tx);
     const recentRetriggered = await db.reviewQueue.findFirst({
       where: {
@@ -64,7 +64,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
     if (recentRetriggered) {
       this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'PR was recently retriggered; skipping');
-      return this.toQueueItem(recentRetriggered);
+      return { item: this.toQueueItem(recentRetriggered), created: false };
     }
 
     try {
@@ -96,7 +96,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       );
 
       this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
-      return this.toQueueItem(row);
+      return { item: this.toQueueItem(row), created: true };
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === UNIQUE_CONSTRAINT_VIOLATION) {
         const existing = await db.reviewQueue.findFirst({
@@ -108,7 +108,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         });
         if (existing) {
           this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, status: existing.status }, 'Already queued; returning existing row');
-          return this.toQueueItem(existing);
+          return { item: this.toQueueItem(existing), created: false };
         }
       }
       this.log.warn({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: err }, 'Enqueue failed; rethrowing');

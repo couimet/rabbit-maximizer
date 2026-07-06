@@ -51,8 +51,12 @@ export class EnqueueService {
       } else if (prState !== undefined && isPRClosedWithoutMerge(prState)) {
         await probe.processClosedWithoutMerge(tx);
       } else {
-        await this.queue.enqueue(comment.repo_full_name, comment.pr_number, scheduledFor, comment.url, jitteredWait, obs, tx);
-        await probe.processCompleted(tx);
+        const { created } = await this.queue.enqueue(comment.repo_full_name, comment.pr_number, scheduledFor, comment.url, jitteredWait, obs, tx);
+        if (created) {
+          await probe.processCompleted(tx);
+        } else {
+          probe.processAlreadyQueued();
+        }
       }
     });
   };

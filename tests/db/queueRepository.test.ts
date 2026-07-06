@@ -88,7 +88,7 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
-      const result = await sut.enqueue(repo, pr, notBefore, sourceUrl, newWait, obs, prisma as unknown as Prisma.TransactionClient);
+      const { item: result, created } = await sut.enqueue(repo, pr, notBefore, sourceUrl, newWait, obs, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.create).toHaveBeenCalledWith({
         data: { repo_full_name: repo, pr_number: pr, not_before: notBefore, source_comment_url: sourceUrl },
@@ -106,6 +106,7 @@ describe('QueueRepositoryImpl', () => {
         },
         prisma,
       );
+      expect(created).toBe(true);
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
     });
@@ -125,7 +126,7 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
-      const result = await sut.enqueue(
+      const { item: result, created } = await sut.enqueue(
         repo,
         pr,
         getUniqueDate(),
@@ -136,6 +137,7 @@ describe('QueueRepositoryImpl', () => {
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: repo, pr_number: pr, status: { in: ['pending', 'retriggered'] } } });
+      expect(created).toBe(false);
       expect(result).toStrictEqual(toExpectedItem(existing));
       expect(events.record).not.toHaveBeenCalled();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, status: 'pending' }, 'Already queued; returning existing row');
@@ -152,7 +154,7 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
-      const result = await sut.enqueue(
+      const { item: result, created } = await sut.enqueue(
         repo,
         pr,
         getUniqueDate(),
@@ -166,6 +168,7 @@ describe('QueueRepositoryImpl', () => {
         where: { repo_full_name: repo, pr_number: pr, status: 'retriggered', not_before: { gt: expect.any(Date) } },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(created).toBe(false);
       expect(result).toStrictEqual(toExpectedItem(recentRetriggered));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'PR was recently retriggered; skipping');
     });
@@ -182,7 +185,7 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
-      const result = await sut.enqueue(
+      const { item: result, created } = await sut.enqueue(
         repo,
         pr,
         notBefore,
@@ -199,6 +202,7 @@ describe('QueueRepositoryImpl', () => {
         data: { repo_full_name: repo, pr_number: pr, not_before: notBefore, source_comment_url: expect.any(String) },
       });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
+      expect(created).toBe(true);
       expect(result).toStrictEqual(toExpectedItem(newRow));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
     });

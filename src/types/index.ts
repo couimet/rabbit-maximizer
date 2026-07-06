@@ -1,4 +1,5 @@
 export * from './coderabbit.js';
+export * from './EnqueueResult.js';
 export * from './EnrichedItem.js';
 export * from './EventLogEntry.js';
 export * from './EventPayloads.js';

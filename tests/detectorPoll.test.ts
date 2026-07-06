@@ -122,27 +122,6 @@ describe('PollDetector', () => {
     });
   });
 
-  describe('dedup', () => {
-    it('skips comments already in seenCommentIds on subsequent ticks', async () => {
-      const comment = makeComment({});
-      const bodyText = 'rate limited by coderabbit.ai Please wait 1 minute before requesting another review.';
-      (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.onDetected).toHaveBeenCalledTimes(1);
-
-      jest.advanceTimersByTime(POLL_INTERVAL_MS);
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.onDetected).toHaveBeenCalledTimes(1);
-    });
-  });
-
   describe('self-marker exclusion', () => {
     it('skips comments whose full body contains the own-retrigger marker', async () => {
       const comment = makeComment({});

@@ -156,4 +156,17 @@ describe('DetectedProbe', () => {
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Review-limit comment bypassed: PR closed without merge');
   });
+
+  it('logs when the queue item already exists', () => {
+    const { fullName: repo } = makeUniqueRepoName();
+    const pr = getUniqueInt();
+    const observation: ObservationContext = { correlationId: getUniqueString(), version: getUniqueString() };
+    const logger = createMockLogger();
+
+    const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, {} as EventRepository, observation, logger);
+
+    probe.processAlreadyQueued();
+
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr }, 'Review-limit comment already queued; skipping');
+  });
 });
