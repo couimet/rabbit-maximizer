@@ -62,7 +62,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => ({
 const setup = (): MockSchedulerDeps => {
   const queue = {
     enqueue: jest.fn<any>(),
-    markPosted: jest.fn<any>(),
+    markRetriggered: jest.fn<any>(),
     markCompleted: jest.fn<any>(),
     reschedule: jest.fn<any>(),
     markFailed: jest.fn<any>(),
@@ -138,11 +138,11 @@ describe('Scheduler', () => {
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
   describe('tick', () => {
-    it('posts retrigger, marks posted, and records posted event in a transaction', async () => {
+    it('posts retrigger, marks retriggered, and records retriggered event in a transaction', async () => {
       const item = makeItem();
-      const postedHtmlUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
+      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
       (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
-      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: postedHtmlUrl });
+      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -151,11 +151,11 @@ describe('Scheduler', () => {
 
       expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(deps.queue.markPosted).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
       const obs = deps.observation.current();
       expect(deps.events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
-          type: 'posted',
+          type: 'retriggered',
           repo_full_name: item.repo_full_name,
           pr_number: item.pr_number,
           correlation_id: obs.correlationId,
@@ -163,7 +163,7 @@ describe('Scheduler', () => {
           version: obs.version,
           payload: {
             source_comment_url: item.source_comment_url,
-            posted_comment_url: postedHtmlUrl,
+            retriggered_comment_url: retriggeredHtmlUrl,
           },
         },
         deps.tx,
@@ -176,7 +176,7 @@ describe('Scheduler', () => {
           queueId: item.id,
           runId: expect.any(String),
         },
-        'Retrigger posted',
+        'Retrigger retriggered',
       );
 
       await stop();
@@ -259,7 +259,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
-      expect(deps.queue.markPosted).not.toHaveBeenCalled();
+      expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
       expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, attempts: 0 },
@@ -278,7 +278,7 @@ describe('Scheduler', () => {
       await drainMicrotasks(SHORT_DRAIN);
 
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-      expect(deps.queue.markPosted).not.toHaveBeenCalled();
+      expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
 
@@ -428,10 +428,10 @@ describe('Scheduler', () => {
   describe('cleanup delegation', () => {
     it('delegates to Pruner.prune() before processing', async () => {
       const item = makeItem();
-      const postedHtmlUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
+      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
 
       (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
-      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: postedHtmlUrl });
+      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();

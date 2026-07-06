@@ -17,7 +17,7 @@ interface MakeRowOverrides {
   not_before?: Date;
   attempts?: number;
   source_comment_url?: string | null;
-  posted_at?: Date | null;
+  retriggered_at?: Date | null;
   failed_at?: Date | null;
   completed_at?: Date | null;
 }
@@ -31,7 +31,7 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
   not_before: over.not_before ?? new Date(Date.now() - 60_000),
   attempts: over.attempts ?? 0,
   source_comment_url: over.source_comment_url ?? null,
-  posted_at: over.posted_at ?? null,
+  retriggered_at: over.retriggered_at ?? null,
   failed_at: over.failed_at ?? null,
   completed_at: over.completed_at ?? null,
   created_at: getUniqueDate(),
@@ -54,7 +54,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   not_before: row.not_before,
   attempts: row.attempts,
   source_comment_url: row.source_comment_url ?? undefined,
-  posted_at: row.posted_at ?? undefined,
+  retriggered_at: row.retriggered_at ?? undefined,
   failed_at: row.failed_at ?? undefined,
   completed_at: row.completed_at ?? undefined,
   created_at: row.created_at,

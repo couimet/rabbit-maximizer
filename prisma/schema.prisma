@@ -25,13 +25,13 @@ model ReviewQueue {
   /// Max 140: GitHub owner/org (<=39) + "/" + repo (<=100). Sources and CHECK in the init migration; mirrored in src/schemas/lengths.ts.
   repo_full_name String
   pr_number      Int
-  /// Max 25; one of 'pending' | 'posted' | 'completed' | 'failed' (CHECK in the init migration).
+  /// Max 25; one of 'pending' | 'retriggered' | 'completed' | 'failed' (CHECK in the init migration).
   status         String    @default("pending")
   not_before     DateTime
   attempts       Int       @default(0)
   /// Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
   source_comment_url String?
-  posted_at      DateTime?
+  retriggered_at DateTime?
   failed_at      DateTime?
   completed_at   DateTime?
   queueOrder     QueueOrder?
@@ -64,7 +64,7 @@ model Event {
   /// Max 36 (UUID v4).
   uuid           String   @unique @default(uuid())
   ts             DateTime @default(now())
-  /// Max 25; one of 'detected' | 'enqueued' | 'posted' | 'bypassed' | 'completed' | 'failed' (CHECK in the init + bypass migration).
+  /// Max 25; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed' (CHECK in the init + bypass migration).
   type           String
   /// Max 140: GitHub owner/org + "/" + repo. See review_queue / init migration for sources.
   repo_full_name String

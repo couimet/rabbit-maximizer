@@ -14,13 +14,13 @@ export interface EnqueuedPayload {
   readonly new_wait: number;
 }
 
-export interface PostedPayload {
+export interface RetriggeredPayload {
   readonly source_comment_url: string;
-  readonly posted_comment_url: string;
+  readonly retriggered_comment_url: string;
 }
 
 export interface CompletedPayload {
-  readonly posted_comment_url?: string;
+  readonly retriggered_comment_url?: string;
 }
 
 export interface FailedPayload {

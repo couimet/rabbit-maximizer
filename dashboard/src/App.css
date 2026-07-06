@@ -117,7 +117,7 @@ body {
 .summary-card.status-pending {
   border-left: 4px solid #f38222;
 }
-.summary-card.status-posted {
+.summary-card.status-retriggered {
   border-left: 4px solid #629988;
 }
 .summary-card.status-failed {
@@ -211,7 +211,7 @@ h3 {
 
 /* Row status tints */
 
-.row-status-posted {
+.row-status-retriggered {
   background: #f0f7f5;
 }
 .row-status-failed {
@@ -226,7 +226,7 @@ h3 {
 .row-event-enqueued {
   border-left: 3px solid #629988;
 }
-.row-event-posted {
+.row-event-retriggered {
   border-left: 3px solid #5cb85c;
 }
 .row-event-failed {
@@ -251,7 +251,7 @@ h3 {
   color: #b86e1a;
 }
 
-.badge.posted {
+.badge.retriggered {
   background: #eaf5f1;
   color: #3d6b5c;
 }

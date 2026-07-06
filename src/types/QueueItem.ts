@@ -9,7 +9,7 @@ export interface QueueItem {
   readonly not_before: Date;
   readonly attempts: number;
   readonly source_comment_url?: string;
-  readonly posted_at?: Date;
+  readonly retriggered_at?: Date;
   readonly failed_at?: Date;
   readonly completed_at?: Date;
   readonly created_at: Date;

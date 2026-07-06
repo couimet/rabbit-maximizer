@@ -115,7 +115,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       not_before: row.not_before,
       attempts: row.attempts,
       source_comment_url: row.source_comment_url ?? undefined,
-      posted_at: row.posted_at ?? undefined,
+      retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       completed_at: row.completed_at ?? undefined,
       created_at: row.created_at,

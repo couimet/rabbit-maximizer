@@ -21,12 +21,12 @@ export interface QueueRepository {
     observation: ObservationContext,
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem>;
-  markPosted(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markRetriggered(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getPostedQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
@@ -54,17 +54,17 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem> {
     const db = this.client(tx);
-    const recentPosted = await db.reviewQueue.findFirst({
+    const recentRetriggered = await db.reviewQueue.findFirst({
       where: {
         repo_full_name: repo,
         pr_number: pr,
-        status: QueueStatus.posted,
+        status: QueueStatus.retriggered,
         not_before: { gt: new Date() },
       },
     });
-    if (recentPosted) {
+    if (recentRetriggered) {
       this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'PR was recently retriggered; skipping');
-      return this.toQueueItem(recentPosted);
+      return this.toQueueItem(recentRetriggered);
     }
 
     try {
@@ -103,7 +103,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           where: {
             repo_full_name: repo,
             pr_number: pr,
-            status: { in: [QueueStatus.pending, QueueStatus.posted] },
+            status: { in: [QueueStatus.pending, QueueStatus.retriggered] },
           },
         });
         if (existing) {
@@ -116,8 +116,8 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     }
   }
 
-  async markPosted(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem> {
-    const data: { status: string; not_before?: Date; posted_at?: Date } = { status: QueueStatus.posted, posted_at: new Date() };
+  async markRetriggered(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem> {
+    const data: { status: string; not_before?: Date; retriggered_at?: Date } = { status: QueueStatus.retriggered, retriggered_at: new Date() };
     if (cooldownUntil !== undefined) {
       data.not_before = cooldownUntil;
     }
@@ -125,7 +125,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       where: { id },
       data,
     });
-    this.log.debug({ fn: 'QueueRepositoryImpl.markPosted', id, cooldownUntil }, 'Marked review posted');
+    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil }, 'Marked review retriggered');
     return this.toQueueItem(row);
   }
 
@@ -165,12 +165,12 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return rows.map((row) => this.toQueueItem(row));
   }
 
-  async getPostedQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
+  async getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
     const rows = await this.client(tx).reviewQueue.findMany({
-      where: { status: QueueStatus.posted },
-      orderBy: { posted_at: 'asc' },
+      where: { status: QueueStatus.retriggered },
+      orderBy: { retriggered_at: 'asc' },
     });
-    this.log.debug({ fn: 'QueueRepositoryImpl.getPostedQueue', count: rows.length }, 'Fetched posted queue');
+    this.log.debug({ fn: 'QueueRepositoryImpl.getRetriggeredQueue', count: rows.length }, 'Fetched retriggered queue');
     return rows.map((row) => this.toQueueItem(row));
   }
 
@@ -196,7 +196,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       by: ['status'],
       _count: { status: true },
     });
-    const counts: Record<QueueStatus, number> = { pending: 0, posted: 0, completed: 0, failed: 0 };
+    const counts: Record<QueueStatus, number> = { pending: 0, retriggered: 0, completed: 0, failed: 0 };
     for (const row of rows) {
       counts[row.status as QueueStatus] = row._count.status;
     }
@@ -214,7 +214,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       not_before: row.not_before,
       attempts: row.attempts,
       source_comment_url: row.source_comment_url ?? undefined,
-      posted_at: row.posted_at ?? undefined,
+      retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       completed_at: row.completed_at ?? undefined,
       created_at: row.created_at,

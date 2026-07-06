@@ -1,4 +1,4 @@
-import type { BypassedPayload, CompletedPayload, DetectedPayload, EnqueuedPayload, EventMetadata, FailedPayload, PostedPayload } from './EventPayloads.js';
+import type { BypassedPayload, CompletedPayload, DetectedPayload, EnqueuedPayload, EventMetadata, FailedPayload, RetriggeredPayload } from './EventPayloads.js';
 import { EventType } from './EventType.js';
 
 /** Always-present columns shared by every event, regardless of type. */
@@ -37,6 +37,6 @@ export type EventLogEntry =
       readonly payload: FailedPayload;
     })
   | (EventEnvelope & {
-      readonly type: EventType.posted;
-      readonly payload: PostedPayload;
+      readonly type: EventType.retriggered;
+      readonly payload: RetriggeredPayload;
     });

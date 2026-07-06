@@ -6,7 +6,7 @@ describe('QueueStatus', () => {
   it('has the correct values', () => {
     expect(QueueStatus).toStrictEqual({
       pending: 'pending',
-      posted: 'posted',
+      retriggered: 'retriggered',
       completed: 'completed',
       failed: 'failed',
     });
@@ -18,7 +18,7 @@ describe('EventType', () => {
     expect(EventType).toStrictEqual({
       detected: 'detected',
       enqueued: 'enqueued',
-      posted: 'posted',
+      retriggered: 'retriggered',
       bypassed: 'bypassed',
       completed: 'completed',
       failed: 'failed',
