@@ -202,6 +202,7 @@ describe('client', () => {
       const matchingCommentId = getUniqueInt();
       const matchingCommentUrl = `https://github.com/couimet/my-repo/issues/${prNumber}#issuecomment-${matchingCommentId}`;
       const matchingCreatedAt = new Date(frozenDate.getTime() - getUniqueInt() * MS_PER_HOUR).toISOString();
+      const matchingUpdatedAt = new Date(frozenDate.getTime() - getUniqueInt() * MS_PER_HOUR).toISOString();
       const matchingBody = `${getRandomString()} rate limited by coderabbit.ai ${getRandomString()}`;
 
       search.issuesAndPullRequests.mockResolvedValue({
@@ -221,6 +222,7 @@ describe('client', () => {
             id: matchingCommentId,
             html_url: matchingCommentUrl,
             created_at: matchingCreatedAt,
+            updated_at: matchingUpdatedAt,
             body: matchingBody,
           },
         ],
@@ -237,6 +239,7 @@ describe('client', () => {
           comment_id: matchingCommentId,
           url: matchingCommentUrl,
           created_at: matchingCreatedAt,
+          updated_at: matchingUpdatedAt,
         },
       ]);
 

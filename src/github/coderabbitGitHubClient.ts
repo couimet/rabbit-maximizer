@@ -80,6 +80,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
             comment_id: rateLimitComment.id,
             url: rateLimitComment.html_url,
             created_at: rateLimitComment.created_at,
+            updated_at: rateLimitComment.updated_at,
           });
         }
       }

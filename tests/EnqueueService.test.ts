@@ -18,6 +18,7 @@ const makeComment = (): RateLimitComment => ({
   pr_number: getUniqueInt(),
   comment_id: getUniqueInt(),
   created_at: getUniqueDate().toISOString(),
+  updated_at: getUniqueDate().toISOString(),
 });
 
 describe('EnqueueService', () => {
