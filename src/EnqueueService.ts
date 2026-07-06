@@ -29,7 +29,7 @@ export class EnqueueService {
   /* c8 ignore stop */
 
   readonly handle: OnDetectedCallback = async (comment, waitSeconds) => {
-    const scheduledFor = new Date(Date.now() + waitSeconds * MILLISECONDS_PER_SECOND);
+    const scheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MILLISECONDS_PER_SECOND);
     const obs = this.observation.current();
 
     const probe = this.probes.createDetectedProbe(
