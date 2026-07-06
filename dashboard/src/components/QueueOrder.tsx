@@ -28,8 +28,9 @@ const QueueOrder = ({
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const [retriggeringUuid, setRetriggeringUuid] = useState<string | null>(null);
 
-  const mountedRef = useRef(true);
+  const mountedRef = useRef(false);
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };

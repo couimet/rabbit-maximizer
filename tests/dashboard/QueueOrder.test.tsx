@@ -129,6 +129,29 @@ describe('QueueOrder', () => {
       expect(stateUpdateWarnings).toHaveLength(0);
     });
 
+    it('allows move after StrictMode-style remount', async () => {
+      const items = [makeQueueItem(), makeQueueItem()];
+      const onMoveComplete = jest.fn();
+
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ data: [makeQueueItem(), makeQueueItem()] }),
+        } as Response),
+      ) as unknown as typeof fetch;
+
+      const { unmount } = renderQueueOrder(items, null, onMoveComplete);
+      unmount();
+
+      renderQueueOrder(items, null, onMoveComplete);
+      fireEvent.click(screen.getAllByLabelText('Move up')[0]);
+
+      await waitFor(() => {
+        expect(onMoveComplete).toHaveBeenCalled();
+      });
+    });
+
     it('does not update state after unmount when move request fails', async () => {
       const items = [makeQueueItem(), makeQueueItem()];
 

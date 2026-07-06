@@ -167,6 +167,20 @@ describe('SummaryStats', () => {
       unmount();
       expect(globalThis.fetch).toHaveBeenCalled();
     });
+
+    it('loads queue data after StrictMode-style remount', async () => {
+      const summaryData = {
+        eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
+        oldestPending: null,
+      };
+      mockSummaryFetch(summaryData, { data: [] });
+
+      const { unmount } = renderSummaryStats();
+      unmount();
+
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
+    });
   });
 
   describe('error', () => {

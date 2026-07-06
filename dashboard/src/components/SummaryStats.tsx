@@ -17,8 +17,9 @@ const SummaryStats = () => {
   const [queueItems, setQueueItems] = useState<QueueItem[] | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
 
-  const mountedRef = useRef(true);
+  const mountedRef = useRef(false);
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
