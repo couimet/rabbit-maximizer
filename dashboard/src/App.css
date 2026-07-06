@@ -99,6 +99,14 @@ body {
 
 /* Summary grid */
 
+.section-card {
+  background: #fff;
+  border: 1px solid #e3d6c3;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));

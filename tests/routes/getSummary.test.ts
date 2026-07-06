@@ -23,11 +23,10 @@ describe('getSummary', () => {
     server = app.listen(0);
   };
 
-  it('returns 200 with queue counts, event counts, and oldest pending', async () => {
+  it('returns 200 with event counts and oldest pending', async () => {
     logger = createMockLogger();
     startServer(
       {
-        getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 5, retriggered: 3, completed: 10, failed: 2 }),
         getOldestPending: jest.fn<any>().mockResolvedValue({ id: 1, repo_full_name: 'c/r', pr_number: 42, not_before: '2026-01-01T00:00:00.000Z' }),
       },
       {
@@ -37,7 +36,6 @@ describe('getSummary', () => {
 
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
-      queueCounts: { pending: 5, retriggered: 3, failed: 2 },
       eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
       oldestPending: { id: 1, repo_full_name: 'c/r', pr_number: 42, not_before: '2026-01-01T00:00:00.000Z' },
     });
@@ -49,7 +47,6 @@ describe('getSummary', () => {
 
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
-      queueCounts: { pending: 0, retriggered: 0, failed: 0 },
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       oldestPending: null,
     });
@@ -58,26 +55,12 @@ describe('getSummary', () => {
   it('returns 500 and logs error on repository failure', async () => {
     const repoError = new Error('DB down');
     logger = createMockLogger();
-    startServer({ getCountsByStatus: jest.fn<any>().mockRejectedValue(repoError) });
+    startServer({ getOldestPending: jest.fn<any>().mockRejectedValue(repoError) });
 
     const res = await fetchResponse(server, '/api/summary');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get summary' });
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
-  });
-
-  it('response omits "completed" from queueCounts', async () => {
-    logger = createMockLogger();
-    startServer({
-      getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 5, retriggered: 3, completed: 10, failed: 2 }),
-    });
-
-    const json = await getJson(server, '/api/summary');
-    expect(json).toStrictEqual({
-      queueCounts: { pending: 5, retriggered: 3, failed: 2 },
-      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
-      oldestPending: null,
-    });
   });
 
   it('response omits "bypassed" and "completed" from eventCounts', async () => {
@@ -91,7 +74,6 @@ describe('getSummary', () => {
 
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
-      queueCounts: { pending: 0, retriggered: 0, failed: 0 },
       eventCounts: { detected: 1, enqueued: 2, retriggered: 3, failed: 6 },
       oldestPending: null,
     });

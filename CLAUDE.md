@@ -64,6 +64,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>The generated Prisma client in `node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/` must match the current schema. A branch switch or schema edit can desynchronize them. Running `prisma generate` is cheap (~50ms) and prevents hard-to-diagnose runtime crashes from stale column references.</rationale>
 </rule>
 
+<rule id="C006" priority="critical">
+  <title>Use null for intentionally absent values in UI components, not undefined</title>
+  <do>Use `null` as the initializer for `useState` (e.g., `useState<Foo | null>(null)`) and as the empty sentinel in nullable props in React components</do>
+  <do>Guard with `!value` — it catches both `null` and `undefined` at runtime</do>
+  <never>Use `undefined` as an explicit sentinel for "no value" — reserve it for "not provided" (omitted optional prop, missing map key)</never>
+  <rationale>`null` is explicit — you wrote it, you meant it. `undefined` is ambient (missing prop, uninitialized variable). Using `null` for intentional absence makes the intent clear and keeps UI component code internally consistent.</rationale>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

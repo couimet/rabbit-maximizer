@@ -153,11 +153,6 @@ export interface components {
         [key: string]: unknown;
       };
     };
-    QueueCounts: {
-      pending: number;
-      retriggered: number;
-      failed: number;
-    };
     EventCounts: {
       detected: number;
       enqueued: number;
@@ -165,7 +160,6 @@ export interface components {
       failed: number;
     };
     Summary: {
-      queueCounts: components['schemas']['QueueCounts'];
       eventCounts: components['schemas']['EventCounts'];
       oldestPending: components['schemas']['QueueItem'] | null;
     };

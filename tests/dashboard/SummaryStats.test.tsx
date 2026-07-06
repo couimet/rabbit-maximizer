@@ -49,11 +49,29 @@ describe('SummaryStats', () => {
       renderSummaryStats();
       expect(screen.getByText('Loading summary…')).toBeInTheDocument();
     });
+
+    it('shows queue loading when summary data loaded but queue order is pending', async () => {
+      globalThis.fetch = jest.fn((url: string) => {
+        const urlStr = url as string;
+        if (urlStr.includes('/api/state/next_review_available_at')) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ next_review_available_at: null }) } as Response);
+        }
+        if (urlStr.includes('/api/queue/order')) {
+          return new Promise(() => {});
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 }, oldestPending: null }),
+        } as Response);
+      }) as unknown as typeof fetch;
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Loading queue order…')).toBeInTheDocument());
+    });
   });
 
   describe('data', () => {
     const summaryData = {
-      queueCounts: { pending: 5, retriggered: 12, failed: 2 },
       eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
       oldestPending: null,
     };
@@ -62,12 +80,9 @@ describe('SummaryStats', () => {
       mockSummaryFetch(summaryData, { data: [] });
     });
 
-    it('renders queue count section with correct values', async () => {
+    it('renders pending count from queue order data', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Counts')).toBeInTheDocument());
-      for (const [, count] of Object.entries(summaryData.queueCounts)) {
-        expect(screen.getByText(String(count))).toBeInTheDocument();
-      }
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
     });
 
     it('renders event counts from last 24h', async () => {
@@ -80,10 +95,9 @@ describe('SummaryStats', () => {
 
     it('changes duration and re-fetches summary', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Counts')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
 
       const newSummary = {
-        queueCounts: { pending: 1, retriggered: 0, failed: 0 },
         eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 0 },
         oldestPending: null,
       };
@@ -118,13 +132,12 @@ describe('SummaryStats', () => {
 
     it('renders the QueueOrder component on the Summary tab', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
     });
   });
 
   describe('review countdown', () => {
     const summaryData = {
-      queueCounts: { pending: 5, retriggered: 12, failed: 2 },
       eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
       oldestPending: null,
     };

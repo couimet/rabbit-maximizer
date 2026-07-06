@@ -1,11 +1,11 @@
 import { DEFAULT_DURATION } from '../../../src/utils/durations.js';
-import type { EventCounts, QueueCounts, SummaryResponse } from '../api.js';
-import { fetchNextReviewAvailable, fetchSummary } from '../api.js';
+import type { EventCounts, QueueItem, SummaryResponse } from '../api.js';
+import { fetchNextReviewAvailable, fetchQueueOrder, fetchSummary } from '../api.js';
 
 import QueueOrder from './QueueOrder.js';
 import ReviewCountdown from './ReviewCountdown.js';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -14,6 +14,28 @@ const SummaryStats = () => {
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState(DEFAULT_DURATION);
   const [nextReview, setNextReview] = useState<Date | null>(null);
+  const [queueItems, setQueueItems] = useState<QueueItem[] | null>(null);
+  const [queueError, setQueueError] = useState<string | null>(null);
+
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const fetchQueue = () => {
+    fetchQueueOrder()
+      .then((res) => {
+        if (!mountedRef.current) return;
+        setQueueError(null);
+        setQueueItems(res.data);
+      })
+      .catch((err: Error) => {
+        if (!mountedRef.current) return;
+        setQueueError(err.message);
+      });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -28,6 +50,10 @@ const SummaryStats = () => {
       cancelled = true;
     };
   }, [duration]);
+
+  useEffect(() => {
+    fetchQueue();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,36 +87,30 @@ const SummaryStats = () => {
       <ReviewCountdown target={nextReview} />
       <h2>Summary</h2>
 
-      <h3>Queue Counts</h3>
-      <div className="summary-grid">
-        {Object.entries(data.queueCounts as QueueCounts).map(([status, count]) => (
-          <div key={status} className={`summary-card status-${status}`}>
-            <span className="stat-label">{status}</span>
-            <span className="stat-value">{count}</span>
-          </div>
-        ))}
+      <div className="section-card">
+        <QueueOrder items={queueItems} error={queueError} onMoveComplete={fetchQueue} headingLevel="h3" pendingCount={queueItems?.length ?? null} />
       </div>
 
-      <h3>
-        Events —{' '}
-        <select className="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)} aria-label="Events time range">
-          <option value={DEFAULT_DURATION}>Last 24h</option>
-          <option value="2d">Last 2d</option>
-          <option value="3d">Last 3d</option>
-          <option value="5d">Last 5d</option>
-          <option value="1w">Last 1w</option>
-        </select>
-      </h3>
-      <div className="summary-grid">
-        {Object.entries(data.eventCounts as EventCounts).map(([type, count]) => (
-          <div key={type} className="summary-card">
-            <span className="stat-label">{type}</span>
-            <span className="stat-value">{count}</span>
-          </div>
-        ))}
+      <div className="section-card">
+        <h3>
+          Events —{' '}
+          <select className="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)} aria-label="Events time range">
+            <option value={DEFAULT_DURATION}>Last 24h</option>
+            <option value="2d">Last 2d</option>
+            <option value="3d">Last 3d</option>
+            <option value="5d">Last 5d</option>
+            <option value="1w">Last 1w</option>
+          </select>
+        </h3>
+        <div className="summary-grid">
+          {Object.entries(data.eventCounts as EventCounts).map(([type, count]) => (
+            <div key={type} className="summary-card">
+              <span className="stat-label">{type}</span>
+              <span className="stat-value">{count}</span>
+            </div>
+          ))}
+        </div>
       </div>
-
-      <QueueOrder headingLevel="h3" />
     </section>
   );
 };

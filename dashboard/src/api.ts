@@ -1,6 +1,5 @@
 import type { components } from '../../src/api-types.js';
 
-export type QueueCounts = components['schemas']['QueueCounts'];
 export type EventCounts = components['schemas']['EventCounts'];
 export type QueueItem = components['schemas']['QueueItem'];
 export type EventEntry = components['schemas']['EventEntry'];
