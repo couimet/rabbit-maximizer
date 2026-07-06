@@ -7,5 +7,8 @@ export const REVIEW_BOT_RATE_LIMIT_MARKER = 'rate limited by coderabbit.ai';
 /** Visible text variants from CodeRabbit rate-limit comments used as search query keys. HTML comments are not indexed by GitHub search, so we match against the plain-text assertion in the comment body. The leading "you've" is dropped because the apostrophe breaks GitHub's exact-phrase search parser when wrapped in double quotes. Stored as an array so both past and current CodeRabbit wordings are covered. */
 export const REVIEW_BOT_RATE_LIMIT_SEARCH_TEXTS: readonly string[] = ['reached your PR review rate limit', 'reached your PR review limit'];
 
+/** GitHub login of the CodeRabbit bot. */
+export const REVIEW_BOT_LOGIN = 'coderabbitai[bot]';
+
 /** Command posted to re-trigger a full CodeRabbit review. */
 export const REVIEW_BOT_RETRIGGER_COMMAND = '@coderabbitai full review';

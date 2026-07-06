@@ -288,6 +288,22 @@ describe('QueueRepositoryImpl', () => {
     });
   });
 
+  describe('getPostedQueue', () => {
+    it('returns all posted items sorted by posted_at', async () => {
+      const rows = [makeRow({ status: 'posted' }), makeRow({ status: 'posted' })];
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+      const result = await sut.getPostedQueue();
+      expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        where: { status: 'posted' },
+        orderBy: { posted_at: 'asc' },
+      });
+      expect(result).toStrictEqual(rows.map(toExpectedItem));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getPostedQueue', count: 2 }, 'Fetched posted queue');
+    });
+  });
+
   describe('getOldestPending', () => {
     it('returns the oldest pending item', async () => {
       const row = makeRow({ status: 'pending' });

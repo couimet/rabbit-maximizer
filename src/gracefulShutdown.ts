@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 
 interface ShutdownDeps {
   stopDetector(): Promise<void>;
+  stopCompletionDetector(): Promise<void>;
   stopScheduler(): Promise<void>;
   stopServer?(): Promise<void>;
   prisma: PrismaClient;
@@ -10,12 +11,16 @@ interface ShutdownDeps {
 }
 
 const createGracefulShutdown =
-  ({ stopDetector, stopScheduler, stopServer, prisma, log }: ShutdownDeps) =>
+  ({ stopDetector, stopCompletionDetector, stopScheduler, stopServer, prisma, log }: ShutdownDeps) =>
   () => {
     log.info({ fn: 'gracefulShutdown' }, 'Shutting down');
     void stopDetector()
       .catch((err) => {
         log.warn({ fn: 'gracefulShutdown', error: err }, 'stopDetector failed during shutdown');
+      })
+      .then(() => stopCompletionDetector())
+      .catch((err) => {
+        log.warn({ fn: 'gracefulShutdown', error: err }, 'stopCompletionDetector failed during shutdown');
       })
       .then(() => stopScheduler())
       .catch((err) => {

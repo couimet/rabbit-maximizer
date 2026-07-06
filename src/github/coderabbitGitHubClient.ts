@@ -1,4 +1,5 @@
 import { TYPES } from '../inversify-types.js';
+import { REVIEW_BOT_LOGIN } from '../types/coderabbit.js';
 import type { PRState } from '../types/PRState.js';
 import type { RateLimitComment } from '../types/RateLimitComment.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
@@ -25,6 +26,8 @@ export interface CoderabbitGitHubClient {
   postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string): Promise<{ htmlUrl: string }>;
 
   getPRState(repo: string, pr: number): Promise<PRState>;
+
+  findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined>;
 }
 
 @injectable()
@@ -127,5 +130,32 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     });
 
     return { state: response.data.state, merged_at: response.data.merged_at };
+  }
+
+  async findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined> {
+    this.log.debug({ fn: 'findCompletedReview', owner, repo, pr }, 'Searching for completed review comment');
+
+    const response = await this.octokit.rest.issues.listComments({
+      owner,
+      repo,
+      issue_number: pr,
+      sort: 'created',
+      direction: 'desc',
+      per_page: COMMENTS_FETCH_PER_PAGE,
+    });
+
+    const completedComment = response.data.find(
+      (c) => c.user?.login === REVIEW_BOT_LOGIN && c.body && !hasRateLimitMarker(c.body) && new Date(c.created_at) > since,
+    );
+
+    if (completedComment) {
+      this.log.debug(
+        { fn: 'findCompletedReview', owner, repo, pr, commentId: completedComment.id, htmlUrl: completedComment.html_url },
+        'Found completed review comment',
+      );
+      return { htmlUrl: completedComment.html_url };
+    }
+
+    return undefined;
   }
 }
