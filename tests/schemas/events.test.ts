@@ -82,23 +82,23 @@ describe('parseEventRow', () => {
     expect(result.metadata).toBeUndefined();
   });
 
-  it('parses a posted event', () => {
+  it('parses a retriggered event', () => {
     const sourceCommentUrl = getUniqueString();
-    const postedCommentUrl = getUniqueString();
+    const retriggeredCommentUrl = getUniqueString();
     const row = baseRow({
-      type: 'posted',
+      type: 'retriggered',
       payload: JSON.stringify({
         source_comment_url: sourceCommentUrl,
-        posted_comment_url: postedCommentUrl,
+        retriggered_comment_url: retriggeredCommentUrl,
       }),
     });
 
     const result = parseEventRow(row);
 
-    expect(result.type).toBe('posted');
+    expect(result.type).toBe('retriggered');
     expect(result.payload).toStrictEqual({
       source_comment_url: sourceCommentUrl,
-      posted_comment_url: postedCommentUrl,
+      retriggered_comment_url: retriggeredCommentUrl,
     });
   });
 
@@ -117,17 +117,17 @@ describe('parseEventRow', () => {
   });
 
   it('parses a completed event', () => {
-    const postedCommentUrl = getUniqueString();
+    const retriggeredCommentUrl = getUniqueString();
     const row = baseRow({
       type: 'completed',
-      payload: JSON.stringify({ posted_comment_url: postedCommentUrl }),
+      payload: JSON.stringify({ retriggered_comment_url: retriggeredCommentUrl }),
     });
 
     const result = parseEventRow(row);
 
     expect(result.type).toBe('completed');
     expect(result.payload).toStrictEqual({
-      posted_comment_url: postedCommentUrl,
+      retriggered_comment_url: retriggeredCommentUrl,
     });
   });
 
@@ -182,12 +182,12 @@ describe('parseEventRow', () => {
 });
 
 describe('payload length limits', () => {
-  it('rejects a posted event whose comment URL exceeds the max', () => {
+  it('rejects a retriggered event whose comment URL exceeds the max', () => {
     const row = baseRow({
-      type: 'posted',
+      type: 'retriggered',
       payload: JSON.stringify({
         source_comment_url: 'a'.repeat(COMMENT_URL_MAX_LENGTH + EXCEEDS_MAX_BY),
-        posted_comment_url: getUniqueString(),
+        retriggered_comment_url: getUniqueString(),
       }),
     });
     expect(() => parseEventRow(row)).toThrow();

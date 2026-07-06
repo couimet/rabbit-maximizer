@@ -25,7 +25,7 @@ describe('QueueItemProbe', () => {
     queue = {
       markCompleted: jest.fn<any>(),
       markFailed: jest.fn<any>(),
-      markPosted: jest.fn<any>(),
+      markRetriggered: jest.fn<any>(),
     } as unknown as QueueRepository;
 
     events = {
@@ -103,22 +103,22 @@ describe('QueueItemProbe', () => {
     });
   });
 
-  describe('processPosted', () => {
-    it('marks posted, records posted event, and logs', async () => {
+  describe('processRetriggered', () => {
+    it('marks retriggered, records retriggered event, and logs', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
-      const postedCommentUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
+      const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
       const cooldownUntil = new Date('2026-07-04T00:00:00Z');
       const tx = makeTx();
 
       const probe = createProbe(item);
-      await probe.processPosted(postedCommentUrl, cooldownUntil, tx);
+      await probe.processRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
 
-      expect(queue.markPosted).toHaveBeenCalledWith(item.id, cooldownUntil, tx);
+      expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, cooldownUntil, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
-          type: 'posted',
+          type: 'retriggered',
           repo_full_name: repo,
           pr_number: pr,
           correlation_id: observation.correlationId,
@@ -126,12 +126,15 @@ describe('QueueItemProbe', () => {
           version: observation.version,
           payload: {
             source_comment_url: item.source_comment_url,
-            posted_comment_url: postedCommentUrl,
+            retriggered_comment_url: retriggeredCommentUrl,
           },
         },
         tx,
       );
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'QueueItemProbe.processPosted', repo, pr, queueId: item.id }, 'Retrigger posted');
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+        { fn: 'QueueItemProbe.processRetriggered', repo, pr, queueId: item.id },
+        'Retrigger retriggered',
+      );
     });
   });
 });

@@ -108,7 +108,7 @@ export interface components {
       error: string;
     };
     /** @enum {string} */
-    QueueStatus: 'pending' | 'posted' | 'completed' | 'failed';
+    QueueStatus: 'pending' | 'retriggered' | 'completed' | 'failed';
     QueueItem: {
       id: number;
       uuid: string;
@@ -123,7 +123,7 @@ export interface components {
       attempts: number;
       source_comment_url?: string;
       /** Format: date-time */
-      posted_at?: string | null;
+      retriggered_at?: string | null;
       /** Format: date-time */
       failed_at?: string | null;
       /** Format: date-time */
@@ -134,7 +134,7 @@ export interface components {
       updated_at: string;
     };
     /** @enum {string} */
-    EventType: 'detected' | 'enqueued' | 'posted' | 'bypassed' | 'completed' | 'failed';
+    EventType: 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed';
     EventEntry: {
       id: number;
       uuid: string;
@@ -155,13 +155,13 @@ export interface components {
     };
     QueueCounts: {
       pending: number;
-      posted: number;
+      retriggered: number;
       failed: number;
     };
     EventCounts: {
       detected: number;
       enqueued: number;
-      posted: number;
+      retriggered: number;
       failed: number;
     };
     Summary: {

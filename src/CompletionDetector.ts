@@ -43,15 +43,15 @@ export class CompletionDetector extends IntervalService {
   }
 
   protected async executeTick(): Promise<void> {
-    const postedItems = await this.queue.getPostedQueue();
-    if (postedItems.length === 0) return;
+    const retriggeredItems = await this.queue.getRetriggeredQueue();
+    if (retriggeredItems.length === 0) return;
 
-    for (const item of postedItems) {
+    for (const item of retriggeredItems) {
       try {
-        if (item.posted_at == null) continue;
+        if (item.retriggered_at == null) continue;
 
         const { owner, repo } = splitRepo(item.repo_full_name);
-        const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, item.posted_at);
+        const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, item.retriggered_at);
 
         if (!completedReview) continue;
 
@@ -69,7 +69,7 @@ export class CompletionDetector extends IntervalService {
               request_id: obs.requestId,
               version: obs.version,
               payload: {
-                posted_comment_url: completedReview.htmlUrl,
+                retriggered_comment_url: completedReview.htmlUrl,
               },
             },
             tx,

@@ -52,7 +52,7 @@ describe('EventHistory', () => {
         data: [
           makeEvent({ id: 1, type: 'detected', correlation_id: 'corr-001', ts: '2026-06-23T10:00:00.000Z' }),
           makeEvent({ id: 2, type: 'enqueued', correlation_id: 'corr-001', ts: '2026-06-23T10:05:00.000Z' }),
-          makeEvent({ id: 3, type: 'posted', correlation_id: 'corr-001', ts: '2026-06-23T10:10:00.000Z' }),
+          makeEvent({ id: 3, type: 'retriggered', correlation_id: 'corr-001', ts: '2026-06-23T10:10:00.000Z' }),
           makeEvent({ id: 4, type: 'failed', correlation_id: 'corr-002', repo_full_name: 'couimet/other', pr_number: 7, ts: '2026-06-23T11:30:00.000Z' }),
         ],
         total: 4,
@@ -72,7 +72,7 @@ describe('EventHistory', () => {
       await screen.findAllByText('2026-06-23 10:00:00');
       expect(screen.getByText('detected')).toBeInTheDocument();
       expect(screen.getByText('enqueued')).toBeInTheDocument();
-      expect(screen.getByText('posted')).toBeInTheDocument();
+      expect(screen.getByText('retriggered')).toBeInTheDocument();
       expect(screen.getAllByText('failed')).toHaveLength(1);
     });
 

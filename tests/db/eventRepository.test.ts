@@ -247,19 +247,19 @@ describe('EventRepositoryImpl', () => {
       const repo = makeUniqueRepoName().fullName;
       const pr = getUniqueInt();
       const sourceCommentUrl = getUniqueString();
-      const postedCommentUrl = getUniqueString();
+      const retriggeredCommentUrl = getUniqueString();
       const rows = [
         {
           id: getUniqueInt(),
           uuid: getUniqueString(),
           ts: getUniqueDate(),
-          type: 'posted',
+          type: 'retriggered',
           repo_full_name: repo,
           pr_number: pr,
           correlation_id: getUniqueString(),
           request_id: null,
           version: getUniqueString(),
-          payload: JSON.stringify({ source_comment_url: sourceCommentUrl, posted_comment_url: postedCommentUrl }),
+          payload: JSON.stringify({ source_comment_url: sourceCommentUrl, retriggered_comment_url: retriggeredCommentUrl }),
           metadata: null,
         },
       ];
@@ -290,8 +290,8 @@ describe('EventRepositoryImpl', () => {
           request_id: undefined,
           version: rows[0].version,
           metadata: undefined,
-          type: 'posted',
-          payload: { source_comment_url: sourceCommentUrl, posted_comment_url: postedCommentUrl },
+          type: 'retriggered',
+          payload: { source_comment_url: sourceCommentUrl, retriggered_comment_url: retriggeredCommentUrl },
         },
       ]);
       expect(result.total).toBe(total);
@@ -305,7 +305,7 @@ describe('EventRepositoryImpl', () => {
       const rows = [
         { type: 'detected', _count: { type: 11 } },
         { type: 'enqueued', _count: { type: 8 } },
-        { type: 'posted', _count: { type: 5 } },
+        { type: 'retriggered', _count: { type: 5 } },
         { type: 'bypassed', _count: { type: 3 } },
         { type: 'completed', _count: { type: 2 } },
         { type: 'failed', _count: { type: 1 } },
@@ -327,7 +327,7 @@ describe('EventRepositoryImpl', () => {
       expect(result).toStrictEqual({
         detected: 11,
         enqueued: 8,
-        posted: 5,
+        retriggered: 5,
         bypassed: 3,
         completed: 2,
         failed: 1,
@@ -335,7 +335,7 @@ describe('EventRepositoryImpl', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'EventRepositoryImpl.countByType',
-          counts: { detected: 11, enqueued: 8, posted: 5, bypassed: 3, completed: 2, failed: 1 },
+          counts: { detected: 11, enqueued: 8, retriggered: 5, bypassed: 3, completed: 2, failed: 1 },
         },
         'Counted events by type',
       );

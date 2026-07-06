@@ -59,11 +59,11 @@ export class QueueItemProbe {
     );
   }
 
-  async processPosted(postedCommentUrl: string, cooldownUntil: Date, tx: Prisma.TransactionClient): Promise<void> {
-    await this.queue.markPosted(this.item.id, cooldownUntil, tx);
+  async processRetriggered(retriggeredCommentUrl: string, cooldownUntil: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await this.queue.markRetriggered(this.item.id, cooldownUntil, tx);
     await this.events.record(
       {
-        type: EventType.posted,
+        type: EventType.retriggered,
         repo_full_name: this.item.repo_full_name,
         pr_number: this.item.pr_number,
         correlation_id: this.observation.correlationId,
@@ -71,19 +71,19 @@ export class QueueItemProbe {
         version: this.observation.version,
         payload: {
           source_comment_url: this.item.source_comment_url!,
-          posted_comment_url: postedCommentUrl,
+          retriggered_comment_url: retriggeredCommentUrl,
         },
       },
       tx,
     );
     this.log.info(
       {
-        fn: 'QueueItemProbe.processPosted',
+        fn: 'QueueItemProbe.processRetriggered',
         repo: this.item.repo_full_name,
         pr: this.item.pr_number,
         queueId: this.item.id,
       },
-      'Retrigger posted',
+      'Retrigger retriggered',
     );
   }
 }

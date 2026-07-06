@@ -28,9 +28,9 @@ export const EnqueuedPayloadSchema = z.object({
   new_wait: z.number().int().positive(),
 });
 
-export const PostedPayloadSchema = z.object({
+export const RetriggeredPayloadSchema = z.object({
   source_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH),
-  posted_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH),
+  retriggered_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH),
 });
 
 export const BypassedPayloadSchema = z.object({
@@ -39,7 +39,7 @@ export const BypassedPayloadSchema = z.object({
 });
 
 export const CompletedPayloadSchema = z.object({
-  posted_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH).optional(),
+  retriggered_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH).optional(),
 });
 
 export const FailedPayloadSchema = z.object({
@@ -82,11 +82,11 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         type: EventType.enqueued,
         payload: EnqueuedPayloadSchema.parse(payload),
       };
-    case EventType.posted:
+    case EventType.retriggered:
       return {
         ...envelope,
-        type: EventType.posted,
-        payload: PostedPayloadSchema.parse(payload),
+        type: EventType.retriggered,
+        payload: RetriggeredPayloadSchema.parse(payload),
       };
     case EventType.bypassed:
       return {

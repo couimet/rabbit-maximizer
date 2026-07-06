@@ -53,8 +53,8 @@ describe('SummaryStats', () => {
 
   describe('data', () => {
     const summaryData = {
-      queueCounts: { pending: 5, posted: 12, failed: 2 },
-      eventCounts: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
+      queueCounts: { pending: 5, retriggered: 12, failed: 2 },
+      eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
       oldestPending: null,
     };
 
@@ -83,8 +83,8 @@ describe('SummaryStats', () => {
       await waitFor(() => expect(screen.getByText('Queue Counts')).toBeInTheDocument());
 
       const newSummary = {
-        queueCounts: { pending: 1, posted: 0, failed: 0 },
-        eventCounts: { detected: 5, enqueued: 3, posted: 2, failed: 0 },
+        queueCounts: { pending: 1, retriggered: 0, failed: 0 },
+        eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 0 },
         oldestPending: null,
       };
       const fetchCalls: string[] = [];
@@ -124,8 +124,8 @@ describe('SummaryStats', () => {
 
   describe('review countdown', () => {
     const summaryData = {
-      queueCounts: { pending: 5, posted: 12, failed: 2 },
-      eventCounts: { detected: 8, enqueued: 7, posted: 3, failed: 1 },
+      queueCounts: { pending: 5, retriggered: 12, failed: 2 },
+      eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
       oldestPending: null,
     };
 

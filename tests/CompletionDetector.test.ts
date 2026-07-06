@@ -21,7 +21,7 @@ const drainMicrotasks = async (depth: number): Promise<void> => {
 
 interface MockCompletionDetectorDeps {
   queue: {
-    getPostedQueue: jest.Mock<any>;
+    getRetriggeredQueue: jest.Mock<any>;
     markCompleted: jest.Mock<any>;
   };
   github: CoderabbitGitHubClient;
@@ -32,23 +32,23 @@ interface MockCompletionDetectorDeps {
   config: { POLL_INTERVAL: number };
 }
 
-const makePostedItem = (overrides: { id?: number; postedAt?: Date; repoFullName?: string; prNumber?: number }): QueueItem => ({
+const makeRetriggeredItem = (overrides: { id?: number; retriggeredAt?: Date; repoFullName?: string; prNumber?: number }): QueueItem => ({
   id: overrides.id ?? getUniqueInt(),
   uuid: getUniqueString({ prefix: 'uuid-' }),
   repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: overrides.prNumber ?? getUniqueInt(),
-  status: QueueStatus.posted,
+  status: QueueStatus.retriggered,
   not_before: new Date(),
   attempts: 1,
   source_comment_url: `https://github.com/org/repo/issues/1#issuecomment-${getUniqueInt()}`,
-  posted_at: overrides.postedAt ?? new Date('2026-06-15T00:00:00Z'),
+  retriggered_at: overrides.retriggeredAt ?? new Date('2026-06-15T00:00:00Z'),
   created_at: new Date('2026-06-14T00:00:00Z'),
   updated_at: new Date('2026-06-15T00:00:00Z'),
 });
 
 const setup = (): MockCompletionDetectorDeps => {
   const queue = {
-    getPostedQueue: jest.fn<any>(),
+    getRetriggeredQueue: jest.fn<any>(),
     markCompleted: jest.fn<any>(),
   };
 
@@ -86,19 +86,19 @@ describe('CompletionDetector', () => {
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
-      deps.queue.getPostedQueue.mockResolvedValue([]);
+      deps.queue.getRetriggeredQueue.mockResolvedValue([]);
 
       const detector = createDetector();
       const { stop } = detector.start();
 
-      expect(deps.queue.getPostedQueue).toHaveBeenCalledTimes(1);
+      expect(deps.queue.getRetriggeredQueue).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'CompletionDetector.start', pollIntervalSec: POLL_INTERVAL_SEC }, 'Starting completion detector');
 
       await stop();
     });
 
     it('stop clears the interval', async () => {
-      deps.queue.getPostedQueue.mockResolvedValue([]);
+      deps.queue.getRetriggeredQueue.mockResolvedValue([]);
 
       const detector = createDetector();
       const { stop } = detector.start();
@@ -106,18 +106,18 @@ describe('CompletionDetector', () => {
       await stop();
       jest.advanceTimersByTime(POLL_INTERVAL_MS * 2);
 
-      expect(deps.queue.getPostedQueue).toHaveBeenCalledTimes(1);
+      expect(deps.queue.getRetriggeredQueue).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'CompletionDetector.stop' }, 'Completion detector stopped');
     });
   });
 
   describe('detection', () => {
     it('transitions item to completed when a review comment is found', async () => {
-      const postedAt = new Date('2026-06-15T00:00:00Z');
-      const item = makePostedItem({ postedAt, repoFullName: 'my-org/my-repo', prNumber: 42 });
+      const retriggeredAt = new Date('2026-06-15T00:00:00Z');
+      const item = makeRetriggeredItem({ retriggeredAt, repoFullName: 'my-org/my-repo', prNumber: 42 });
       const completedCommentUrl = 'https://github.com/my-org/my-repo/issues/42#issuecomment-999';
 
-      deps.queue.getPostedQueue.mockResolvedValue([item]);
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       (deps.github.findCompletedReview as jest.Mock<any>).mockResolvedValue({ htmlUrl: completedCommentUrl });
 
       const obs = { correlationId: 'corr-1', requestId: 'req-1', version: '1.0.0' };
@@ -131,7 +131,7 @@ describe('CompletionDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       const [owner, repo] = item.repo_full_name.split('/');
-      expect(deps.github.findCompletedReview as jest.Mock<any>).toHaveBeenCalledWith(owner, repo, item.pr_number, item.posted_at);
+      expect(deps.github.findCompletedReview as jest.Mock<any>).toHaveBeenCalledWith(owner, repo, item.pr_number, item.retriggered_at);
       expect(deps.queue.markCompleted).toHaveBeenCalledWith(item.id, {});
       expect(deps.events.record).toHaveBeenCalledWith(
         {
@@ -142,7 +142,7 @@ describe('CompletionDetector', () => {
           request_id: obs.requestId,
           version: obs.version,
           payload: {
-            posted_comment_url: completedCommentUrl,
+            retriggered_comment_url: completedCommentUrl,
           },
         },
         {},
@@ -154,8 +154,8 @@ describe('CompletionDetector', () => {
     });
 
     it('skips items where no completed review is found', async () => {
-      const item = makePostedItem({});
-      deps.queue.getPostedQueue.mockResolvedValue([item]);
+      const item = makeRetriggeredItem({});
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       (deps.github.findCompletedReview as jest.Mock<any>).mockResolvedValue(undefined);
 
       const detector = createDetector();
@@ -167,8 +167,8 @@ describe('CompletionDetector', () => {
       expect(deps.events.record).not.toHaveBeenCalled();
     });
 
-    it('returns early when no posted items exist', async () => {
-      deps.queue.getPostedQueue.mockResolvedValue([]);
+    it('returns early when no retriggered items exist', async () => {
+      deps.queue.getRetriggeredQueue.mockResolvedValue([]);
 
       const detector = createDetector();
       detector.start();
@@ -178,10 +178,10 @@ describe('CompletionDetector', () => {
       expect(deps.github.findCompletedReview as jest.Mock<any>).not.toHaveBeenCalled();
     });
 
-    it('skips items with null posted_at', async () => {
-      const item = makePostedItem({});
-      const itemWithNullPostedAt = { ...item, posted_at: undefined };
-      deps.queue.getPostedQueue.mockResolvedValue([itemWithNullPostedAt]);
+    it('skips items with null retriggered_at', async () => {
+      const item = makeRetriggeredItem({});
+      const itemWithNullRetriggeredAt = { ...item, retriggered_at: undefined };
+      deps.queue.getRetriggeredQueue.mockResolvedValue([itemWithNullRetriggeredAt]);
 
       const detector = createDetector();
       detector.start();
@@ -191,10 +191,10 @@ describe('CompletionDetector', () => {
       expect(deps.github.findCompletedReview as jest.Mock<any>).not.toHaveBeenCalled();
     });
 
-    it('processes multiple posted items in sequence', async () => {
-      const item1 = makePostedItem({ repoFullName: 'org-a/repo-a', prNumber: 1 });
-      const item2 = makePostedItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
-      deps.queue.getPostedQueue.mockResolvedValue([item1, item2]);
+    it('processes multiple retriggered items in sequence', async () => {
+      const item1 = makeRetriggeredItem({ repoFullName: 'org-a/repo-a', prNumber: 1 });
+      const item2 = makeRetriggeredItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
       (deps.github.findCompletedReview as jest.Mock<any>).mockResolvedValue(undefined);
 
       const detector = createDetector();
@@ -212,7 +212,7 @@ describe('CompletionDetector', () => {
       const queuePromise = new Promise((resolve) => {
         resolveQueue = resolve;
       });
-      deps.queue.getPostedQueue.mockReturnValue(queuePromise);
+      deps.queue.getRetriggeredQueue.mockReturnValue(queuePromise);
 
       const detector = createDetector();
       const { stop } = detector.start();
@@ -223,7 +223,7 @@ describe('CompletionDetector', () => {
 
       await Promise.resolve();
 
-      expect(deps.queue.getPostedQueue).toHaveBeenCalledTimes(1);
+      expect(deps.queue.getRetriggeredQueue).toHaveBeenCalledTimes(1);
 
       resolveQueue!([]);
       await stop();
@@ -231,9 +231,9 @@ describe('CompletionDetector', () => {
   });
 
   describe('error handling', () => {
-    it('logs warning via base class when getPostedQueue fails', async () => {
+    it('logs warning via base class when getRetriggeredQueue fails', async () => {
       const error = new Error('GitHub API error');
-      deps.queue.getPostedQueue.mockRejectedValue(error);
+      deps.queue.getRetriggeredQueue.mockRejectedValue(error);
 
       const detector = createDetector();
       detector.start();
@@ -244,9 +244,9 @@ describe('CompletionDetector', () => {
     });
 
     it('logs warning per-item and continues processing remaining items', async () => {
-      const item1 = makePostedItem({ repoFullName: 'org-a/repo-a', prNumber: 1 });
-      const item2 = makePostedItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
-      deps.queue.getPostedQueue.mockResolvedValue([item1, item2]);
+      const item1 = makeRetriggeredItem({ repoFullName: 'org-a/repo-a', prNumber: 1 });
+      const item2 = makeRetriggeredItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
 
       const perItemError = new Error('findCompletedReview failed');
       (deps.github.findCompletedReview as jest.Mock<any>).mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);

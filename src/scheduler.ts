@@ -86,16 +86,16 @@ export class Scheduler extends IntervalService {
         });
       }
 
-      const { htmlUrl: postedCommentUrl } = await this.github.postRetrigger(item_.repo_full_name, item_.pr_number, sourceCommentUrl, runId);
+      const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(item_.repo_full_name, item_.pr_number, sourceCommentUrl, runId);
 
       const obs = this.observation.current();
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.markPosted(item_.id, new Date(Date.now() + this.postCooldownMs), tx);
+        await this.queue.markRetriggered(item_.id, new Date(Date.now() + this.postCooldownMs), tx);
 
         await this.events.record(
           {
-            type: EventType.posted,
+            type: EventType.retriggered,
             repo_full_name: item_.repo_full_name,
             pr_number: item_.pr_number,
             correlation_id: obs.correlationId,
@@ -103,14 +103,14 @@ export class Scheduler extends IntervalService {
             version: obs.version,
             payload: {
               source_comment_url: sourceCommentUrl!,
-              posted_comment_url: postedCommentUrl,
+              retriggered_comment_url: retriggeredCommentUrl,
             },
           },
           tx,
         );
       });
 
-      this.log.info({ fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, runId }, 'Retrigger posted');
+      this.log.info({ fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, runId }, 'Retrigger retriggered');
     } catch (err: unknown) {
       if (!item) {
         this.log.warn({ fn: 'Scheduler.tick', error: err }, 'executeTick failed before item was fetched');
