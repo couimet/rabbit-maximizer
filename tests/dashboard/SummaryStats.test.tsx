@@ -11,31 +11,16 @@ import { StrictMode } from 'react';
 
 const renderSummaryStats = (ui?: ReactElement) => render(<TimezoneProvider>{ui ?? <SummaryStats />}</TimezoneProvider>);
 
-const EMPTY_QUEUE_ORDER = { data: [] };
+const DEFAULT_EVENT_COUNTS = { detected: 8, enqueued: 7, retriggered: 3, failed: 1 };
 
-const mockSummaryFetch = (summaryData: unknown, queueOrderData: unknown = EMPTY_QUEUE_ORDER, stateData: unknown = null) => {
-  globalThis.fetch = jest.fn((url: string) => {
-    const urlStr = url as string;
-    if (urlStr.includes('/api/state/next_review_available_at')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ next_review_available_at: stateData }),
-      } as Response);
-    }
-    if (urlStr.includes('/api/queue/order')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve(queueOrderData),
-      } as Response);
-    }
-    return Promise.resolve({
+const mockDashboardState = (data: Record<string, unknown>) => {
+  globalThis.fetch = jest.fn(() =>
+    Promise.resolve({
       ok: true,
       status: 200,
-      json: () => Promise.resolve(summaryData),
-    } as Response);
-  }) as unknown as typeof fetch;
+      json: () => Promise.resolve(data),
+    } as Response),
+  ) as unknown as typeof fetch;
 };
 
 describe('SummaryStats', () => {
@@ -51,84 +36,59 @@ describe('SummaryStats', () => {
       expect(screen.getByText('Loading summary…')).toBeInTheDocument();
     });
 
-    it('shows queue loading when summary data loaded but queue order is pending', async () => {
-      globalThis.fetch = jest.fn((url: string) => {
-        const urlStr = url as string;
-        if (urlStr.includes('/api/state/next_review_available_at')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ next_review_available_at: null }) } as Response);
-        }
-        if (urlStr.includes('/api/queue/order')) {
-          return new Promise(() => {});
-        }
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve({ eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 }, oldestPending: null }),
-        } as Response);
-      }) as unknown as typeof fetch;
+    it('shows loading text when data is null', () => {
+      globalThis.fetch = jest.fn(() => new Promise(() => {})) as unknown as typeof fetch;
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Loading queue order…')).toBeInTheDocument());
+      expect(screen.getByText('Loading summary…')).toBeInTheDocument();
     });
   });
 
   describe('data', () => {
-    const summaryData = {
-      eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
-      oldestPending: null,
+    const dashboardData = {
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      eventCounts: DEFAULT_EVENT_COUNTS,
     };
 
     beforeEach(() => {
-      mockSummaryFetch(summaryData, { data: [] });
+      mockDashboardState(dashboardData);
     });
 
-    it('renders pending count from queue order data', async () => {
+    it('renders pending count from pendingItems', async () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
     });
 
-    it('renders event counts from last 24h', async () => {
+    it('renders event counts', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(String(summaryData.eventCounts.detected))).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(String(DEFAULT_EVENT_COUNTS.detected))).toBeInTheDocument());
       expect(screen.getByText('detected')).toBeInTheDocument();
-      expect(screen.getByText(String(summaryData.eventCounts.enqueued))).toBeInTheDocument();
+      expect(screen.getByText(String(DEFAULT_EVENT_COUNTS.enqueued))).toBeInTheDocument();
       expect(screen.getByText('enqueued')).toBeInTheDocument();
     });
 
-    it('changes duration and re-fetches summary', async () => {
+    it('changes duration and re-fetches', async () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
 
-      const newSummary = {
+      const newData = {
+        nextReviewAvailableAt: null,
+        pendingItems: [],
         eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 0 },
-        oldestPending: null,
       };
-      const fetchCalls: string[] = [];
+      let capturedUrl = '';
       globalThis.fetch = jest.fn((url: string) => {
-        fetchCalls.push(url as string);
-        const urlStr = url as string;
-        if (urlStr.includes('/api/state/next_review_available_at')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: () => Promise.resolve({ next_review_available_at: null }),
-          } as Response);
-        }
-        if (urlStr.includes('/api/queue/order')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: () => Promise.resolve(EMPTY_QUEUE_ORDER),
-          } as Response);
-        }
+        capturedUrl = url as string;
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve(newSummary),
+          json: () => Promise.resolve(newData),
         } as Response);
       }) as unknown as typeof fetch;
 
       fireEvent.change(screen.getByRole('combobox'), { target: { value: '2d' } });
       await waitFor(() => expect(screen.getByText('5')).toBeInTheDocument());
+      expect(capturedUrl).toContain('duration=2d');
     });
 
     it('renders the QueueOrder component on the Summary tab', async () => {
@@ -138,25 +98,25 @@ describe('SummaryStats', () => {
   });
 
   describe('review countdown', () => {
-    const summaryData = {
-      eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
-      oldestPending: null,
+    const dashboardData = {
+      pendingItems: [],
+      eventCounts: DEFAULT_EVENT_COUNTS,
     };
 
-    it('renders Available now when next_review_available_at is null', async () => {
-      mockSummaryFetch(summaryData, { data: [] }, null);
+    it('renders Available now when nextReviewAvailableAt is null', async () => {
+      mockDashboardState({ ...dashboardData, nextReviewAvailableAt: null });
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Available now')).toBeInTheDocument());
     });
 
-    it('renders Available now when next_review_available_at is in the past', async () => {
-      mockSummaryFetch(summaryData, { data: [] }, new Date(Date.now() - 60_000).toISOString());
+    it('renders Available now when nextReviewAvailableAt is in the past', async () => {
+      mockDashboardState({ ...dashboardData, nextReviewAvailableAt: new Date(Date.now() - 60_000).toISOString() });
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Available now')).toBeInTheDocument());
     });
 
-    it('renders countdown text when next_review_available_at is in the future', async () => {
-      mockSummaryFetch(summaryData, { data: [] }, new Date(Date.now() + 120_000).toISOString());
+    it('renders countdown text when nextReviewAvailableAt is in the future', async () => {
+      mockDashboardState({ ...dashboardData, nextReviewAvailableAt: new Date(Date.now() + 120_000).toISOString() });
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Next review available in')).toBeInTheDocument());
     });
@@ -169,12 +129,12 @@ describe('SummaryStats', () => {
       expect(globalThis.fetch).toHaveBeenCalled();
     });
 
-    it('loads queue data after StrictMode double-invoke', async () => {
-      const summaryData = {
+    it('loads data after StrictMode double-invoke', async () => {
+      mockDashboardState({
+        nextReviewAvailableAt: null,
+        pendingItems: [],
         eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
-        oldestPending: null,
-      };
-      mockSummaryFetch(summaryData, { data: [] });
+      });
 
       render(
         <StrictMode>
@@ -184,6 +144,54 @@ describe('SummaryStats', () => {
         </StrictMode>,
       );
       await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
+    });
+
+    it('re-fetches dashboard state when QueueOrder calls onMoveComplete', async () => {
+      const queueItem = {
+        uuid: '00000000-0000-0000-0000-000000000001',
+        repo_full_name: 'owner/repo',
+        pr_number: 42,
+        status: 'pending',
+        not_before: new Date().toISOString(),
+        attempts: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const initialData = {
+        nextReviewAvailableAt: null,
+        pendingItems: [queueItem],
+        eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
+      };
+      const refreshedData = {
+        nextReviewAvailableAt: null,
+        pendingItems: [queueItem],
+        eventCounts: { detected: 2, enqueued: 0, retriggered: 0, failed: 0 },
+      };
+
+      let dashboardCallCount = 0;
+      globalThis.fetch = jest.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ data: [queueItem] }),
+          } as Response);
+        }
+        dashboardCallCount++;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(dashboardCallCount === 1 ? initialData : refreshedData),
+        } as Response);
+      }) as unknown as typeof fetch;
+
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Queue Order — 1 pending item(s)')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByLabelText('Select owner/repo #42'));
+      fireEvent.click(screen.getByText('Move Up'));
+
+      await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument());
     });
   });
 
