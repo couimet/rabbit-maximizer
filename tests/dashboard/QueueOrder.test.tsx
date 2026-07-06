@@ -7,6 +7,7 @@ import '@testing-library/jest-dom/jest-globals';
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 
 const defaultOnMoveComplete = jest.fn();
 
@@ -129,7 +130,7 @@ describe('QueueOrder', () => {
       expect(stateUpdateWarnings).toHaveLength(0);
     });
 
-    it('allows move after StrictMode-style remount', async () => {
+    it('allows move after StrictMode double-invoke', async () => {
       const items = [makeQueueItem(), makeQueueItem()];
       const onMoveComplete = jest.fn();
 
@@ -141,10 +142,12 @@ describe('QueueOrder', () => {
         } as Response),
       ) as unknown as typeof fetch;
 
-      const { unmount } = renderQueueOrder(items, null, onMoveComplete);
-      unmount();
+      render(
+        <StrictMode>
+          <QueueOrder items={items} error={null} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} />
+        </StrictMode>,
+      );
 
-      renderQueueOrder(items, null, onMoveComplete);
       fireEvent.click(screen.getAllByLabelText('Move up')[0]);
 
       await waitFor(() => {
