@@ -445,7 +445,11 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999')).rejects.toThrow('not found or not pending');
+      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999')).rejects.toBeDetailedError('QUEUE_ITEM_NOT_FOUND', {
+        message: 'Queue item 00000000-0000-0000-0000-000000000999 not found or not pending',
+        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+        details: { uuid: '00000000-0000-0000-0000-000000000999' },
+      });
     });
   });
 

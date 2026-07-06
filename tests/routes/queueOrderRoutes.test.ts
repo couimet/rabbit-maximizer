@@ -259,10 +259,10 @@ describe('queueOrderRoutes', () => {
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/99999999-9999-9999-9999-999999999999/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NOT_FOUND);
-      expect(await res.json()).toStrictEqual({ error: 'Queue item not found or not pending: 99999999-9999-9999-9999-999999999999' });
+      expect(await res.json()).toStrictEqual({ error: 'Queue item not found: 99999999-9999-9999-9999-999999999999' });
     });
 
-    it('returns 404 when item is not pending', async () => {
+    it('returns 409 when item is not pending', async () => {
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'completed' }]),
       });
@@ -270,8 +270,8 @@ describe('queueOrderRoutes', () => {
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
-      expect(res.status).toBe(StatusCodes.NOT_FOUND);
-      expect(await res.json()).toStrictEqual({ error: `Queue item not found or not pending: ${UUID_A}` });
+      expect(res.status).toBe(StatusCodes.CONFLICT);
+      expect(await res.json()).toStrictEqual({ error: `Queue item is not pending: ${UUID_A}` });
     });
 
     it('returns 500 on repository error', async () => {

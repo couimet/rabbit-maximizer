@@ -6,6 +6,7 @@ import { prUrl, repoUrl } from '../githubUrl.js';
 import { useEffect, useRef, useState } from 'react';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
+const TOAST_DISMISS_MS = 5000;
 
 const QueueOrder = ({
   items,
@@ -36,7 +37,7 @@ const QueueOrder = ({
 
   useEffect(() => {
     if (!toast) return;
-    const id = setTimeout(() => setToast(null), 5000);
+    const id = setTimeout(() => setToast(null), TOAST_DISMISS_MS);
     return () => clearTimeout(id);
   }, [toast]);
 
@@ -126,10 +127,10 @@ const QueueOrder = ({
       ) : (
         <>
           <div className="queue-order-toolbar">
-            <button disabled={!hasSelection || moving} onClick={() => moveSelected('up')}>
+            <button disabled={!hasSelection || moving || retriggeringUuid !== null} onClick={() => moveSelected('up')}>
               Move Up
             </button>
-            <button disabled={!hasSelection || moving} onClick={() => moveSelected('down')}>
+            <button disabled={!hasSelection || moving || retriggeringUuid !== null} onClick={() => moveSelected('down')}>
               Move Down
             </button>
           </div>
@@ -137,7 +138,13 @@ const QueueOrder = ({
             <thead>
               <tr>
                 <th className="col-select">
-                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} disabled={moving} aria-label="Select all pending items" />
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleSelectAll}
+                    disabled={moving || retriggeringUuid !== null}
+                    aria-label="Select all pending items"
+                  />
                 </th>
                 <th className="col-position">#</th>
                 <th>Repo</th>
@@ -156,7 +163,7 @@ const QueueOrder = ({
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(item.uuid)}
-                        disabled={moving}
+                        disabled={moving || retriggeringUuid !== null}
                         aria-label={`Select ${item.repo_full_name} #${item.pr_number}`}
                       />
                     </td>
@@ -182,10 +189,20 @@ const QueueOrder = ({
                       >
                         ⚡
                       </button>
-                      <button className="btn-arrow" onClick={() => moveSingle(item.uuid, 'up')} disabled={moving} aria-label="Move up">
+                      <button
+                        className="btn-arrow"
+                        onClick={() => moveSingle(item.uuid, 'up')}
+                        disabled={moving || retriggeringUuid !== null}
+                        aria-label="Move up"
+                      >
                         ↑
                       </button>
-                      <button className="btn-arrow" onClick={() => moveSingle(item.uuid, 'down')} disabled={moving} aria-label="Move down">
+                      <button
+                        className="btn-arrow"
+                        onClick={() => moveSingle(item.uuid, 'down')}
+                        disabled={moving || retriggeringUuid !== null}
+                        aria-label="Move down"
+                      >
                         ↓
                       </button>
                     </td>

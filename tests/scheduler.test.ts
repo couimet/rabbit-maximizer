@@ -119,7 +119,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_POST_COOLDOWN: 3600,
     SCHEDULER_RETRY_BACKOFF_BASE: 60,
     SCHEDULER_RETRY_BACKOFF_MAX: 3600,
-    SCHEDULER_TICK_INTERVAL_MS: 10_000,
+    SCHEDULER_TICK_INTERVAL_MS: TICK_INTERVAL_MS,
   };
 
   return { config, queue, queueOrder, github, events, observation, prisma, tx, logger, pruner };

@@ -1,5 +1,7 @@
 import type { Config } from '../config.js';
 import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
+import { QueueStatus } from '../types/index.js';
+import { MS_PER_SECOND } from '../utils/durations.js';
 import { isValidUuid } from '../utils/uuidLookup.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -66,14 +68,18 @@ export const createRetriggerNowHandler = (queueOrderRepo: QueueOrderRepository, 
 
       const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
       const item = items.find((i) => i.uuid === uuid);
-      if (!item || item.status !== 'pending') {
-        res.status(StatusCodes.NOT_FOUND).json({ error: `Queue item not found or not pending: ${uuid}` });
+      if (!item) {
+        res.status(StatusCodes.NOT_FOUND).json({ error: `Queue item not found: ${uuid}` });
+        return;
+      }
+      if (item.status !== QueueStatus.pending) {
+        res.status(StatusCodes.CONFLICT).json({ error: `Queue item is not pending: ${uuid}` });
         return;
       }
 
       await queueOrderRepo.moveToTop(uuid);
 
-      res.json({ ok: true, schedulerTickIntervalSec: config.SCHEDULER_TICK_INTERVAL_MS / 1000 });
+      res.json({ ok: true, schedulerTickIntervalSec: config.SCHEDULER_TICK_INTERVAL_MS / MS_PER_SECOND });
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.retriggerNow', error }, 'Failed to retrigger now');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to retrigger now' });

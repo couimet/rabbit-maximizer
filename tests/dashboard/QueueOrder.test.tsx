@@ -345,7 +345,7 @@ describe('QueueOrder', () => {
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
 
       await waitFor(() => {
-        expect(screen.getByText(/Retrigger requested.*10 seconds/)).toBeInTheDocument();
+        expect(screen.getByText('Retrigger requested — scheduler will pick it up within 10 seconds')).toBeInTheDocument();
       });
     });
 
@@ -383,7 +383,7 @@ describe('QueueOrder', () => {
       resolveRetrigger({ ok: true, schedulerTickIntervalSec: 10 });
 
       await waitFor(() => {
-        expect(screen.getByText(/Retrigger requested/)).toBeInTheDocument();
+        expect(screen.getByText('Retrigger requested — scheduler will pick it up within 10 seconds')).toBeInTheDocument();
       });
     });
 
