@@ -6,7 +6,6 @@ import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
 import { parseWaitSeconds } from './github/parseWaitSeconds.js';
 import { splitRepo } from './github/splitRepo.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { getJitter } from './utils/getJitter.js';
 import { config } from './config.js';
 import { IntervalService } from './IntervalService.js';
 import { TYPES } from './inversify-types.js';
@@ -67,14 +66,12 @@ export class PollDetector extends IntervalService {
 
         const waitSeconds = parseWaitSeconds(body);
         const effectiveWait = waitSeconds ?? DEFAULT_FALLBACK_WAIT_SECONDS;
-        const jitteredWait = getJitter(effectiveWait);
-
         const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MILLISECONDS_PER_SECOND);
         if (!earliestNextReview || candidate < earliestNextReview) {
           earliestNextReview = candidate;
         }
 
-        await this.onDetected(c, jitteredWait);
+        await this.onDetected(c, effectiveWait);
       }
 
       if (earliestNextReview) {

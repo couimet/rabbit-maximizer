@@ -108,9 +108,9 @@ describe('EnqueueService', () => {
     it('creates probe, enqueues, and completes probe in a transaction when PR is open', async () => {
       const svc = createService();
       const comment = makeComment();
-      const jitteredWait = 330;
+      const waitSeconds = 330;
 
-      await svc.handle(comment, jitteredWait);
+      await svc.handle(comment, waitSeconds);
 
       expect(probes.createDetectedProbe).toHaveBeenCalledWith(
         { repo_full_name: comment.repo_full_name, pr_number: comment.pr_number, source_ts: new Date(comment.created_at), source_comment_url: comment.url },
@@ -123,7 +123,7 @@ describe('EnqueueService', () => {
         comment.pr_number,
         expect.any(Date),
         comment.url,
-        jitteredWait,
+        waitSeconds,
         observation.current(),
         tx,
       );
@@ -135,9 +135,9 @@ describe('EnqueueService', () => {
       (fetcher.fetch as jest.Mock<any>).mockResolvedValue(undefined);
       const svc = createService();
       const comment = makeComment();
-      const jitteredWait = 330;
+      const waitSeconds = 330;
 
-      await svc.handle(comment, jitteredWait);
+      await svc.handle(comment, waitSeconds);
 
       expect(probe.processStarted).toHaveBeenCalled();
       expect(queue.enqueue).toHaveBeenCalled();
@@ -160,15 +160,15 @@ describe('EnqueueService', () => {
       expect(probe.processMerged).not.toHaveBeenCalled();
     });
 
-    it('schedules the enqueue for now + jittered wait', async () => {
+    it('schedules the enqueue for now + wait seconds', async () => {
       const svc = createService();
       const comment = makeComment();
-      const jitteredWait = 120;
+      const waitSeconds = 120;
 
-      await svc.handle(comment, jitteredWait);
+      await svc.handle(comment, waitSeconds);
 
       const enqueuedScheduledFor = (queue.enqueue as jest.Mock).mock.calls[0][2] as Date;
-      const expectedTime = Date.now() + jitteredWait * MS_PER_SECOND;
+      const expectedTime = Date.now() + waitSeconds * MS_PER_SECOND;
       expect(Math.abs(enqueuedScheduledFor.getTime() - expectedTime)).toBeLessThan(MS_PER_SECOND);
     });
   });
