@@ -1,5 +1,6 @@
+import type { Config } from '../../src/config.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
-import { createGetQueueOrderHandler, createMoveQueueOrderHandler } from '../../src/routes/queueOrderRoutes.js';
+import { createGetQueueOrderHandler, createMoveQueueOrderHandler, createRetriggerNowHandler } from '../../src/routes/queueOrderRoutes.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
 import { createMockLogger, createMockQueueOrderRepo } from '../helpers/index.js';
@@ -13,11 +14,22 @@ import { StatusCodes } from 'http-status-codes';
 
 interface QueueItemStub {
   id: number;
+  uuid: string;
   repo_full_name: string;
   pr_number: number;
 }
 
-const makeItem = (id: number): QueueItemStub => ({ id, repo_full_name: 'c/r', pr_number: id });
+const UUID_A = '11111111-1111-1111-1111-111111111111';
+const UUID_B = '22222222-2222-2222-2222-222222222222';
+const UUID_C = '33333333-3333-3333-3333-333333333333';
+const UUID_D = '44444444-4444-4444-4444-444444444444';
+
+const makeItem = (id: number, uuid?: string): QueueItemStub => ({
+  id,
+  uuid: uuid ?? '00000000-0000-0000-0000-00000000000' + id,
+  repo_full_name: 'c/r',
+  pr_number: id,
+});
 
 describe('queueOrderRoutes', () => {
   let server: Server;
@@ -72,104 +84,104 @@ describe('queueOrderRoutes', () => {
     };
 
     it('moves single item up and returns updated order', async () => {
-      const items = [makeItem(1), makeItem(2), makeItem(3)];
-      const moved = [makeItem(2), makeItem(1), makeItem(3)];
+      const items = [makeItem(1, UUID_A), makeItem(2, UUID_B), makeItem(3, UUID_C)];
+      const moved = [makeItem(2, UUID_B), makeItem(1, UUID_A), makeItem(3, UUID_C)];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
       });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [2], direction: 'up' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: moved });
     });
 
     it('moves single item down and returns updated order', async () => {
-      const items = [makeItem(1), makeItem(2), makeItem(3)];
-      const moved = [makeItem(1), makeItem(3), makeItem(2)];
+      const items = [makeItem(1, UUID_A), makeItem(2, UUID_B), makeItem(3, UUID_C)];
+      const moved = [makeItem(1, UUID_A), makeItem(3, UUID_C), makeItem(2, UUID_B)];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
       });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [2], direction: 'down' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'down' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: moved });
     });
 
     it('no-ops when moving item at top up', async () => {
-      const items = [makeItem(1), makeItem(2)];
+      const items = [makeItem(1, UUID_A), makeItem(2, UUID_B)];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(items),
       });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [1], direction: 'up' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: items });
     });
 
     it('no-ops when moving item at bottom down', async () => {
-      const items = [makeItem(1), makeItem(2)];
+      const items = [makeItem(1, UUID_A), makeItem(2, UUID_B)];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(items),
       });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [2], direction: 'down' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'down' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: items });
     });
 
     it('moves non-adjacent items up past their respective neighbors', async () => {
-      const items = [makeItem(1), makeItem(2), makeItem(3), makeItem(4)];
-      const moved = [makeItem(3), makeItem(1), makeItem(4), makeItem(2)];
+      const items = [makeItem(1, UUID_A), makeItem(2, UUID_B), makeItem(3, UUID_C), makeItem(4, UUID_D)];
+      const moved = [makeItem(3, UUID_C), makeItem(1, UUID_A), makeItem(4, UUID_D), makeItem(2, UUID_B)];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
       });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [3, 4], direction: 'up' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_C, UUID_D], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: moved });
     });
 
     it('moves adjacent items as a block up', async () => {
-      const items = [makeItem(1), makeItem(2), makeItem(3), makeItem(4)];
-      const moved = [makeItem(2), makeItem(3), makeItem(1), makeItem(4)];
+      const items = [makeItem(1, UUID_A), makeItem(2, UUID_B), makeItem(3, UUID_C), makeItem(4, UUID_D)];
+      const moved = [makeItem(2, UUID_B), makeItem(3, UUID_C), makeItem(1, UUID_A), makeItem(4, UUID_D)];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
       });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [2, 3], direction: 'up' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_B, UUID_C], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: moved });
     });
 
     it('returns 400 when direction is invalid', async () => {
-      const items = [makeItem(1)];
+      const items = [makeItem(1, UUID_A)];
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [1], direction: 'left' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'left' });
       expect(res.status).toBe(StatusCodes.BAD_REQUEST);
       expect(await res.json()).toStrictEqual({ error: 'direction must be "up" or "down"' });
     });
 
-    it('returns 400 when queueItemIds is empty', async () => {
+    it('returns 400 when queueItemUuids is empty', async () => {
       startServer();
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [], direction: 'up' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [], direction: 'up' });
       expect(res.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(await res.json()).toStrictEqual({ error: 'queueItemIds must be a non-empty array of positive integers' });
+      expect(await res.json()).toStrictEqual({ error: 'queueItemUuids must be a non-empty array of UUID v4 strings' });
     });
 
-    it('returns 400 when queueItemIds has non-integer values', async () => {
+    it('returns 400 when queueItemUuids has non-UUID values', async () => {
       startServer();
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [1.5], direction: 'up' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: ['not-a-uuid'], direction: 'up' });
       expect(res.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(await res.json()).toStrictEqual({ error: 'queueItemIds must be a non-empty array of positive integers' });
+      expect(await res.json()).toStrictEqual({ error: 'queueItemUuids must be a non-empty array of UUID v4 strings' });
     });
 
     it('returns 400 when request body is missing', async () => {
@@ -181,27 +193,99 @@ describe('queueOrderRoutes', () => {
       expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     });
 
-    it('returns 404 when a queueItemId does not exist', async () => {
-      const items = [makeItem(1)];
+    it('returns 404 when a queueItemUuid does not exist', async () => {
+      const items = [makeItem(1, UUID_A)];
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [999], direction: 'up' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: ['99999999-9999-9999-9999-999999999999'], direction: 'up' });
       expect(res.status).toBe(StatusCodes.NOT_FOUND);
-      expect(await res.json()).toStrictEqual({ error: 'Queue items not found: 999' });
+      expect(await res.json()).toStrictEqual({ error: 'Queue items not found: 99999999-9999-9999-9999-999999999999' });
     });
 
     it('returns 500 and logs error on repository failure (transaction rolls back)', async () => {
-      const items = [makeItem(1)];
+      const items = [makeItem(1, UUID_A)];
       const repoError = new Error('DB down');
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockRejectedValue(repoError),
       });
 
-      const res = await postJson(server, '/api/queue/order/move', { queueItemIds: [1], direction: 'up' });
+      const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'up' });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to move queue items' });
       expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.queueOrder.move', error: repoError }, 'Failed to move queue items');
+    });
+  });
+
+  describe('POST /api/queue/:uuid/retrigger-now', () => {
+    const startServer = (over = {}) => {
+      logger = createMockLogger();
+      const app = createExpressApp({ logger });
+      app.post(
+        '/api/queue/:uuid/retrigger-now',
+        createRetriggerNowHandler(createMockQueueOrderRepo(over), { SCHEDULER_TICK_INTERVAL_MS: 10000 } as Config, logger),
+      );
+      server = app.listen(0);
+    };
+
+    it('returns 200 with { ok: true, schedulerTickIntervalSec: 10 }', async () => {
+      startServer({
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]),
+      });
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(await res.json()).toStrictEqual({ ok: true, schedulerTickIntervalSec: 10 });
+    });
+
+    it('returns 400 for non-UUID id', async () => {
+      startServer();
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/not-a-uuid/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(await res.json()).toStrictEqual({ error: 'uuid must be a valid UUID v4' });
+    });
+
+    it('returns 404 when item not found', async () => {
+      startServer({
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([makeItem(1, UUID_A), makeItem(2, UUID_B)]),
+      });
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/99999999-9999-9999-9999-999999999999/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.NOT_FOUND);
+      expect(await res.json()).toStrictEqual({ error: 'Queue item not found or not pending: 99999999-9999-9999-9999-999999999999' });
+    });
+
+    it('returns 404 when item is not pending', async () => {
+      startServer({
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'completed' }]),
+      });
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.NOT_FOUND);
+      expect(await res.json()).toStrictEqual({ error: `Queue item not found or not pending: ${UUID_A}` });
+    });
+
+    it('returns 500 on repository error', async () => {
+      const repoError = new Error('DB down');
+      startServer({
+        getEffectiveOrder: jest.fn<any>().mockRejectedValue(repoError),
+      });
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+      expect(await res.json()).toStrictEqual({ error: 'Failed to retrigger now' });
+      expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', error: repoError }, 'Failed to retrigger now');
     });
   });
 });

@@ -95,6 +95,14 @@ describe('parseConfig', () => {
     }
   });
 
+  it('applies default SCHEDULER_TICK_INTERVAL_MS of 10000 when absent', () => {
+    const result = parseConfig(BASE);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.value.SCHEDULER_TICK_INTERVAL_MS).toBe(10_000);
+    }
+  });
+
   it('applies default DATABASE_URL when absent', () => {
     const { DATABASE_URL: _, ...rest } = BASE;
     const result = parseConfig(rest);

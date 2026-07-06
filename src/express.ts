@@ -12,8 +12,10 @@ import {
   createGetQueueOrderHandler,
   createGetSummaryHandler,
   createMoveQueueOrderHandler,
+  createRetriggerNowHandler,
 } from './routes/index.js';
 import { trySetupVite } from './routes/setupVite.js';
+import type { Config } from './config.js';
 import { isProduction } from './isProduction.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -25,6 +27,7 @@ import { fileURLToPath } from 'node:url';
 const DASHBOARD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
 
 export interface ExpressDeps {
+  config: Config;
   eventRepo: EventRepository;
   queueOrderRepo: QueueOrderRepository;
   queueRepo: QueueRepository;
@@ -39,7 +42,7 @@ export interface ExpressApp {
 }
 
 export const setupExpress = (deps: ExpressDeps): ExpressApp => {
-  const { queueRepo, queueOrderRepo, eventRepo, systemStateRepo, logger, port } = deps;
+  const { config, queueRepo, queueOrderRepo, eventRepo, systemStateRepo, logger, port } = deps;
   const production = isProduction();
   const app = createExpressApp({ logger, helmet: production });
 
@@ -48,6 +51,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.get('/api/queue', createGetQueueHandler(queueRepo, logger));
   app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, logger));
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
+  app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, config, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, logger));
   app.get('/api/state/next_review_available_at', createGetNextReviewAvailableHandler(systemStateRepo, logger));
 

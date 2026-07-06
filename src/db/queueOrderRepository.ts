@@ -1,5 +1,8 @@
+import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 import { TYPES } from '../inversify-types.js';
 import type { QueueItem, QueueStatus } from '../types/index.js';
+import { findByUuid, resolveUuidsToIds } from '../utils/uuidLookup.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 
@@ -11,7 +14,8 @@ export type MoveDirection = 'up' | 'down';
 
 export interface QueueOrderRepository {
   getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]>;
-  moveItems(queueItemIds: number[], direction: MoveDirection): Promise<QueueItem[]>;
+  moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]>;
+  moveToTop(uuid: string): Promise<QueueItem>;
 }
 
 @injectable()
@@ -39,12 +43,13 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     return rows.map((row) => this.toQueueItem(row));
   }
 
-  moveItems(queueItemIds: number[], direction: MoveDirection): Promise<QueueItem[]> {
+  moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]> {
     return this.transaction(async (tx) => {
       const ordered = await this.readEffectiveOrder(tx, false);
       const orderedIds = ordered.map((item) => item.id);
+      const selectedIds = resolveUuidsToIds(ordered, [...new Set(queueItemUuids)]);
 
-      const sortedSelected = [...new Set(queueItemIds)].sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
+      const sortedSelected = selectedIds.sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
       if (direction === 'down') {
         sortedSelected.reverse();
       }
@@ -52,20 +57,51 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       const newOrder = [...orderedIds];
       for (const id of sortedSelected) {
         const idx = newOrder.indexOf(id);
-        if (idx === -1) continue;
 
         const neighborIdx = direction === 'up' ? idx - 1 : idx + 1;
         if (neighborIdx < 0 || neighborIdx >= newOrder.length) continue;
-        if (queueItemIds.includes(newOrder[neighborIdx])) continue;
+        if (selectedIds.includes(newOrder[neighborIdx])) continue;
 
         [newOrder[idx], newOrder[neighborIdx]] = [newOrder[neighborIdx], newOrder[idx]];
       }
 
       await this.normalizePositionsToOrder(tx, newOrder);
 
-      this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemIds, direction }, 'Moved items in queue order');
+      this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemUuids, direction }, 'Moved items in queue order');
 
       return this.readEffectiveOrder(tx, false);
+    });
+  }
+
+  moveToTop(uuid: string): Promise<QueueItem> {
+    return this.transaction(async (tx) => {
+      const ordered = await this.readEffectiveOrder(tx, false);
+      const item = findByUuid(ordered, uuid);
+
+      if (!item) {
+        throw new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND,
+          message: `Queue item ${uuid} not found or not pending`,
+          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          details: { uuid },
+        });
+      }
+
+      const numericId = item.id;
+
+      await tx.reviewQueue.update({
+        where: { id: numericId },
+        data: { not_before: new Date() },
+      });
+
+      const orderedIds = ordered.map((i) => i.id);
+      const newOrder = [numericId, ...orderedIds.filter((oid) => oid !== numericId)];
+      await this.normalizePositionsToOrder(tx, newOrder);
+
+      this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid }, 'Moved item to top');
+
+      const updatedList = await this.readEffectiveOrder(tx, false);
+      return updatedList.find((i) => i.uuid === uuid)!;
     });
   }
 

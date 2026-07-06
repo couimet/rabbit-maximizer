@@ -23,6 +23,7 @@ describe('ConfigSchema', () => {
       SCHEDULER_POST_COOLDOWN: 3600,
       SCHEDULER_RETRY_BACKOFF_BASE: 60,
       SCHEDULER_RETRY_BACKOFF_MAX: 3600,
+      SCHEDULER_TICK_INTERVAL_MS: 10_000,
       WEB_PORT: 3000,
     };
   });
@@ -59,6 +60,15 @@ describe('ConfigSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.POLL_INTERVAL).toBe(90);
+    }
+  });
+
+  it('applies default SCHEDULER_TICK_INTERVAL_MS when missing', () => {
+    const { SCHEDULER_TICK_INTERVAL_MS: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.SCHEDULER_TICK_INTERVAL_MS).toBe(10_000);
     }
   });
 
