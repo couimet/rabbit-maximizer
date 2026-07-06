@@ -17,7 +17,6 @@ import { type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 import { randomUUID } from 'node:crypto';
 
-const TICK_INTERVAL_MS = 10_000;
 const HTTP_NOT_FOUND = 404;
 const HTTP_GONE = 410;
 const SECONDS_TO_MS = 1000;
@@ -49,7 +48,7 @@ export class Scheduler extends IntervalService {
     private readonly pruner: Pruner,
     @inject(TYPES.Logger) log: Logger,
   ) {
-    super(log, TICK_INTERVAL_MS);
+    super(log, cfg.SCHEDULER_TICK_INTERVAL_MS);
     this.postCooldownMs = cfg.SCHEDULER_POST_COOLDOWN * SECONDS_TO_MS;
     this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE * SECONDS_TO_MS;
     this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX * SECONDS_TO_MS;
@@ -57,7 +56,7 @@ export class Scheduler extends IntervalService {
   /* c8 ignore stop */
 
   protected onStart(): void {
-    this.log.info({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
+    this.log.info({ fn: 'Scheduler.start', tickIntervalMs: this.intervalMs }, 'Starting scheduler');
   }
 
   protected onStop(): void {

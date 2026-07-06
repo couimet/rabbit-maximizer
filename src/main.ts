@@ -58,6 +58,7 @@ const systemStateRepo = container.get<SystemStateRepository>(TYPES.SystemStateRe
 const appLogger = container.get<Logger>(TYPES.Logger);
 
 const { stop: stopServer } = setupExpress({
+  config,
   queueRepo,
   queueOrderRepo,
   eventRepo,

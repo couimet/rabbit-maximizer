@@ -208,7 +208,7 @@ describe('QueueOrder', () => {
         expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue/order/move', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queueItemIds: [item1.id], direction: 'up' }),
+          body: JSON.stringify({ queueItemUuids: [item1.uuid], direction: 'up' }),
         });
       });
     });
@@ -234,7 +234,7 @@ describe('QueueOrder', () => {
         expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue/order/move', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queueItemIds: [item2.id], direction: 'down' }),
+          body: JSON.stringify({ queueItemUuids: [item2.uuid], direction: 'down' }),
         });
       });
     });
@@ -253,7 +253,7 @@ describe('QueueOrder', () => {
         expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue/order/move', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queueItemIds: [item1.id, item2.id], direction: 'up' }),
+          body: JSON.stringify({ queueItemUuids: [item1.uuid, item2.uuid], direction: 'up' }),
         });
       });
     });
@@ -271,7 +271,7 @@ describe('QueueOrder', () => {
         expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue/order/move', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queueItemIds: [item1.id], direction: 'down' }),
+          body: JSON.stringify({ queueItemUuids: [item1.uuid], direction: 'down' }),
         });
       });
     });
@@ -304,6 +304,142 @@ describe('QueueOrder', () => {
     it('shows eligible now for not_before in the past', () => {
       renderQueueOrder([makeQueueItem({ not_before: new Date(Date.now() - 60_000).toISOString() })]);
       expect(screen.getByText('eligible now')).toBeInTheDocument();
+    });
+  });
+
+  describe('retrigger now', () => {
+    let item1: ReturnType<typeof makeQueueItem>;
+    let item2: ReturnType<typeof makeQueueItem>;
+    let onMoveComplete: jest.Mock;
+
+    beforeEach(() => {
+      item1 = makeQueueItem();
+      item2 = makeQueueItem();
+      onMoveComplete = jest.fn();
+    });
+
+    it('renders lightning-bolt button per row', () => {
+      renderQueueOrder([item1, item2]);
+
+      const buttons = screen.getAllByLabelText(/^Retrigger now/);
+      expect(buttons).toHaveLength(2);
+    });
+
+    it('calls retriggerNow API on click', async () => {
+      createMockFetch(200, { ok: true, schedulerTickIntervalSec: 10 });
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+
+      fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue/' + item1.uuid + '/retrigger-now', {
+          method: 'POST',
+        });
+      });
+    });
+
+    it('shows success toast with interval on success', async () => {
+      createMockFetch(200, { ok: true, schedulerTickIntervalSec: 10 });
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+
+      fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Retrigger requested — scheduler will pick it up within 10 seconds')).toBeInTheDocument();
+      });
+    });
+
+    it('shows error toast on failure', async () => {
+      createMockFetch(500, { error: 'Rate limited' });
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+
+      fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Rate limited')).toBeInTheDocument();
+      });
+    });
+
+    it('button disabled while request in flight', async () => {
+      let resolveRetrigger!: (value: { ok: boolean; schedulerTickIntervalSec: number }) => void;
+      const retriggerPromise = new Promise<{ ok: boolean; schedulerTickIntervalSec: number }>((resolve) => {
+        resolveRetrigger = resolve;
+      });
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => retriggerPromise,
+        } as Response),
+      ) as unknown as typeof fetch;
+
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+      fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
+
+      await waitFor(() => {
+        expect(screen.getAllByLabelText(/^Retrigger now/)[0]).toBeDisabled();
+      });
+
+      resolveRetrigger({ ok: true, schedulerTickIntervalSec: 10 });
+
+      await waitFor(() => {
+        expect(screen.getByText('Retrigger requested — scheduler will pick it up within 10 seconds')).toBeInTheDocument();
+      });
+    });
+
+    it('calls onMoveComplete on success', async () => {
+      createMockFetch(200, { ok: true, schedulerTickIntervalSec: 10 });
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+
+      fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
+
+      await waitFor(() => {
+        expect(onMoveComplete).toHaveBeenCalled();
+      });
+    });
+
+    it('does not update state after unmount on success', async () => {
+      let resolveRetrigger!: (value: { ok: boolean; schedulerTickIntervalSec: number }) => void;
+      const retriggerPromise = new Promise<{ ok: boolean; schedulerTickIntervalSec: number }>((resolve) => {
+        resolveRetrigger = resolve;
+      });
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => retriggerPromise,
+        } as Response),
+      ) as unknown as typeof fetch;
+
+      const { unmount } = renderQueueOrder([item1, item2], null, onMoveComplete);
+      fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
+      unmount();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      resolveRetrigger({ ok: true, schedulerTickIntervalSec: 10 });
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
+    });
+
+    it('does not update state after unmount on error', async () => {
+      let rejectRetrigger!: (reason: Error) => void;
+      const retriggerFetchPromise = new Promise<Response>((_, reject) => {
+        rejectRetrigger = reject;
+      });
+      globalThis.fetch = jest.fn(() => retriggerFetchPromise) as unknown as typeof fetch;
+
+      const { unmount } = renderQueueOrder([item1, item2], null, onMoveComplete);
+      fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
+      unmount();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      rejectRetrigger(new Error('Network error'));
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
     });
   });
 });

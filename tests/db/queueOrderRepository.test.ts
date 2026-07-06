@@ -150,7 +150,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC], [itemA, itemC, itemB]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([3], 'up');
+      const result = await sut.moveItems([itemC.uuid], 'up');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
@@ -161,7 +161,7 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
 
       expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemC), toExpectedItem(itemB)]);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: [3], direction: 'up' }, 'Moved items in queue order');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: [itemC.uuid], direction: 'up' }, 'Moved items in queue order');
     });
 
     it('moves a single item down (swaps with next)', async () => {
@@ -172,7 +172,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC], [itemB, itemA, itemC]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([1], 'down');
+      const result = await sut.moveItems([itemA.uuid], 'down');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
@@ -194,7 +194,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC, itemD], [itemB, itemC, itemA, itemD]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([2, 3], 'up');
+      const result = await sut.moveItems([itemB.uuid, itemC.uuid], 'up');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id, itemD.queueOrder.id] } },
@@ -217,7 +217,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC, itemD], [itemA, itemD, itemB, itemC]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([2, 3], 'down');
+      const result = await sut.moveItems([itemB.uuid, itemC.uuid], 'down');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id, itemD.queueOrder.id] } },
@@ -238,7 +238,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB], [itemA, itemB]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await sut.moveItems([1, 999], 'up');
+      await sut.moveItems([itemA.uuid, '00000000-0000-0000-0000-000000000999'], 'up');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
@@ -256,7 +256,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma } = setupMoveMocks([itemA, itemB, itemC], [itemB, itemA, itemC]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([3, 3], 'up');
+      const result = await sut.moveItems([itemC.uuid, itemC.uuid], 'up');
 
       expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemA), toExpectedItem(itemC)]);
     });
@@ -269,7 +269,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC], [itemA, itemB, itemC]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([1, 2], 'up');
+      const result = await sut.moveItems([itemA.uuid, itemB.uuid], 'up');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
@@ -288,7 +288,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB], [itemA, itemB]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([1], 'up');
+      const result = await sut.moveItems([itemA.uuid], 'up');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
@@ -306,7 +306,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB], [itemA, itemB]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([2], 'down');
+      const result = await sut.moveItems([itemB.uuid], 'down');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
@@ -325,7 +325,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC], [itemA, itemC, itemB]);
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await sut.moveItems([3], 'up');
+      await sut.moveItems([itemC.uuid], 'up');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
@@ -351,7 +351,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveItems([2], 'up');
+      const result = await sut.moveItems([itemB.uuid], 'up');
 
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder!.id] } },
@@ -360,6 +360,96 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrderMock.create).toHaveBeenCalledWith({ data: { queue_item_id: 2, position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder!.id }, data: { position: 2 } });
       expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemA)]);
+    });
+  });
+
+  describe('moveToTop', () => {
+    it('moves item to top from middle of the queue', async () => {
+      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
+      const itemC = makeRow({ id: 3 }, { position: 3, id: getUniqueInt() });
+
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: {
+          update: jest.fn<any>().mockResolvedValue({}),
+          findMany: jest
+            .fn<any>()
+            .mockResolvedValueOnce([itemA, itemB, itemC])
+            .mockResolvedValueOnce([itemA, itemB, itemC])
+            .mockResolvedValueOnce([itemB, itemA, itemC]),
+        },
+        queueOrder: {
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 0 }),
+          update: jest.fn<any>().mockResolvedValue({}),
+        },
+      });
+      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+
+      const result = await sut.moveToTop(itemB.uuid);
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: itemB.id },
+        data: { not_before: expect.any(Date) },
+      });
+      expect(queueOrder.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
+        data: { position: null },
+      });
+      expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemB.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
+      expect(queueOrder.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: 3 } });
+
+      expect(result).toStrictEqual(toExpectedItem(itemB));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid: itemB.uuid }, 'Moved item to top');
+    });
+
+    it('keeps item at position 1 when already at top', async () => {
+      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
+
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: {
+          update: jest.fn<any>().mockResolvedValue({}),
+          findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]),
+        },
+        queueOrder: {
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 0 }),
+          update: jest.fn<any>().mockResolvedValue({}),
+        },
+      });
+      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+
+      const result = await sut.moveToTop(itemA.uuid);
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: itemA.id },
+        data: { not_before: expect.any(Date) },
+      });
+      expect(queueOrder.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
+        data: { position: null },
+      });
+      expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: 2 } });
+      expect(result).toStrictEqual(toExpectedItem(itemA));
+    });
+
+    it('throws when item is not found or not pending', async () => {
+      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
+
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: {
+          update: jest.fn<any>().mockResolvedValue({}),
+          findMany: jest.fn<any>().mockResolvedValue([itemA]),
+        },
+      });
+      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+
+      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999')).rejects.toBeDetailedError('QUEUE_ITEM_NOT_FOUND', {
+        message: 'Queue item 00000000-0000-0000-0000-000000000999 not found or not pending',
+        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+        details: { uuid: '00000000-0000-0000-0000-000000000999' },
+      });
     });
   });
 

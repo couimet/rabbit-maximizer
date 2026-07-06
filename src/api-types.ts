@@ -176,7 +176,7 @@ export interface components {
       pageSize: number;
     };
     QueueOrderMoveRequest: {
-      queueItemIds: number[];
+      queueItemUuids: string[];
       /** @enum {string} */
       direction: 'up' | 'down';
     };

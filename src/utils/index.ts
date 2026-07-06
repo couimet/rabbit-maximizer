@@ -6,3 +6,4 @@ export * from './formatRelativeFuture.js';
 export * from './formatRelativeTime.js';
 export * from './getJitter.js';
 export * from './isValidTimezone.js';
+export * from './uuidLookup.js';

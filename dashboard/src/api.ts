@@ -39,9 +39,12 @@ export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedRe
 
 export const fetchQueueOrder = (): Promise<{ data: QueueItem[] }> => fetchJson<{ data: QueueItem[] }>(`${API_BASE}/queue/order`);
 
-export const moveQueueItems = (queueItemIds: number[], direction: 'up' | 'down'): Promise<{ data: QueueItem[] }> =>
+export const moveQueueItems = (queueItemUuids: string[], direction: 'up' | 'down'): Promise<{ data: QueueItem[] }> =>
   fetchJson<{ data: QueueItem[] }>(`${API_BASE}/queue/order/move`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ queueItemIds, direction }),
+    body: JSON.stringify({ queueItemUuids, direction }),
   });
+
+export const retriggerNow = (uuid: string): Promise<{ ok: boolean; schedulerTickIntervalSec: number }> =>
+  fetchJson<{ ok: boolean; schedulerTickIntervalSec: number }>(API_BASE + '/queue/' + uuid + '/retrigger-now', { method: 'POST' });

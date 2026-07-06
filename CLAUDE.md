@@ -72,6 +72,15 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>`null` is explicit — you wrote it, you meant it. `undefined` is ambient (missing prop, uninitialized variable). Using `null` for intentional absence makes the intent clear and keeps UI component code internally consistent.</rationale>
 </rule>
 
+<rule id="C007" priority="critical">
+  <title>API layer uses UUIDs, not integer IDs</title>
+  <do>Identify resources by UUID in all API route params, request bodies, and client calls</do>
+  <do>Use `isValidUuid()` from `src/utils/uuidLookup.js` for request validation</do>
+  <do>Resolve UUIDs to internal integer IDs at the repository boundary via `resolveUuidsToIds()` or `findByUuid()` from the same module</do>
+  <never>Expose integer database IDs in API paths (e.g. `/queue/:id`), request bodies (e.g. `queueItemIds`), or API client function signatures</never>
+  <rationale>Integer IDs are internal implementation details. UUIDs decouple API consumers from database internals and prevent enumeration attacks.</rationale>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>
