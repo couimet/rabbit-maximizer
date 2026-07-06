@@ -346,6 +346,130 @@ describe('client', () => {
     });
   });
 
+  describe('findCompletedReview', () => {
+    it('returns the comment URL when a non-rate-limit bot comment exists after the since date', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const since = new Date('2026-06-15T00:00:00Z');
+      const commentId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
+      const createdAt = '2026-06-16T00:00:00Z';
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: commentId,
+            html_url: htmlUrl,
+            created_at: createdAt,
+            body: '## Summary by CodeRabbit\n\nHere is your review.',
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: prNumber,
+        sort: 'created',
+        direction: 'desc',
+        per_page: 100,
+      });
+      expect(result).toStrictEqual({ htmlUrl });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, commentId, htmlUrl }, 'Found completed review comment');
+    });
+
+    it('excludes comments containing the rate-limit marker', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const since = new Date('2026-06-15T00:00:00Z');
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/rate-limit',
+            created_at: '2026-06-16T00:00:00Z',
+            body: 'You have rate limited by coderabbit.ai ... please wait 30 minutes.',
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('excludes comments created before the since date', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const since = new Date('2026-06-17T00:00:00Z');
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/old-review',
+            created_at: '2026-06-16T00:00:00Z',
+            body: '## Summary by CodeRabbit',
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when no bot comments exist', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const since = new Date('2026-06-15T00:00:00Z');
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/human',
+            created_at: '2026-06-16T00:00:00Z',
+            body: 'Looks good to me!',
+            user: { login: 'human-user' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when comment body is empty', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const since = new Date('2026-06-15T00:00:00Z');
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/empty',
+            created_at: '2026-06-16T00:00:00Z',
+            body: '',
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe('container binding', () => {
     it('resolves CoderabbitGitHubClient from the container with mock Octokit and Logger', () => {
       const container = new Container();

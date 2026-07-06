@@ -26,6 +26,7 @@ export interface QueueRepository {
   reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  getPostedQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
@@ -161,6 +162,15 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       orderBy: { not_before: 'asc' },
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.getPendingQueue', count: rows.length }, 'Fetched pending queue');
+    return rows.map((row) => this.toQueueItem(row));
+  }
+
+  async getPostedQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
+    const rows = await this.client(tx).reviewQueue.findMany({
+      where: { status: QueueStatus.posted },
+      orderBy: { posted_at: 'asc' },
+    });
+    this.log.debug({ fn: 'QueueRepositoryImpl.getPostedQueue', count: rows.length }, 'Fetched posted queue');
     return rows.map((row) => this.toQueueItem(row));
   }
 

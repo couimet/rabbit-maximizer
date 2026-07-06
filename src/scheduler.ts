@@ -8,6 +8,7 @@ import type { ObservationContextProvider } from './observability/observationCont
 import { EventType, type QueueItem } from './types/index.js';
 import { computeSchedulerBackoff } from './utils/index.js';
 import type { Config } from './config.js';
+import { IntervalService } from './IntervalService.js';
 import { TYPES } from './inversify-types.js';
 import type { Pruner } from './Pruner.js';
 
@@ -24,10 +25,7 @@ const SECONDS_TO_MS = 1000;
 const TERMINAL_HTTP_STATUSES = [HTTP_NOT_FOUND, HTTP_GONE];
 
 @injectable()
-export class Scheduler {
-  private intervalId: ReturnType<typeof setInterval> | undefined;
-  private tickPromise: Promise<void> | null = null;
-  private stopped = false;
+export class Scheduler extends IntervalService {
   private readonly postCooldownMs: number;
   private readonly baseBackoff: number;
   private readonly maxBackoff: number;
@@ -49,49 +47,24 @@ export class Scheduler {
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.Pruner)
     private readonly pruner: Pruner,
-    @inject(TYPES.Logger) private readonly log: Logger,
+    @inject(TYPES.Logger) log: Logger,
   ) {
+    super(log, TICK_INTERVAL_MS);
     this.postCooldownMs = cfg.SCHEDULER_POST_COOLDOWN * SECONDS_TO_MS;
     this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE * SECONDS_TO_MS;
     this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX * SECONDS_TO_MS;
   }
   /* c8 ignore stop */
 
-  start(): { stop(): Promise<void> } {
+  protected onStart(): void {
     this.log.info({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
-
-    this.tick();
-
-    this.intervalId = setInterval(() => {
-      this.tick();
-    }, TICK_INTERVAL_MS);
-
-    return { stop: () => this.stop() };
   }
 
-  private async stop(): Promise<void> {
-    this.stopped = true;
-    if (this.intervalId !== undefined) {
-      clearInterval(this.intervalId);
-      this.intervalId = undefined;
-    }
-    if (this.tickPromise) {
-      await this.tickPromise;
-    }
+  protected onStop(): void {
     this.log.info({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
   }
 
-  private async tick(): Promise<void> {
-    if (this.stopped || this.tickPromise) return;
-    this.tickPromise = this.executeTick();
-    try {
-      await this.tickPromise;
-    } finally {
-      this.tickPromise = null;
-    }
-  }
-
-  private async executeTick(): Promise<void> {
+  protected async executeTick(): Promise<void> {
     let item: QueueItem | undefined;
     try {
       await this.pruner.prune();

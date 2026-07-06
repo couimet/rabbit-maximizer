@@ -8,6 +8,7 @@ import { splitRepo } from './github/splitRepo.js';
 import type { OnDetectedCallback } from './types/index.js';
 import { getJitter } from './utils/getJitter.js';
 import { config } from './config.js';
+import { IntervalService } from './IntervalService.js';
 import { TYPES } from './inversify-types.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -22,11 +23,9 @@ const QUOTA_EXHAUSTED = '0';
 const POLL_INTERVAL_MS = config.POLL_INTERVAL * MILLISECONDS_PER_SECOND;
 
 @injectable()
-export class PollDetector {
+export class PollDetector extends IntervalService {
   private seenCommentIds = new Set<number>();
-  private intervalId: ReturnType<typeof setInterval> | undefined;
   private rateLimitRetryAfter = 0;
-  private tickPromise: Promise<void> | null = null;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
@@ -36,52 +35,25 @@ export class PollDetector {
     private readonly onDetected: OnDetectedCallback,
     @inject(TYPES.SystemStateRepository)
     private readonly systemStateRepo: SystemStateRepository,
-    @inject(TYPES.Logger) private readonly log: Logger,
-  ) {}
+    @inject(TYPES.Logger) log: Logger,
+  ) {
+    super(log, POLL_INTERVAL_MS);
+  }
   /* c8 ignore stop */
 
-  start(): { stop(): Promise<void> } {
-    this.log.info(
-      {
-        fn: 'PollDetector.start',
-        pollIntervalSec: config.POLL_INTERVAL,
-        repoCount: config.REPO_FILTER.length,
-      },
-      'Starting poll detector',
-    );
-
-    this.tick();
-
-    this.intervalId = setInterval(() => {
-      this.tick();
-    }, POLL_INTERVAL_MS);
-
-    return { stop: () => this.stop() };
+  protected onStart(): void {
+    this.log.info({ fn: 'PollDetector.start', pollIntervalSec: config.POLL_INTERVAL, repoCount: config.REPO_FILTER.length }, 'Starting poll detector');
   }
 
-  private async stop(): Promise<void> {
-    if (this.intervalId !== undefined) {
-      clearInterval(this.intervalId);
-      this.intervalId = undefined;
-    }
-    if (this.tickPromise) {
-      await this.tickPromise;
-    }
+  protected onStop(): void {
     this.log.info({ fn: 'PollDetector.stop' }, 'Poll detector stopped');
   }
 
-  private async tick(): Promise<void> {
-    if (this.tickPromise) return;
-    if (Date.now() < this.rateLimitRetryAfter) return;
-    this.tickPromise = this.executeTick();
-    try {
-      await this.tickPromise;
-    } finally {
-      this.tickPromise = null;
-    }
+  protected tickGuard(): boolean {
+    return super.tickGuard() && Date.now() >= this.rateLimitRetryAfter;
   }
 
-  private async executeTick(): Promise<void> {
+  protected async executeTick(): Promise<void> {
     try {
       const comments = await this.github.searchRateLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;

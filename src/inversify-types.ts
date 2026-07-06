@@ -7,6 +7,7 @@
 export const TYPES = {
   Config: Symbol.for('Config'),
   CoderabbitGitHubClient: Symbol.for('CoderabbitGitHubClient'),
+  CompletionDetector: Symbol.for('CompletionDetector'),
   EnqueueService: Symbol.for('EnqueueService'),
   EventRepository: Symbol.for('EventRepository'),
   Logger: Symbol.for('Logger'),
