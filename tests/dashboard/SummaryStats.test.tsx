@@ -53,7 +53,6 @@ describe('SummaryStats', () => {
 
   describe('data', () => {
     const summaryData = {
-      queueCounts: { pending: 5, retriggered: 12, failed: 2 },
       eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
       oldestPending: null,
     };
@@ -62,12 +61,9 @@ describe('SummaryStats', () => {
       mockSummaryFetch(summaryData, { data: [] });
     });
 
-    it('renders queue count section with correct values', async () => {
+    it('renders pending count from queue order data', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Counts')).toBeInTheDocument());
-      for (const [, count] of Object.entries(summaryData.queueCounts)) {
-        expect(screen.getByText(String(count))).toBeInTheDocument();
-      }
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
     });
 
     it('renders event counts from last 24h', async () => {
@@ -80,10 +76,9 @@ describe('SummaryStats', () => {
 
     it('changes duration and re-fetches summary', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Counts')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
 
       const newSummary = {
-        queueCounts: { pending: 1, retriggered: 0, failed: 0 },
         eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 0 },
         oldestPending: null,
       };
@@ -118,13 +113,12 @@ describe('SummaryStats', () => {
 
     it('renders the QueueOrder component on the Summary tab', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
     });
   });
 
   describe('review countdown', () => {
     const summaryData = {
-      queueCounts: { pending: 5, retriggered: 12, failed: 2 },
       eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
       oldestPending: null,
     };

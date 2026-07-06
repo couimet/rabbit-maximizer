@@ -1,17 +1,27 @@
 import { formatRelativeFuture } from '../../../src/utils/formatRelativeFuture.js';
 import type { QueueItem } from '../api.js';
-import { fetchQueueOrder, moveQueueItems } from '../api.js';
+import { moveQueueItems } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
 import { useEffect, useRef, useState } from 'react';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
 
-const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}) => {
+const QueueOrder = ({
+  items,
+  error,
+  onMoveComplete,
+  headingLevel,
+  pendingCount,
+}: {
+  items: QueueItem[] | null;
+  error: string | null;
+  onMoveComplete: () => void;
+  headingLevel: 'h2' | 'h3';
+  pendingCount?: number;
+}) => {
   const [, forceTick] = useState(0);
-  const [items, setItems] = useState<QueueItem[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [error, setError] = useState<string | null>(null);
   const [moving, setMoving] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
 
@@ -25,21 +35,6 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
   useEffect(() => {
     const id = setInterval(() => forceTick((t) => t + 1), RELATIVE_TIME_REFRESH_MS);
     return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setError(null);
-    fetchQueueOrder()
-      .then((res) => {
-        if (!cancelled) setItems(res.data);
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
-      });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const toggleSelect = (id: number) => {
@@ -68,7 +63,7 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
       .then((res) => {
         if (!mountedRef.current) return;
         if (Array.isArray(res.data)) {
-          setItems(res.data);
+          onMoveComplete();
         } else {
           setMoveError('Unexpected response from server');
         }
@@ -99,7 +94,7 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
 
   return (
     <section>
-      <Heading>Queue Order</Heading>
+      <Heading>Queue Order{pendingCount !== undefined ? ` — ${pendingCount} pending item(s)` : ''}</Heading>
       {moveError && <div className="error">Move failed: {moveError}</div>}
       {items.length === 0 ? (
         <p>No pending items.</p>
@@ -120,7 +115,6 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
                   <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} disabled={moving} aria-label="Select all pending items" />
                 </th>
                 <th className="col-position">#</th>
-                <th>Status</th>
                 <th>Repo</th>
                 <th>PR</th>
                 <th>Not Before</th>
@@ -142,7 +136,6 @@ const QueueOrder = ({ headingLevel = 'h2' }: { headingLevel?: 'h2' | 'h3' } = {}
                       />
                     </td>
                     <td className="col-position">{index + 1}</td>
-                    <td>{item.status}</td>
                     <td>
                       <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
                         {item.repo_full_name}

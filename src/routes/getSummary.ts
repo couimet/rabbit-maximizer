@@ -21,16 +21,11 @@ export const createGetSummaryHandler = (queueRepo: QueueRepository, eventRepo: E
       const duration = Object.hasOwn(DURATION_MS, rawDuration) ? rawDuration : DEFAULT_DURATION;
       const since = new Date(Date.now() - DURATION_MS[duration]);
 
-      const [queueCounts, eventCounts, oldestPending] = await Promise.all([
-        queueRepo.getCountsByStatus(),
-        eventRepo.countByType(since),
-        queueRepo.getOldestPending(),
-      ]);
+      const [eventCounts, oldestPending] = await Promise.all([eventRepo.countByType(since), queueRepo.getOldestPending()]);
 
-      const { completed: _qcCompleted, ...activeQueueCounts } = queueCounts;
       const { bypassed: _ecBypassed, completed: _ecCompleted, ...activeEventCounts } = eventCounts;
 
-      res.json({ queueCounts: activeQueueCounts, eventCounts: activeEventCounts, oldestPending });
+      res.json({ eventCounts: activeEventCounts, oldestPending });
     } catch (error) {
       logger.error({ fn: 'api.getSummary', error }, 'Failed to get summary');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get summary' });
