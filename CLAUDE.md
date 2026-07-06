@@ -56,6 +56,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>Consistent ordering makes constructors predictable and diffs cleaner</rationale>
 </rule>
 
+<rule id="C005" priority="critical">
+  <title>Regenerate Prisma client after schema changes</title>
+  <do>Run `prisma generate` after any change to `prisma/schema.prisma`, including branch switches that bring in schema changes from other PRs</do>
+  <do>Run `prisma generate` before `tsc` — the build script (`pnpm build`) does this automatically</do>
+  <never>Skip `prisma generate` after a schema change — stale generated types cause runtime `P2022` errors (column not found) that tests won't catch if the build itself fails silently</never>
+  <rationale>The generated Prisma client in `node_modules/.pnpm/@prisma+client*/node_modules/.prisma/client/` must match the current schema. A branch switch or schema edit can desynchronize them. Running `prisma generate` is cheap (~50ms) and prevents hard-to-diagnose runtime crashes from stale column references.</rationale>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

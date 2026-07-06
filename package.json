@@ -11,8 +11,8 @@
   "type": "module",
   "scripts": {
     "api:types": "openapi-typescript docs/api-spec.yaml -o src/api-types.ts",
-    "build": "pnpm clean && tsc",
-    "clean": "jest --clearCache && rm -rf coverage",
+    "build": "pnpm clean && prisma generate && tsc",
+    "clean": "jest --clearCache && rm -rf coverage dist",
     "db:backup": "bash scripts/db/backup.sh",
     "db:migrate": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" prisma migrate deploy",
     "db:migrate:backup": "pnpm db:backup && pnpm db:migrate",
