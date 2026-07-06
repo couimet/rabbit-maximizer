@@ -204,6 +204,7 @@ export class Scheduler extends IntervalService {
           queueId: item.id,
           backoffMs,
           attempts: item.attempts,
+          error: err,
         },
         'Post retrigger failed; rescheduled with backoff',
       );
