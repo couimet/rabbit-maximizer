@@ -231,7 +231,7 @@ describe('CompletionDetector', () => {
   });
 
   describe('error handling', () => {
-    it('logs warning on error and continues', async () => {
+    it('logs warning via base class when getPostedQueue fails', async () => {
       const error = new Error('GitHub API error');
       deps.queue.getPostedQueue.mockRejectedValue(error);
 
@@ -240,7 +240,27 @@ describe('CompletionDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'CompletionDetector.tick', error }, 'Completion detection tick failed; will retry on next interval');
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'IntervalService.tick', error }, 'executeTick threw; continuing');
+    });
+
+    it('logs warning per-item and continues processing remaining items', async () => {
+      const item1 = makePostedItem({ repoFullName: 'org-a/repo-a', prNumber: 1 });
+      const item2 = makePostedItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
+      deps.queue.getPostedQueue.mockResolvedValue([item1, item2]);
+
+      const perItemError = new Error('findCompletedReview failed');
+      (deps.github.findCompletedReview as jest.Mock<any>).mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'CompletionDetector.tick', error: perItemError },
+        'Completion detection tick failed; will retry on next interval',
+      );
+      expect(deps.github.findCompletedReview as jest.Mock<any>).toHaveBeenCalledTimes(2);
     });
   });
 });

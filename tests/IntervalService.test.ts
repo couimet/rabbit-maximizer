@@ -29,7 +29,7 @@ describe('IntervalService', () => {
     expect(svc.executeTickCalls).toBeGreaterThanOrEqual(1);
 
     await stop();
-    expect(svc.stopped).toBe(true);
+    expect(svc['stopped']).toBe(true);
   });
 
   it('tickGuard returns false when stopped', async () => {

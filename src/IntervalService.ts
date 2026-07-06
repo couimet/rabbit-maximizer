@@ -53,6 +53,8 @@ export abstract class IntervalService {
     this.tickPromise = this.executeTick();
     try {
       await this.tickPromise;
+    } catch (err) {
+      this.log.warn({ fn: 'IntervalService.tick', error: err }, 'executeTick threw; continuing');
     } finally {
       this.tickPromise = null;
     }

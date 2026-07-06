@@ -43,11 +43,11 @@ export class CompletionDetector extends IntervalService {
   }
 
   protected async executeTick(): Promise<void> {
-    try {
-      const postedItems = await this.queue.getPostedQueue();
-      if (postedItems.length === 0) return;
+    const postedItems = await this.queue.getPostedQueue();
+    if (postedItems.length === 0) return;
 
-      for (const item of postedItems) {
+    for (const item of postedItems) {
+      try {
         if (item.posted_at == null) continue;
 
         const { owner, repo } = splitRepo(item.repo_full_name);
@@ -85,9 +85,9 @@ export class CompletionDetector extends IntervalService {
           },
           'Completed review detected',
         );
+      } catch (err: unknown) {
+        this.log.warn({ fn: 'CompletionDetector.tick', error: err }, 'Completion detection tick failed; will retry on next interval');
       }
-    } catch (err: unknown) {
-      this.log.warn({ fn: 'CompletionDetector.tick', error: err }, 'Completion detection tick failed; will retry on next interval');
     }
   }
 }
