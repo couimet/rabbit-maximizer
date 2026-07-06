@@ -49,6 +49,25 @@ describe('SummaryStats', () => {
       renderSummaryStats();
       expect(screen.getByText('Loading summary…')).toBeInTheDocument();
     });
+
+    it('shows queue loading when summary data loaded but queue order is pending', async () => {
+      globalThis.fetch = jest.fn((url: string) => {
+        const urlStr = url as string;
+        if (urlStr.includes('/api/state/next_review_available_at')) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ next_review_available_at: null }) } as Response);
+        }
+        if (urlStr.includes('/api/queue/order')) {
+          return new Promise(() => {});
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 }, oldestPending: null }),
+        } as Response);
+      }) as unknown as typeof fetch;
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Loading queue order…')).toBeInTheDocument());
+    });
   });
 
   describe('data', () => {
