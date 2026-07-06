@@ -113,7 +113,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns the existing pending row when the PR is already queued (P2002)', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const existing = makeRow({ repo_full_name: repo, pr_number: pr, status: 'pending' });
+      const existing = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.pending });
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
 
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -144,7 +144,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns the existing retriggered item when a recent retriggered row exists (within cooldown)', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const recentRetriggered = makeRow({ repo_full_name: repo, pr_number: pr, status: 'retriggered', not_before: new Date(Date.now() + 3_600_000) });
+      const recentRetriggered = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.retriggered, not_before: new Date(Date.now() + 3_600_000) });
 
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
@@ -173,7 +173,7 @@ describe('QueueRepositoryImpl', () => {
     it('creates a new pending row when the cooldown has expired', async () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
-      const newRow = makeRow({ repo_full_name: repo, pr_number: pr, status: 'pending' });
+      const newRow = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.pending });
       const notBefore = getUniqueDate();
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
@@ -206,7 +206,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('markRetriggered', () => {
     it('updates the row to retriggered', async () => {
-      const row = makeRow({ status: 'retriggered' });
+      const row = makeRow({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
@@ -221,7 +221,7 @@ describe('QueueRepositoryImpl', () => {
 
     it('writes not_before when cooldownUntil is provided', async () => {
       const cooldownUntil = getUniqueDate();
-      const row = makeRow({ status: 'retriggered' });
+      const row = makeRow({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
@@ -237,7 +237,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('markFailed', () => {
     it('updates the row to failed', async () => {
-      const row = makeRow({ status: 'failed' });
+      const row = makeRow({ status: QueueStatus.failed });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
@@ -250,7 +250,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('markCompleted', () => {
     it('updates the row to completed', async () => {
-      const row = makeRow({ status: 'completed' });
+      const row = makeRow({ status: QueueStatus.completed });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
@@ -277,7 +277,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getPendingQueue', () => {
     it('returns all pending items sorted by not_before', async () => {
-      const rows = [makeRow({ status: 'pending' }), makeRow({ status: 'pending' })];
+      const rows = [makeRow({ status: QueueStatus.pending }), makeRow({ status: QueueStatus.pending })];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
@@ -293,7 +293,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getRetriggeredQueue', () => {
     it('returns all retriggered items sorted by retriggered_at', async () => {
-      const rows = [makeRow({ status: 'retriggered' }), makeRow({ status: 'retriggered' })];
+      const rows = [makeRow({ status: QueueStatus.retriggered }), makeRow({ status: QueueStatus.retriggered })];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
@@ -309,7 +309,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getOldestPending', () => {
     it('returns the oldest pending item', async () => {
-      const row = makeRow({ status: 'pending' });
+      const row = makeRow({ status: QueueStatus.pending });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
@@ -388,7 +388,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns paginated queue items sorted by not_before ascending, with total count', async () => {
       const skip = 0;
       const take = 20;
-      const rows = [makeRow({ status: 'pending' }), makeRow({ status: 'retriggered' })];
+      const rows = [makeRow({ status: QueueStatus.pending }), makeRow({ status: QueueStatus.retriggered })];
       const total = 5;
 
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -416,9 +416,9 @@ describe('QueueRepositoryImpl', () => {
   describe('getCountsByStatus', () => {
     it('returns counts keyed by QueueStatus, initializing missing statuses to 0', async () => {
       const rows = [
-        { status: 'pending', _count: { status: 7 } },
-        { status: 'retriggered', _count: { status: 3 } },
-        { status: 'completed', _count: { status: 1 } },
+        { status: QueueStatus.pending, _count: { status: 7 } },
+        { status: QueueStatus.retriggered, _count: { status: 3 } },
+        { status: QueueStatus.completed, _count: { status: 1 } },
       ];
 
       const { prisma, reviewQueue } = createMockPrismaClient({

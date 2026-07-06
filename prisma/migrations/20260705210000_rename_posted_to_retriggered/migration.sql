@@ -2,6 +2,9 @@
 -- SQLite does not support ALTER CHECK, so we recreate both tables.
 
 -- 1. Recreate review_queue with updated CHECK constraint and renamed column
+-- Disable foreign keys so the queue_order → review_queue FK does not cascade-delete during the rebuild.
+PRAGMA foreign_keys = OFF;
+
 CREATE TABLE "new_review_queue" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "uuid" TEXT NOT NULL CHECK (length("uuid") <= 36),
@@ -34,6 +37,10 @@ FROM "review_queue";
 DROP TABLE "review_queue";
 
 ALTER TABLE "new_review_queue" RENAME TO "review_queue";
+
+PRAGMA foreign_key_check;
+
+PRAGMA foreign_keys = ON;
 
 -- 2. Recreate events with updated CHECK constraint, remapping 'posted' to 'retriggered'
 CREATE TABLE "new_events" (
