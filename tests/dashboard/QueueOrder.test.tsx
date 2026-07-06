@@ -7,6 +7,7 @@ import '@testing-library/jest-dom/jest-globals';
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 
 const defaultOnMoveComplete = jest.fn();
 
@@ -127,6 +128,31 @@ describe('QueueOrder', () => {
 
       const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
       expect(stateUpdateWarnings).toHaveLength(0);
+    });
+
+    it('allows move after StrictMode double-invoke', async () => {
+      const items = [makeQueueItem(), makeQueueItem()];
+      const onMoveComplete = jest.fn();
+
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({ data: [makeQueueItem(), makeQueueItem()] }),
+        } as Response),
+      ) as unknown as typeof fetch;
+
+      render(
+        <StrictMode>
+          <QueueOrder items={items} error={null} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} />
+        </StrictMode>,
+      );
+
+      fireEvent.click(screen.getAllByLabelText('Move up')[0]);
+
+      await waitFor(() => {
+        expect(onMoveComplete).toHaveBeenCalled();
+      });
     });
 
     it('does not update state after unmount when move request fails', async () => {

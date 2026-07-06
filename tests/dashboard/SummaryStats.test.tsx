@@ -7,6 +7,7 @@ import '@testing-library/jest-dom/jest-globals';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
+import { StrictMode } from 'react';
 
 const renderSummaryStats = (ui?: ReactElement) => render(<TimezoneProvider>{ui ?? <SummaryStats />}</TimezoneProvider>);
 
@@ -166,6 +167,23 @@ describe('SummaryStats', () => {
       const { unmount } = renderSummaryStats();
       unmount();
       expect(globalThis.fetch).toHaveBeenCalled();
+    });
+
+    it('loads queue data after StrictMode double-invoke', async () => {
+      const summaryData = {
+        eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
+        oldestPending: null,
+      };
+      mockSummaryFetch(summaryData, { data: [] });
+
+      render(
+        <StrictMode>
+          <TimezoneProvider>
+            <SummaryStats />
+          </TimezoneProvider>
+        </StrictMode>,
+      );
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
     });
   });
 

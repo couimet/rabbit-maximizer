@@ -34,4 +34,16 @@ describe('parseWaitSeconds', () => {
   it('returns undefined when no numeric value is present', () => {
     expect(parseWaitSeconds('Please wait minutes and seconds before requesting another review.')).toBeUndefined();
   });
+
+  it('extracts minutes from the Next review available in format', () => {
+    expect(parseWaitSeconds('Next review available in: 7 minutes')).toBe(420);
+  });
+
+  it('handles singular minute in the Next review available in format', () => {
+    expect(parseWaitSeconds('Next review available in: 1 minute')).toBe(60);
+  });
+
+  it('returns undefined for Next review available in text without a number', () => {
+    expect(parseWaitSeconds('Next review available in: minutes')).toBeUndefined();
+  });
 });

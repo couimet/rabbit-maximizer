@@ -23,9 +23,17 @@ describe('getNextReviewAvailable', () => {
     ...overrides,
   });
 
-  const startServer = (systemStateRepoOver: Record<string, unknown> = {}) => {
+  const createMockQueueRepo = (overrides: Record<string, unknown> = {}) => ({
+    getOldestPending: jest.fn<any>().mockResolvedValue(null),
+    ...overrides,
+  });
+
+  const startServer = (systemStateRepoOver: Record<string, unknown> = {}, queueRepoOver: Record<string, unknown> = {}) => {
     const app = createExpressApp({ logger });
-    app.get('/api/state/next_review_available_at', createGetNextReviewAvailableHandler(createMockSystemStateRepo(systemStateRepoOver) as any, logger));
+    app.get(
+      '/api/state/next_review_available_at',
+      createGetNextReviewAvailableHandler(createMockSystemStateRepo(systemStateRepoOver) as any, createMockQueueRepo(queueRepoOver) as any, logger),
+    );
     server = app.listen(0);
   };
 
@@ -54,6 +62,50 @@ describe('getNextReviewAvailable', () => {
   it('returns null when key is unset', async () => {
     logger = createMockLogger();
     startServer();
+
+    const json = await getJson(server, '/api/state/next_review_available_at');
+    expect(json).toStrictEqual({ next_review_available_at: null });
+  });
+
+  it('falls back to oldest pending queue item when state is stale', async () => {
+    logger = createMockLogger();
+    const pastDate = new Date(Date.now() - 3600_000);
+    const futureNotBefore = new Date(Date.now() + 900_000);
+    startServer(
+      { getState: jest.fn<any>().mockResolvedValue(pastDate) },
+      { getOldestPending: jest.fn<any>().mockResolvedValue({ not_before: futureNotBefore }) },
+    );
+
+    const json = await getJson(server, '/api/state/next_review_available_at');
+    expect(json).toStrictEqual({ next_review_available_at: futureNotBefore.toISOString() });
+  });
+
+  it('falls back to oldest pending queue item when state is unset', async () => {
+    logger = createMockLogger();
+    const futureNotBefore = new Date(Date.now() + 900_000);
+    startServer({}, { getOldestPending: jest.fn<any>().mockResolvedValue({ not_before: futureNotBefore }) });
+
+    const json = await getJson(server, '/api/state/next_review_available_at');
+    expect(json).toStrictEqual({ next_review_available_at: futureNotBefore.toISOString() });
+  });
+
+  it('returns null when state is stale and pending item not_before is also in the past', async () => {
+    logger = createMockLogger();
+    const pastDate = new Date(Date.now() - 3600_000);
+    const pastNotBefore = new Date(Date.now() - 900_000);
+    startServer(
+      { getState: jest.fn<any>().mockResolvedValue(pastDate) },
+      { getOldestPending: jest.fn<any>().mockResolvedValue({ not_before: pastNotBefore }) },
+    );
+
+    const json = await getJson(server, '/api/state/next_review_available_at');
+    expect(json).toStrictEqual({ next_review_available_at: null });
+  });
+
+  it('returns null when state is stale and there are no pending items', async () => {
+    logger = createMockLogger();
+    const pastDate = new Date(Date.now() - 3600_000);
+    startServer({ getState: jest.fn<any>().mockResolvedValue(pastDate) }, { getOldestPending: jest.fn<any>().mockResolvedValue(null) });
 
     const json = await getJson(server, '/api/state/next_review_available_at');
     expect(json).toStrictEqual({ next_review_available_at: null });

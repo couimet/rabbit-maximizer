@@ -22,12 +22,19 @@ interface MockDetectorDeps {
   logger: Logger;
 }
 
-const makeComment = (overrides: { commentId?: number; repoFullName?: string; prNumber?: number; createdAt?: string }): RateLimitComment => ({
+const makeComment = (overrides: {
+  commentId?: number;
+  repoFullName?: string;
+  prNumber?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}): RateLimitComment => ({
   url: getUniqueString({ prefix: 'https://gh/c/' }),
   repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: overrides.prNumber ?? getUniqueInt(),
   comment_id: overrides.commentId ?? getUniqueInt(),
   created_at: overrides.createdAt ?? getUniqueDate().toISOString(),
+  updated_at: overrides.updatedAt ?? getUniqueDate().toISOString(),
 });
 
 const setup = (): MockDetectorDeps => {
@@ -261,14 +268,14 @@ describe('PollDetector', () => {
 
   describe('system state tracking', () => {
     it('upserts next_review_available_at when no existing state', async () => {
-      const createdAt = '2026-01-01T00:00:00.000Z';
-      const comment = makeComment({ createdAt });
+      const updatedAt = '2026-01-01T00:00:00.000Z';
+      const comment = makeComment({ updatedAt });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
       (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 5 * 60 + 30;
-      const expectedDate = new Date(new Date(createdAt).getTime() + expectedWaitSeconds * 1000);
+      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * 1000);
 
       deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
@@ -283,7 +290,7 @@ describe('PollDetector', () => {
 
     it('updates when new comment has an earlier available time than existing state', async () => {
       const now = Date.now();
-      const comment = makeComment({ createdAt: new Date(now).toISOString() });
+      const comment = makeComment({ updatedAt: new Date(now).toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
       (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
@@ -304,7 +311,7 @@ describe('PollDetector', () => {
 
     it('skips update when new comment has a later available time than existing state', async () => {
       const now = Date.now();
-      const comment = makeComment({ createdAt: new Date(now).toISOString() });
+      const comment = makeComment({ updatedAt: new Date(now).toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
       (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
@@ -324,14 +331,14 @@ describe('PollDetector', () => {
     });
 
     it('uses correct StateKey and Date values when upserting state', async () => {
-      const createdAt = '2026-01-01T00:00:00.000Z';
-      const comment = makeComment({ createdAt });
+      const updatedAt = '2026-01-01T00:00:00.000Z';
+      const comment = makeComment({ updatedAt });
       const bodyText = 'rate limited by coderabbit.ai Please wait 2 minutes before requesting another review.';
       (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
       (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 120;
-      const expectedDate = new Date(new Date(createdAt).getTime() + expectedWaitSeconds * 1000);
+      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * 1000);
 
       deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
@@ -346,14 +353,14 @@ describe('PollDetector', () => {
     });
 
     it('picks the earliest candidate across multiple comments', async () => {
-      const earlyComment = makeComment({ createdAt: '2026-01-01T00:00:00.000Z' });
-      const laterComment = makeComment({ createdAt: '2026-01-01T01:00:00.000Z' });
+      const earlyComment = makeComment({ updatedAt: '2026-01-01T00:00:00.000Z' });
+      const laterComment = makeComment({ updatedAt: '2026-01-01T01:00:00.000Z' });
       const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
       (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([earlyComment, laterComment]);
       (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 600;
-      const expectedDate = new Date(new Date(earlyComment.created_at).getTime() + expectedWaitSeconds * 1000);
+      const expectedDate = new Date(new Date(earlyComment.updated_at).getTime() + expectedWaitSeconds * 1000);
 
       deps.systemStateRepo.getState.mockResolvedValue(undefined);
 

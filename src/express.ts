@@ -53,7 +53,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
   app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, config, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, logger));
-  app.get('/api/state/next_review_available_at', createGetNextReviewAvailableHandler(systemStateRepo, logger));
+  app.get('/api/state/next_review_available_at', createGetNextReviewAvailableHandler(systemStateRepo, queueRepo, logger));
 
   app.get('/icon.png', (_req: Request, res: Response) => res.sendFile('assets/icon.png', { root: '.' }));
   app.get('/icon_256.png', (_req: Request, res: Response) => res.sendFile('assets/icon_256.png', { root: '.' }));

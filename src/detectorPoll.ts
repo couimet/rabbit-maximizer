@@ -69,7 +69,7 @@ export class PollDetector extends IntervalService {
         const effectiveWait = waitSeconds ?? DEFAULT_FALLBACK_WAIT_SECONDS;
         const jitteredWait = getJitter(effectiveWait);
 
-        const candidate = new Date(new Date(c.created_at).getTime() + effectiveWait * MILLISECONDS_PER_SECOND);
+        const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MILLISECONDS_PER_SECOND);
         if (!earliestNextReview || candidate < earliestNextReview) {
           earliestNextReview = candidate;
         }
