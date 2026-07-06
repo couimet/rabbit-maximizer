@@ -60,7 +60,6 @@ describe('PollDetector', () => {
   beforeEach(() => {
     deps = setup();
     jest.useFakeTimers();
-    jest.spyOn(Math, 'random').mockReturnValue(0.5);
   });
 
   const createDetector = () => new PollDetector(deps.github, deps.onDetected, deps.systemStateRepo, deps.logger);
@@ -96,7 +95,7 @@ describe('PollDetector', () => {
   });
 
   describe('detection', () => {
-    it('fetches body, verifies markers, and fires onDetected callback with jittered wait', async () => {
+    it('fetches body, verifies markers, and fires onDetected callback with wait seconds', async () => {
       const comment = makeComment({});
       const bodyText = 'some text rate limited by coderabbit.ai more text Please wait 5 minutes and 30 seconds before requesting another review.';
       (deps.github.searchRateLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
