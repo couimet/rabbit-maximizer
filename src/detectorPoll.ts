@@ -24,7 +24,6 @@ const POLL_INTERVAL_MS = config.POLL_INTERVAL * MILLISECONDS_PER_SECOND;
 
 @injectable()
 export class PollDetector extends IntervalService {
-  private seenCommentIds = new Set<number>();
   private rateLimitRetryAfter = 0;
 
   /* c8 ignore start — decorator emit branches */
@@ -59,13 +58,10 @@ export class PollDetector extends IntervalService {
       let earliestNextReview: Date | undefined;
 
       for (const c of comments) {
-        if (this.seenCommentIds.has(c.comment_id)) continue;
-
         const { owner, repo } = splitRepo(c.repo_full_name);
         const body = await this.github.fetchComment(owner, repo, c.comment_id);
 
         if (!hasRateLimitMarker(body) || hasOwnRetriggerMarker(body)) {
-          this.seenCommentIds.add(c.comment_id);
           continue;
         }
 
@@ -79,8 +75,6 @@ export class PollDetector extends IntervalService {
         }
 
         await this.onDetected(c, jitteredWait);
-
-        this.seenCommentIds.add(c.comment_id);
       }
 
       if (earliestNextReview) {

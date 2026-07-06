@@ -78,4 +78,8 @@ export class DetectedProbe extends EventProbe {
   processClosedWithoutMerge(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
     return this.recordBypass(tx, BypassReason.prClosedWithoutMerge, 'Review-limit comment bypassed: PR closed without merge');
   }
+
+  processAlreadyQueued(): void {
+    this.log.info(this.loggingCtx, 'Review-limit comment already queued; skipping');
+  }
 }
