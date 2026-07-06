@@ -11,7 +11,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 const defaultOnMoveComplete = jest.fn();
 
 const renderQueueOrder = (items: ReturnType<typeof makeQueueItem>[] | null = null, error: string | null = null, onMoveComplete = defaultOnMoveComplete) =>
-  render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" />);
+  render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} />);
 
 const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   id: getUniqueInt(),
@@ -29,7 +29,6 @@ const makeQueueItem = (over: Record<string, unknown> = {}) => ({
 
 describe('QueueOrder', () => {
   afterEach(() => {
-    if (globalThis.fetch) (globalThis.fetch as jest.Mock).mockRestore?.();
     localStorage.clear();
   });
 

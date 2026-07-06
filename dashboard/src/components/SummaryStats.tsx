@@ -5,7 +5,7 @@ import { fetchNextReviewAvailable, fetchQueueOrder, fetchSummary } from '../api.
 import QueueOrder from './QueueOrder.js';
 import ReviewCountdown from './ReviewCountdown.js';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -17,10 +17,24 @@ const SummaryStats = () => {
   const [queueItems, setQueueItems] = useState<QueueItem[] | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const fetchQueue = () => {
     fetchQueueOrder()
-      .then((res) => setQueueItems(res.data))
-      .catch((err: Error) => setQueueError(err.message));
+      .then((res) => {
+        if (!mountedRef.current) return;
+        setQueueError(null);
+        setQueueItems(res.data);
+      })
+      .catch((err: Error) => {
+        if (!mountedRef.current) return;
+        setQueueError(err.message);
+      });
   };
 
   useEffect(() => {
@@ -74,7 +88,7 @@ const SummaryStats = () => {
       <h2>Summary</h2>
 
       <div className="section-card">
-        <QueueOrder items={queueItems} error={queueError} onMoveComplete={fetchQueue} headingLevel="h3" pendingCount={queueItems?.length} />
+        <QueueOrder items={queueItems} error={queueError} onMoveComplete={fetchQueue} headingLevel="h3" pendingCount={queueItems?.length ?? null} />
       </div>
 
       <div className="section-card">

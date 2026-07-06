@@ -18,7 +18,7 @@ const QueueOrder = ({
   error: string | null;
   onMoveComplete: () => void;
   headingLevel: 'h2' | 'h3';
-  pendingCount?: number;
+  pendingCount: number | null;
 }) => {
   const [, forceTick] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -94,7 +94,7 @@ const QueueOrder = ({
 
   return (
     <section>
-      <Heading>Queue Order{pendingCount !== undefined ? ` — ${pendingCount} pending item(s)` : ''}</Heading>
+      <Heading>Queue Order{pendingCount !== null ? ` — ${pendingCount} pending item(s)` : ''}</Heading>
       {moveError && <div className="error">Move failed: {moveError}</div>}
       {items.length === 0 ? (
         <p>No pending items.</p>
