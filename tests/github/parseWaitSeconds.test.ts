@@ -46,4 +46,12 @@ describe('parseWaitSeconds', () => {
   it('returns undefined for Next review available in text without a number', () => {
     expect(parseWaitSeconds('Next review available in: minutes')).toBeUndefined();
   });
+
+  it('extracts minutes when the Next review available in text uses bold markers', () => {
+    expect(parseWaitSeconds('**Next review available in:** **12 minutes**')).toBe(720);
+  });
+
+  it('extracts minutes when the primary format uses bold markers', () => {
+    expect(parseWaitSeconds('**Please wait** 3 **minutes and** 45 **seconds before requesting another review.**')).toBe(225);
+  });
 });
