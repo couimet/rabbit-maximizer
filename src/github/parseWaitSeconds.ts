@@ -23,9 +23,16 @@ export const parseWaitSeconds = (body: string): number | undefined => {
     return minutes * SECONDS_PER_MINUTE + seconds;
   }
 
-  const altMatch = plain.match(/next review available in: (\d+) minutes?/i);
+  const altMatch = plain.match(/next review available in: (\d+) minutes?(?: and (\d+) seconds?)?/i);
   if (altMatch) {
-    return parseInt(altMatch[1], 10) * SECONDS_PER_MINUTE;
+    const minutes = parseInt(altMatch[1], 10);
+    const seconds = altMatch[2] ? parseInt(altMatch[2], 10) : 0;
+    return minutes * SECONDS_PER_MINUTE + seconds;
+  }
+
+  const secondsMatch = plain.match(/next review available in: (\d+) seconds?/i);
+  if (secondsMatch) {
+    return parseInt(secondsMatch[1], 10);
   }
 
   return undefined;

@@ -54,4 +54,20 @@ describe('parseWaitSeconds', () => {
   it('extracts minutes when the primary format uses bold markers', () => {
     expect(parseWaitSeconds('**Please wait** 3 **minutes and** 45 **seconds before requesting another review.**')).toBe(225);
   });
+
+  it('extracts minutes and seconds from the Next review available in alt format', () => {
+    expect(parseWaitSeconds('Next review available in: 2 minutes and 15 seconds')).toBe(135);
+  });
+
+  it('extracts seconds only from the Next review available in alt format', () => {
+    expect(parseWaitSeconds('Next review available in: 21 seconds')).toBe(21);
+  });
+
+  it('handles singular second in the Next review available in alt format', () => {
+    expect(parseWaitSeconds('Next review available in: 1 second')).toBe(1);
+  });
+
+  it('extracts seconds only when bold markers are present in the alt format', () => {
+    expect(parseWaitSeconds('**Next review available in:** **21 seconds**')).toBe(21);
+  });
 });

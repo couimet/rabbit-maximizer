@@ -20,6 +20,7 @@ export interface SourceCommentValidator {
 @injectable()
 export class SourceCommentValidatorImpl implements SourceCommentValidator {
   private readonly fallbackWaitSeconds: number;
+  private readonly bufferSeconds: number;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
@@ -29,6 +30,7 @@ export class SourceCommentValidatorImpl implements SourceCommentValidator {
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {
     this.fallbackWaitSeconds = cfg.REVIEW_LIMIT_FALLBACK_WAIT_SECONDS;
+    this.bufferSeconds = cfg.REVIEW_LIMIT_BUFFER_SECONDS;
   }
   /* c8 ignore stop */
 
@@ -76,7 +78,7 @@ export class SourceCommentValidatorImpl implements SourceCommentValidator {
         }
         throw err;
       }
-      const waitSeconds = parseWaitSeconds(latestBody) ?? this.fallbackWaitSeconds;
+      const waitSeconds = (parseWaitSeconds(latestBody) ?? this.fallbackWaitSeconds) + this.bufferSeconds;
       const notBefore = new Date(new Date(latest.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       this.log.debug(

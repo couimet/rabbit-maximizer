@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('SourceCommentValidator', () => {
   const FALLBACK_WAIT_SECONDS = 3600;
+  const REVIEW_LIMIT_BUFFER_SECONDS = 60;
 
   let logger: Logger;
   let owner: string;
@@ -39,7 +40,11 @@ describe('SourceCommentValidator', () => {
     }) as any;
 
   const createValidator = (github: jest.Mocked<CoderabbitGitHubClient>) =>
-    new SourceCommentValidatorImpl(github, { REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: FALLBACK_WAIT_SECONDS } as any, logger);
+    new SourceCommentValidatorImpl(
+      github,
+      { REVIEW_LIMIT_BUFFER_SECONDS: REVIEW_LIMIT_BUFFER_SECONDS, REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: FALLBACK_WAIT_SECONDS } as any,
+      logger,
+    );
 
   const makeReplacementScenario = () => {
     const storedCommentId = getUniqueInt();
@@ -78,7 +83,7 @@ describe('SourceCommentValidator', () => {
     });
     const validator = createValidator(github);
     const outcome = await validator.validate(item);
-    const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + FALLBACK_WAIT_SECONDS * 1000);
+    const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + (FALLBACK_WAIT_SECONDS + REVIEW_LIMIT_BUFFER_SECONDS) * 1000);
     expect(outcome).toStrictEqual({
       action: 'reschedule',
       notBefore: expectedNotBefore,
@@ -115,7 +120,7 @@ describe('SourceCommentValidator', () => {
     });
     const validator = createValidator(github);
     const outcome = await validator.validate(item);
-    const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + FALLBACK_WAIT_SECONDS * 1000);
+    const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + (FALLBACK_WAIT_SECONDS + REVIEW_LIMIT_BUFFER_SECONDS) * 1000);
     expect(outcome).toStrictEqual({ action: 'reschedule', notBefore: expectedNotBefore, sourceComment: { commentId: newCommentId, commentUrl: latest.url } });
     expect(logger.debug).toHaveBeenCalledWith(
       { fn: 'SourceCommentValidator.validate', owner, repo, pr: prNumber, newCommentId },
@@ -132,7 +137,7 @@ describe('SourceCommentValidator', () => {
     });
     const validator = createValidator(github);
     const outcome = await validator.validate(item);
-    const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + FALLBACK_WAIT_SECONDS * 1000);
+    const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + (FALLBACK_WAIT_SECONDS + REVIEW_LIMIT_BUFFER_SECONDS) * 1000);
     expect(outcome).toStrictEqual({ action: 'reschedule', notBefore: expectedNotBefore, sourceComment: { commentId: newCommentId, commentUrl: latest.url } });
     expect(logger.debug).toHaveBeenCalledWith(
       { fn: 'SourceCommentValidator.validate', owner, repo, commentId: storedCommentId, status: 404 },
@@ -149,7 +154,7 @@ describe('SourceCommentValidator', () => {
     });
     const validator = createValidator(github);
     const outcome = await validator.validate(item);
-    const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + FALLBACK_WAIT_SECONDS * 1000);
+    const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + (FALLBACK_WAIT_SECONDS + REVIEW_LIMIT_BUFFER_SECONDS) * 1000);
     expect(outcome).toStrictEqual({ action: 'reschedule', notBefore: expectedNotBefore, sourceComment: { commentId: newCommentId, commentUrl: latest.url } });
     expect(logger.debug).toHaveBeenCalledWith(
       { fn: 'SourceCommentValidator.validate', owner, repo, commentId: storedCommentId, status: 410 },
