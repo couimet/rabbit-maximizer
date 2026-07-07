@@ -339,7 +339,7 @@ describe('SummaryStats', () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
 
-      (globalThis.fetch as jest.Mock).mockRejectedValue(new Error('Background refresh failed'));
+      globalThis.fetch = jest.fn(() => Promise.reject(new Error('Background refresh failed'))) as unknown as typeof fetch;
 
       fireEvent.change(screen.getByRole('combobox'), { target: { value: '2d' } });
 
