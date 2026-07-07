@@ -1,6 +1,6 @@
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
-import { type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus } from '../types/index.js';
+import { type CommentDetails, type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus } from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 import type { EventRepository } from './eventRepository.js';
@@ -24,7 +24,7 @@ export interface QueueRepository {
   ): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient, sourceComment?: CommentDetails): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
@@ -149,10 +149,18 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.toQueueItem(row);
   }
 
-  async reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient, sourceComment?: CommentDetails): Promise<QueueItem> {
+    const data: { attempts: { increment: number }; not_before: Date; source_comment_id?: number; source_comment_url?: string } = {
+      attempts: { increment: 1 },
+      not_before: newNotBefore,
+    };
+    if (sourceComment !== undefined) {
+      data.source_comment_id = sourceComment.commentId;
+      data.source_comment_url = sourceComment.commentUrl;
+    }
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
-      data: { attempts: { increment: 1 }, not_before: newNotBefore },
+      data,
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.reschedule', id }, 'Rescheduled review');
     return this.toQueueItem(row);

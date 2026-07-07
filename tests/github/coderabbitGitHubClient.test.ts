@@ -266,7 +266,7 @@ describe('client', () => {
           {
             id: nonMatchingCommentId,
             html_url: 'https://example.com',
-            created_at: '2026-06-18T10:00:00Z',
+            created_at: getUniqueDate().toISOString(),
             body: nonMatchingBody,
           },
         ],
@@ -329,24 +329,25 @@ describe('client', () => {
 
     it('maps response to PRState', async () => {
       const { fullName } = makeUniqueRepoName();
+      const mergedAt = getUniqueDate().toISOString();
       pulls.get.mockResolvedValue({
-        data: { state: 'closed', merged_at: '2026-01-01T00:00:00Z' },
+        data: { state: 'closed', merged_at: mergedAt },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
       const result = await client.getPRState(fullName, prNumber);
 
-      expect(result).toStrictEqual({ state: 'closed', merged_at: '2026-01-01T00:00:00Z' });
+      expect(result).toStrictEqual({ state: 'closed', merged_at: mergedAt });
     });
   });
 
   describe('findCompletedReview', () => {
     it('returns the comment URL when a non-rate-limit bot comment exists after the since date', async () => {
       const { owner, repo } = makeUniqueRepoName();
-      const since = new Date('2026-06-15T00:00:00Z');
+      const since = getUniqueDate();
       const commentId = getUniqueInt();
       const htmlUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-      const createdAt = '2026-06-16T00:00:00Z';
+      const createdAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
 
       issues.listComments.mockResolvedValue({
         data: [
@@ -377,14 +378,14 @@ describe('client', () => {
 
     it('excludes comments containing the rate-limit marker', async () => {
       const { owner, repo } = makeUniqueRepoName();
-      const since = new Date('2026-06-15T00:00:00Z');
+      const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
         data: [
           {
             id: getUniqueInt(),
             html_url: 'https://example.com/rate-limit',
-            created_at: '2026-06-16T00:00:00Z',
+            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
             body: 'You have rate limited by coderabbit.ai ... please wait 30 minutes.',
             user: { login: 'coderabbitai[bot]' },
           },
@@ -399,14 +400,14 @@ describe('client', () => {
 
     it('excludes comments created before the since date', async () => {
       const { owner, repo } = makeUniqueRepoName();
-      const since = new Date('2026-06-17T00:00:00Z');
+      const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
         data: [
           {
             id: getUniqueInt(),
             html_url: 'https://example.com/old-review',
-            created_at: '2026-06-16T00:00:00Z',
+            created_at: new Date(since.getTime() - MS_PER_HOUR * 24).toISOString(),
             body: '## Summary by CodeRabbit',
             user: { login: 'coderabbitai[bot]' },
           },
@@ -421,14 +422,14 @@ describe('client', () => {
 
     it('returns undefined when no bot comments exist', async () => {
       const { owner, repo } = makeUniqueRepoName();
-      const since = new Date('2026-06-15T00:00:00Z');
+      const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
         data: [
           {
             id: getUniqueInt(),
             html_url: 'https://example.com/human',
-            created_at: '2026-06-16T00:00:00Z',
+            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
             body: 'Looks good to me!',
             user: { login: 'human-user' },
           },
@@ -443,14 +444,14 @@ describe('client', () => {
 
     it('returns undefined when comment body is empty', async () => {
       const { owner, repo } = makeUniqueRepoName();
-      const since = new Date('2026-06-15T00:00:00Z');
+      const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
         data: [
           {
             id: getUniqueInt(),
             html_url: 'https://example.com/empty',
-            created_at: '2026-06-16T00:00:00Z',
+            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
             body: '',
             user: { login: 'coderabbitai[bot]' },
           },
@@ -470,7 +471,7 @@ describe('client', () => {
       const rateLimitCommentId = getUniqueInt();
       const htmlUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${rateLimitCommentId}`;
       const created_at = getUniqueDate().toISOString();
-      const updated_at = new Date(new Date(created_at).getTime() + 3600_000).toISOString();
+      const updated_at = new Date(new Date(created_at).getTime() + MS_PER_HOUR).toISOString();
 
       issues.listComments.mockResolvedValue({
         data: [
@@ -535,6 +536,7 @@ describe('client', () => {
       const result = await client.findLatestReviewLimitComment(owner, repo, prNumber);
 
       expect(result).toBeUndefined();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findLatestReviewLimitComment', owner, repo, pr: prNumber }, 'Searching for latest rate-limit comment');
     });
 
     it('skips comments with retrigger markers', async () => {
@@ -556,6 +558,7 @@ describe('client', () => {
       const result = await client.findLatestReviewLimitComment(owner, repo, prNumber);
 
       expect(result).toBeUndefined();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findLatestReviewLimitComment', owner, repo, pr: prNumber }, 'Searching for latest rate-limit comment');
     });
   });
 

@@ -1,8 +1,15 @@
 import { PollDetector } from '../src/detectorPoll.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
+import type { OnDetectedCallback } from '../src/types/OnDetectedCallback.js';
 import type { ReviewLimitComment } from '../src/types/ReviewLimitComment.js';
 
-import { createMockLogger, drainMicrotasks } from './helpers/index.js';
+import {
+  createMockCoderabbitGitHubClient,
+  createMockLogger,
+  createMockOnDetectedCallback,
+  createMockSystemStateRepository,
+  drainMicrotasks,
+} from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -13,11 +20,12 @@ const POLL_INTERVAL_SEC = 90;
 const POLL_INTERVAL_MS = POLL_INTERVAL_SEC * 1000;
 const EXPECTED_REPO_COUNT = 1;
 const MS_PER_SECOND = 1000;
+const MS_PER_HOUR = 60 * 60 * MS_PER_SECOND;
 const TICK_DEPTH = 20;
 
 interface MockDetectorDeps {
-  github: CoderabbitGitHubClient;
-  onDetected: jest.Mock<any>;
+  github: jest.Mocked<CoderabbitGitHubClient>;
+  onDetected: jest.Mocked<OnDetectedCallback>;
   systemStateRepo: { getState: jest.Mock<any>; setState: jest.Mock<any> };
   logger: Logger;
 }
@@ -38,17 +46,10 @@ const makeComment = (overrides: {
 });
 
 const setup = (): MockDetectorDeps => {
-  const github = {
-    searchReviewLimitComments: jest.fn<any>(),
-    fetchComment: jest.fn<any>(),
-    postRetrigger: jest.fn<any>(),
-  } as unknown as CoderabbitGitHubClient;
+  const github = createMockCoderabbitGitHubClient();
 
-  const onDetected = jest.fn<any>().mockResolvedValue(undefined);
-  const systemStateRepo = {
-    getState: jest.fn<any>(),
-    setState: jest.fn<any>(),
-  };
+  const onDetected = createMockOnDetectedCallback();
+  const systemStateRepo = createMockSystemStateRepository() as unknown as MockDetectorDeps['systemStateRepo'];
   const logger = createMockLogger();
 
   return { github, onDetected, systemStateRepo, logger };
@@ -66,7 +67,7 @@ describe('PollDetector', () => {
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([]);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
       const { stop } = detector.start();
@@ -81,7 +82,7 @@ describe('PollDetector', () => {
     });
 
     it('stop clears the interval', async () => {
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([]);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
       const { stop } = detector.start();
@@ -98,8 +99,8 @@ describe('PollDetector', () => {
     it('fetches body, verifies markers, and fires onDetected callback with wait seconds', async () => {
       const comment = makeComment({});
       const bodyText = 'some text rate limited by coderabbit.ai more text Please wait 5 minutes and 30 seconds before requesting another review.';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 5 * 60 + 30;
 
@@ -116,8 +117,8 @@ describe('PollDetector', () => {
     it('falls back to DEFAULT_FALLBACK_WAIT_SECONDS when parseWaitSeconds returns undefined', async () => {
       const comment = makeComment({});
       const bodyText = 'rate limited by coderabbit.ai but no wait time pattern';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const detector = createDetector();
       detector.start();
@@ -132,8 +133,8 @@ describe('PollDetector', () => {
     it('skips comments whose full body contains the own-retrigger marker', async () => {
       const comment = makeComment({});
       const bodyText = 'rate limited by coderabbit.ai <!-- rabbit-maximizer already processed -->';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const detector = createDetector();
       detector.start();
@@ -146,8 +147,8 @@ describe('PollDetector', () => {
     it('skips comments that lack the rate-limit marker', async () => {
       const comment = makeComment({});
       const bodyText = 'some unrelated comment body';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const detector = createDetector();
       detector.start();
@@ -160,11 +161,11 @@ describe('PollDetector', () => {
 
   describe('concurrency', () => {
     it('skips tick when another tick is already in-flight', async () => {
-      let resolveSearch: (value: unknown) => void;
-      const searchPromise = new Promise((resolve) => {
+      let resolveSearch: (value: ReviewLimitComment[]) => void;
+      const searchPromise = new Promise<ReviewLimitComment[]>((resolve) => {
         resolveSearch = resolve;
       });
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockReturnValue(searchPromise);
+      deps.github.searchReviewLimitComments.mockReturnValue(searchPromise);
 
       const detector = createDetector();
       const { stop } = detector.start();
@@ -191,7 +192,7 @@ describe('PollDetector', () => {
         status: 403,
         response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(resetEpoch) } },
       };
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockRejectedValue(rateLimitError);
+      deps.github.searchReviewLimitComments.mockRejectedValue(rateLimitError);
 
       const detector = createDetector();
       detector.start();
@@ -214,7 +215,7 @@ describe('PollDetector', () => {
         status: 429,
         response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
       };
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockRejectedValue(rateLimitError);
+      deps.github.searchReviewLimitComments.mockRejectedValue(rateLimitError);
 
       const detector = createDetector();
       detector.start();
@@ -234,7 +235,7 @@ describe('PollDetector', () => {
 
     it('logs generic warning for non-rate-limit errors and continues', async () => {
       const networkError = new Error('Network error');
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockRejectedValue(networkError);
+      deps.github.searchReviewLimitComments.mockRejectedValue(networkError);
 
       const detector = createDetector();
       detector.start();
@@ -249,7 +250,7 @@ describe('PollDetector', () => {
         status: 403,
         response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
       };
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockRejectedValue(badHeaderError);
+      deps.github.searchReviewLimitComments.mockRejectedValue(badHeaderError);
 
       const detector = createDetector();
       detector.start();
@@ -267,14 +268,14 @@ describe('PollDetector', () => {
 
   describe('system state tracking', () => {
     it('upserts next_review_available_at when no existing state', async () => {
-      const updatedAt = '2026-01-01T00:00:00.000Z';
+      const updatedAt = getUniqueDate().toISOString();
       const comment = makeComment({ updatedAt });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 5 * 60 + 30;
-      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * 1000);
+      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * MS_PER_SECOND);
 
       deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
@@ -291,8 +292,8 @@ describe('PollDetector', () => {
       const now = Date.now();
       const comment = makeComment({ updatedAt: new Date(now).toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 5 * 60 + 30;
       const expectedDate = new Date(now + expectedWaitSeconds * 1000);
@@ -312,8 +313,8 @@ describe('PollDetector', () => {
       const now = Date.now();
       const comment = makeComment({ updatedAt: new Date(now).toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 5 * 60 + 30;
       const earlierDate = new Date(now + 60_000);
@@ -330,14 +331,14 @@ describe('PollDetector', () => {
     });
 
     it('uses correct StateKey and Date values when upserting state', async () => {
-      const updatedAt = '2026-01-01T00:00:00.000Z';
+      const updatedAt = getUniqueDate().toISOString();
       const comment = makeComment({ updatedAt });
       const bodyText = 'rate limited by coderabbit.ai Please wait 2 minutes before requesting another review.';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([comment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 120;
-      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * 1000);
+      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * MS_PER_SECOND);
 
       deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
@@ -352,11 +353,13 @@ describe('PollDetector', () => {
     });
 
     it('picks the earliest candidate across multiple comments', async () => {
-      const earlyComment = makeComment({ updatedAt: '2026-01-01T00:00:00.000Z' });
-      const laterComment = makeComment({ updatedAt: '2026-01-01T01:00:00.000Z' });
+      const earlyDate = getUniqueDate();
+      const laterDate = new Date(earlyDate.getTime() + MS_PER_HOUR);
+      const earlyComment = makeComment({ updatedAt: earlyDate.toISOString() });
+      const laterComment = makeComment({ updatedAt: laterDate.toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
-      (deps.github.searchReviewLimitComments as jest.Mock<any>).mockResolvedValue([earlyComment, laterComment]);
-      (deps.github.fetchComment as jest.Mock<any>).mockResolvedValue(bodyText);
+      deps.github.searchReviewLimitComments.mockResolvedValue([earlyComment, laterComment]);
+      deps.github.fetchComment.mockResolvedValue(bodyText);
 
       const expectedWaitSeconds = 600;
       const expectedDate = new Date(new Date(earlyComment.updated_at).getTime() + expectedWaitSeconds * 1000);

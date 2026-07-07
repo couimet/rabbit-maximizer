@@ -1,4 +1,5 @@
 export * from './coderabbit.js';
+export * from './CommentDetails.js';
 export * from './EnqueueResult.js';
 export * from './EnrichedItem.js';
 export * from './EventLogEntry.js';
@@ -13,3 +14,4 @@ export * from './QueueStatus.js';
 export * from './RepoFilter.js';
 export * from './Result.js';
 export * from './ReviewLimitComment.js';
+export * from './ValidationOutcome.js';

@@ -14,6 +14,8 @@ WHERE "source_comment_url" IS NOT NULL
 
 -- Now make it mandatory — every row must have a comment ID
 -- SQLite doesn't support ALTER COLUMN, so we recreate the table
+PRAGMA foreign_keys = OFF;
+
 CREATE TABLE "review_queue_new" (
   "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "uuid" TEXT NOT NULL,
@@ -31,10 +33,17 @@ CREATE TABLE "review_queue_new" (
   "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO "review_queue_new" SELECT * FROM "review_queue";
+INSERT INTO "review_queue_new"
+  ("id", "uuid", "repo_full_name", "pr_number", "status", "not_before", "attempts", "source_comment_url", "source_comment_id", "retriggered_at", "failed_at", "completed_at", "created_at", "updated_at")
+SELECT
+  "id", "uuid", "repo_full_name", "pr_number", "status", "not_before", "attempts", "source_comment_url", "source_comment_id", "retriggered_at", "failed_at", "completed_at", "created_at", "updated_at"
+FROM "review_queue";
 
 DROP TABLE "review_queue";
 ALTER TABLE "review_queue_new" RENAME TO "review_queue";
+
+PRAGMA foreign_key_check;
+PRAGMA foreign_keys = ON;
 
 CREATE UNIQUE INDEX "review_queue_uuid_key" ON "review_queue"("uuid");
 CREATE INDEX "review_queue_status_not_before_idx" ON "review_queue"("status", "not_before");

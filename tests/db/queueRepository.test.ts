@@ -347,6 +347,25 @@ describe('QueueRepositoryImpl', () => {
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
     });
+
+    it('updates source comment fields when provided', async () => {
+      const newDate = getUniqueDate();
+      const newCommentId = getUniqueInt();
+      const newCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+      const row = makeRow({ attempts: 2 });
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+      const result = await sut.reschedule(row.id, newDate, prisma as unknown as Prisma.TransactionClient, {
+        commentId: newCommentId,
+        commentUrl: newCommentUrl,
+      });
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: row.id },
+        data: { attempts: { increment: 1 }, not_before: newDate, source_comment_id: newCommentId, source_comment_url: newCommentUrl },
+      });
+      expect(result).toStrictEqual(toExpectedItem(row));
+    });
   });
 
   describe('getPendingQueue', () => {
