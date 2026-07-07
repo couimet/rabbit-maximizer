@@ -1,11 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
-const mockMkdirSync = jest.fn();
-
-jest.unstable_mockModule('node:fs', () => ({
-  mkdirSync: mockMkdirSync,
-}));
-
 const mockPinoLogger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 const mockPinoFn = jest.fn();
 const mockTransportFn = jest.fn();
@@ -29,18 +23,16 @@ jest.unstable_mockModule('@couimet/logger-contract-adapters', () => ({
 const { initLogger } = await import('../src/logger.js');
 
 describe('initLogger', () => {
-  it('creates the logs directory, builds dual-target pino transport, wraps it in PinoAdapter, and registers via setLogger', () => {
+  it('builds dual-target pino transport (pino-roll + pino-pretty), wraps it in PinoAdapter, and registers via setLogger', () => {
     const mockTransport = {};
     mockTransportFn.mockReturnValue(mockTransport);
     mockPinoFn.mockReturnValue(mockPinoLogger);
 
     initLogger();
 
-    expect(mockMkdirSync).toHaveBeenCalledWith('./logs', { recursive: true });
-
     expect(mockTransportFn).toHaveBeenCalledWith({
       targets: [
-        { target: 'pino/file', options: { destination: './logs/rabbit-maximizer.log' } },
+        { target: 'pino-roll', options: { file: './logs/rabbit-maximizer.log', frequency: 'daily', mkdir: true, limit: { count: 7 } } },
         { target: 'pino-pretty', options: { destination: 1, colorize: true } },
       ],
     });
