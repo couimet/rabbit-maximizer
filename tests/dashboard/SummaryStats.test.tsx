@@ -215,6 +215,40 @@ describe('SummaryStats', () => {
       expect(globalThis.fetch).toHaveBeenCalled();
     });
 
+    it('ignores fetch resolution after component unmounts', async () => {
+      let resolveFetch: (v: Response) => void;
+      const pending = new Promise<Response>((r) => {
+        resolveFetch = r;
+      });
+      globalThis.fetch = jest.fn(() => pending) as unknown as typeof fetch;
+
+      const { unmount } = renderSummaryStats();
+      unmount();
+
+      resolveFetch!({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ nextReviewAvailableAt: null, pendingItems: [], eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 } }),
+      } as Response);
+
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    it('ignores fetch rejection after component unmounts', async () => {
+      let rejectFetch: (err: Error) => void;
+      const pending = new Promise<Response>((_resolve, reject) => {
+        rejectFetch = reject;
+      });
+      globalThis.fetch = jest.fn(() => pending) as unknown as typeof fetch;
+
+      const { unmount } = renderSummaryStats();
+      unmount();
+
+      rejectFetch!(new Error('Network error'));
+
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
     it('loads data after StrictMode double-invoke', async () => {
       mockDashboardState({
         nextReviewAvailableAt: null,
