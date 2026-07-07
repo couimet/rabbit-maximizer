@@ -1,7 +1,7 @@
 import { CompletionDetector } from '../src/CompletionDetector.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
-import { type QueueItem, QueueStatus } from '../src/types/index.js';
+import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.js';
 
 import {
   createMockCoderabbitGitHubClient,
@@ -49,6 +49,7 @@ const makeRetriggeredItem = (overrides: { id?: number; retriggeredAt?: Date; rep
     attempts: 1,
     source_comment_url: `https://github.com/org/repo/issues/1#issuecomment-${commentId}`,
     source_comment_id: commentId,
+    trigger_source: TriggerSource.scheduler,
     retriggered_at: overrides.retriggeredAt ?? getUniqueDate(),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),

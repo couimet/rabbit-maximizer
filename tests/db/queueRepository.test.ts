@@ -1,7 +1,7 @@
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/queueRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
-import { QueueStatus } from '../../src/types/index.js';
+import { QueueStatus, TriggerSource } from '../../src/types/index.js';
 import { createMockLogger, createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
@@ -19,6 +19,7 @@ interface RowOverrides {
   attempts?: number;
   source_comment_url?: string;
   source_comment_id?: number;
+  trigger_source?: string | null;
   retriggered_at?: Date | null;
   failed_at?: Date | null;
   completed_at?: Date | null;
@@ -36,6 +37,7 @@ const makeRow = (over: RowOverrides = {}) => {
     attempts: over.attempts ?? 0,
     source_comment_url: over.source_comment_url ?? `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`,
     source_comment_id: over.source_comment_id ?? commentId,
+    trigger_source: over.trigger_source ?? null,
     retriggered_at: over.retriggered_at ?? null,
     failed_at: over.failed_at ?? null,
     completed_at: over.completed_at ?? null,
@@ -54,6 +56,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
   attempts: row.attempts,
   source_comment_url: row.source_comment_url,
   source_comment_id: row.source_comment_id!,
+  trigger_source: row.trigger_source as TriggerSource,
   retriggered_at: row.retriggered_at ?? undefined,
   failed_at: row.failed_at ?? undefined,
   completed_at: row.completed_at ?? undefined,
@@ -102,7 +105,14 @@ describe('QueueRepositoryImpl', () => {
       );
 
       expect(reviewQueue.create).toHaveBeenCalledWith({
-        data: { repo_full_name: repo, pr_number: pr, not_before: notBefore, source_comment_url: sourceUrl, source_comment_id: commentId },
+        data: {
+          repo_full_name: repo,
+          pr_number: pr,
+          not_before: notBefore,
+          source_comment_url: sourceUrl,
+          source_comment_id: commentId,
+          trigger_source: 'scheduler',
+        },
       });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: row.id } });
       expect(events.record).toHaveBeenCalledWith(
@@ -252,6 +262,7 @@ describe('QueueRepositoryImpl', () => {
           not_before: notBefore,
           source_comment_url: sourceUrl,
           source_comment_id: commentId,
+          trigger_source: 'scheduler',
         },
       });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });

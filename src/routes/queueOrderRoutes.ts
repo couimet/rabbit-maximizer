@@ -1,6 +1,6 @@
 import type { Config } from '../config.js';
 import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
-import { QueueStatus } from '../types/index.js';
+import { QueueStatus, TriggerSource } from '../types/index.js';
 import { MS_PER_SECOND } from '../utils/durations.js';
 import { isValidUuid } from '../utils/uuidLookup.js';
 
@@ -77,7 +77,7 @@ export const createRetriggerNowHandler = (queueOrderRepo: QueueOrderRepository, 
         return;
       }
 
-      await queueOrderRepo.moveToTop(uuid);
+      await queueOrderRepo.moveToTop(uuid, TriggerSource.dashboard_retrigger_now);
 
       res.json({ ok: true, schedulerTickIntervalSec: config.SCHEDULER_TICK_INTERVAL_MS / MS_PER_SECOND });
     } catch (error) {

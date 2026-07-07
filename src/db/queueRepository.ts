@@ -1,6 +1,6 @@
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
-import { type CommentDetails, type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus } from '../types/index.js';
+import { type CommentDetails, type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 import type { EventRepository } from './eventRepository.js';
@@ -70,6 +70,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           not_before: notBefore,
           source_comment_url: sourceCommentUrl,
           source_comment_id: sourceCommentId,
+          trigger_source: TriggerSource.scheduler,
         },
       });
 
@@ -121,7 +122,10 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
 
   async markRetriggered(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem> {
-    const data: { status: string; not_before?: Date; retriggered_at?: Date } = { status: QueueStatus.retriggered, retriggered_at: new Date() };
+    const data: { status: string; not_before?: Date; retriggered_at?: Date } = {
+      status: QueueStatus.retriggered,
+      retriggered_at: new Date(),
+    };
     if (cooldownUntil !== undefined) {
       data.not_before = cooldownUntil;
     }
@@ -236,6 +240,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       attempts: row.attempts,
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,
+      trigger_source: row.trigger_source as TriggerSource,
       retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       completed_at: row.completed_at ?? undefined,

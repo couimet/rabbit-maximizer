@@ -3,6 +3,7 @@ import { REVIEW_BOT_LOGIN } from '../types/coderabbit.js';
 import type { PRState } from '../types/PRState.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
 import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
+import type { TriggerSource } from '../types/TriggerSource.js';
 
 import { buildCommentBody } from './buildCommentBody.js';
 import { buildSearchQuery } from './buildSearchQuery.js';
@@ -24,7 +25,7 @@ export interface CoderabbitGitHubClient {
 
   fetchComment(owner: string, repo: string, commentId: number): Promise<string>;
 
-  postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string): Promise<{ htmlUrl: string }>;
+  postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<{ htmlUrl: string }>;
 
   getPRState(repo: string, pr: number): Promise<PRState>;
 
@@ -106,11 +107,11 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return response.data.body ?? '';
   }
 
-  async postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string): Promise<{ htmlUrl: string }> {
+  async postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<{ htmlUrl: string }> {
     const { owner, repo: repoName } = splitRepo(repo);
-    const body = buildCommentBody(sourceCommentUrl, runId);
+    const body = buildCommentBody(sourceCommentUrl, runId, triggerSource);
 
-    this.log.info({ fn: 'postRetrigger', owner, repo: repoName, pr, runId }, 'Posting retrigger comment');
+    this.log.info({ fn: 'postRetrigger', owner, repo: repoName, pr, runId, triggerSource }, 'Posting retrigger comment');
 
     const response = await this.octokit.rest.issues.createComment({
       owner,

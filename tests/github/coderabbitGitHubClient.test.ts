@@ -1,6 +1,7 @@
 import pkg from '../../package.json' with { type: 'json' };
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/coderabbitGitHubClient.js';
 import { TYPES } from '../../src/inversify-types.js';
+import { TriggerSource } from '../../src/types/index.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
 import type { MockIssuesRest, MockPullsRest, MockSearchRest } from '../helpers/index.js';
 import { createMockLogger, createMockOctokit } from '../helpers/index.js';
@@ -61,7 +62,7 @@ describe('client', () => {
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
       const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
-      const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId);
+      const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.scheduler);
 
       const expectedBody = [
         '@coderabbitai full review',
@@ -90,6 +91,54 @@ describe('client', () => {
           repo,
           pr: prNumber,
           runId,
+          triggerSource: 'scheduler',
+        },
+        'Posting retrigger comment',
+      );
+    });
+
+    it('posts a comment with manual marker and footer when triggerSource is dashboard_retrigger_now', async () => {
+      const { owner, repo, fullName } = makeUniqueRepoName();
+      const responseCommentId = getUniqueInt();
+      issues.createComment.mockResolvedValue({
+        data: {
+          html_url: `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${responseCommentId}`,
+        },
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+
+      const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
+      const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.dashboard_retrigger_now);
+
+      const expectedBody = [
+        '@coderabbitai full review',
+        '',
+        `🔧 rabbit-maximizer v${VERSION} run=${runId} [manual]`,
+        '',
+        '---',
+        '',
+        `🤖 rabbit-maximizer | ${REPO_URL} | v${VERSION} | run=${runId}`,
+        '⚡ Triggered manually from dashboard',
+      ].join('\n');
+
+      expect(issues.createComment).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: prNumber,
+        body: expectedBody,
+      });
+
+      expect(result.htmlUrl).toBe(`https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${responseCommentId}`);
+
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          fn: 'postRetrigger',
+          owner,
+          repo,
+          pr: prNumber,
+          runId,
+          triggerSource: 'dashboard_retrigger_now',
         },
         'Posting retrigger comment',
       );

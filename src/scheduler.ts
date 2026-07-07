@@ -105,7 +105,13 @@ export class Scheduler extends IntervalService {
           throw RabbitMaximizerError.forUnexpectedSwitchDefault('ValidationOutcome.action', (outcome as { action: string }).action, 'Scheduler.executeTick');
       }
 
-      const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(item_.repo_full_name, item_.pr_number, item_.source_comment_url, runId);
+      const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(
+        item_.repo_full_name,
+        item_.pr_number,
+        item_.source_comment_url,
+        runId,
+        item_.trigger_source,
+      );
 
       const obs = this.observation.current();
 
