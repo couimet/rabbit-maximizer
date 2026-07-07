@@ -10,13 +10,15 @@ export const buildCommentBody = (sourceCommentUrl: string, runId: string, trigge
   let marker: string;
   let triggerLine: string;
 
+  const baseMarker = `\u{1F527} rabbit-maximizer v${version} run=${runId}`;
+
   switch (triggerSource) {
     case TriggerSource.dashboard_retrigger_now:
-      marker = `\u{1F527} rabbit-maximizer v${version} run=${runId} [manual]`;
+      marker = `${baseMarker} [manual]`;
       triggerLine = `\u{26A1} Triggered manually from dashboard`;
       break;
     case TriggerSource.scheduler:
-      marker = `\u{1F527} rabbit-maximizer v${version} run=${runId}`;
+      marker = baseMarker;
       triggerLine = `\u{21A9} Triggered by: ${sourceCommentUrl}`;
       break;
     default:
