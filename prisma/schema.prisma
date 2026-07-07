@@ -30,7 +30,9 @@ model ReviewQueue {
   not_before     DateTime
   attempts       Int       @default(0)
   /// Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
-  source_comment_url String?
+  source_comment_url String
+  /// Numeric comment ID extracted from source_comment_url at enqueue time.
+  source_comment_id Int
   retriggered_at DateTime?
   failed_at      DateTime?
   completed_at   DateTime?

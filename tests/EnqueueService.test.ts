@@ -4,7 +4,7 @@ import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
-import type { RateLimitComment } from '../src/types/RateLimitComment.js';
+import type { ReviewLimitComment } from '../src/types/ReviewLimitComment.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -12,7 +12,7 @@ import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const MS_PER_SECOND = 1000;
 
-const makeComment = (): RateLimitComment => ({
+const makeComment = (): ReviewLimitComment => ({
   url: getUniqueString({ prefix: 'https://gh/c/' }),
   repo_full_name: `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: getUniqueInt(),
@@ -109,6 +109,7 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = makeComment();
       const waitSeconds = 330;
+      const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       await svc.handle(comment, waitSeconds);
 
@@ -119,11 +120,14 @@ describe('EnqueueService', () => {
       expect(probe.processStarted).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(queue.enqueue).toHaveBeenCalledWith(
-        comment.repo_full_name,
-        comment.pr_number,
-        expect.any(Date),
-        comment.url,
-        waitSeconds,
+        {
+          repo: comment.repo_full_name,
+          pr: comment.pr_number,
+          notBefore: expectedScheduledFor,
+          sourceCommentUrl: comment.url,
+          sourceCommentId: comment.comment_id,
+          newWait: waitSeconds,
+        },
         observation.current(),
         tx,
       );
@@ -169,11 +173,14 @@ describe('EnqueueService', () => {
       await svc.handle(comment, waitSeconds);
 
       expect(queue.enqueue).toHaveBeenCalledWith(
-        comment.repo_full_name,
-        comment.pr_number,
-        expectedScheduledFor,
-        comment.url,
-        waitSeconds,
+        {
+          repo: comment.repo_full_name,
+          pr: comment.pr_number,
+          notBefore: expectedScheduledFor,
+          sourceCommentUrl: comment.url,
+          sourceCommentId: comment.comment_id,
+          newWait: waitSeconds,
+        },
         observation.current(),
         tx,
       );

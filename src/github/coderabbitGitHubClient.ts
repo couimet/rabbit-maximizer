@@ -1,12 +1,13 @@
 import { TYPES } from '../inversify-types.js';
 import { REVIEW_BOT_LOGIN } from '../types/coderabbit.js';
 import type { PRState } from '../types/PRState.js';
-import type { RateLimitComment } from '../types/RateLimitComment.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
+import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
 
 import { buildCommentBody } from './buildCommentBody.js';
 import { buildSearchQuery } from './buildSearchQuery.js';
 import { extractRepoFullName } from './extractRepoFullName.js';
+import { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './hasRateLimitMarker.js';
 import { splitRepo } from './splitRepo.js';
 
@@ -19,7 +20,7 @@ const SEARCH_MAX_PAGES = 3;
 const COMMENTS_FETCH_PER_PAGE = 100;
 
 export interface CoderabbitGitHubClient {
-  searchRateLimitComments(repoFilter: readonly RepoFilter[]): Promise<RateLimitComment[]>;
+  searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<ReviewLimitComment[]>;
 
   fetchComment(owner: string, repo: string, commentId: number): Promise<string>;
 
@@ -28,6 +29,8 @@ export interface CoderabbitGitHubClient {
   getPRState(repo: string, pr: number): Promise<PRState>;
 
   findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined>;
+
+  findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
 }
 
 @injectable()
@@ -39,11 +42,11 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
   ) {}
   /* c8 ignore stop */
 
-  async searchRateLimitComments(repoFilter: readonly RepoFilter[]): Promise<RateLimitComment[]> {
+  async searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<ReviewLimitComment[]> {
     const query = buildSearchQuery(repoFilter);
-    this.log.debug({ fn: 'searchRateLimitComments', query }, 'Searching for rate-limit comments');
+    this.log.debug({ fn: 'searchReviewLimitComments', query }, 'Searching for rate-limit comments');
 
-    const results: RateLimitComment[] = [];
+    const results: ReviewLimitComment[] = [];
     for (let page = 1; page <= SEARCH_MAX_PAGES; page++) {
       // issuesAndPullRequests is the canonical GET /search/issues endpoint.
       // Octokit's generated types mark it deprecated pending a rename that
@@ -155,6 +158,38 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         'Found completed review comment',
       );
       return { htmlUrl: completedComment.html_url };
+    }
+
+    return undefined;
+  }
+
+  async findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined> {
+    this.log.debug({ fn: 'findLatestReviewLimitComment', owner, repo, pr }, 'Searching for latest rate-limit comment');
+
+    const response = await this.octokit.rest.issues.listComments({
+      owner,
+      repo,
+      issue_number: pr,
+      sort: 'created',
+      direction: 'desc',
+      per_page: COMMENTS_FETCH_PER_PAGE,
+    });
+
+    const rateLimitComment = response.data.find((c) => c.body && hasRateLimitMarker(c.body) && !hasOwnRetriggerMarker(c.body));
+
+    if (rateLimitComment) {
+      this.log.debug(
+        { fn: 'findLatestReviewLimitComment', owner, repo, pr, commentId: rateLimitComment.id, url: rateLimitComment.html_url },
+        'Found latest rate-limit comment',
+      );
+      return {
+        repo_full_name: `${owner}/${repo}`,
+        pr_number: pr,
+        comment_id: rateLimitComment.id,
+        url: rateLimitComment.html_url,
+        created_at: rateLimitComment.created_at,
+        updated_at: rateLimitComment.updated_at,
+      };
     }
 
     return undefined;

@@ -17,27 +17,32 @@ interface RowOverrides {
   status?: string;
   not_before?: Date;
   attempts?: number;
-  source_comment_url?: string | null;
+  source_comment_url?: string;
+  source_comment_id?: number;
   retriggered_at?: Date | null;
   failed_at?: Date | null;
   completed_at?: Date | null;
 }
 
-const makeRow = (over: RowOverrides = {}) => ({
-  id: over.id ?? getUniqueInt(),
-  uuid: getUniqueString({ prefix: 'uuid-' }),
-  repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
-  pr_number: over.pr_number ?? getUniqueInt(),
-  status: over.status ?? 'pending',
-  not_before: over.not_before ?? getUniqueDate(),
-  attempts: over.attempts ?? 0,
-  source_comment_url: over.source_comment_url ?? null,
-  retriggered_at: over.retriggered_at ?? null,
-  failed_at: over.failed_at ?? null,
-  completed_at: over.completed_at ?? null,
-  created_at: getUniqueDate(),
-  updated_at: getUniqueDate(),
-});
+const makeRow = (over: RowOverrides = {}) => {
+  const commentId = getUniqueInt();
+  return {
+    id: over.id ?? getUniqueInt(),
+    uuid: getUniqueString({ prefix: 'uuid-' }),
+    repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
+    pr_number: over.pr_number ?? getUniqueInt(),
+    status: over.status ?? 'pending',
+    not_before: over.not_before ?? getUniqueDate(),
+    attempts: over.attempts ?? 0,
+    source_comment_url: over.source_comment_url ?? `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`,
+    source_comment_id: over.source_comment_id ?? commentId,
+    retriggered_at: over.retriggered_at ?? null,
+    failed_at: over.failed_at ?? null,
+    completed_at: over.completed_at ?? null,
+    created_at: getUniqueDate(),
+    updated_at: getUniqueDate(),
+  };
+};
 
 const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
   id: row.id,
@@ -47,7 +52,8 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
   status: row.status as QueueStatus,
   not_before: row.not_before,
   attempts: row.attempts,
-  source_comment_url: row.source_comment_url ?? undefined,
+  source_comment_url: row.source_comment_url,
+  source_comment_id: row.source_comment_id!,
   retriggered_at: row.retriggered_at ?? undefined,
   failed_at: row.failed_at ?? undefined,
   completed_at: row.completed_at ?? undefined,
@@ -77,8 +83,9 @@ describe('QueueRepositoryImpl', () => {
       const { fullName: repo } = makeUniqueRepoName();
       const pr = getUniqueInt();
       const notBefore = getUniqueDate();
-      const sourceUrl = getUniqueString({ prefix: 'https://gh/c/' });
-      const newWait = 330;
+      const commentId = getUniqueInt();
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const newWait = getUniqueInt();
       const obs = makeObservation();
       const row = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_url: sourceUrl });
 
@@ -88,10 +95,14 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
-      const { item: result, created } = await sut.enqueue(repo, pr, notBefore, sourceUrl, newWait, obs, prisma as unknown as Prisma.TransactionClient);
+      const { item: result, created } = await sut.enqueue(
+        { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
+        obs,
+        prisma as unknown as Prisma.TransactionClient,
+      );
 
       expect(reviewQueue.create).toHaveBeenCalledWith({
-        data: { repo_full_name: repo, pr_number: pr, not_before: notBefore, source_comment_url: sourceUrl },
+        data: { repo_full_name: repo, pr_number: pr, not_before: notBefore, source_comment_url: sourceUrl, source_comment_id: commentId },
       });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: row.id } });
       expect(events.record).toHaveBeenCalledWith(
@@ -126,12 +137,11 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
+      const commentId = getUniqueInt();
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const newWait = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
-        repo,
-        pr,
-        existing.not_before,
-        getUniqueString({ prefix: 'https://gh/c/' }),
-        60,
+        { repo, pr, notBefore: existing.not_before, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         makeObservation(),
         prisma as unknown as Prisma.TransactionClient,
       );
@@ -162,12 +172,11 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
+      const commentId = getUniqueInt();
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const newWait = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
-        repo,
-        pr,
-        newNotBefore,
-        getUniqueString({ prefix: 'https://gh/c/' }),
-        60,
+        { repo, pr, notBefore: newNotBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         makeObservation(),
         prisma as unknown as Prisma.TransactionClient,
       );
@@ -193,18 +202,18 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
+      const commentId = getUniqueInt();
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const newWait = getUniqueInt();
+      const notBefore = getUniqueDate();
       const { item: result, created } = await sut.enqueue(
-        repo,
-        pr,
-        getUniqueDate(),
-        getUniqueString({ prefix: 'https://gh/c/' }),
-        60,
+        { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         makeObservation(),
         prisma as unknown as Prisma.TransactionClient,
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr, status: 'retriggered', not_before: { gt: expect.any(Date) } },
+        where: { repo_full_name: repo, pr_number: pr, status: 'retriggered', not_before: { gt: frozenNow } },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
@@ -224,21 +233,26 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
+      const commentId = getUniqueInt();
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const newWait = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
-        repo,
-        pr,
-        notBefore,
-        getUniqueString({ prefix: 'https://gh/c/' }),
-        60,
+        { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         makeObservation(),
         prisma as unknown as Prisma.TransactionClient,
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr, status: 'retriggered', not_before: { gt: expect.any(Date) } },
+        where: { repo_full_name: repo, pr_number: pr, status: 'retriggered', not_before: { gt: frozenNow } },
       });
       expect(reviewQueue.create).toHaveBeenCalledWith({
-        data: { repo_full_name: repo, pr_number: pr, not_before: notBefore, source_comment_url: expect.any(String) },
+        data: {
+          repo_full_name: repo,
+          pr_number: pr,
+          not_before: notBefore,
+          source_comment_url: sourceUrl,
+          source_comment_id: commentId,
+        },
       });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
       expect(created).toBe(true);
@@ -254,7 +268,7 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markRetriggered(row.id, undefined, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'retriggered', retriggered_at: expect.any(Date) } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'retriggered', retriggered_at: frozenNow } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil: undefined },
@@ -271,7 +285,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.markRetriggered(row.id, cooldownUntil, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { status: 'retriggered', retriggered_at: expect.any(Date), not_before: cooldownUntil },
+        data: { status: 'retriggered', retriggered_at: frozenNow, not_before: cooldownUntil },
       });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil }, 'Marked review retriggered');
@@ -285,7 +299,7 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markFailed(row.id, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'failed', failed_at: expect.any(Date) } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'failed', failed_at: frozenNow } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markFailed', id: row.id }, 'Marked review failed');
     });
@@ -298,23 +312,47 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markCompleted(row.id, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'completed', completed_at: expect.any(Date) } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'completed', completed_at: frozenNow } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markCompleted', id: row.id }, 'Marked review completed');
     });
   });
 
   describe('reschedule', () => {
-    it('increments attempts and sets new not_before', async () => {
+    it('increments attempts, sets new not_before, and updates source comment fields', async () => {
+      const newDate = getUniqueDate();
+      const newCommentId = getUniqueInt();
+      const newCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+      const row = makeRow({ attempts: 2 });
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
+      const result = await sut.reschedule(
+        row.id,
+        newDate,
+        { commentId: newCommentId, commentUrl: newCommentUrl },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: row.id },
+        data: { attempts: { increment: 1 }, not_before: newDate, source_comment_id: newCommentId, source_comment_url: newCommentUrl },
+      });
+      expect(result).toStrictEqual(toExpectedItem(row));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
+    });
+  });
+
+  describe('backoff', () => {
+    it('increments attempts and sets new not_before without touching source comment fields', async () => {
       const newDate = getUniqueDate();
       const row = makeRow({ attempts: 2 });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
-      const result = await sut.reschedule(row.id, newDate, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.backoff(row.id, newDate, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { attempts: { increment: 1 }, not_before: newDate } });
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.backoff', id: row.id }, 'Backoff applied');
     });
   });
 
@@ -386,13 +424,13 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
+      const commentId = getUniqueInt();
+      const notBefore = getUniqueDate();
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const newWait = getUniqueInt();
       await expect(() =>
         sut.enqueue(
-          repo,
-          pr,
-          getUniqueDate(),
-          getUniqueString({ prefix: 'https://gh/c/' }),
-          60,
+          { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
           makeObservation(),
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -411,13 +449,13 @@ describe('QueueRepositoryImpl', () => {
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
       const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
+      const commentId = getUniqueInt();
+      const notBefore = getUniqueDate();
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const newWait = getUniqueInt();
       await expect(() =>
         sut.enqueue(
-          repo,
-          pr,
-          getUniqueDate(),
-          getUniqueString({ prefix: 'https://gh/c/' }),
-          60,
+          { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
           makeObservation(),
           prisma as unknown as Prisma.TransactionClient,
         ),
