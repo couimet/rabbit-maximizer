@@ -84,14 +84,14 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/state/next_review_available_at': {
+  '/api/dashboard-state': {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get: operations['getNextReviewAvailable'];
+    get: operations['getDashboardState'];
     put?: never;
     post?: never;
     delete?: never;
@@ -183,9 +183,11 @@ export interface components {
     QueueOrderResponse: {
       data: components['schemas']['QueueItem'][];
     };
-    StateResponse: {
+    DashboardState: {
       /** Format: date-time */
-      next_review_available_at: string | null;
+      nextReviewAvailableAt: string | null;
+      pendingItems: components['schemas']['QueueItem'][];
+      eventCounts: components['schemas']['EventCounts'];
     };
   };
   responses: {
@@ -341,22 +343,24 @@ export interface operations {
       500: components['responses']['InternalError'];
     };
   };
-  getNextReviewAvailable: {
+  getDashboardState: {
     parameters: {
-      query?: never;
+      query?: {
+        duration?: '24h' | '2d' | '3d' | '5d' | '1w';
+      };
       header?: never;
       path?: never;
       cookie?: never;
     };
     requestBody?: never;
     responses: {
-      /** @description Next review availability timestamp */
+      /** @description Dashboard state */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['StateResponse'];
+          'application/json': components['schemas']['DashboardState'];
         };
       };
       500: components['responses']['InternalError'];

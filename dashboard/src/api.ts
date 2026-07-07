@@ -3,8 +3,8 @@ import type { components } from '../../src/api-types.js';
 export type EventCounts = components['schemas']['EventCounts'];
 export type QueueItem = components['schemas']['QueueItem'];
 export type EventEntry = components['schemas']['EventEntry'];
-export type StateResponse = components['schemas']['StateResponse'];
 export type SummaryResponse = components['schemas']['Summary'];
+export type DashboardStateResponse = components['schemas']['DashboardState'];
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -29,7 +29,10 @@ export const fetchSummary = (duration?: string): Promise<SummaryResponse> => {
   return fetchJson<SummaryResponse>(`${API_BASE}/summary${params}`);
 };
 
-export const fetchNextReviewAvailable = (): Promise<StateResponse> => fetchJson<StateResponse>(`${API_BASE}/state/next_review_available_at`);
+export const fetchDashboardState = (duration?: string): Promise<DashboardStateResponse> => {
+  const params = duration ? `?duration=${duration}` : '';
+  return fetchJson<DashboardStateResponse>(`${API_BASE}/dashboard-state${params}`);
+};
 
 export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedResponse<QueueItem>> =>
   fetchJson<PaginatedResponse<QueueItem>>(`${API_BASE}/queue?page=${page}&pageSize=${pageSize}`);

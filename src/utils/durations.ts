@@ -1,5 +1,3 @@
-export const DEFAULT_DURATION = '24h';
-
 export const MS_PER_SECOND = 1_000;
 export const SECONDS_PER_MINUTE = 60;
 export const MINUTES_PER_HOUR = 60;

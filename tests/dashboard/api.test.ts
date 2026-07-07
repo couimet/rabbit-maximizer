@@ -1,4 +1,4 @@
-import { fetchEvents, fetchQueue, fetchQueueOrder, fetchSummary, moveQueueItems } from '../../dashboard/src/api.js';
+import { fetchDashboardState, fetchEvents, fetchQueue, fetchQueueOrder, fetchSummary, moveQueueItems } from '../../dashboard/src/api.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -77,6 +77,41 @@ describe('api', () => {
     it('throws with HTTP status when body has no error field', async () => {
       globalThis.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 502, json: () => Promise.resolve({}) } as Response)) as unknown as typeof fetch;
       await expect(fetchQueueOrder()).rejects.toThrow('HTTP 502');
+    });
+  });
+
+  describe('fetchDashboardState', () => {
+    it('returns parsed JSON on success', async () => {
+      const data = {
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      };
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;
+      await expect(fetchDashboardState()).resolves.toStrictEqual(data);
+    });
+
+    it('throws with body error message on failure', async () => {
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Server error' }) } as Response),
+      ) as unknown as typeof fetch;
+      await expect(fetchDashboardState()).rejects.toThrow('Server error');
+    });
+
+    it('throws with HTTP status when body has no error field', async () => {
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 502, json: () => Promise.resolve({}) } as Response)) as unknown as typeof fetch;
+      await expect(fetchDashboardState()).rejects.toThrow('HTTP 502');
+    });
+
+    it('appends duration query param when provided', async () => {
+      const data = {
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      };
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;
+      await fetchDashboardState('2d');
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/dashboard-state?duration=2d', undefined);
     });
   });
 

@@ -6,10 +6,10 @@ import '@testing-library/jest-dom/jest-globals';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-const emptySummary = {
-  queueCounts: { pending: 0, retriggered: 0, failed: 0 },
+const emptyDashboardState = {
+  nextReviewAvailableAt: null,
+  pendingItems: [],
   eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
-  oldestPending: null,
 };
 const emptyEvents = { data: [], total: 0, page: 1, pageSize: 50 };
 const emptyQueueOrder = { data: [] };
@@ -18,7 +18,7 @@ describe('App', () => {
   beforeEach(() => {
     localStorage.clear();
     const responses: Record<string, unknown> = {
-      '/api/summary?duration=24h': emptySummary,
+      '/api/dashboard-state?duration=24h': emptyDashboardState,
       '/api/events?page=1&pageSize=50': emptyEvents,
       '/api/queue/order': emptyQueueOrder,
     };
