@@ -157,6 +157,17 @@ describe('SourceCommentValidator', () => {
     );
   });
 
+  it('rethrows when stored comment fetch fails with a non-terminal error', async () => {
+    const commentId = getUniqueInt();
+    const item = makeItem({ source_comment_id: commentId });
+    const serverError = { status: 500 };
+    const github = createMockCoderabbitGitHubClient({
+      fetchComment: jest.fn<any>().mockRejectedValue(serverError),
+    });
+    const validator = createValidator(github);
+    await expect(validator.validate(item)).rejects.toBe(serverError);
+  });
+
   it('returns skip when replacement comment fetch returns 404', async () => {
     const { newCommentId, prNumber, item, latest } = makeReplacementScenario();
     const notFoundError = { status: 404 };
