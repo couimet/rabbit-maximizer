@@ -16,34 +16,39 @@ interface MakeRowOverrides {
   status?: string;
   not_before?: Date;
   attempts?: number;
-  source_comment_url?: string | null;
+  source_comment_url?: string;
+  source_comment_id?: number;
   retriggered_at?: Date | null;
   failed_at?: Date | null;
   completed_at?: Date | null;
 }
 
-const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: number | null } = {}) => ({
-  id: over.id ?? getUniqueInt(),
-  uuid: getUniqueString({ prefix: 'uuid-' }),
-  repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
-  pr_number: over.pr_number ?? getUniqueInt(),
-  status: over.status ?? 'pending',
-  not_before: over.not_before ?? new Date(Date.now() - 60_000),
-  attempts: over.attempts ?? 0,
-  source_comment_url: over.source_comment_url ?? null,
-  retriggered_at: over.retriggered_at ?? null,
-  failed_at: over.failed_at ?? null,
-  completed_at: over.completed_at ?? null,
-  created_at: getUniqueDate(),
-  updated_at: getUniqueDate(),
-  queueOrder: {
-    id: qoOver.id ?? getUniqueInt(),
-    queue_item_id: over.id ?? 0,
-    position: qoOver.position ?? null,
+const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: number | null } = {}) => {
+  const commentId = getUniqueInt();
+  return {
+    id: over.id ?? getUniqueInt(),
+    uuid: getUniqueString({ prefix: 'uuid-' }),
+    repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
+    pr_number: over.pr_number ?? getUniqueInt(),
+    status: over.status ?? 'pending',
+    not_before: over.not_before ?? new Date(Date.now() - 60_000),
+    attempts: over.attempts ?? 0,
+    source_comment_url: over.source_comment_url ?? `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`,
+    source_comment_id: over.source_comment_id ?? commentId,
+    retriggered_at: over.retriggered_at ?? null,
+    failed_at: over.failed_at ?? null,
+    completed_at: over.completed_at ?? null,
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
-  },
-});
+    queueOrder: {
+      id: qoOver.id ?? getUniqueInt(),
+      queue_item_id: over.id ?? 0,
+      position: qoOver.position ?? null,
+      created_at: getUniqueDate(),
+      updated_at: getUniqueDate(),
+    },
+  };
+};
 
 const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   id: row.id,
@@ -53,7 +58,8 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   status: row.status as QueueStatus,
   not_before: row.not_before,
   attempts: row.attempts,
-  source_comment_url: row.source_comment_url ?? undefined,
+  source_comment_url: row.source_comment_url,
+  source_comment_id: row.source_comment_id,
   retriggered_at: row.retriggered_at ?? undefined,
   failed_at: row.failed_at ?? undefined,
   completed_at: row.completed_at ?? undefined,

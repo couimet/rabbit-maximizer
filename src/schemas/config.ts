@@ -8,6 +8,7 @@ export const ConfigSchema = z
     GITHUB_API_TIMEOUT_MS: z.coerce.number().int().positive('GITHUB_API_TIMEOUT_MS must be a positive integer').default(10_000),
     GITHUB_PAT: z.string({ error: 'GITHUB_PAT is required' }).min(1, 'GITHUB_PAT is required'),
     POLL_INTERVAL: z.coerce.number().int().positive('POLL_INTERVAL must be a positive integer').default(90),
+    REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: z.coerce.number().int().positive('REVIEW_LIMIT_FALLBACK_WAIT_SECONDS must be a positive integer').default(3600),
     REPO_FILTER: z
       .array(
         z.discriminatedUnion('scope', [

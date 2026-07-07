@@ -1,8 +1,6 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
 import { EventType, type QueueItem } from './types/index.js';
@@ -11,6 +9,7 @@ import type { Config } from './config.js';
 import { IntervalService } from './IntervalService.js';
 import { TYPES } from './inversify-types.js';
 import type { Pruner } from './Pruner.js';
+import type { SourceCommentValidator } from './SourceCommentValidator.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type PrismaClient } from '@prisma/client';
@@ -46,6 +45,8 @@ export class Scheduler extends IntervalService {
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.Pruner)
     private readonly pruner: Pruner,
+    @inject(TYPES.SourceCommentValidator)
+    private readonly commentValidator: SourceCommentValidator,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(log, cfg.SCHEDULER_TICK_INTERVAL_MS);
@@ -75,17 +76,32 @@ export class Scheduler extends IntervalService {
       const item_ = item;
       const runId = randomUUID();
 
-      const sourceCommentUrl = item_.source_comment_url;
-      if (sourceCommentUrl == null) {
-        throw new RabbitMaximizerError({
-          code: RabbitMaximizerErrorCodes.MISSING_SOURCE_COMMENT_URL,
-          functionName: 'Scheduler.executeTick',
-          message: 'source_comment_url is required but was null or undefined',
-          details: { queueItemId: item_.id, repo: item_.repo_full_name, pr: item_.pr_number },
+      const outcome = await this.commentValidator.validate(item_);
+
+      if (outcome.action === 'reschedule') {
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.reschedule(item_.id, outcome.notBefore, tx);
         });
+        this.log.info(
+          { fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, newNotBefore: outcome.notBefore },
+          'Stale source comment replaced; rescheduled with updated not_before',
+        );
+        return;
       }
 
-      const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(item_.repo_full_name, item_.pr_number, sourceCommentUrl, runId);
+      if (outcome.action === 'skip') {
+        const backoffMs = computeSchedulerBackoff(item_.attempts, this.baseBackoff, this.maxBackoff);
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.reschedule(item_.id, new Date(Date.now() + backoffMs), tx);
+        });
+        this.log.warn(
+          { fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, backoffMs },
+          'Stale source comment with no replacement; rescheduled with backoff',
+        );
+        return;
+      }
+
+      const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(item_.repo_full_name, item_.pr_number, item_.source_comment_url, runId);
 
       const obs = this.observation.current();
 
@@ -101,7 +117,7 @@ export class Scheduler extends IntervalService {
             request_id: obs.requestId,
             version: obs.version,
             payload: {
-              source_comment_url: sourceCommentUrl!,
+              source_comment_url: item_.source_comment_url,
               retriggered_comment_url: retriggeredCommentUrl,
             },
           },
@@ -150,41 +166,6 @@ export class Scheduler extends IntervalService {
             status: error.status,
           },
           'PR closed or merged; marked failed',
-        );
-        return;
-      }
-
-      if (err instanceof RabbitMaximizerError && err.code === RabbitMaximizerErrorCodes.MISSING_SOURCE_COMMENT_URL) {
-        const obs = this.observation.current();
-        const item_ = item;
-
-        await this.prisma.$transaction(async (tx) => {
-          await this.queue.markFailed(item_.id, tx);
-
-          await this.events.record(
-            {
-              type: EventType.failed,
-              repo_full_name: item_.repo_full_name,
-              pr_number: item_.pr_number,
-              correlation_id: obs.correlationId,
-              request_id: obs.requestId,
-              version: obs.version,
-              payload: {
-                reason: 'Missing source comment URL',
-              },
-            },
-            tx,
-          );
-        });
-
-        this.log.info(
-          {
-            fn: 'Scheduler.tick',
-            repo: item.repo_full_name,
-            pr: item.pr_number,
-            queueId: item.id,
-          },
-          'Missing source comment URL; marked failed',
         );
         return;
       }

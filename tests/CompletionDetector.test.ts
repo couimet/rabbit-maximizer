@@ -32,19 +32,23 @@ interface MockCompletionDetectorDeps {
   config: { POLL_INTERVAL: number };
 }
 
-const makeRetriggeredItem = (overrides: { id?: number; retriggeredAt?: Date; repoFullName?: string; prNumber?: number }): QueueItem => ({
-  id: overrides.id ?? getUniqueInt(),
-  uuid: getUniqueString({ prefix: 'uuid-' }),
-  repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
-  pr_number: overrides.prNumber ?? getUniqueInt(),
-  status: QueueStatus.retriggered,
-  not_before: new Date(),
-  attempts: 1,
-  source_comment_url: `https://github.com/org/repo/issues/1#issuecomment-${getUniqueInt()}`,
-  retriggered_at: overrides.retriggeredAt ?? new Date('2026-06-15T00:00:00Z'),
-  created_at: new Date('2026-06-14T00:00:00Z'),
-  updated_at: new Date('2026-06-15T00:00:00Z'),
-});
+const makeRetriggeredItem = (overrides: { id?: number; retriggeredAt?: Date; repoFullName?: string; prNumber?: number }): QueueItem => {
+  const commentId = getUniqueInt();
+  return {
+    id: overrides.id ?? getUniqueInt(),
+    uuid: getUniqueString({ prefix: 'uuid-' }),
+    repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
+    pr_number: overrides.prNumber ?? getUniqueInt(),
+    status: QueueStatus.retriggered,
+    not_before: new Date(),
+    attempts: 1,
+    source_comment_url: `https://github.com/org/repo/issues/1#issuecomment-${commentId}`,
+    source_comment_id: commentId,
+    retriggered_at: overrides.retriggeredAt ?? new Date('2026-06-15T00:00:00Z'),
+    created_at: new Date('2026-06-14T00:00:00Z'),
+    updated_at: new Date('2026-06-15T00:00:00Z'),
+  };
+};
 
 const setup = (): MockCompletionDetectorDeps => {
   const queue = {

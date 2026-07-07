@@ -16,7 +16,6 @@ const VERSION = pkg.version;
 const REPO_URL = pkg.repository.url;
 
 const MS_PER_HOUR = 60 * 60 * 1000;
-const TWENTY_FOUR_HOURS_MS = 24 * MS_PER_HOUR;
 const SEARCH_PER_PAGE = 100;
 const SEARCH_START_PAGE = 1;
 
@@ -134,7 +133,7 @@ describe('client', () => {
     });
   });
 
-  describe('searchRateLimitComments', () => {
+  describe('searchReviewLimitComments', () => {
     const userFilter: RepoFilter = { pattern: 'couimet/*', scope: 'user' };
     const repoFilter: RepoFilter = {
       pattern: 'other-org/specific-repo',
@@ -142,18 +141,16 @@ describe('client', () => {
     };
 
     it('builds the correct search query with user and repo scopes', async () => {
-      const twentyFourHoursAgo = new Date(frozenDate.getTime() - TWENTY_FOUR_HOURS_MS).toISOString();
-
       search.issuesAndPullRequests.mockResolvedValue({
         data: { items: [] },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      await client.searchRateLimitComments([userFilter, repoFilter]);
+      await client.searchReviewLimitComments([userFilter, repoFilter]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
+        q: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -162,26 +159,24 @@ describe('client', () => {
 
       expect(logger.debug).toHaveBeenCalledWith(
         {
-          fn: 'searchRateLimitComments',
-          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo) created:>=${twentyFourHoursAgo}`,
+          fn: 'searchReviewLimitComments',
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
         },
         'Searching for rate-limit comments',
       );
     });
 
     it('omits the qualifier clause when the repo filter is empty', async () => {
-      const twentyFourHoursAgo = new Date(frozenDate.getTime() - TWENTY_FOUR_HOURS_MS).toISOString();
-
       search.issuesAndPullRequests.mockResolvedValue({
         data: { items: [] },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      await client.searchRateLimitComments([]);
+      await client.searchReviewLimitComments([]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open created:>=${twentyFourHoursAgo}`,
+        q: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -190,15 +185,14 @@ describe('client', () => {
 
       expect(logger.debug).toHaveBeenCalledWith(
         {
-          fn: 'searchRateLimitComments',
-          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open created:>=${twentyFourHoursAgo}`,
+          fn: 'searchReviewLimitComments',
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open`,
         },
         'Searching for rate-limit comments',
       );
     });
 
-    it('returns RateLimitComment objects for issues with matching comments', async () => {
-      const twentyFourHoursAgo = new Date(frozenDate.getTime() - TWENTY_FOUR_HOURS_MS).toISOString();
+    it('returns ReviewLimitComment objects for issues with matching comments', async () => {
       const matchingCommentId = getUniqueInt();
       const matchingCommentUrl = `https://github.com/couimet/my-repo/issues/${prNumber}#issuecomment-${matchingCommentId}`;
       const matchingCreatedAt = new Date(frozenDate.getTime() - getUniqueInt() * MS_PER_HOUR).toISOString();
@@ -230,7 +224,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchRateLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([userFilter]);
 
       expect(results).toStrictEqual([
         {
@@ -245,15 +239,14 @@ describe('client', () => {
 
       expect(logger.debug).toHaveBeenCalledWith(
         {
-          fn: 'searchRateLimitComments',
-          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
+          fn: 'searchReviewLimitComments',
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet`,
         },
         'Searching for rate-limit comments',
       );
     });
 
     it('excludes issues whose comments do not contain the rate-limit marker', async () => {
-      const twentyFourHoursAgo = new Date(frozenDate.getTime() - TWENTY_FOUR_HOURS_MS).toISOString();
       const nonMatchingCommentId = getUniqueInt();
       const nonMatchingBody = getRandomString();
 
@@ -281,36 +274,34 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchRateLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([userFilter]);
 
       expect(results).toStrictEqual([]);
 
       expect(logger.debug).toHaveBeenCalledWith(
         {
-          fn: 'searchRateLimitComments',
-          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
+          fn: 'searchReviewLimitComments',
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet`,
         },
         'Searching for rate-limit comments',
       );
     });
 
     it('returns empty array when search has no results', async () => {
-      const twentyFourHoursAgo = new Date(frozenDate.getTime() - TWENTY_FOUR_HOURS_MS).toISOString();
-
       search.issuesAndPullRequests.mockResolvedValue({
         data: { items: [] },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchRateLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([userFilter]);
 
       expect(results).toStrictEqual([]);
 
       expect(logger.debug).toHaveBeenCalledWith(
         {
-          fn: 'searchRateLimitComments',
-          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet created:>=${twentyFourHoursAgo}`,
+          fn: 'searchReviewLimitComments',
+          query: `("reached your PR review rate limit" OR "reached your PR review limit") type:pr state:open user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -468,6 +459,101 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('findLatestReviewLimitComment', () => {
+    it('returns the latest rate-limit comment when one exists', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const rateLimitCommentId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${rateLimitCommentId}`;
+      const created_at = getUniqueDate().toISOString();
+      const updated_at = new Date(new Date(created_at).getTime() + 3600_000).toISOString();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/normal',
+            created_at: getUniqueDate().toISOString(),
+            updated_at: getUniqueDate().toISOString(),
+            body: 'Looks good to me!',
+          },
+          {
+            id: rateLimitCommentId,
+            html_url: htmlUrl,
+            created_at,
+            updated_at,
+            body: 'You have rate limited by coderabbit.ai ... please wait 30 minutes.',
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findLatestReviewLimitComment(owner, repo, prNumber);
+
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: prNumber,
+        sort: 'created',
+        direction: 'desc',
+        per_page: 100,
+      });
+      expect(result).toStrictEqual({
+        repo_full_name: `${owner}/${repo}`,
+        pr_number: prNumber,
+        comment_id: rateLimitCommentId,
+        url: htmlUrl,
+        created_at,
+        updated_at,
+      });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'findLatestReviewLimitComment', owner, repo, pr: prNumber, commentId: rateLimitCommentId, url: htmlUrl },
+        'Found latest rate-limit comment',
+      );
+    });
+
+    it('returns undefined when no rate-limit comment exists', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/normal',
+            created_at: getUniqueDate().toISOString(),
+            updated_at: getUniqueDate().toISOString(),
+            body: 'Just a normal comment.',
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findLatestReviewLimitComment(owner, repo, prNumber);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('skips comments with retrigger markers', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/retrigger',
+            created_at: getUniqueDate().toISOString(),
+            updated_at: getUniqueDate().toISOString(),
+            body: 'rate limited by coderabbit.ai <!-- rabbit-maximizer run=abc123 -->',
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findLatestReviewLimitComment(owner, repo, prNumber);
 
       expect(result).toBeUndefined();
     });

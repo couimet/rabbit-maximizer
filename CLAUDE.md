@@ -249,3 +249,12 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Run `pnpm fix` after every set of file edits — it runs `eslint --fix` and `prettier --write` to normalize formatting and fix auto-fixable lint violations</do>
   <rationale>Keeps the diff clean of formatting noise. Linter auto-fixes handle import sorting, whitespace, and other mechanical concerns.</rationale>
 </rule>
+
+<rule id="P005" priority="critical">
+  <title>Extract small functional utilities into standalone modules</title>
+  <do>Extract pure functions (parsers, validators, extractors, formatters) into standalone utility modules under `src/utils/` with their own isolated unit tests</do>
+  <do>Name the utility file after the function it exports (e.g., `src/utils/extractCommentId.ts` exports `extractCommentId`)</do>
+  <do>Export from `src/utils/index.ts` barrel file</do>
+  <never>Define utility functions inline inside repository classes or service files — these are harder to discover, test in isolation, and reuse</never>
+  <rationale>Small functional utilities are the most reusable and testable units of code. Extracting them eliminates duplication, makes tests focused and fast (no DI/mocking needed), and signals intent clearly through the filename. This is the single most impactful habit for keeping the codebase composable.</rationale>
+</rule>

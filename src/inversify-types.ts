@@ -23,6 +23,7 @@ export const TYPES = {
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
   Scheduler: Symbol.for('Scheduler'),
+  SourceCommentValidator: Symbol.for('SourceCommentValidator'),
   SystemStateRepository: Symbol.for('SystemStateRepository'),
   // Keep this object alphabetically sorted by key.
 } as const;

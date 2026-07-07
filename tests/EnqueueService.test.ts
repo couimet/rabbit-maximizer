@@ -4,7 +4,7 @@ import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
-import type { RateLimitComment } from '../src/types/RateLimitComment.js';
+import type { ReviewLimitComment } from '../src/types/ReviewLimitComment.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -12,7 +12,7 @@ import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const MS_PER_SECOND = 1000;
 
-const makeComment = (): RateLimitComment => ({
+const makeComment = (): ReviewLimitComment => ({
   url: getUniqueString({ prefix: 'https://gh/c/' }),
   repo_full_name: `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: getUniqueInt(),
@@ -123,6 +123,7 @@ describe('EnqueueService', () => {
         comment.pr_number,
         expect.any(Date),
         comment.url,
+        comment.comment_id,
         waitSeconds,
         observation.current(),
         tx,
@@ -173,6 +174,7 @@ describe('EnqueueService', () => {
         comment.pr_number,
         expectedScheduledFor,
         comment.url,
+        comment.comment_id,
         waitSeconds,
         observation.current(),
         tx,

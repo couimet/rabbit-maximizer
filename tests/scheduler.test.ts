@@ -29,6 +29,7 @@ interface QueueItemStub {
   not_before: Date;
   attempts: number;
   source_comment_url: string;
+  source_comment_id: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -44,20 +45,25 @@ interface MockSchedulerDeps {
   tx: Prisma.TransactionClient;
   logger: Logger;
   pruner: Pruner;
+  commentValidator: { validate: jest.Mock<any> };
 }
 
-const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => ({
-  id: over.id ?? getUniqueInt(),
-  uuid: over.uuid ?? getUniqueString({ prefix: 'uuid-' }),
-  repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
-  pr_number: over.pr_number ?? getUniqueInt(),
-  status: over.status ?? 'pending',
-  not_before: over.not_before ?? new Date(Date.now() - 60_000),
-  attempts: over.attempts ?? 0,
-  source_comment_url: over.source_comment_url ?? getUniqueString({ prefix: 'https://gh/c/' }),
-  created_at: over.created_at ?? getUniqueDate(),
-  updated_at: over.updated_at ?? getUniqueDate(),
-});
+const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
+  const commentId = getUniqueInt();
+  return {
+    id: over.id ?? getUniqueInt(),
+    uuid: over.uuid ?? getUniqueString({ prefix: 'uuid-' }),
+    repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
+    pr_number: over.pr_number ?? getUniqueInt(),
+    status: over.status ?? 'pending',
+    not_before: over.not_before ?? new Date(Date.now() - 60_000),
+    attempts: over.attempts ?? 0,
+    source_comment_url: over.source_comment_url ?? `https://github.com/test-owner/test-repo/pull/${getUniqueInt()}#issuecomment-${commentId}`,
+    source_comment_id: over.source_comment_id ?? commentId,
+    created_at: over.created_at ?? getUniqueDate(),
+    updated_at: over.updated_at ?? getUniqueDate(),
+  };
+};
 
 const setup = (): MockSchedulerDeps => {
   const queue = {
@@ -75,11 +81,14 @@ const setup = (): MockSchedulerDeps => {
   } as unknown as QueueOrderRepository;
 
   const github = {
-    searchRateLimitComments: jest.fn<any>(),
-    fetchComment: jest.fn<any>(),
+    searchReviewLimitComments: jest.fn<any>(),
     postRetrigger: jest.fn<any>(),
     getPRState: jest.fn<any>(),
   } as unknown as CoderabbitGitHubClient;
+
+  const commentValidator = {
+    validate: jest.fn<any>().mockResolvedValue({ action: 'proceed' }),
+  };
 
   const events = {
     record: jest.fn<any>(),
@@ -119,10 +128,11 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_POST_COOLDOWN: 3600,
     SCHEDULER_RETRY_BACKOFF_BASE: 60,
     SCHEDULER_RETRY_BACKOFF_MAX: 3600,
+    REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: 3600,
     SCHEDULER_TICK_INTERVAL_MS: TICK_INTERVAL_MS,
   };
 
-  return { config, queue, queueOrder, github, events, observation, prisma, tx, logger, pruner };
+  return { config, queue, queueOrder, github, events, observation, prisma, tx, logger, pruner, commentValidator };
 };
 
 describe('Scheduler', () => {
@@ -134,7 +144,18 @@ describe('Scheduler', () => {
   });
 
   const createScheduler = () =>
-    new Scheduler(deps.queue, deps.queueOrder, deps.github, deps.events, deps.observation, deps.prisma, deps.config, deps.pruner, deps.logger);
+    new Scheduler(
+      deps.queue,
+      deps.queueOrder,
+      deps.github,
+      deps.events,
+      deps.observation,
+      deps.prisma,
+      deps.config,
+      deps.pruner,
+      deps.commentValidator,
+      deps.logger,
+    );
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
@@ -346,9 +367,85 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('marks failed on MISSING_SOURCE_COMMENT_URL error', async () => {
-      const item = { ...makeItem(), source_comment_url: null as unknown as string };
+    it('proceeds with postRetrigger when validator returns proceed', async () => {
+      const item = makeItem();
+      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
       (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
+      (deps.commentValidator.validate as jest.Mock<any>).mockResolvedValue({ action: 'proceed' });
+      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
+      expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
+      expect(deps.queue.reschedule).not.toHaveBeenCalled();
+      expect(deps.queue.markRetriggered).toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('reschedules when validator returns reschedule', async () => {
+      const item = makeItem();
+      const newNotBefore = new Date(Date.now() + 3600_000);
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
+      (deps.commentValidator.validate as jest.Mock<any>).mockResolvedValue({ action: 'reschedule', notBefore: newNotBefore });
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newNotBefore, deps.tx);
+      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('skips the tick when validator returns skip', async () => {
+      const item = makeItem();
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
+      (deps.commentValidator.validate as jest.Mock<any>).mockResolvedValue({ action: 'skip' });
+
+      const capturedDates: Date[] = [];
+      (deps.queue.reschedule as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+        capturedDates.push(date);
+        return Promise.resolve();
+      });
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
+      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
+      expect(deps.queue.markFailed).not.toHaveBeenCalled();
+
+      expect(capturedDates).toHaveLength(1);
+      const backoffMs = capturedDates[0].getTime() - Date.now();
+      expect(backoffMs).toBeGreaterThanOrEqual(BASE_BACKOFF_MS - BACKOFF_TOLERANCE_MS);
+      expect(backoffMs).toBeLessThanOrEqual(BASE_BACKOFF_MS + BACKOFF_TOLERANCE_MS);
+
+      await stop();
+    });
+
+    it('reschedules with backoff when commentValidator.validate throws a non-terminal error', async () => {
+      const item = makeItem();
+      const serverError = { status: 500 };
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
+      (deps.commentValidator.validate as jest.Mock<any>).mockRejectedValue(serverError);
+
+      const capturedDates: Date[] = [];
+      (deps.queue.reschedule as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+        capturedDates.push(date);
+        return Promise.resolve();
+      });
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -356,28 +453,25 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
-      expect(deps.events.record as jest.Mock<any>).toHaveBeenCalledWith(
-        {
-          type: 'failed',
-          repo_full_name: item.repo_full_name,
-          pr_number: item.pr_number,
-          correlation_id: deps.observation.current().correlationId,
-          request_id: deps.observation.current().requestId,
-          version: deps.observation.current().version,
-          payload: { reason: 'Missing source comment URL' },
-        },
-        deps.tx,
-      );
-      expect(deps.logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+      expect(deps.queue.markFailed).not.toHaveBeenCalled();
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      expect(deps.logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
         {
           fn: 'Scheduler.tick',
           repo: item.repo_full_name,
           pr: item.pr_number,
           queueId: item.id,
+          backoffMs: BASE_BACKOFF_MS,
+          attempts: 0,
+          error: serverError,
         },
-        'Missing source comment URL; marked failed',
+        'Post retrigger failed; rescheduled with backoff',
       );
+
+      expect(capturedDates).toHaveLength(1);
+      const backoffMs = capturedDates[0].getTime() - Date.now();
+      expect(backoffMs).toBeGreaterThanOrEqual(BASE_BACKOFF_MS - BACKOFF_TOLERANCE_MS);
+      expect(backoffMs).toBeLessThanOrEqual(BASE_BACKOFF_MS + BACKOFF_TOLERANCE_MS);
 
       await stop();
     });

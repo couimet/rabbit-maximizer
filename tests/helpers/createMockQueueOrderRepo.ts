@@ -11,6 +11,8 @@ const makeItem = (id: number): QueueItem => ({
   status: 'pending' as QueueStatus,
   not_before: new Date(),
   attempts: 0,
+  source_comment_url: `https://github.com/owner/repo/issues/1#issuecomment-${id}`,
+  source_comment_id: id,
   created_at: new Date(),
   updated_at: new Date(),
 });

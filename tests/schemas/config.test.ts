@@ -18,6 +18,7 @@ describe('ConfigSchema', () => {
       GITHUB_API_TIMEOUT_MS: 10_000,
       GITHUB_PAT: githubPat,
       POLL_INTERVAL: 90,
+      REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: 3600,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
       REPO_FILTER: [{ pattern: 'couimet/*', scope: 'user' as const }],
       SCHEDULER_POST_COOLDOWN: 3600,

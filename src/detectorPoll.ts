@@ -13,7 +13,6 @@ import { TYPES } from './inversify-types.js';
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-const DEFAULT_FALLBACK_WAIT_SECONDS = 3600;
 const MILLISECONDS_PER_SECOND = 1000;
 const HTTP_FORBIDDEN = 403;
 const HTTP_TOO_MANY_REQUESTS = 429;
@@ -53,7 +52,7 @@ export class PollDetector extends IntervalService {
 
   protected async executeTick(): Promise<void> {
     try {
-      const comments = await this.github.searchRateLimitComments(config.REPO_FILTER);
+      const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;
 
       for (const c of comments) {
@@ -65,7 +64,7 @@ export class PollDetector extends IntervalService {
         }
 
         const waitSeconds = parseWaitSeconds(body);
-        const effectiveWait = waitSeconds ?? DEFAULT_FALLBACK_WAIT_SECONDS;
+        const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SECONDS;
         const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MILLISECONDS_PER_SECOND);
         if (!earliestNextReview || candidate < earliestNextReview) {
           earliestNextReview = candidate;

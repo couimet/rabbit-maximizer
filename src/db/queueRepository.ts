@@ -17,6 +17,7 @@ export interface QueueRepository {
     pr: number,
     notBefore: Date,
     sourceCommentUrl: string,
+    sourceCommentId: number,
     newWait: number,
     observation: ObservationContext,
     tx: Prisma.TransactionClient,
@@ -49,6 +50,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     pr: number,
     notBefore: Date,
     sourceCommentUrl: string,
+    sourceCommentId: number,
     newWait: number,
     observation: ObservationContext,
     tx: Prisma.TransactionClient,
@@ -74,6 +76,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           pr_number: pr,
           not_before: notBefore,
           source_comment_url: sourceCommentUrl,
+          source_comment_id: sourceCommentId,
         },
       });
 
@@ -221,7 +224,8 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       status: row.status as QueueStatus,
       not_before: row.not_before,
       attempts: row.attempts,
-      source_comment_url: row.source_comment_url ?? undefined,
+      source_comment_url: row.source_comment_url,
+      source_comment_id: row.source_comment_id,
       retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       completed_at: row.completed_at ?? undefined,

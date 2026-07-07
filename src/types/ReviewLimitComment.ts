@@ -1,4 +1,4 @@
-export interface RateLimitComment {
+export interface ReviewLimitComment {
   readonly url: string;
   readonly repo_full_name: string;
   readonly pr_number: number;
