@@ -11,20 +11,21 @@ import { inject, injectable } from 'inversify';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
+export interface EnqueueData {
+  repo: string;
+  pr: number;
+  notBefore: Date;
+  sourceCommentUrl: string;
+  sourceCommentId: number;
+  newWait: number;
+}
+
 export interface QueueRepository {
-  enqueue(
-    repo: string,
-    pr: number,
-    notBefore: Date,
-    sourceCommentUrl: string,
-    sourceCommentId: number,
-    newWait: number,
-    observation: ObservationContext,
-    tx: Prisma.TransactionClient,
-  ): Promise<EnqueueResult>;
+  enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient, sourceComment?: CommentDetails): Promise<QueueItem>;
+  reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
@@ -45,16 +46,8 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
   /* c8 ignore stop */
 
-  async enqueue(
-    repo: string,
-    pr: number,
-    notBefore: Date,
-    sourceCommentUrl: string,
-    sourceCommentId: number,
-    newWait: number,
-    observation: ObservationContext,
-    tx: Prisma.TransactionClient,
-  ): Promise<EnqueueResult> {
+  async enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
+    const { repo, pr, notBefore, sourceCommentUrl, sourceCommentId, newWait } = data;
     const db = this.client(tx);
     const recentRetriggered = await db.reviewQueue.findFirst({
       where: {
@@ -149,20 +142,29 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.toQueueItem(row);
   }
 
-  async reschedule(id: number, newNotBefore: Date, tx: Prisma.TransactionClient, sourceComment?: CommentDetails): Promise<QueueItem> {
-    const data: { attempts: { increment: number }; not_before: Date; source_comment_id?: number; source_comment_url?: string } = {
-      attempts: { increment: 1 },
-      not_before: newNotBefore,
-    };
-    if (sourceComment !== undefined) {
-      data.source_comment_id = sourceComment.commentId;
-      data.source_comment_url = sourceComment.commentUrl;
-    }
+  async reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
-      data,
+      data: {
+        attempts: { increment: 1 },
+        not_before: newNotBefore,
+        source_comment_id: sourceComment.commentId,
+        source_comment_url: sourceComment.commentUrl,
+      },
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.reschedule', id }, 'Rescheduled review');
+    return this.toQueueItem(row);
+  }
+
+  async backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem> {
+    const row = await this.client(tx).reviewQueue.update({
+      where: { id },
+      data: {
+        attempts: { increment: 1 },
+        not_before: newNotBefore,
+      },
+    });
+    this.log.debug({ fn: 'QueueRepositoryImpl.backoff', id }, 'Backoff applied');
     return this.toQueueItem(row);
   }
 

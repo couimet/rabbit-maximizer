@@ -52,12 +52,14 @@ export class EnqueueService {
         await probe.processClosedWithoutMerge(tx);
       } else {
         const { created } = await this.queue.enqueue(
-          comment.repo_full_name,
-          comment.pr_number,
-          scheduledFor,
-          comment.url,
-          comment.comment_id,
-          waitSeconds,
+          {
+            repo: comment.repo_full_name,
+            pr: comment.pr_number,
+            notBefore: scheduledFor,
+            sourceCommentUrl: comment.url,
+            sourceCommentId: comment.comment_id,
+            newWait: waitSeconds,
+          },
           obs,
           tx,
         );

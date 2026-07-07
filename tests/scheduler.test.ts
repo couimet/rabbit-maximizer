@@ -32,6 +32,7 @@ const SHORT_DRAIN = 5;
 const SINGLE_TICK = 1;
 const BASE_BACKOFF_MS = 60_000;
 const BACKOFF_TOLERANCE_MS = 5_000;
+const POST_COOLDOWN_MS = 3_600_000;
 
 interface QueueItemStub {
   id: number;
@@ -117,10 +118,13 @@ const setup = (): MockSchedulerDeps => {
 
 describe('Scheduler', () => {
   let deps: MockSchedulerDeps;
+  let frozenNow: Date;
 
   beforeEach(() => {
+    frozenNow = getUniqueDate();
     deps = setup();
     jest.useFakeTimers();
+    jest.setSystemTime(frozenNow);
   });
 
   const createScheduler = () =>
@@ -153,7 +157,7 @@ describe('Scheduler', () => {
 
       expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), deps.tx);
       const obs = deps.observation.current();
       expect(deps.events.record).toHaveBeenCalledWith(
         {
@@ -262,7 +266,7 @@ describe('Scheduler', () => {
 
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
           fn: 'Scheduler.tick',
@@ -335,7 +339,7 @@ describe('Scheduler', () => {
 
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
       expect(deps.logger.warn).toHaveBeenCalledWith(
         { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, attempts: 0, error: networkError },
         'Post retrigger failed; rescheduled with backoff',
@@ -382,7 +386,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newNotBefore, deps.tx, { commentId: newCommentId, commentUrl: newCommentUrl });
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newNotBefore, { commentId: newCommentId, commentUrl: newCommentUrl }, deps.tx);
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
 
       await stop();
@@ -394,7 +398,7 @@ describe('Scheduler', () => {
       deps.commentValidator.validate.mockResolvedValue({ action: 'skip' });
 
       const capturedDates: Date[] = [];
-      (deps.queue.reschedule as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+      (deps.queue.backoff as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
         capturedDates.push(date);
         return Promise.resolve();
       });
@@ -406,7 +410,7 @@ describe('Scheduler', () => {
 
       expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
       expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
 
@@ -425,7 +429,7 @@ describe('Scheduler', () => {
       deps.commentValidator.validate.mockRejectedValue(serverError);
 
       const capturedDates: Date[] = [];
-      (deps.queue.reschedule as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+      (deps.queue.backoff as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
         capturedDates.push(date);
         return Promise.resolve();
       });
@@ -437,7 +441,7 @@ describe('Scheduler', () => {
 
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, expect.any(Date), deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
           fn: 'Scheduler.tick',
@@ -467,7 +471,7 @@ describe('Scheduler', () => {
       deps.github.postRetrigger.mockRejectedValue(networkError);
 
       const capturedDates: Date[] = [];
-      (deps.queue.reschedule as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+      (deps.queue.backoff as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
         capturedDates.push(date);
         return Promise.resolve();
       });
@@ -480,8 +484,8 @@ describe('Scheduler', () => {
       scheduler['tick']();
       await awaitTick(scheduler);
 
-      expect(deps.queue.reschedule).toHaveBeenNthCalledWith(1, item1.id, expect.any(Date), deps.tx);
-      expect(deps.queue.reschedule).toHaveBeenNthCalledWith(2, item2.id, expect.any(Date), deps.tx);
+      expect(deps.queue.backoff).toHaveBeenNthCalledWith(1, item1.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
+      expect(deps.queue.backoff).toHaveBeenNthCalledWith(2, item2.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS * 2), deps.tx);
 
       expect(capturedDates).toHaveLength(2);
       const firstMs = capturedDates[0].getTime() - Date.now();

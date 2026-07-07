@@ -79,7 +79,7 @@ export class Scheduler extends IntervalService {
       switch (outcome.action) {
         case 'reschedule': {
           await this.prisma.$transaction(async (tx) => {
-            await this.queue.reschedule(item_.id, outcome.notBefore, tx, outcome.sourceComment);
+            await this.queue.reschedule(item_.id, outcome.notBefore, outcome.sourceComment, tx);
           });
           this.log.info(
             { fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, newNotBefore: outcome.notBefore },
@@ -90,7 +90,7 @@ export class Scheduler extends IntervalService {
         case 'skip': {
           const backoffMs = computeSchedulerBackoff(item_.attempts, this.baseBackoff, this.maxBackoff);
           await this.prisma.$transaction(async (tx) => {
-            await this.queue.reschedule(item_.id, new Date(Date.now() + backoffMs), tx);
+            await this.queue.backoff(item_.id, new Date(Date.now() + backoffMs), tx);
           });
           this.log.warn(
             { fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, backoffMs },
@@ -177,7 +177,7 @@ export class Scheduler extends IntervalService {
       const backoffMs = computeSchedulerBackoff(item.attempts, this.baseBackoff, this.maxBackoff);
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.reschedule(item!.id, new Date(Date.now() + backoffMs), tx);
+        await this.queue.backoff(item!.id, new Date(Date.now() + backoffMs), tx);
       });
 
       this.log.warn(

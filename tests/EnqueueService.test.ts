@@ -109,6 +109,7 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = makeComment();
       const waitSeconds = 330;
+      const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       await svc.handle(comment, waitSeconds);
 
@@ -119,12 +120,14 @@ describe('EnqueueService', () => {
       expect(probe.processStarted).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(queue.enqueue).toHaveBeenCalledWith(
-        comment.repo_full_name,
-        comment.pr_number,
-        expect.any(Date),
-        comment.url,
-        comment.comment_id,
-        waitSeconds,
+        {
+          repo: comment.repo_full_name,
+          pr: comment.pr_number,
+          notBefore: expectedScheduledFor,
+          sourceCommentUrl: comment.url,
+          sourceCommentId: comment.comment_id,
+          newWait: waitSeconds,
+        },
         observation.current(),
         tx,
       );
@@ -170,12 +173,14 @@ describe('EnqueueService', () => {
       await svc.handle(comment, waitSeconds);
 
       expect(queue.enqueue).toHaveBeenCalledWith(
-        comment.repo_full_name,
-        comment.pr_number,
-        expectedScheduledFor,
-        comment.url,
-        comment.comment_id,
-        waitSeconds,
+        {
+          repo: comment.repo_full_name,
+          pr: comment.pr_number,
+          notBefore: expectedScheduledFor,
+          sourceCommentUrl: comment.url,
+          sourceCommentId: comment.comment_id,
+          newWait: waitSeconds,
+        },
         observation.current(),
         tx,
       );

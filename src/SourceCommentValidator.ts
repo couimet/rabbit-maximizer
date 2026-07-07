@@ -62,7 +62,8 @@ export class SourceCommentValidatorImpl implements SourceCommentValidator {
     const latest = await this.github.findLatestReviewLimitComment(owner, repo, item.pr_number);
 
     if (latest) {
-      const waitSeconds = parseWaitSeconds(storedBody || '') ?? this.fallbackWaitSeconds;
+      const latestBody = await this.github.fetchComment(owner, repo, latest.comment_id);
+      const waitSeconds = parseWaitSeconds(latestBody) ?? this.fallbackWaitSeconds;
       const notBefore = new Date(new Date(latest.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       this.log.debug(

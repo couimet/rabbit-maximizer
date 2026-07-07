@@ -123,6 +123,10 @@ describe('SourceCommentValidator', () => {
     const outcome = await validator.validate(item);
     const expectedNotBefore = new Date(new Date(latest.updated_at).getTime() + FALLBACK_WAIT_SECONDS * 1000);
     expect(outcome).toStrictEqual({ action: 'reschedule', notBefore: expectedNotBefore, sourceComment: { commentId: newCommentId, commentUrl: latest.url } });
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'SourceCommentValidator.validate', owner, repo, pr: prNumber, newCommentId },
+      'Stale source comment replaced; rescheduling with updated comment identity',
+    );
   });
 
   it('falls through to findLatestReviewLimitComment when fetchComment returns 404', async () => {
@@ -140,7 +144,7 @@ describe('SourceCommentValidator', () => {
     };
     const notFoundError = { status: 404 };
     const github = createMockCoderabbitGitHubClient({
-      fetchComment: jest.fn<any>().mockRejectedValue(notFoundError),
+      fetchComment: jest.fn<any>().mockRejectedValueOnce(notFoundError).mockResolvedValue(''),
       findLatestReviewLimitComment: jest.fn<any>().mockResolvedValue(latest),
     });
     const validator = createValidator(github);
@@ -168,7 +172,7 @@ describe('SourceCommentValidator', () => {
     };
     const goneError = { status: 410 };
     const github = createMockCoderabbitGitHubClient({
-      fetchComment: jest.fn<any>().mockRejectedValue(goneError),
+      fetchComment: jest.fn<any>().mockRejectedValueOnce(goneError).mockResolvedValue(''),
       findLatestReviewLimitComment: jest.fn<any>().mockResolvedValue(latest),
     });
     const validator = createValidator(github);

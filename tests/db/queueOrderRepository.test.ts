@@ -69,9 +69,13 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
 
 describe('QueueOrderRepositoryImpl', () => {
   let logger: Logger;
+  let frozenNow: Date;
 
   beforeEach(() => {
+    frozenNow = getUniqueDate();
     logger = createMockLogger();
+    jest.useFakeTimers();
+    jest.setSystemTime(frozenNow);
   });
 
   describe('getEffectiveOrder', () => {
@@ -87,7 +91,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const result = await sut.getEffectiveOrder();
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: 'pending', not_before: { lte: expect.any(Date) } },
+        where: { status: 'pending', not_before: { lte: frozenNow } },
         include: { queueOrder: true },
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
@@ -395,7 +399,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: itemB.id },
-        data: { not_before: expect.any(Date) },
+        data: { not_before: frozenNow },
       });
       expect(queueOrder.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
@@ -429,7 +433,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: itemA.id },
-        data: { not_before: expect.any(Date) },
+        data: { not_before: frozenNow },
       });
       expect(queueOrder.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
