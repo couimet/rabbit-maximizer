@@ -95,6 +95,51 @@ describe('SummaryStats', () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
     });
+
+    it('ignores stale response when newer request resolves first', async () => {
+      const staleData = {
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
+      };
+      const freshData = {
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: { detected: 9, enqueued: 0, retriggered: 0, failed: 0 },
+      };
+
+      mockDashboardState({
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
+
+      let resolveStale: (v: Response) => void;
+      const stalePromise = new Promise<Response>((r) => {
+        resolveStale = r;
+      });
+
+      let callCount = 0;
+      globalThis.fetch = jest.fn((_url: string) => {
+        callCount++;
+        if (callCount === 1) return stalePromise;
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(freshData) } as Response);
+      }) as unknown as typeof fetch;
+
+      // Two rapid duration changes: first is stale (pending), second resolves immediately.
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '2d' } });
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '3d' } });
+
+      await waitFor(() => expect(screen.getByText('9')).toBeInTheDocument());
+
+      resolveStale!({ ok: true, status: 200, json: () => Promise.resolve(staleData) } as Response);
+
+      await new Promise((r) => setTimeout(r, 0));
+      expect(screen.getByText('9')).toBeInTheDocument();
+      expect(screen.queryByText('1')).not.toBeInTheDocument();
+    });
   });
 
   describe('review countdown', () => {

@@ -1,4 +1,4 @@
-import { DEFAULT_DURATION } from '../../../src/utils/durations.js';
+import { DEFAULT_DURATION } from '../../../src/utils/resolveDurationSince.js';
 import type { DashboardStateResponse } from '../api.js';
 import { fetchDashboardState } from '../api.js';
 
@@ -22,16 +22,21 @@ const SummaryStats = () => {
     };
   }, []);
 
+  const requestIdRef = useRef(0);
+
   const fetchData = useCallback(() => {
+    requestIdRef.current += 1;
+    const requestId = requestIdRef.current;
     fetchDashboardState(duration)
       .then((res) => {
         if (!mountedRef.current) return;
+        if (requestId !== requestIdRef.current) return;
         setError(null);
         setData(res);
       })
       .catch((err: Error) => {
         if (!mountedRef.current) return;
-        // Preserve last-known data — only set error on transient failures
+        if (requestId !== requestIdRef.current) return;
         setError(err.message);
       });
   }, [duration]);
