@@ -1,4 +1,5 @@
 import type { QueueStatus } from './QueueStatus.js';
+import type { TriggerSource } from './TriggerSource.js';
 
 export interface QueueItem {
   readonly id: number;
@@ -10,6 +11,7 @@ export interface QueueItem {
   readonly attempts: number;
   readonly source_comment_url: string;
   readonly source_comment_id: number;
+  readonly trigger_source: TriggerSource;
   readonly retriggered_at?: Date;
   readonly failed_at?: Date;
   readonly completed_at?: Date;

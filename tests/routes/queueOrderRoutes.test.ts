@@ -229,8 +229,10 @@ describe('queueOrderRoutes', () => {
     };
 
     it('returns 200 with { ok: true, schedulerTickIntervalSec: 10 }', async () => {
+      const moveToTop = jest.fn<any>().mockResolvedValue({ ...makeItem(1, UUID_A), status: 'pending' });
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]),
+        moveToTop,
       });
 
       const addr = server.address();
@@ -238,6 +240,7 @@ describe('queueOrderRoutes', () => {
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true, schedulerTickIntervalSec: 10 });
+      expect(moveToTop).toHaveBeenCalledWith(UUID_A, 'dashboard_retrigger_now');
     });
 
     it('returns 400 for non-UUID id', async () => {

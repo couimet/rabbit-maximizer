@@ -1,7 +1,7 @@
 import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 import { TYPES } from '../inversify-types.js';
-import type { QueueItem, QueueStatus } from '../types/index.js';
+import { type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 import { findByUuid, resolveUuidsToIds } from '../utils/uuidLookup.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
@@ -15,7 +15,7 @@ export type MoveDirection = 'up' | 'down';
 export interface QueueOrderRepository {
   getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]>;
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]>;
-  moveToTop(uuid: string): Promise<QueueItem>;
+  moveToTop(uuid: string, triggerSource: TriggerSource): Promise<QueueItem>;
 }
 
 @injectable()
@@ -73,7 +73,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     });
   }
 
-  moveToTop(uuid: string): Promise<QueueItem> {
+  moveToTop(uuid: string, triggerSource: TriggerSource): Promise<QueueItem> {
     return this.transaction(async (tx) => {
       const ordered = await this.readEffectiveOrder(tx, false);
       const item = findByUuid(ordered, uuid);
@@ -91,7 +91,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       await tx.reviewQueue.update({
         where: { id: numericId },
-        data: { not_before: new Date() },
+        data: { not_before: new Date(), trigger_source: triggerSource },
       });
 
       const orderedIds = ordered.map((i) => i.id);
@@ -152,6 +152,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       attempts: row.attempts,
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,
+      trigger_source: row.trigger_source as TriggerSource,
       retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       completed_at: row.completed_at ?? undefined,

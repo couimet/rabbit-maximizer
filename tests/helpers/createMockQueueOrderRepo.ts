@@ -1,5 +1,5 @@
 import type { QueueOrderRepository } from '../../src/db/queueOrderRepository.js';
-import { type QueueItem, QueueStatus } from '../../src/types/index.js';
+import { type QueueItem, QueueStatus, TriggerSource } from '../../src/types/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { jest } from '@jest/globals';
@@ -16,6 +16,7 @@ const makeItem = (): QueueItem => {
     attempts: 0,
     source_comment_url: `https://github.com/owner/repo/issues/1#issuecomment-${id}`,
     source_comment_id: id,
+    trigger_source: TriggerSource.scheduler,
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
   };

@@ -7,6 +7,7 @@ import type { ObservationContextProvider } from '../src/observability/observatio
 import type { Pruner } from '../src/Pruner.js';
 import { Scheduler } from '../src/scheduler.js';
 import type { SourceCommentValidator } from '../src/SourceCommentValidator.js';
+import { TriggerSource } from '../src/types/index.js';
 import { QueueStatus } from '../src/types/QueueStatus.js';
 
 import {
@@ -44,6 +45,7 @@ interface QueueItemStub {
   attempts: number;
   source_comment_url: string;
   source_comment_id: number;
+  trigger_source: TriggerSource;
   created_at: Date;
   updated_at: Date;
 }
@@ -74,6 +76,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
     attempts: over.attempts ?? 0,
     source_comment_url: over.source_comment_url ?? `https://github.com/test-owner/test-repo/pull/${getUniqueInt()}#issuecomment-${commentId}`,
     source_comment_id: over.source_comment_id ?? commentId,
+    trigger_source: over.trigger_source ?? TriggerSource.scheduler,
     created_at: over.created_at ?? getUniqueDate(),
     updated_at: over.updated_at ?? getUniqueDate(),
   };
@@ -156,7 +159,13 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
+      expect(deps.github.postRetrigger).toHaveBeenCalledWith(
+        item.repo_full_name,
+        item.pr_number,
+        item.source_comment_url,
+        expect.any(String),
+        'scheduler' as TriggerSource,
+      );
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), deps.tx);
       const obs = deps.observation.current();
@@ -184,6 +193,28 @@ describe('Scheduler', () => {
           runId: expect.any(String),
         },
         'Retrigger retriggered',
+      );
+
+      await stop();
+    });
+
+    it('passes trigger_source to postRetrigger when set on the item', async () => {
+      const item = makeItem({ trigger_source: TriggerSource.dashboard_retrigger_now });
+      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
+      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
+      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.github.postRetrigger).toHaveBeenCalledWith(
+        item.repo_full_name,
+        item.pr_number,
+        item.source_comment_url,
+        expect.any(String),
+        'dashboard_retrigger_now' as TriggerSource,
       );
 
       await stop();
@@ -362,7 +393,13 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
-      expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
+      expect(deps.github.postRetrigger).toHaveBeenCalledWith(
+        item.repo_full_name,
+        item.pr_number,
+        item.source_comment_url,
+        expect.any(String),
+        item.trigger_source,
+      );
       expect(deps.queue.reschedule).not.toHaveBeenCalled();
       expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), deps.tx);
 

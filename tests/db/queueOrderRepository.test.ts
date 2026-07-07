@@ -1,6 +1,6 @@
 import { type QueueOrderRepository, QueueOrderRepositoryImpl } from '../../src/db/queueOrderRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
-import { type QueueItem, QueueStatus } from '../../src/types/index.js';
+import { type QueueItem, QueueStatus, TriggerSource } from '../../src/types/index.js';
 import { createMockLogger, createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
@@ -18,6 +18,7 @@ interface MakeRowOverrides {
   attempts?: number;
   source_comment_url?: string;
   source_comment_id?: number;
+  trigger_source?: string | null;
   retriggered_at?: Date | null;
   failed_at?: Date | null;
   completed_at?: Date | null;
@@ -35,6 +36,7 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
     attempts: over.attempts ?? 0,
     source_comment_url: over.source_comment_url ?? `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`,
     source_comment_id: over.source_comment_id ?? commentId,
+    trigger_source: over.trigger_source ?? null,
     retriggered_at: over.retriggered_at ?? null,
     failed_at: over.failed_at ?? null,
     completed_at: over.completed_at ?? null,
@@ -60,6 +62,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   attempts: row.attempts,
   source_comment_url: row.source_comment_url,
   source_comment_id: row.source_comment_id,
+  trigger_source: row.trigger_source as TriggerSource,
   retriggered_at: row.retriggered_at ?? undefined,
   failed_at: row.failed_at ?? undefined,
   completed_at: row.completed_at ?? undefined,
@@ -395,11 +398,11 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveToTop(itemB.uuid);
+      const result = await sut.moveToTop(itemB.uuid, TriggerSource.dashboard_retrigger_now);
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: itemB.id },
-        data: { not_before: frozenNow },
+        data: { not_before: frozenNow, trigger_source: 'dashboard_retrigger_now' },
       });
       expect(queueOrder.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
@@ -429,11 +432,11 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveToTop(itemA.uuid);
+      const result = await sut.moveToTop(itemA.uuid, TriggerSource.dashboard_retrigger_now);
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: itemA.id },
-        data: { not_before: frozenNow },
+        data: { not_before: frozenNow, trigger_source: 'dashboard_retrigger_now' },
       });
       expect(queueOrder.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
@@ -442,6 +445,35 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: 2 } });
       expect(result).toStrictEqual(toExpectedItem(itemA));
+    });
+
+    it('sets trigger_source when passed', async () => {
+      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
+
+      const {
+        prisma,
+        reviewQueue,
+        queueOrder: _queueOrder,
+      } = createMockPrismaClient({
+        reviewQueue: {
+          update: jest.fn<any>().mockResolvedValue({}),
+          findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemB, itemA]),
+        },
+        queueOrder: {
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 0 }),
+          update: jest.fn<any>().mockResolvedValue({}),
+        },
+      });
+      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+
+      await sut.moveToTop(itemB.uuid, TriggerSource.dashboard_retrigger_now);
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: itemB.id },
+        data: { not_before: expect.any(Date), trigger_source: 'dashboard_retrigger_now' },
+      });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid: itemB.uuid }, 'Moved item to top');
     });
 
     it('throws when item is not found or not pending', async () => {
@@ -455,11 +487,14 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999')).rejects.toBeDetailedError('QUEUE_ITEM_NOT_FOUND', {
-        message: 'Queue item 00000000-0000-0000-0000-000000000999 not found or not pending',
-        functionName: 'QueueOrderRepositoryImpl.moveToTop',
-        details: { uuid: '00000000-0000-0000-0000-000000000999' },
-      });
+      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999', TriggerSource.dashboard_retrigger_now)).rejects.toBeDetailedError(
+        'QUEUE_ITEM_NOT_FOUND',
+        {
+          message: 'Queue item 00000000-0000-0000-0000-000000000999 not found or not pending',
+          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          details: { uuid: '00000000-0000-0000-0000-000000000999' },
+        },
+      );
     });
   });
 

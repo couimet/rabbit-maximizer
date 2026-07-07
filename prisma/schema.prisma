@@ -33,6 +33,8 @@ model ReviewQueue {
   source_comment_url String
   /// Numeric comment ID extracted from source_comment_url at enqueue time.
   source_comment_id Int
+  /// Max 25; one of 'dashboard_retrigger_now' | 'scheduler' (CHECK in the add_trigger_source_check migration).
+  trigger_source String @default("scheduler")
   retriggered_at DateTime?
   failed_at      DateTime?
   completed_at   DateTime?
