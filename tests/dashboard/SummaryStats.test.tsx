@@ -140,6 +140,47 @@ describe('SummaryStats', () => {
       expect(screen.getByText('9')).toBeInTheDocument();
       expect(screen.queryByText('1')).not.toBeInTheDocument();
     });
+
+    it('ignores stale error when a newer request resolves successfully', async () => {
+      const freshData = {
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: { detected: 9, enqueued: 0, retriggered: 0, failed: 0 },
+      };
+
+      mockDashboardState({
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
+
+      let rejectStale: (err: Error) => void;
+      const stalePromise = new Promise<Response>((_resolve, reject) => {
+        rejectStale = reject;
+      });
+
+      let callCount = 0;
+      globalThis.fetch = jest.fn((_url: string) => {
+        callCount++;
+        if (callCount === 1) return stalePromise;
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(freshData) } as Response);
+      }) as unknown as typeof fetch;
+
+      // Two rapid duration changes: first will error, second succeeds.
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '2d' } });
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '3d' } });
+
+      await waitFor(() => expect(screen.getByText('9')).toBeInTheDocument());
+
+      // Reject the stale first request — its error should be ignored.
+      rejectStale!(new Error('Stale network error'));
+
+      await new Promise((r) => setTimeout(r, 0));
+      expect(screen.getByText('9')).toBeInTheDocument();
+      expect(screen.queryByText('Failed to load summary')).not.toBeInTheDocument();
+    });
   });
 
   describe('review countdown', () => {
