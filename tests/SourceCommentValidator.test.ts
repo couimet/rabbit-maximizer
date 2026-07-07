@@ -41,6 +41,22 @@ describe('SourceCommentValidator', () => {
   const createValidator = (github: jest.Mocked<CoderabbitGitHubClient>) =>
     new SourceCommentValidatorImpl(github, { REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: FALLBACK_WAIT_SECONDS } as any, logger);
 
+  const makeReplacementScenario = () => {
+    const storedCommentId = getUniqueInt();
+    const newCommentId = getUniqueInt();
+    const prNumber = getUniqueInt();
+    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
+    const latest = {
+      repo_full_name: repoFullName,
+      pr_number: prNumber,
+      comment_id: newCommentId,
+      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
+      created_at: getUniqueDate().toISOString(),
+      updated_at: getUniqueDate().toISOString(),
+    };
+    return { storedCommentId, newCommentId, prNumber, item, latest };
+  };
+
   it('returns proceed when stored comment is still a valid rate-limit comment', async () => {
     const commentId = getUniqueInt();
     const item = makeItem({ source_comment_id: commentId });
@@ -55,18 +71,7 @@ describe('SourceCommentValidator', () => {
   });
 
   it('returns reschedule when stored comment is stale and a replacement exists', async () => {
-    const storedCommentId = getUniqueInt();
-    const newCommentId = getUniqueInt();
-    const prNumber = getUniqueInt();
-    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
-    const latest = {
-      repo_full_name: repoFullName,
-      pr_number: prNumber,
-      comment_id: newCommentId,
-      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
-      created_at: getUniqueDate().toISOString(),
-      updated_at: getUniqueDate().toISOString(),
-    };
+    const { newCommentId, prNumber, item, latest } = makeReplacementScenario();
     const github = createMockCoderabbitGitHubClient({
       fetchComment: jest.fn<any>().mockResolvedValue(''),
       findLatestReviewLimitComment: jest.fn<any>().mockResolvedValue(latest),
@@ -103,18 +108,7 @@ describe('SourceCommentValidator', () => {
   });
 
   it('falls through to findLatestReviewLimitComment when stored comment has both rate-limit and retrigger markers', async () => {
-    const storedCommentId = getUniqueInt();
-    const newCommentId = getUniqueInt();
-    const prNumber = getUniqueInt();
-    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
-    const latest = {
-      repo_full_name: repoFullName,
-      pr_number: prNumber,
-      comment_id: newCommentId,
-      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
-      created_at: getUniqueDate().toISOString(),
-      updated_at: getUniqueDate().toISOString(),
-    };
+    const { newCommentId, prNumber, item, latest } = makeReplacementScenario();
     const github = createMockCoderabbitGitHubClient({
       fetchComment: jest.fn<any>().mockResolvedValue('rate limited by coderabbit.ai <!-- rabbit-maximizer run=abc123 -->'),
       findLatestReviewLimitComment: jest.fn<any>().mockResolvedValue(latest),
@@ -130,18 +124,7 @@ describe('SourceCommentValidator', () => {
   });
 
   it('falls through to findLatestReviewLimitComment when fetchComment returns 404', async () => {
-    const storedCommentId = getUniqueInt();
-    const newCommentId = getUniqueInt();
-    const prNumber = getUniqueInt();
-    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
-    const latest = {
-      repo_full_name: repoFullName,
-      pr_number: prNumber,
-      comment_id: newCommentId,
-      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
-      created_at: getUniqueDate().toISOString(),
-      updated_at: getUniqueDate().toISOString(),
-    };
+    const { storedCommentId, newCommentId, item, latest } = makeReplacementScenario();
     const notFoundError = { status: 404 };
     const github = createMockCoderabbitGitHubClient({
       fetchComment: jest.fn<any>().mockRejectedValueOnce(notFoundError).mockResolvedValue(''),
@@ -158,18 +141,7 @@ describe('SourceCommentValidator', () => {
   });
 
   it('falls through to findLatestReviewLimitComment when fetchComment returns 410', async () => {
-    const storedCommentId = getUniqueInt();
-    const newCommentId = getUniqueInt();
-    const prNumber = getUniqueInt();
-    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
-    const latest = {
-      repo_full_name: repoFullName,
-      pr_number: prNumber,
-      comment_id: newCommentId,
-      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
-      created_at: getUniqueDate().toISOString(),
-      updated_at: getUniqueDate().toISOString(),
-    };
+    const { storedCommentId, newCommentId, item, latest } = makeReplacementScenario();
     const goneError = { status: 410 };
     const github = createMockCoderabbitGitHubClient({
       fetchComment: jest.fn<any>().mockRejectedValueOnce(goneError).mockResolvedValue(''),
@@ -186,18 +158,7 @@ describe('SourceCommentValidator', () => {
   });
 
   it('returns skip when replacement comment fetch returns 404', async () => {
-    const storedCommentId = getUniqueInt();
-    const newCommentId = getUniqueInt();
-    const prNumber = getUniqueInt();
-    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
-    const latest = {
-      repo_full_name: repoFullName,
-      pr_number: prNumber,
-      comment_id: newCommentId,
-      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
-      created_at: getUniqueDate().toISOString(),
-      updated_at: getUniqueDate().toISOString(),
-    };
+    const { newCommentId, prNumber, item, latest } = makeReplacementScenario();
     const notFoundError = { status: 404 };
     const github = createMockCoderabbitGitHubClient({
       fetchComment: jest.fn<any>().mockResolvedValueOnce('').mockRejectedValueOnce(notFoundError),
@@ -213,18 +174,7 @@ describe('SourceCommentValidator', () => {
   });
 
   it('returns skip when replacement comment fetch returns 410', async () => {
-    const storedCommentId = getUniqueInt();
-    const newCommentId = getUniqueInt();
-    const prNumber = getUniqueInt();
-    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
-    const latest = {
-      repo_full_name: repoFullName,
-      pr_number: prNumber,
-      comment_id: newCommentId,
-      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
-      created_at: getUniqueDate().toISOString(),
-      updated_at: getUniqueDate().toISOString(),
-    };
+    const { newCommentId, prNumber, item, latest } = makeReplacementScenario();
     const goneError = { status: 410 };
     const github = createMockCoderabbitGitHubClient({
       fetchComment: jest.fn<any>().mockResolvedValueOnce('').mockRejectedValueOnce(goneError),
@@ -240,18 +190,7 @@ describe('SourceCommentValidator', () => {
   });
 
   it('rethrows when replacement comment fetch fails with a non-terminal error', async () => {
-    const storedCommentId = getUniqueInt();
-    const newCommentId = getUniqueInt();
-    const prNumber = getUniqueInt();
-    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
-    const latest = {
-      repo_full_name: repoFullName,
-      pr_number: prNumber,
-      comment_id: newCommentId,
-      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
-      created_at: getUniqueDate().toISOString(),
-      updated_at: getUniqueDate().toISOString(),
-    };
+    const { item, latest } = makeReplacementScenario();
     const serverError = { status: 500 };
     const github = createMockCoderabbitGitHubClient({
       fetchComment: jest.fn<any>().mockResolvedValueOnce('').mockRejectedValueOnce(serverError),
