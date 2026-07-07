@@ -52,6 +52,7 @@ const SummaryStats = () => {
 
   return (
     <section>
+      {error && <div className="error-banner">Failed to refresh: {error}</div>}
       <ReviewCountdown target={data.nextReviewAvailableAt ? new Date(data.nextReviewAvailableAt) : null} />
       <h2>Summary</h2>
 

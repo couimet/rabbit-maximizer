@@ -1,5 +1,6 @@
 import type { EventRepository } from '../db/eventRepository.js';
 import type { QueueRepository } from '../db/queueRepository.js';
+import { filterActiveEventCounts } from '../utils/filterActiveEventCounts.js';
 import { resolveDurationSince } from '../utils/resolveDurationSince.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -13,7 +14,7 @@ export const createGetSummaryHandler = (queueRepo: QueueRepository, eventRepo: E
 
       const [eventCounts, oldestPending] = await Promise.all([eventRepo.countByType(since), queueRepo.getOldestPending()]);
 
-      const { bypassed: _ecBypassed, completed: _ecCompleted, ...activeEventCounts } = eventCounts;
+      const activeEventCounts = filterActiveEventCounts(eventCounts);
 
       res.json({ eventCounts: activeEventCounts, oldestPending });
     } catch (error) {

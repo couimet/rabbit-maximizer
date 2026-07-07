@@ -1,5 +1,6 @@
 import type { EventRepository } from '../db/eventRepository.js';
 import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
+import { filterActiveEventCounts } from '../utils/filterActiveEventCounts.js';
 import { resolveDurationSince } from '../utils/resolveDurationSince.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -13,7 +14,7 @@ export const createGetDashboardStateHandler = (queueOrderRepo: QueueOrderReposit
 
       const [items, eventCounts] = await Promise.all([queueOrderRepo.getEffectiveOrder({ eligibleOnly: false }), eventRepo.countByType(since)]);
 
-      const { bypassed: _ecBypassed, completed: _ecCompleted, ...activeEventCounts } = eventCounts;
+      const activeEventCounts = filterActiveEventCounts(eventCounts);
 
       const now = new Date();
       const futureItems = items.filter((item) => item.not_before > now);

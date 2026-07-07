@@ -329,5 +329,22 @@ describe('SummaryStats', () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Failed to load summary: Network error')).toBeInTheDocument());
     });
+
+    it('shows refresh error banner alongside data when background poll fails', async () => {
+      mockDashboardState({
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
+
+      (globalThis.fetch as jest.Mock).mockRejectedValue(new Error('Background refresh failed'));
+
+      fireEvent.change(screen.getByRole('combobox'), { target: { value: '2d' } });
+
+      await waitFor(() => expect(screen.getByText('Failed to refresh: Background refresh failed')).toBeInTheDocument());
+      expect(screen.getByText('8')).toBeInTheDocument();
+    });
   });
 });
