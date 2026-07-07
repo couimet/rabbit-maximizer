@@ -1,5 +1,5 @@
 import type { Config } from '../src/config.js';
-import type { EventRepository } from '../src/db/eventRepository.js';
+import type { EventRepository, NewEvent } from '../src/db/eventRepository.js';
 import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
@@ -50,10 +50,10 @@ interface QueueItemStub {
 
 interface MockSchedulerDeps {
   config: Config;
-  queue: QueueRepository;
+  queue: jest.Mocked<QueueRepository>;
   queueOrder: jest.Mocked<QueueOrderRepository>;
   github: jest.Mocked<CoderabbitGitHubClient>;
-  events: { record: jest.Mock<any>; listForPr: jest.Mock<any> };
+  events: jest.Mocked<EventRepository>;
   observation: jest.Mocked<ObservationContextProvider>;
   prisma: PrismaClient;
   tx: Prisma.TransactionClient;
@@ -132,7 +132,7 @@ describe('Scheduler', () => {
       deps.queue,
       deps.queueOrder,
       deps.github,
-      deps.events as unknown as EventRepository,
+      deps.events,
       deps.observation,
       deps.prisma,
       deps.config,
@@ -171,7 +171,7 @@ describe('Scheduler', () => {
             source_comment_url: item.source_comment_url,
             retriggered_comment_url: retriggeredHtmlUrl,
           },
-        },
+        } as NewEvent,
         deps.tx,
       );
       expect(deps.logger.info).toHaveBeenCalledWith(
@@ -210,7 +210,7 @@ describe('Scheduler', () => {
           request_id: deps.observation.current().requestId,
           version: deps.observation.current().version,
           payload: { reason: 'PR closed or merged' },
-        },
+        } as NewEvent,
         deps.tx,
       );
       expect(deps.logger.info).toHaveBeenCalledWith(
@@ -363,7 +363,7 @@ describe('Scheduler', () => {
       expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
       expect(deps.github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, expect.any(String));
       expect(deps.queue.reschedule).not.toHaveBeenCalled();
-      expect(deps.queue.markRetriggered).toHaveBeenCalled();
+      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), deps.tx);
 
       await stop();
     });
@@ -398,10 +398,10 @@ describe('Scheduler', () => {
       deps.commentValidator.validate.mockResolvedValue({ action: 'skip' });
 
       const capturedDates: Date[] = [];
-      (deps.queue.backoff as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+      deps.queue.backoff.mockImplementation(((_id: number, date: Date, _tx: unknown) => {
         capturedDates.push(date);
         return Promise.resolve();
-      });
+      }) as any);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -429,10 +429,10 @@ describe('Scheduler', () => {
       deps.commentValidator.validate.mockRejectedValue(serverError);
 
       const capturedDates: Date[] = [];
-      (deps.queue.backoff as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+      deps.queue.backoff.mockImplementation(((_id: number, date: Date, _tx: unknown) => {
         capturedDates.push(date);
         return Promise.resolve();
-      });
+      }) as any);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -471,10 +471,10 @@ describe('Scheduler', () => {
       deps.github.postRetrigger.mockRejectedValue(networkError);
 
       const capturedDates: Date[] = [];
-      (deps.queue.backoff as jest.Mock<any>).mockImplementation((_id: number, date: Date, _tx: unknown) => {
+      deps.queue.backoff.mockImplementation(((_id: number, date: Date, _tx: unknown) => {
         capturedDates.push(date);
         return Promise.resolve();
-      });
+      }) as any);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();

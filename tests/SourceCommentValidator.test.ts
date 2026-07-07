@@ -185,12 +185,77 @@ describe('SourceCommentValidator', () => {
     );
   });
 
-  it('rethrows when fetchComment fails with a non-terminal error', async () => {
-    const serverError = { status: 500 };
-    const commentId = getUniqueInt();
-    const item = makeItem({ source_comment_id: commentId });
+  it('returns skip when replacement comment fetch returns 404', async () => {
+    const storedCommentId = getUniqueInt();
+    const newCommentId = getUniqueInt();
+    const prNumber = getUniqueInt();
+    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
+    const latest = {
+      repo_full_name: repoFullName,
+      pr_number: prNumber,
+      comment_id: newCommentId,
+      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
+      created_at: getUniqueDate().toISOString(),
+      updated_at: getUniqueDate().toISOString(),
+    };
+    const notFoundError = { status: 404 };
     const github = createMockCoderabbitGitHubClient({
-      fetchComment: jest.fn<any>().mockRejectedValue(serverError),
+      fetchComment: jest.fn<any>().mockResolvedValueOnce('').mockRejectedValueOnce(notFoundError),
+      findLatestReviewLimitComment: jest.fn<any>().mockResolvedValue(latest),
+    });
+    const validator = createValidator(github);
+    const outcome = await validator.validate(item);
+    expect(outcome).toStrictEqual({ action: 'skip' });
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'SourceCommentValidator.validate', owner, repo, pr: prNumber, commentId: newCommentId, status: 404 },
+      'Replacement comment deleted before fetch; skipping',
+    );
+  });
+
+  it('returns skip when replacement comment fetch returns 410', async () => {
+    const storedCommentId = getUniqueInt();
+    const newCommentId = getUniqueInt();
+    const prNumber = getUniqueInt();
+    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
+    const latest = {
+      repo_full_name: repoFullName,
+      pr_number: prNumber,
+      comment_id: newCommentId,
+      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
+      created_at: getUniqueDate().toISOString(),
+      updated_at: getUniqueDate().toISOString(),
+    };
+    const goneError = { status: 410 };
+    const github = createMockCoderabbitGitHubClient({
+      fetchComment: jest.fn<any>().mockResolvedValueOnce('').mockRejectedValueOnce(goneError),
+      findLatestReviewLimitComment: jest.fn<any>().mockResolvedValue(latest),
+    });
+    const validator = createValidator(github);
+    const outcome = await validator.validate(item);
+    expect(outcome).toStrictEqual({ action: 'skip' });
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'SourceCommentValidator.validate', owner, repo, pr: prNumber, commentId: newCommentId, status: 410 },
+      'Replacement comment deleted before fetch; skipping',
+    );
+  });
+
+  it('rethrows when replacement comment fetch fails with a non-terminal error', async () => {
+    const storedCommentId = getUniqueInt();
+    const newCommentId = getUniqueInt();
+    const prNumber = getUniqueInt();
+    const item = makeItem({ source_comment_id: storedCommentId, pr_number: prNumber });
+    const latest = {
+      repo_full_name: repoFullName,
+      pr_number: prNumber,
+      comment_id: newCommentId,
+      url: `https://github.com/${repoFullName}/pull/${prNumber}#issuecomment-${newCommentId}`,
+      created_at: getUniqueDate().toISOString(),
+      updated_at: getUniqueDate().toISOString(),
+    };
+    const serverError = { status: 500 };
+    const github = createMockCoderabbitGitHubClient({
+      fetchComment: jest.fn<any>().mockResolvedValueOnce('').mockRejectedValueOnce(serverError),
+      findLatestReviewLimitComment: jest.fn<any>().mockResolvedValue(latest),
     });
     const validator = createValidator(github);
     await expect(validator.validate(item)).rejects.toBe(serverError);

@@ -62,7 +62,20 @@ export class SourceCommentValidatorImpl implements SourceCommentValidator {
     const latest = await this.github.findLatestReviewLimitComment(owner, repo, item.pr_number);
 
     if (latest) {
-      const latestBody = await this.github.fetchComment(owner, repo, latest.comment_id);
+      let latestBody: string;
+      try {
+        latestBody = await this.github.fetchComment(owner, repo, latest.comment_id);
+      } catch (err: unknown) {
+        const error = err as { status?: number };
+        if (error.status === StatusCodes.NOT_FOUND || error.status === StatusCodes.GONE) {
+          this.log.debug(
+            { fn: 'SourceCommentValidator.validate', owner, repo, pr: item.pr_number, commentId: latest.comment_id, status: error.status },
+            'Replacement comment deleted before fetch; skipping',
+          );
+          return { action: 'skip' };
+        }
+        throw err;
+      }
       const waitSeconds = parseWaitSeconds(latestBody) ?? this.fallbackWaitSeconds;
       const notBefore = new Date(new Date(latest.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
