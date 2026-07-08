@@ -1,12 +1,8 @@
 import { fetchDashboardState, fetchEvents, fetchQueue, fetchQueueOrder, fetchSummary, moveQueueItems } from '../../dashboard/src/api.js';
 
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 describe('api', () => {
-  afterEach(() => {
-    (globalThis.fetch as jest.Mock).mockRestore?.();
-  });
-
   describe('fetchSummary', () => {
     it('returns parsed JSON on success', async () => {
       const data = {

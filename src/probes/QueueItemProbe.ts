@@ -60,7 +60,7 @@ export class QueueItemProbe {
   }
 
   async processRetriggered(retriggeredCommentUrl: string, cooldownUntil: Date, tx: Prisma.TransactionClient): Promise<void> {
-    await this.queue.markRetriggered(this.item.id, cooldownUntil, tx);
+    await this.queue.markRetriggered(this.item.id, cooldownUntil, retriggeredCommentUrl, tx);
     await this.events.record(
       {
         type: EventType.retriggered,

@@ -173,7 +173,7 @@ describe('Scheduler', () => {
         'scheduler' as TriggerSource,
       );
       expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), deps.tx);
+      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), retriggeredHtmlUrl, deps.tx);
       const obs = deps.observation.current();
       expect(deps.events.record).toHaveBeenCalledWith(
         {
@@ -476,7 +476,7 @@ describe('Scheduler', () => {
         item.trigger_source,
       );
       expect(deps.queue.reschedule).not.toHaveBeenCalled();
-      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), deps.tx);
+      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), retriggeredHtmlUrl, deps.tx);
 
       await stop();
     });

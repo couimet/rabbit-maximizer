@@ -124,7 +124,7 @@ export class Scheduler extends IntervalService {
       const obs = this.observation.current();
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.markRetriggered(item_.id, new Date(Date.now() + this.postCooldownMs), tx);
+        await this.queue.markRetriggered(item_.id, new Date(Date.now() + this.postCooldownMs), retriggeredCommentUrl, tx);
 
         await this.events.record(
           {

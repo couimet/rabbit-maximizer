@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import QueueOrder from '../../dashboard/src/components/QueueOrder.js';
+import { QueueStatus, TriggerSource } from '../../src/types/index.js';
 import { createMockFetch } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
@@ -23,10 +24,11 @@ const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   uuid: getUniqueString({ prefix: 'uuid-' }),
   repo_full_name: `${getUniqueString({ prefix: 'owner' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: getUniqueInt(),
-  status: 'pending' as const,
+  status: QueueStatus.pending,
   not_before: getUniqueDate().toISOString(),
   attempts: getUniqueInt(),
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+  trigger_source: TriggerSource.scheduler,
   created_at: getUniqueDate().toISOString(),
   updated_at: getUniqueDate().toISOString(),
   ...over,

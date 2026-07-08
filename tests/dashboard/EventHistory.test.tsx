@@ -2,9 +2,11 @@
 
 import EventHistory from '../../dashboard/src/components/EventHistory.js';
 import { TimezoneProvider } from '../../dashboard/src/timezone.js';
-import { createMockFetch } from '../helpers/index.js';
+import { formatDate } from '../../src/utils/formatDate.js';
+import { createMockFetch, makeUniqueRepoName } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
 
@@ -16,16 +18,33 @@ const renderEventHistory = () =>
   );
 
 const PAGE_SIZE = 50;
+const MAIN_REPO = 'couimet/rabbit-maximizer';
+const OTHER_REPO = 'couimet/other';
+const MAIN_PR = getUniqueInt();
+const OTHER_PR = getUniqueInt();
+const TOTAL_EVENTS = 4;
+const CORR_001 = 'corr-001';
+const CORR_002 = 'corr-002';
+const MS_PER_MINUTE = 60_000;
+const TS_TO_TS2_OFFSET_MINUTES = 90;
+const ENQUEUED_OFFSET_MINUTES = 5;
+const RETRIGGERED_OFFSET_MINUTES = 10;
+const TS_1 = getUniqueDate();
+const TS_1_ISO = TS_1.toISOString();
+const TS_1_DISPLAY = formatDate(TS_1_ISO, 'UTC');
+const TS_2 = new Date(TS_1.getTime() + TS_TO_TS2_OFFSET_MINUTES * MS_PER_MINUTE);
+const TS_2_ISO = TS_2.toISOString();
+const TS_2_DISPLAY = formatDate(TS_2_ISO, 'UTC');
 
 const makeEvent = (over: Record<string, unknown> = {}) => ({
-  id: 1,
-  uuid: 'evt-abc',
-  ts: '2026-06-23T14:30:00.000Z',
+  id: getUniqueInt(),
+  uuid: getUniqueString({ prefix: 'evt-' }),
+  ts: getUniqueDate().toISOString(),
   type: 'detected',
-  repo_full_name: 'couimet/rabbit-maximizer',
-  pr_number: 42,
-  correlation_id: 'corr-001',
-  request_id: 'req-001',
+  repo_full_name: makeUniqueRepoName().fullName,
+  pr_number: getUniqueInt(),
+  correlation_id: getUniqueString({ prefix: 'corr-' }),
+  request_id: getUniqueString({ prefix: 'req-' }),
   version: '1.0.0',
   metadata: {},
   payload: {},
@@ -34,7 +53,6 @@ const makeEvent = (over: Record<string, unknown> = {}) => ({
 
 describe('EventHistory', () => {
   afterEach(() => {
-    (globalThis.fetch as jest.Mock).mockRestore?.();
     localStorage.clear();
   });
 
@@ -50,12 +68,40 @@ describe('EventHistory', () => {
     beforeEach(() => {
       createMockFetch(200, {
         data: [
-          makeEvent({ id: 1, type: 'detected', correlation_id: 'corr-001', ts: '2026-06-23T10:00:00.000Z' }),
-          makeEvent({ id: 2, type: 'enqueued', correlation_id: 'corr-001', ts: '2026-06-23T10:05:00.000Z' }),
-          makeEvent({ id: 3, type: 'retriggered', correlation_id: 'corr-001', ts: '2026-06-23T10:10:00.000Z' }),
-          makeEvent({ id: 4, type: 'failed', correlation_id: 'corr-002', repo_full_name: 'couimet/other', pr_number: 7, ts: '2026-06-23T11:30:00.000Z' }),
+          makeEvent({
+            id: 1,
+            type: 'detected',
+            correlation_id: CORR_001,
+            repo_full_name: MAIN_REPO,
+            pr_number: MAIN_PR,
+            ts: TS_1_ISO,
+          }),
+          makeEvent({
+            id: 2,
+            type: 'enqueued',
+            correlation_id: CORR_001,
+            repo_full_name: MAIN_REPO,
+            pr_number: MAIN_PR,
+            ts: new Date(TS_1.getTime() + ENQUEUED_OFFSET_MINUTES * MS_PER_MINUTE).toISOString(),
+          }),
+          makeEvent({
+            id: 3,
+            type: 'retriggered',
+            correlation_id: CORR_001,
+            repo_full_name: MAIN_REPO,
+            pr_number: MAIN_PR,
+            ts: new Date(TS_1.getTime() + RETRIGGERED_OFFSET_MINUTES * MS_PER_MINUTE).toISOString(),
+          }),
+          makeEvent({
+            id: 4,
+            type: 'failed',
+            correlation_id: CORR_002,
+            repo_full_name: OTHER_REPO,
+            pr_number: OTHER_PR,
+            ts: TS_2_ISO,
+          }),
         ],
-        total: 4,
+        total: TOTAL_EVENTS,
         page: 1,
         pageSize: PAGE_SIZE,
       });
@@ -63,13 +109,13 @@ describe('EventHistory', () => {
 
     it('renders repo links for each PR group header row', async () => {
       renderEventHistory();
-      await screen.findByText('couimet/rabbit-maximizer');
-      expect(screen.getByText('couimet/other')).toBeInTheDocument();
+      await screen.findByText(MAIN_REPO);
+      expect(screen.getByText(OTHER_REPO)).toBeInTheDocument();
     });
 
     it('renders event types as badges within rows', async () => {
       renderEventHistory();
-      await screen.findAllByText('2026-06-23 10:00:00');
+      await screen.findAllByText(TS_1_DISPLAY);
       expect(screen.getByText('detected')).toBeInTheDocument();
       expect(screen.getByText('enqueued')).toBeInTheDocument();
       expect(screen.getByText('retriggered')).toBeInTheDocument();
@@ -78,20 +124,20 @@ describe('EventHistory', () => {
 
     it('renders absolute timestamps in the When column', async () => {
       renderEventHistory();
-      await screen.findAllByText('2026-06-23 10:00:00');
-      expect(screen.getAllByText('2026-06-23 11:30:00')).toHaveLength(1);
+      await screen.findAllByText(TS_1_DISPLAY);
+      expect(screen.getAllByText(TS_2_DISPLAY)).toHaveLength(1);
     });
 
     it('renders repo and PR links opening in new tabs', async () => {
       renderEventHistory();
-      await screen.findByText('couimet/rabbit-maximizer');
+      await screen.findByText(MAIN_REPO);
 
-      const repoLink = screen.getByText('couimet/rabbit-maximizer').closest('a');
-      expect(repoLink).toHaveAttribute('href', 'https://github.com/couimet/rabbit-maximizer');
+      const repoLink = screen.getByText(MAIN_REPO).closest('a');
+      expect(repoLink).toHaveAttribute('href', `https://github.com/${MAIN_REPO}`);
       expect(repoLink).toHaveAttribute('target', '_blank');
 
-      const prLink = screen.getByText('#42').closest('a');
-      expect(prLink).toHaveAttribute('href', 'https://github.com/couimet/rabbit-maximizer/pull/42');
+      const prLink = screen.getByText(`#${MAIN_PR}`).closest('a');
+      expect(prLink).toHaveAttribute('href', `https://github.com/${MAIN_REPO}/pull/${MAIN_PR}`);
       expect(prLink).toHaveAttribute('target', '_blank');
     });
 
@@ -119,8 +165,8 @@ describe('EventHistory', () => {
 
     it('shows correlation IDs in the Detail column', async () => {
       renderEventHistory();
-      await screen.findByText('corr-002');
-      expect(screen.getAllByText('corr-001')).toHaveLength(3);
+      await screen.findByText(CORR_002);
+      expect(screen.getAllByText(CORR_001)).toHaveLength(3);
     });
   });
 
@@ -134,30 +180,34 @@ describe('EventHistory', () => {
 
   describe('pagination', () => {
     it('disables Previous on first page', async () => {
-      createMockFetch(200, { data: [makeEvent()], total: 1, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await screen.findByText('corr-001');
+      await screen.findByText('detected');
       expect(screen.getByText('Previous').closest('button')).toBeDisabled();
     });
 
     it('fetches next page when Next is clicked', async () => {
       createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 100, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await screen.findByText('corr-001');
+      await screen.findByText('detected');
 
       createMockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 100, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
-      await screen.findByText('corr-001');
+      await screen.findByText('completed');
     });
 
-    it('fetches previous page when Previous is clicked from page 2', async () => {
-      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 100, page: 2, pageSize: PAGE_SIZE });
+    it('fetches previous page when Previous is clicked', async () => {
+      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 100, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await screen.findByText('corr-001');
+      await screen.findByText('detected');
 
-      createMockFetch(200, { data: [makeEvent({ id: 88, type: 'enqueued' })], total: 100, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 100, page: 2, pageSize: PAGE_SIZE });
+      fireEvent.click(screen.getByText('Next'));
+      await screen.findByText('completed');
+
+      createMockFetch(200, { data: [makeEvent({ id: 88, type: 'retriggered' })], total: 100, page: 1, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Previous'));
-      await screen.findByText('corr-001');
+      await screen.findByText('retriggered');
     });
   });
 

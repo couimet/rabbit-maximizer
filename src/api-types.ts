@@ -100,6 +100,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/queue/{uuid}/mark-completed': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['markCompleted'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/queue/triggered': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getTriggered'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/pause': {
     parameters: {
       query?: never;
@@ -154,6 +186,9 @@ export interface components {
       not_before: string;
       attempts: number;
       source_comment_url?: string;
+      /** @enum {string} */
+      trigger_source: 'dashboard_retrigger_now' | 'scheduler';
+      retrigger_comment_url?: string | null;
       /** Format: date-time */
       retriggered_at?: string | null;
       /** Format: date-time */
@@ -410,6 +445,84 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['DashboardState'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  markCompleted: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        uuid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Item marked completed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Queue item not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  getTriggered: {
+    parameters: {
+      query: {
+        since: string;
+        page?: number;
+        pageSize?: number;
+        include_completed?: boolean;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Paginated triggered items */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaginatedQueue'];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
         };
       };
       500: components['responses']['InternalError'];
