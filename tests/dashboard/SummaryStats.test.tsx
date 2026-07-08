@@ -416,6 +416,7 @@ describe('SummaryStats', () => {
     });
 
     it('handles setPaused API failure gracefully', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       mockDashboardState(dashboardData);
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Pause')).toBeInTheDocument());
@@ -424,7 +425,10 @@ describe('SummaryStats', () => {
 
       fireEvent.click(screen.getByText('Pause'));
 
-      await waitFor(() => expect(screen.getByText('Pause')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Failed to toggle pause: Network error')).toBeInTheDocument());
+      expect(screen.getByText('Pause')).toBeInTheDocument();
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to toggle pause state:', expect.any(Error));
+      consoleErrorSpy.mockRestore();
     });
 
     it('does not update state on unmount during setPaused success', async () => {

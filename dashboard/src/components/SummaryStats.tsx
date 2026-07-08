@@ -14,6 +14,7 @@ const SummaryStats = () => {
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState(DEFAULT_DURATION);
   const [toggling, setToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const mountedRef = useRef(false);
   useEffect(() => {
@@ -51,6 +52,7 @@ const SummaryStats = () => {
   const handleTogglePaused = () => {
     /* c8 ignore next 2 — unreachable: button only renders when data is non-null */
     if (!data) return;
+    setToggleError(null);
     setToggling(true);
     const next = !data.paused;
     setPaused(next)
@@ -59,8 +61,10 @@ const SummaryStats = () => {
         fetchData();
         setToggling(false);
       })
-      .catch(() => {
+      .catch((err: Error) => {
         if (!mountedRef.current) return;
+        console.error('Failed to toggle pause state:', err);
+        setToggleError(err.message);
         setToggling(false);
       });
   };
@@ -71,6 +75,7 @@ const SummaryStats = () => {
   return (
     <section>
       {error && <div className="error-banner">Failed to refresh: {error}</div>}
+      {toggleError && <div className="error-banner">Failed to toggle pause: {toggleError}</div>}
       <ReviewCountdown
         target={data.nextReviewAvailableAt ? new Date(data.nextReviewAvailableAt) : null}
         paused={data.paused}
