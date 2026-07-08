@@ -99,6 +99,6 @@ describe('getTriggered', () => {
     const res = await fetchResponse(server, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get triggered items' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getTriggered', error: repoError }, 'Failed to get triggered items');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.getTriggered', error: repoError }, 'Failed to get triggered items');
   });
 });

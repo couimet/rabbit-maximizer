@@ -27,6 +27,8 @@ const CORR_001 = 'corr-001';
 const CORR_002 = 'corr-002';
 const MS_PER_MINUTE = 60_000;
 const TS_TO_TS2_OFFSET_MINUTES = 90;
+const ENQUEUED_OFFSET_MINUTES = 5;
+const RETRIGGERED_OFFSET_MINUTES = 10;
 const TS_1 = getUniqueDate();
 const TS_1_ISO = TS_1.toISOString();
 const TS_1_DISPLAY = formatDate(TS_1_ISO, 'UTC');
@@ -80,7 +82,7 @@ describe('EventHistory', () => {
             correlation_id: CORR_001,
             repo_full_name: MAIN_REPO,
             pr_number: MAIN_PR,
-            ts: new Date(TS_1.getTime() + 5 * MS_PER_MINUTE).toISOString(),
+            ts: new Date(TS_1.getTime() + ENQUEUED_OFFSET_MINUTES * MS_PER_MINUTE).toISOString(),
           }),
           makeEvent({
             id: 3,
@@ -88,7 +90,7 @@ describe('EventHistory', () => {
             correlation_id: CORR_001,
             repo_full_name: MAIN_REPO,
             pr_number: MAIN_PR,
-            ts: new Date(TS_1.getTime() + 10 * MS_PER_MINUTE).toISOString(),
+            ts: new Date(TS_1.getTime() + RETRIGGERED_OFFSET_MINUTES * MS_PER_MINUTE).toISOString(),
           }),
           makeEvent({
             id: 4,

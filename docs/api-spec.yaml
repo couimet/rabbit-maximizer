@@ -216,6 +216,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedQueue'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
   /api/pause:
     post:

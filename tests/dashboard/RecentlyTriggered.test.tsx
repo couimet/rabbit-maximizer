@@ -9,7 +9,8 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 
-const TRIGGERED_RESPONSE = { data: [], total: 0, page: 1, pageSize: 50 };
+const PAGE_SIZE = 50;
+const TRIGGERED_RESPONSE = { data: [], total: 0, page: 1, pageSize: PAGE_SIZE };
 
 const mockTriggeredEndpoint = (data: Record<string, unknown> = TRIGGERED_RESPONSE) => {
   globalThis.fetch = jest.fn((url: string) => {
@@ -53,7 +54,7 @@ describe('RecentlyTriggered', () => {
   describe('data', () => {
     it('renders triggered items in the table', async () => {
       const item = makeItem();
-      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getByText(item.repo_full_name)).toBeInTheDocument());
@@ -69,7 +70,7 @@ describe('RecentlyTriggered', () => {
 
     it('links PR number to retrigger_comment_url when available', async () => {
       const item = makeItem();
-      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
@@ -79,7 +80,7 @@ describe('RecentlyTriggered', () => {
 
     it('links PR number to generic PR URL when retrigger_comment_url is absent', async () => {
       const item = makeItem({ retrigger_comment_url: undefined });
-      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
@@ -89,7 +90,7 @@ describe('RecentlyTriggered', () => {
 
     it('shows Completed pill when status is completed', async () => {
       const item = makeItem({ status: QueueStatus.completed });
-      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getByText('Completed')).toBeInTheDocument());
@@ -97,7 +98,7 @@ describe('RecentlyTriggered', () => {
 
     it('shows Retriggered pill when status is retriggered', async () => {
       const item = makeItem();
-      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getAllByText('Retriggered')).toHaveLength(2));
@@ -107,7 +108,7 @@ describe('RecentlyTriggered', () => {
   describe('load more', () => {
     it('shows load more button when there are more items', async () => {
       const item = makeItem();
-      mockTriggeredEndpoint({ data: [item], total: 60, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 60, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getByText('Load more (59 remaining)')).toBeInTheDocument());
@@ -115,7 +116,7 @@ describe('RecentlyTriggered', () => {
 
     it('does not show load more button when all items loaded', async () => {
       const item = makeItem();
-      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
@@ -125,14 +126,18 @@ describe('RecentlyTriggered', () => {
     it('appends items when load more is clicked', async () => {
       const item1 = makeItem({ pr_number: 111 });
       const item2 = makeItem({ pr_number: 222 });
-      const page2Data = { data: [item2], total: 60, page: 2, pageSize: 50 };
+      const page2Data = { data: [item2], total: 60, page: 2, pageSize: PAGE_SIZE };
 
       globalThis.fetch = jest.fn((url: string) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
           if (url.includes('page=2')) {
             return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(page2Data) } as Response);
           }
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item1], total: 60, page: 1, pageSize: 50 }) } as Response);
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ data: [item1], total: 60, page: 1, pageSize: PAGE_SIZE }),
+          } as Response);
         }
         return Promise.reject(new Error('Unexpected fetch'));
       }) as unknown as typeof fetch;
@@ -163,7 +168,7 @@ describe('RecentlyTriggered', () => {
 
       globalThis.fetch = jest.fn((url: string) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [], total: 0, page: 1, pageSize: 50 }) } as Response);
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [], total: 0, page: 1, pageSize: PAGE_SIZE }) } as Response);
         }
         return Promise.reject(new Error('Unexpected fetch: ' + url));
       }) as unknown as typeof fetch;
@@ -171,7 +176,10 @@ describe('RecentlyTriggered', () => {
       fireEvent.click(screen.getByLabelText('Show completed'));
 
       await waitFor(() => {
-        expect(globalThis.fetch).toHaveBeenCalled();
+        const calls = (globalThis.fetch as jest.Mock).mock.calls as unknown[][];
+        const triggeredCall = calls.find((call) => String(call[0]).includes('/queue/triggered'));
+        expect(triggeredCall).toBeDefined();
+        expect(new URL('http://localhost' + String(triggeredCall![0])).searchParams.get('include_completed')).toBe('true');
       });
     });
   });
@@ -186,7 +194,7 @@ describe('RecentlyTriggered', () => {
 
     it('shows error page when duration change triggers a failed fetch with no existing data', async () => {
       const item = makeItem();
-      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
@@ -214,7 +222,7 @@ describe('RecentlyTriggered', () => {
   describe('edge cases', () => {
     it('shows em dash when retriggered_at is missing', async () => {
       const item = makeItem({ retriggered_at: undefined });
-      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: 50 });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
       await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
@@ -231,7 +239,11 @@ describe('RecentlyTriggered', () => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
           callCount++;
           if (callCount === 1) {
-            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
+            return Promise.resolve({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE }),
+            } as Response);
           }
           return Promise.reject(new Error('Poll failed'));
         }

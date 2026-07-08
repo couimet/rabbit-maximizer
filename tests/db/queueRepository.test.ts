@@ -96,7 +96,7 @@ describe('QueueRepositoryImpl', () => {
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(row) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const { item: result, created } = await sut.enqueue(
         { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
@@ -145,7 +145,7 @@ describe('QueueRepositoryImpl', () => {
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const commentId = getUniqueInt();
       const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
@@ -180,7 +180,7 @@ describe('QueueRepositoryImpl', () => {
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const commentId = getUniqueInt();
       const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
@@ -210,7 +210,7 @@ describe('QueueRepositoryImpl', () => {
         reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const commentId = getUniqueInt();
       const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
@@ -241,7 +241,7 @@ describe('QueueRepositoryImpl', () => {
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(newRow) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const commentId = getUniqueInt();
       const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
@@ -280,7 +280,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, prisma as unknown as Prisma.TransactionClient);
 
@@ -301,7 +301,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ status: QueueStatus.failed });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markFailed(row.id, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'failed', failed_at: frozenNow } });
       expect(result).toStrictEqual(toExpectedItem(row));
@@ -314,7 +314,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ status: QueueStatus.completed });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.markCompleted(row.id, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'completed', completed_at: frozenNow } });
       expect(result).toStrictEqual(toExpectedItem(row));
@@ -330,7 +330,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ attempts: 2 });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.reschedule(
         row.id,
         newDate,
@@ -352,7 +352,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ attempts: 2 });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.backoff(row.id, newDate, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { attempts: { increment: 1 }, not_before: newDate } });
       expect(result).toStrictEqual(toExpectedItem(row));
@@ -365,7 +365,7 @@ describe('QueueRepositoryImpl', () => {
       const rows = [makeRow({ status: QueueStatus.pending }), makeRow({ status: QueueStatus.pending })];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.getPendingQueue();
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { status: 'pending' },
@@ -381,7 +381,7 @@ describe('QueueRepositoryImpl', () => {
       const rows = [makeRow({ status: QueueStatus.retriggered }), makeRow({ status: QueueStatus.retriggered })];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.getRetriggeredQueue();
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { status: 'retriggered' },
@@ -397,7 +397,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ status: QueueStatus.pending });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.getOldestPending();
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
         where: { status: 'pending' },
@@ -410,7 +410,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns null when no pending items exist', async () => {
       const { prisma } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
       const result = await sut.getOldestPending();
       expect(result).toBeNull();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getOldestPending', found: false }, 'Fetched oldest pending item');
@@ -426,7 +426,7 @@ describe('QueueRepositoryImpl', () => {
         reviewQueue: { findFirst: createResolvedMock(null), create: jest.fn<any>().mockRejectedValue(networkError) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const commentId = getUniqueInt();
       const notBefore = getUniqueDate();
@@ -451,7 +451,7 @@ describe('QueueRepositoryImpl', () => {
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2002), findFirst: createResolvedMock(null) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const commentId = getUniqueInt();
       const notBefore = getUniqueDate();
@@ -483,7 +483,7 @@ describe('QueueRepositoryImpl', () => {
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const result = await sut.getAll(skip, take);
 
@@ -510,7 +510,7 @@ describe('QueueRepositoryImpl', () => {
         reviewQueue: { groupBy: createResolvedMock(rows) },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const result = await sut.getCountsByStatus();
 
@@ -534,20 +534,26 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row2, row1]),
+          count: createResolvedMock(2),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const result = await sut.getTriggered(since, 0, 50, false);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
         orderBy: { retriggered_at: 'desc' },
+        skip: 0,
+        take: 50,
+      });
+      expect(reviewQueue.count).toHaveBeenCalledWith({
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
       });
       expect(result).toStrictEqual({ items: [toExpectedItem(row2), toExpectedItem(row1)], total: 2 });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeCompleted: false, count: 2 },
+        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeCompleted: false, count: 2, total: 2 },
         'Fetched triggered queue',
       );
     });
@@ -559,16 +565,22 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row, completedRow]),
+          count: createResolvedMock(2),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const result = await sut.getTriggered(since, 0, 50, true);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'completed'] } },
         orderBy: { retriggered_at: 'desc' },
+        skip: 0,
+        take: 50,
+      });
+      expect(reviewQueue.count).toHaveBeenCalledWith({
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'completed'] } },
       });
       expect(result.items).toStrictEqual([toExpectedItem(row), toExpectedItem(completedRow)]);
     });
@@ -579,16 +591,26 @@ describe('QueueRepositoryImpl', () => {
       const row1 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 4000) });
       const row2 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 3000) });
       const row3 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 2000) });
-      const { prisma } = createMockPrismaClient({
+      const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
-          findMany: createResolvedMock([row0, row1, row2, row3]),
+          findMany: createResolvedMock([row1, row2]),
+          count: createResolvedMock(4),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-      const sut = new QueueRepositoryImpl(prisma, events as any, observation as any, logger);
+      const sut = new QueueRepositoryImpl(prisma, events as any, logger);
 
       const result = await sut.getTriggered(since, 1, 2, false);
 
+      expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+        orderBy: { retriggered_at: 'desc' },
+        skip: 1,
+        take: 2,
+      });
+      expect(reviewQueue.count).toHaveBeenCalledWith({
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+      });
       expect(result).toStrictEqual({ items: [toExpectedItem(row1), toExpectedItem(row2)], total: 4 });
     });
   });
@@ -610,7 +632,6 @@ describe('QueueRepositoryImpl', () => {
       const container = new Container();
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind(TYPES.EventRepository).toConstantValue(events);
-      container.bind(TYPES.ObservationContextProvider).toConstantValue(observation);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
       container.bind<QueueRepository>(TYPES.QueueRepository).to(QueueRepositoryImpl);
       expect(container.get<QueueRepository>(TYPES.QueueRepository)).toBeInstanceOf(QueueRepositoryImpl);

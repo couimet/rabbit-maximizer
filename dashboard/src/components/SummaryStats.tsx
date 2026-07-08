@@ -61,8 +61,9 @@ const SummaryStats = () => {
         fetchData();
         setToggling(false);
       })
-      .catch(() => {
+      .catch((err: Error) => {
         if (!mountedRef.current) return;
+        setError(err.message);
         setToggling(false);
       });
   };

@@ -1,5 +1,5 @@
 import { TYPES } from '../inversify-types.js';
-import type { ObservationContext, ObservationContextProvider } from '../observability/observationContext.js';
+import type { ObservationContext } from '../observability/observationContext.js';
 import { type CommentDetails, type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
@@ -41,7 +41,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   constructor(
     @inject(TYPES.PrismaClient) prisma: PrismaClient,
     @inject(TYPES.EventRepository) private readonly events: EventRepository,
-    @inject(TYPES.ObservationContextProvider) private readonly observation: ObservationContextProvider,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(prisma, log);
@@ -203,12 +202,13 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     const db = this.client(tx);
     const statuses = includeCompleted ? [QueueStatus.retriggered, QueueStatus.completed] : [QueueStatus.retriggered];
     const where = { retriggered_at: { gte: since }, status: { in: statuses } };
-    const rows = await db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' } });
-    const total = rows.length;
-    const paged = rows.slice(skip, skip + take);
+    const [rows, total] = await Promise.all([
+      db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' }, skip, take }),
+      db.reviewQueue.count({ where }),
+    ]);
 
-    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeCompleted, count: rows.length }, 'Fetched triggered queue');
-    return { items: paged.map((row) => this.toQueueItem(row)), total };
+    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeCompleted, count: rows.length, total }, 'Fetched triggered queue');
+    return { items: rows.map((row) => this.toQueueItem(row)), total };
   }
 
   async getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null> {

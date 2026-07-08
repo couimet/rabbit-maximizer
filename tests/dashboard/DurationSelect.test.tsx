@@ -5,9 +5,13 @@ import DurationSelect from '../../dashboard/src/components/DurationSelect.js';
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
 
+const ARIA_LABEL = 'Test time range';
+const DURATION_1W = '1w';
+const DURATION_5D = '5d';
+
 describe('DurationSelect', () => {
   it('renders all duration options', () => {
-    render(<DurationSelect value="2d" onChange={jest.fn()} aria-label="Test time range" />);
+    render(<DurationSelect value="2d" onChange={jest.fn()} aria-label={ARIA_LABEL} />);
 
     expect(screen.getByText('Last 24h')).toBeInTheDocument();
     expect(screen.getByText('Last 2d')).toBeInTheDocument();
@@ -17,18 +21,18 @@ describe('DurationSelect', () => {
   });
 
   it('selects the current value', () => {
-    render(<DurationSelect value="1w" onChange={jest.fn()} aria-label="Test time range" />);
+    render(<DurationSelect value={DURATION_1W} onChange={jest.fn()} aria-label={ARIA_LABEL} />);
 
-    const select = screen.getByRole('combobox', { name: 'Test time range' }) as HTMLSelectElement;
-    expect(select.value).toBe('1w');
+    const select = screen.getByRole('combobox', { name: ARIA_LABEL }) as HTMLSelectElement;
+    expect(select.value).toBe(DURATION_1W);
   });
 
   it('calls onChange with the selected Duration when changed', () => {
     const handleChange = jest.fn();
-    render(<DurationSelect value="2d" onChange={handleChange} aria-label="Test time range" />);
+    render(<DurationSelect value="2d" onChange={handleChange} aria-label={ARIA_LABEL} />);
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Test time range' }), { target: { value: '5d' } });
+    fireEvent.change(screen.getByRole('combobox', { name: ARIA_LABEL }), { target: { value: DURATION_5D } });
 
-    expect(handleChange).toHaveBeenCalledWith('5d');
+    expect(handleChange).toHaveBeenCalledWith(DURATION_5D);
   });
 });
