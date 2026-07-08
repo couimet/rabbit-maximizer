@@ -1,0 +1,15 @@
+name: 'Check generated drift'
+description: 'Run a pnpm script that regenerates files and fail if git detects any drift'
+inputs:
+  pnpm-script:
+    description: 'pnpm script that regenerates source files'
+    required: false
+    default: 'api:types'
+runs:
+  using: composite
+  steps:
+    - name: Check generated drift
+      shell: bash
+      env:
+        PNPM_SCRIPT: ${{ inputs.pnpm-script }}
+      run: bash "${{ github.action_path }}/check-generated-drift.sh"

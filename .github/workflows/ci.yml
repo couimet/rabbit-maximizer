@@ -28,6 +28,16 @@ jobs:
           persist-credentials: false
       - uses: couimet/github-actions/shellcheck@main
 
+  check-generated-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: couimet/github-actions/setup-node-pnpm@main
+      - uses: couimet/github-actions/install-deps@main
+      - uses: ./.github/actions/check-generated-drift
+
   bats-test:
     runs-on: ubuntu-latest
     steps:
