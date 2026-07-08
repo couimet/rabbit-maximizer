@@ -17,6 +17,8 @@ describe('ConfigSchema', () => {
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_MS: 10_000,
       GITHUB_PAT: githubPat,
+      PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES: 30,
+      PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES: 15,
       POLL_INTERVAL: 90,
       REVIEW_LIMIT_BUFFER_SECONDS: 60,
       REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: 3600,
@@ -71,6 +73,24 @@ describe('ConfigSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.SCHEDULER_TICK_INTERVAL_MS).toBe(10_000);
+    }
+  });
+
+  it('applies default PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES when missing', () => {
+    const { PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES).toBe(30);
+    }
+  });
+
+  it('applies default PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES when missing', () => {
+    const { PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES).toBe(15);
     }
   });
 

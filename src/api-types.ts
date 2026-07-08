@@ -84,6 +84,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/config': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['getConfig'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/dashboard-state': {
     parameters: {
       query?: never;
@@ -243,6 +259,10 @@ export interface components {
     };
     PauseResponse: {
       paused: boolean;
+    };
+    PublicConfig: {
+      pauseNotificationInitialDelayMinutes: number;
+      pauseNotificationRepeatIntervalMinutes: number;
     };
     Summary: {
       queueCounts: components['schemas']['QueueCounts'];
@@ -422,6 +442,27 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PaginatedEvents'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  getConfig: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Public client-facing configuration */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicConfig'];
         };
       };
       500: components['responses']['InternalError'];

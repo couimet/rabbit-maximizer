@@ -14,8 +14,10 @@ export const createSetPausedHandler = (systemStateRepo: SystemStateRepository, l
 
       if (req.body.paused) {
         await systemStateRepo.pauseScheduler();
+        logger.info({ fn: 'api.pause' }, 'Scheduler paused');
       } else {
         await systemStateRepo.resumeScheduler();
+        logger.info({ fn: 'api.pause' }, 'Scheduler resumed');
       }
 
       res.json({ paused: req.body.paused });

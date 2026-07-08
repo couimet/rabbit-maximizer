@@ -1,3 +1,4 @@
+export { createGetConfigHandler } from './getConfig.js';
 export { createGetDashboardStateHandler } from './getDashboardState.js';
 export { createGetEventsHandler } from './getEvents.js';
 export { createGetQueueHandler } from './getQueue.js';

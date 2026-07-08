@@ -7,6 +7,7 @@ export type QueueItem = components['schemas']['QueueItem'];
 export type EventEntry = components['schemas']['EventEntry'];
 export type SummaryResponse = components['schemas']['Summary'];
 export type DashboardStateResponse = components['schemas']['DashboardState'];
+export type PublicConfig = components['schemas']['PublicConfig'];
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -30,6 +31,8 @@ export const fetchSummary = (duration?: string): Promise<SummaryResponse> => {
   const params = buildQueryString({ duration });
   return fetchJson<SummaryResponse>(`${API_BASE}/summary${params}`);
 };
+
+export const fetchConfig = (): Promise<PublicConfig> => fetchJson<PublicConfig>(`${API_BASE}/config`);
 
 export const fetchDashboardState = (duration?: string): Promise<DashboardStateResponse> => {
   const params = buildQueryString({ duration });

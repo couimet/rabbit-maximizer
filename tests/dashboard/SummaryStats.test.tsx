@@ -26,6 +26,13 @@ const mockDashboardState = (data: Record<string, unknown>) => {
         json: () => Promise.resolve(TRIGGERED_RESPONSE),
       } as Response);
     }
+    if (url === '/api/config') {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ pauseNotificationInitialDelayMinutes: 30, pauseNotificationRepeatIntervalMinutes: 15 }),
+      } as Response);
+    }
     return Promise.resolve({
       ok: true,
       status: 200,
@@ -35,6 +42,20 @@ const mockDashboardState = (data: Record<string, unknown>) => {
 };
 
 describe('SummaryStats', () => {
+  beforeEach(() => {
+    Object.defineProperty(globalThis, 'Notification', {
+      writable: true,
+      configurable: true,
+      value: Object.assign(
+        jest.fn(() => ({ close: jest.fn() })),
+        {
+          requestPermission: jest.fn(() => Promise.resolve('denied' as const)),
+          permission: 'default',
+        },
+      ),
+    });
+  });
+
   afterEach(() => {
     localStorage.clear();
   });

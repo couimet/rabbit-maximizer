@@ -35,6 +35,7 @@ describe('setPaused', () => {
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({ paused: true });
     expect(pauseScheduler).toHaveBeenCalledWith();
+    expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.pause' }, 'Scheduler paused');
   });
 
   it('sets paused to false', async () => {
@@ -45,6 +46,7 @@ describe('setPaused', () => {
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({ paused: false });
     expect(resumeScheduler).toHaveBeenCalledWith();
+    expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.pause' }, 'Scheduler resumed');
   });
 
   it('returns 400 for non-boolean paused (string)', async () => {

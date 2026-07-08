@@ -21,6 +21,7 @@ describe('App', () => {
       '/api/dashboard-state?duration=24h': emptyDashboardState,
       '/api/events?page=1&pageSize=50': emptyEvents,
       '/api/queue/order': emptyQueueOrder,
+      '/api/config': { pauseNotificationInitialDelayMinutes: 30, pauseNotificationRepeatIntervalMinutes: 15 },
     };
     globalThis.fetch = jest.fn((url: string) =>
       Promise.resolve({
@@ -29,6 +30,18 @@ describe('App', () => {
         json: () => Promise.resolve(responses[url] ?? {}),
       } as Response),
     ) as unknown as typeof fetch;
+
+    Object.defineProperty(globalThis, 'Notification', {
+      writable: true,
+      configurable: true,
+      value: Object.assign(
+        jest.fn(() => ({ close: jest.fn() })),
+        {
+          requestPermission: jest.fn(() => Promise.resolve('denied' as const)),
+          permission: 'default',
+        },
+      ),
+    });
   });
 
   it('renders the logo and title', async () => {
