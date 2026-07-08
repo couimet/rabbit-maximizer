@@ -43,8 +43,7 @@ teardown() {
 #!/usr/bin/env bash
 if [ "$1" = "diff" ]; then
   for arg in "$@"; do
-    if [ "$arg" = "--exit-code" ]; then
-      echo "diff --git a/src/api-types.ts b/src/api-types.ts" >&2
+    if [ "$arg" = "--quiet" ]; then
       exit 1
     fi
   done
