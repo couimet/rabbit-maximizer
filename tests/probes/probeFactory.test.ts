@@ -8,10 +8,11 @@ import { MarkQueueItemCompletedProbe } from '../../src/probes/MarkQueueItemCompl
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
-import { createMockLogger, createMockObservationContextProvider, createMockPrismaClient, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockObservationContextProvider, createMockPrismaClient, makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';

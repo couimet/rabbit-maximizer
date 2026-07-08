@@ -1,10 +1,11 @@
 import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/eventRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { EventType } from '../../src/types/index.js';
-import { createMockLogger, createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';

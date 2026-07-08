@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { RequestHandler } from 'express';
 import type { Server } from 'http';
 
-const { createMockLogger } = await import('../helpers/index.js');
+const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
 const mockLogger = createMockLogger();
 

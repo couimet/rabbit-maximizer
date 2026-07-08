@@ -7,8 +7,8 @@ const viteMock = createMockVite();
 
 jest.unstable_mockModule('vite', () => viteMock);
 
-const { createMockEventRepo, createMockLogger, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } =
-  await import('./helpers/index.js');
+const { createMockEventRepo, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } = await import('./helpers/index.js');
+const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
 const { setupExpress } = await import('../src/express.js');
 const { fetchResponse } = await import('./helpers/fetchResponse.js');

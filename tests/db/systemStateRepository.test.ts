@@ -1,9 +1,10 @@
 import { StateKey, type SystemStateRepository, SystemStateRepositoryImpl, VALUE_SETTER } from '../../src/db/systemStateRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
-import { createMockLogger, createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';

@@ -1,10 +1,11 @@
 import { type QueueOrderRepository, QueueOrderRepositoryImpl } from '../../src/db/queueOrderRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { type QueueItem, QueueStatus, TriggerSource } from '../../src/types/index.js';
-import { createMockLogger, createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';

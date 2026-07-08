@@ -6,7 +6,6 @@ import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.j
 import {
   createMockCoderabbitGitHubClient,
   createMockEventRepo,
-  createMockLogger,
   createMockObservationContextProvider,
   createMockQueueRepo,
   makeUniqueRepoName,
@@ -14,6 +13,7 @@ import {
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { PrismaClient } from '@prisma/client';
 
