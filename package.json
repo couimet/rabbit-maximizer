@@ -12,6 +12,8 @@
   "scripts": {
     "api:types": "openapi-typescript docs/api-spec.yaml -o src/api-types.ts",
     "build": "pnpm clean && prisma generate && tsc",
+    "ci:check-generated-drift": "pnpm api:types && pnpm format:fix",
+    "ci:test": "pnpm test:ts:unit",
     "clean": "jest --clearCache && rm -rf coverage dist",
     "db:backup": "bash scripts/db/backup.sh",
     "db:migrate": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" prisma migrate deploy",
@@ -29,7 +31,6 @@
     "test": "pnpm test:ts:unit && pnpm test:shellcheck && pnpm test:bats",
     "test:bats": "bats -r bats-tests",
     "test:bats:db": "bats bats-tests/db/",
-    "test:ci": "pnpm test:ts:unit",
     "test:shellcheck": "find . \\( -name '*.sh' -o -name '*.bash' \\) -not -path './node_modules/*' -exec shellcheck {} +",
     "test:ts:unit": "pnpm clean && tsc --noEmit && NODE_OPTIONS='--experimental-vm-modules' jest",
     "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch"
