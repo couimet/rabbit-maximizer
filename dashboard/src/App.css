@@ -568,3 +568,65 @@ a:hover {
   opacity: 0.5;
   cursor: default;
 }
+
+/* RecentlyTriggered */
+.show-completed-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #8b7d6b;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.show-completed-toggle input[type='checkbox'] {
+  accent-color: #f38222;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.status-pill.retriggered {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.status-pill.completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.row-status-completed td {
+  color: #8b7d6b;
+}
+
+.load-more-container {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.load-more-button {
+  background: #f4f0e7;
+  border: 1px solid #e3d6c3;
+  border-radius: 4px;
+  padding: 6px 20px;
+  font-size: 0.9rem;
+  color: #472e22;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.load-more-button:hover:not(:disabled) {
+  background: #e3d6c3;
+}
+
+.load-more-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

@@ -213,6 +213,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>Jest 30 no longer provides global types; all Jest APIs must be explicitly imported</rationale>
 </rule>
 
+<rule id="T009" priority="critical">
+  <title>Extract shared test literals into constants</title>
+  <do>Extract any literal (string, number, date) used in a test setup block that is also referenced in assertions into a named SCREAMING_SNAKE_CASE constant</do>
+  <do>For timestamps shared between setup (ISO format) and assertions (display format), define the ISO constant and derive the display constant via `formatDate(ISO_CONST, 'UTC')`</do>
+  <never>Duplicate a literal in both a `beforeEach`/setup block and an assertion — extract it so the two stays are linked by a single source of truth</never>
+  <rationale>Prevents "magic number" drift between setup data and expected values. When a test fails because the setup value changed, the assertion message shows the constant name rather than a stale literal.</rationale>
+</rule>
+
 <rule id="P001" priority="critical">
   <title>No magic numbers</title>
   <do>Define named constants for all numeric literals with semantic meaning</do>

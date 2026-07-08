@@ -12,6 +12,7 @@ export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueReposit
     markFailed: jest.fn<any>(),
     getPendingQueue: jest.fn<any>().mockResolvedValue([]),
     getRetriggeredQueue: jest.fn<any>().mockResolvedValue([]),
+    getTriggered: jest.fn<any>().mockResolvedValue({ items: [], total: 0 }),
     getOldestPending: jest.fn<any>().mockResolvedValue(null),
     getAll: jest.fn<any>().mockResolvedValue({ items: [], total: 0 }),
     getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 0, retriggered: 0, completed: 0, failed: 0 }),

@@ -35,13 +35,16 @@ describe('queueOrderRoutes', () => {
   let server: Server;
   let logger: Logger;
 
+  beforeEach(() => {
+    logger = createMockLogger();
+  });
+
   afterEach(async () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   describe('GET /api/queue/order', () => {
     const startServer = (over = {}) => {
-      logger = createMockLogger();
       const app = createExpressApp({ logger });
       app.get('/api/queue/order', createGetQueueOrderHandler(createMockQueueOrderRepo(over), logger));
       server = app.listen(0);
@@ -69,14 +72,12 @@ describe('queueOrderRoutes', () => {
       const res = await fetchResponse(server, '/api/queue/order');
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to get queue order' });
-      expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.queueOrder.get', error: repoError }, 'Failed to get queue order');
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.get', error: repoError }, 'Failed to get queue order');
     });
   });
 
   describe('POST /api/queue/order/move', () => {
     const startServer = (over = {}) => {
-      logger = createMockLogger();
-
       const app = createExpressApp({ logger });
       app.use(express.json());
       app.post('/api/queue/order/move', createMoveQueueOrderHandler(createMockQueueOrderRepo(over), logger));
@@ -213,13 +214,12 @@ describe('queueOrderRoutes', () => {
       const res = await postJson(server, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'up' });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to move queue items' });
-      expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.queueOrder.move', error: repoError }, 'Failed to move queue items');
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.move', error: repoError }, 'Failed to move queue items');
     });
   });
 
   describe('POST /api/queue/:uuid/retrigger-now', () => {
     const startServer = (over = {}, systemStateRepoOver = {}) => {
-      logger = createMockLogger();
       const app = createExpressApp({ logger });
       app.post(
         '/api/queue/:uuid/retrigger-now',
@@ -321,7 +321,7 @@ describe('queueOrderRoutes', () => {
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to retrigger now' });
-      expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', error: repoError }, 'Failed to retrigger now');
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', error: repoError }, 'Failed to retrigger now');
     });
   });
 });
