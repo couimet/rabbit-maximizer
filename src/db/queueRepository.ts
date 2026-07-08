@@ -1,5 +1,5 @@
 import { TYPES } from '../inversify-types.js';
-import type { ObservationContext } from '../observability/observationContext.js';
+import type { ObservationContext, ObservationContextProvider } from '../observability/observationContext.js';
 import { type CommentDetails, type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
@@ -22,13 +22,15 @@ export interface EnqueueData {
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
-  markRetriggered(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markCompletedByUuid(uuid: string, tx: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  getTriggered(since: Date, skip: number, take: number, includeCompleted: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
@@ -40,6 +42,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   constructor(
     @inject(TYPES.PrismaClient) prisma: PrismaClient,
     @inject(TYPES.EventRepository) private readonly events: EventRepository,
+    @inject(TYPES.ObservationContextProvider) private readonly observation: ObservationContextProvider,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(prisma, log);
@@ -121,19 +124,17 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     }
   }
 
-  async markRetriggered(id: number, cooldownUntil: Date | undefined, tx: Prisma.TransactionClient): Promise<QueueItem> {
-    const data: { status: string; not_before?: Date; retriggered_at?: Date } = {
-      status: QueueStatus.retriggered,
-      retriggered_at: new Date(),
-    };
-    if (cooldownUntil !== undefined) {
-      data.not_before = cooldownUntil;
-    }
+  async markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
-      data,
+      data: {
+        status: QueueStatus.retriggered,
+        retriggered_at: new Date(),
+        retrigger_comment_url: retriggerCommentUrl,
+        not_before: cooldownUntil,
+      },
     });
-    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil }, 'Marked review retriggered');
+    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil, retriggerCommentUrl }, 'Marked review retriggered');
     return this.toQueueItem(row);
   }
 
@@ -144,6 +145,33 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.markCompleted', id }, 'Marked review completed');
     return this.toQueueItem(row);
+  }
+
+  async markCompletedByUuid(uuid: string, tx: Prisma.TransactionClient): Promise<QueueItem | undefined> {
+    const row = await this.client(tx).reviewQueue.findUnique({ where: { uuid } });
+    if (!row) return undefined;
+    const updated = await this.client(tx).reviewQueue.update({
+      where: { id: row.id },
+      data: { status: QueueStatus.completed, completed_at: new Date() },
+    });
+
+    const { correlationId, version } = this.observation.current();
+    await this.events.record(
+      {
+        type: EventType.completed,
+        repo_full_name: row.repo_full_name,
+        pr_number: row.pr_number,
+        correlation_id: correlationId,
+        version,
+        payload: {
+          retriggered_comment_url: row.retrigger_comment_url ?? undefined,
+        },
+      },
+      tx,
+    );
+
+    this.log.debug({ fn: 'QueueRepositoryImpl.markCompletedByUuid', uuid, id: row.id }, 'Marked review completed by UUID');
+    return this.toQueueItem(updated);
   }
 
   async reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
@@ -199,6 +227,18 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return rows.map((row) => this.toQueueItem(row));
   }
 
+  async getTriggered(since: Date, skip: number, take: number, includeCompleted: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+    const db = this.client(tx);
+    const statuses = includeCompleted ? [QueueStatus.retriggered, QueueStatus.completed] : [QueueStatus.retriggered];
+    const where = { retriggered_at: { gte: since }, status: { in: statuses } };
+    const rows = await db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' } });
+    const total = rows.length;
+    const paged = rows.slice(skip, skip + take);
+
+    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeCompleted, count: rows.length }, 'Fetched triggered queue');
+    return { items: paged.map((row) => this.toQueueItem(row)), total };
+  }
+
   async getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null> {
     const row = await this.client(tx).reviewQueue.findFirst({
       where: { status: QueueStatus.pending },
@@ -241,6 +281,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,
       trigger_source: row.trigger_source as TriggerSource,
+      retrigger_comment_url: row.retrigger_comment_url ?? undefined,
       retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       completed_at: row.completed_at ?? undefined,

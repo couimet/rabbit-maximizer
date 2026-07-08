@@ -1,5 +1,6 @@
 import type { Config } from '../config.js';
 import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
+import type { QueueRepository } from '../db/queueRepository.js';
 import type { SystemStateRepository } from '../db/systemStateRepository.js';
 import { QueueStatus, TriggerSource } from '../types/index.js';
 import { MS_PER_SECOND } from '../utils/durations.js';
@@ -89,6 +90,29 @@ export const createRetriggerNowHandler = (queueOrderRepo: QueueOrderRepository, 
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.retriggerNow', error }, 'Failed to retrigger now');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to retrigger now' });
+    }
+  };
+};
+
+export const createMarkCompletedHandler = (queueRepo: QueueRepository, logger: Logger) => {
+  return async (req: Request, res: Response): Promise<void> => {
+    try {
+      const uuid = req.params.uuid as string;
+      if (!isValidUuid(uuid)) {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'uuid must be a valid UUID v4' });
+        return;
+      }
+
+      const item = await queueRepo.markCompletedByUuid(uuid, undefined!);
+      if (!item) {
+        res.status(StatusCodes.NOT_FOUND).json({ error: `Queue item not found: ${uuid}` });
+        return;
+      }
+
+      res.json({ ok: true });
+    } catch (error) {
+      logger.error({ fn: 'api.queueOrder.markCompleted', error }, 'Failed to mark item completed');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to mark item completed' });
     }
   };
 };

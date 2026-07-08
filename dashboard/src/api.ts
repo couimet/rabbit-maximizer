@@ -1,5 +1,7 @@
 import type { components } from '../../src/api-types.js';
 
+import { buildQueryString } from './queryParams.js';
+
 export type EventCounts = components['schemas']['EventCounts'];
 export type QueueItem = components['schemas']['QueueItem'];
 export type EventEntry = components['schemas']['EventEntry'];
@@ -25,20 +27,23 @@ const fetchJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
 };
 
 export const fetchSummary = (duration?: string): Promise<SummaryResponse> => {
-  const params = duration ? `?duration=${duration}` : '';
+  const params = buildQueryString({ duration });
   return fetchJson<SummaryResponse>(`${API_BASE}/summary${params}`);
 };
 
 export const fetchDashboardState = (duration?: string): Promise<DashboardStateResponse> => {
-  const params = duration ? `?duration=${duration}` : '';
+  const params = buildQueryString({ duration });
   return fetchJson<DashboardStateResponse>(`${API_BASE}/dashboard-state${params}`);
 };
 
 export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedResponse<QueueItem>> =>
-  fetchJson<PaginatedResponse<QueueItem>>(`${API_BASE}/queue?page=${page}&pageSize=${pageSize}`);
+  fetchJson<PaginatedResponse<QueueItem>>(`${API_BASE}/queue${buildQueryString({ page, pageSize })}`);
+
+export const fetchTriggered = (since: Date, page: number, pageSize: number, includeCompleted: boolean): Promise<PaginatedResponse<QueueItem>> =>
+  fetchJson<PaginatedResponse<QueueItem>>(`${API_BASE}/queue/triggered${buildQueryString({ since, page, pageSize, include_completed: includeCompleted })}`);
 
 export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedResponse<EventEntry>> =>
-  fetchJson<PaginatedResponse<EventEntry>>(`${API_BASE}/events?page=${page}&pageSize=${pageSize}`);
+  fetchJson<PaginatedResponse<EventEntry>>(`${API_BASE}/events${buildQueryString({ page, pageSize })}`);
 
 export const fetchQueueOrder = (): Promise<{ data: QueueItem[] }> => fetchJson<{ data: QueueItem[] }>(`${API_BASE}/queue/order`);
 
@@ -58,3 +63,6 @@ export const setPaused = (paused: boolean): Promise<{ paused: boolean }> =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ paused }),
   });
+
+export const markCompleted = (uuid: string): Promise<{ ok: boolean }> =>
+  fetchJson<{ ok: boolean }>(`${API_BASE}/queue/${uuid}/mark-completed`, { method: 'POST' });

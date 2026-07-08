@@ -115,7 +115,7 @@ describe('QueueItemProbe', () => {
       const probe = createProbe(item);
       await probe.processRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
 
-      expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, cooldownUntil, tx);
+      expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, cooldownUntil, retriggeredCommentUrl, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'retriggered',

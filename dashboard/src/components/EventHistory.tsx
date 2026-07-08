@@ -45,12 +45,13 @@ const EventHistory = () => {
 
   const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));
 
-  let lastKey = '';
+  const seenHeaders = new Set<string>();
   const rows: React.ReactNode[] = [];
 
   for (const event of data.data) {
     const key = `${event.repo_full_name}#${event.pr_number}`;
-    if (key !== lastKey) {
+    if (!seenHeaders.has(key)) {
+      seenHeaders.add(key);
       rows.push(
         <tr key={`header-${key}`} style={{ background: '#f4f0e7', borderTop: '2px solid #e3d6c3' }}>
           <td colSpan={2} style={{ whiteSpace: 'nowrap' }}>
@@ -64,7 +65,6 @@ const EventHistory = () => {
           <td colSpan={3} />
         </tr>,
       );
-      lastKey = key;
     }
     rows.push(
       <tr key={event.id} className={`row-event-${event.type}`}>

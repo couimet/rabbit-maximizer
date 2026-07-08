@@ -1,8 +1,10 @@
-import { DEFAULT_DURATION } from '../../../src/utils/resolveDurationSince.js';
+import { DEFAULT_DURATION, type Duration } from '../../../src/utils/resolveDurationSince.js';
 import type { DashboardStateResponse } from '../api.js';
 import { fetchDashboardState, setPaused } from '../api.js';
 
+import DurationSelect from './DurationSelect.js';
 import QueueOrder from './QueueOrder.js';
+import RecentlyTriggered from './RecentlyTriggered.js';
 import ReviewCountdown from './ReviewCountdown.js';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -12,7 +14,7 @@ const POLL_INTERVAL_MS = 30_000;
 const SummaryStats = () => {
   const [data, setData] = useState<DashboardStateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [duration, setDuration] = useState(DEFAULT_DURATION);
+  const [duration, setDuration] = useState<Duration>(DEFAULT_DURATION);
   const [toggling, setToggling] = useState(false);
 
   const mountedRef = useRef(false);
@@ -90,16 +92,11 @@ const SummaryStats = () => {
         />
       </div>
 
+      <RecentlyTriggered />
+
       <div className="section-card">
         <h3>
-          Events —{' '}
-          <select className="duration-select" value={duration} onChange={(e) => setDuration(e.target.value)} aria-label="Events time range">
-            <option value={DEFAULT_DURATION}>Last 24h</option>
-            <option value="2d">Last 2d</option>
-            <option value="3d">Last 3d</option>
-            <option value="5d">Last 5d</option>
-            <option value="1w">Last 1w</option>
-          </select>
+          Events — <DurationSelect value={duration} onChange={setDuration} aria-label="Events time range" />
         </h3>
         <div className="summary-grid">
           {Object.entries(data.eventCounts).map(([type, count]) => (
