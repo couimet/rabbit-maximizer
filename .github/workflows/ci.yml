@@ -35,8 +35,12 @@ jobs:
         with:
           persist-credentials: false
       - uses: couimet/github-actions/setup-node-pnpm@main
+      - run: cp .env.ci .env
       - uses: couimet/github-actions/install-deps@main
       - uses: ./.github/actions/check-generated-drift
+        with:
+          command: 'pnpm api:types'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   bats-test:
     runs-on: ubuntu-latest

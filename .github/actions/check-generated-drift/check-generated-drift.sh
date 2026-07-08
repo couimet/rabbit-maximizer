@@ -2,30 +2,40 @@
 set -euo pipefail
 
 readonly EXIT_OK=0
-readonly EXIT_DRIFT=1
-readonly EXIT_MISSING_PNPM=2
-
-_require_pnpm() {
-  if ! command -v pnpm >/dev/null 2>&1; then
-    echo "error: pnpm is required" >&2
-    exit "$EXIT_MISSING_PNPM"
-  fi
-}
 
 main() {
-  local pnpm_script="${PNPM_SCRIPT:-api:types}"
+  local command="${COMMAND:-}"
 
-  _require_pnpm
+  if [ -z "$command" ]; then
+    echo "error: COMMAND is required" >&2
+    exit 1
+  fi
 
-  pnpm "$pnpm_script"
+  bash -euo pipefail -c "$command"
 
   if ! git diff --quiet; then
-    echo "Drifted files:" >&2
-    git diff --name-only >&2
-    echo "" >&2
-    echo "error: generated files are out of sync" >&2
-    echo "Run 'pnpm ${pnpm_script}' locally and commit the result." >&2
-    exit "$EXIT_DRIFT"
+    local comment_file
+    comment_file="$(mktemp)"
+
+    {
+      echo '## Generated drift detected'
+      echo ''
+      echo 'The following files are out of sync after running:'
+      echo ''
+      echo '```'
+      echo "$command"
+      echo '```'
+      echo ''
+      echo '### Drifted files'
+      echo ''
+      git diff --name-only | while read -r file; do
+        echo "- \`$file\`"
+      done
+      echo ''
+      echo 'Run the command locally and commit the result.'
+    } > "$comment_file"
+
+    echo "comment-file=$comment_file" >> "$GITHUB_OUTPUT"
   fi
 
   exit "$EXIT_OK"
