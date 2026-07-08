@@ -18,7 +18,7 @@ jobs:
       pull-requests: write
     with:
       pre-install-command: 'cp .env.ci .env'
-      test-command: 'pnpm test:ci'
+      test-command: 'pnpm ci:test'
 
   shellcheck:
     runs-on: ubuntu-latest
@@ -27,6 +27,20 @@ jobs:
         with:
           persist-credentials: false
       - uses: couimet/github-actions/shellcheck@main
+
+  check-generated-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: couimet/github-actions/setup-node-pnpm@main
+      - run: cp .env.ci .env
+      - uses: couimet/github-actions/install-deps@main
+      - uses: ./.github/actions/check-generated-drift
+        with:
+          command: 'pnpm ci:check-generated-drift'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   bats-test:
     runs-on: ubuntu-latest
