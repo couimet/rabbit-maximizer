@@ -265,6 +265,50 @@ describe('RecentlyTriggered', () => {
     });
   });
 
+  describe('mark completed', () => {
+    it('optimistically removes item from the list on click', async () => {
+      const item = makeItem();
+      globalThis.fetch = jest.fn((url: string, _init?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/queue/triggered')) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
+        }
+        if (typeof url === 'string' && url.includes('/mark-completed')) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response);
+        }
+        return Promise.reject(new Error('Unexpected fetch'));
+      }) as unknown as typeof fetch;
+
+      render(<RecentlyTriggered />);
+
+      await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTitle('Mark as completed'));
+
+      await waitFor(() => expect(screen.queryByText('#' + String(item.pr_number))).not.toBeInTheDocument());
+    });
+
+    it('restores items on mark-completed API failure', async () => {
+      const item = makeItem();
+      globalThis.fetch = jest.fn((url: string, _init?: RequestInit) => {
+        if (typeof url === 'string' && url.includes('/queue/triggered')) {
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
+        }
+        if (typeof url === 'string' && url.includes('/mark-completed')) {
+          return Promise.reject(new Error('API error'));
+        }
+        return Promise.reject(new Error('Unexpected fetch'));
+      }) as unknown as typeof fetch;
+
+      render(<RecentlyTriggered />);
+
+      await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTitle('Mark as completed'));
+
+      await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
+    });
+  });
+
   describe('cleanup', () => {
     it('loads data after StrictMode double-invoke', async () => {
       mockTriggeredEndpoint();

@@ -35,6 +35,7 @@ export class Scheduler extends IntervalService {
     private readonly queueOrder: QueueOrderRepository,
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
+    // TODO [2026-07-15]: #123 — remove once retrigger/failure event recording moves to probes
     @inject(TYPES.EventRepository)
     private readonly events: EventRepository,
     @inject(TYPES.ObservationContextProvider)
@@ -126,6 +127,7 @@ export class Scheduler extends IntervalService {
       await this.prisma.$transaction(async (tx) => {
         await this.queue.markRetriggered(item_.id, new Date(Date.now() + this.postCooldownMs), retriggeredCommentUrl, tx);
 
+        // TODO [2026-07-15]: #123 — SchedulerRetriggerProbe: encapsulate event recording; scheduler should not own EventRepository
         await this.events.record(
           {
             type: EventType.retriggered,
@@ -159,6 +161,7 @@ export class Scheduler extends IntervalService {
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markFailed(item_.id, tx);
 
+          // TODO [2026-07-15]: #123 — SchedulerFailureProbe: encapsulate event recording; scheduler should not own EventRepository
           await this.events.record(
             {
               type: EventType.failed,

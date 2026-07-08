@@ -21,6 +21,7 @@ export class CompletionDetector extends IntervalService {
     private readonly queue: QueueRepository,
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
+    // TODO [2026-07-15]: #123 — remove once completion event recording moves to a probe
     @inject(TYPES.EventRepository)
     private readonly events: EventRepository,
     @inject(TYPES.PrismaClient)
@@ -60,6 +61,7 @@ export class CompletionDetector extends IntervalService {
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markCompleted(item.id, tx);
 
+          // TODO [2026-07-15]: #123 — CompletionProbe: wire existing DetectedProbe or create new probe to encapsulate event recording
           await this.events.record(
             {
               type: EventType.completed,

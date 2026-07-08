@@ -1,5 +1,6 @@
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
+import type { ProbeFactory } from '../probes/ProbeFactory.js';
 import { type CommentDetails, type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
@@ -24,6 +25,7 @@ export interface QueueRepository {
   enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markCompletedByUuid(uuid: string, tx: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -40,7 +42,9 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PrismaClient) prisma: PrismaClient,
+    // TODO [2026-07-15]: #123 — remove once enqueue() event recording moves to EnqueueProbe
     @inject(TYPES.EventRepository) private readonly events: EventRepository,
+    @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(prisma, log);
@@ -77,6 +81,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       await db.queueOrder.create({ data: { queue_item_id: row.id } });
 
+      // TODO [2026-07-15]: #123 — EnqueueProbe: encapsulate event recording so QueueRepositoryImpl only deals with reviewQueue rows
       await this.events.record(
         {
           type: EventType.enqueued,
@@ -145,6 +150,24 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.toQueueItem(row);
   }
 
+  async markCompletedByUuid(uuid: string, tx: Prisma.TransactionClient): Promise<QueueItem | undefined> {
+    const probe = this.probeFactory.createMarkQueueItemCompletedProbe(uuid);
+
+    const row = await this.client(tx).reviewQueue.findUnique({ where: { uuid } });
+    if (!row) {
+      probe.queueItemNotFound();
+      return undefined;
+    }
+
+    const updated = await this.client(tx).reviewQueue.update({
+      where: { id: row.id },
+      data: { status: QueueStatus.completed, completed_at: new Date() },
+    });
+    await probe.queueItemMarkedCompleted(updated, tx);
+
+    return this.toQueueItem(updated);
+  }
+
   async reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
@@ -202,13 +225,12 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     const db = this.client(tx);
     const statuses = includeCompleted ? [QueueStatus.retriggered, QueueStatus.completed] : [QueueStatus.retriggered];
     const where = { retriggered_at: { gte: since }, status: { in: statuses } };
-    const [rows, total] = await Promise.all([
-      db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' }, skip, take }),
-      db.reviewQueue.count({ where }),
-    ]);
+    const rows = await db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' } });
+    const total = rows.length;
+    const paged = rows.slice(skip, skip + take);
 
-    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeCompleted, count: rows.length, total }, 'Fetched triggered queue');
-    return { items: rows.map((row) => this.toQueueItem(row)), total };
+    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeCompleted, count: rows.length }, 'Fetched triggered queue');
+    return { items: paged.map((row) => this.toQueueItem(row)), total };
   }
 
   async getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null> {

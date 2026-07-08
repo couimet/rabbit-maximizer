@@ -11,11 +11,14 @@ import { createMockLogger, createMockObservationContextProvider, createMockPrism
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
-import { describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
 describe('ProbeFactory', () => {
+  let observationProvider: ReturnType<typeof createMockObservationContextProvider>;
+  let observationContext: ReturnType<ReturnType<typeof createMockObservationContextProvider>['current']>;
+
   const makeMocks = () => {
     const eventRepository = {
       record: jest.fn<any>(),
@@ -31,11 +34,15 @@ describe('ProbeFactory', () => {
     return { eventRepository, queueRepository, logger };
   };
 
-  it('creates a DetectedProbe with the provided observation context', () => {
-    const observationContext = createMockObservationContextProvider().current();
-    const { eventRepository, queueRepository, logger } = makeMocks();
+  beforeEach(() => {
+    observationProvider = createMockObservationContextProvider();
+    observationContext = observationProvider.current();
+  });
 
-    const factory = new ProbeFactory(eventRepository, queueRepository, logger);
+  it('creates a DetectedProbe with the provided observation context', () => {
+    const { eventRepository, logger } = makeMocks();
+
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createDetectedProbe({ repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() }, observationContext);
 
     expect(probe).toBeInstanceOf(DetectedProbe);
@@ -43,12 +50,12 @@ describe('ProbeFactory', () => {
 
   it('creates a QueueItemProbe', () => {
     const { eventRepository, queueRepository, logger } = makeMocks();
-    const observationContext = createMockObservationContextProvider().current();
 
-    const factory = new ProbeFactory(eventRepository, queueRepository, logger);
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createQueueItemProbe(
       { id: getUniqueInt(), repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() } as QueueItem,
       observationContext,
+      queueRepository,
     );
 
     expect(probe).toBeInstanceOf(QueueItemProbe);

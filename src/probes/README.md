@@ -4,23 +4,45 @@ Domain probes keep business logic readable by pulling observability and audit co
 
 ## What a probe represents
 
-A probe is one business action worth recording, like detecting a rate-limited PR. It exposes a short lifecycle:
+A probe is one business action worth recording, like detecting a rate-limited PR or marking a queue item completed. It is created before work begins, then driven through domain-named lifecycle methods at each branch:
 
-- `processStarted()` records that the action was attempted.
-- `processCompleted(tx?)` records the outcome.
+```typescript
+const probe = this.probeFactory.createMarkQueueItemCompletedProbe(uuid);
 
-It carries what the action needs (the domain inputs, plus the ambient correlation id, request id, and app version from the observation-context provider) and hands the write off to a single-table repository such as `EventRepository`. Callers never touch the events table, the logger, or a future metrics client themselves.
+const row = await findRow(uuid);
+if (!row) {
+  probe.queueItemNotFound();
+  return undefined;
+}
 
-## Construction and wiring
+const updated = await markCompleted(row);
+await probe.queueItemMarkedCompleted(updated, tx);
+```
 
-`ProbeFactory` is the one place that builds probes, injecting the repository and logger each one needs. A caller asks the factory for a probe, drives its lifecycle, and stays out of the persistence and logging mechanics.
+The caller describes what happened (`queueItemNotFound`, `queueItemMarkedCompleted`). The probe owns how to record it (event table writes, logging, future metrics). Callers never touch the events table, the logger, or a future metrics client themselves.
+
+Every probe method is named for what happened in the domain. The method set forms the probe's lifecycle — there is no fixed `processStarted`/`processCompleted` contract. Each probe exposes the vocabulary its business process needs.
+
+## What it means in this project
+
+### Single-entity callers
+
+Each repository should deal with exactly one entity. `QueueRepositoryImpl` only touches `reviewQueue` rows. Cross-entity concerns (event recording, observation context) live in probes.
+
+### Construction and wiring
+
+`ProbeFactory` is the single entry point. It injects the repositories and providers each probe needs, so callers never assemble probes by hand. The factory owns the `ObservationContextProvider`; callers don't extract the current context themselves.
+
+### Naming
+
+Probe class names include the entity: `MarkQueueItemCompletedProbe`, `QueueItemProbe`. Method names use domain vocabulary: `queueItemNotFound()`, `queueItemMarkedCompleted()`, `processRetriggered()`, `processStarted()`, `processCompleted()`. A developer reading the caller should understand the business process without opening the probe.
 
 ## Failure handling
 
 What a probe does when something goes wrong depends on what it records:
 
-- Event-recording probes like `DetectedProbe` write to the audit log inside the caller's transaction, so a failed write fails the whole operation. A state change and the event describing it have to agree.
-- Observational-only probes, like a future metrics emitter, should swallow their own errors. Losing a metric should never break a business flow.
+- Event-recording probes write to the audit log inside the caller's transaction. A failed write fails the whole operation; the state change and the event describing it must agree.
+- Observational-only probes, like a future metrics emitter, should swallow their own errors. Losing a metric must never break a business flow.
 
 ## Reference
 

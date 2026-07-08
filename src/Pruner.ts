@@ -41,7 +41,7 @@ export class PrunerImpl implements Pruner {
     for (const e of enriched) {
       try {
         await this.prisma.$transaction(async (tx) => {
-          const probe = this.probeFactory.createQueueItemProbe(e.item, obs);
+          const probe = this.probeFactory.createQueueItemProbe(e.item, obs, this.queue);
           if (e.outcome === 'merged') {
             await probe.processMergedBeforeRetrigger(tx);
           } else {

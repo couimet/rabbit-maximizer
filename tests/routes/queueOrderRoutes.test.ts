@@ -1,9 +1,14 @@
 import type { Config } from '../../src/config.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
-import { createGetQueueOrderHandler, createMoveQueueOrderHandler, createRetriggerNowHandler } from '../../src/routes/queueOrderRoutes.js';
+import {
+  createGetQueueOrderHandler,
+  createMarkCompletedHandler,
+  createMoveQueueOrderHandler,
+  createRetriggerNowHandler,
+} from '../../src/routes/queueOrderRoutes.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockLogger, createMockQueueOrderRepo, createMockSystemStateRepository } from '../helpers/index.js';
+import { createMockLogger, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } from '../helpers/index.js';
 import { postJson } from '../helpers/postJson.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -322,6 +327,57 @@ describe('queueOrderRoutes', () => {
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to retrigger now' });
       expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', error: repoError }, 'Failed to retrigger now');
+    });
+  });
+
+  describe('POST /api/queue/:uuid/mark-completed', () => {
+    const startServer = (over = {}) => {
+      const app = createExpressApp({ logger });
+      app.post('/api/queue/:uuid/mark-completed', createMarkCompletedHandler(createMockQueueRepo(over), logger));
+      server = app.listen(0);
+    };
+
+    it('returns 200 with { ok: true }', async () => {
+      const item = { ...makeItem(1, UUID_A), repo_full_name: 'c/r', pr_number: 42 };
+      startServer({ markCompletedByUuid: jest.fn<any>().mockResolvedValue(item) });
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-completed`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(await res.json()).toStrictEqual({ ok: true });
+    });
+
+    it('returns 400 for non-UUID id', async () => {
+      startServer();
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/not-a-uuid/mark-completed`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(await res.json()).toStrictEqual({ error: 'uuid must be a valid UUID v4' });
+    });
+
+    it('returns 404 when item not found', async () => {
+      startServer({ markCompletedByUuid: jest.fn<any>().mockResolvedValue(undefined) });
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-completed`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.NOT_FOUND);
+      expect(await res.json()).toStrictEqual({ error: `Queue item not found: ${UUID_A}` });
+    });
+
+    it('returns 500 on repository error', async () => {
+      const repoError = new Error('DB down');
+      startServer({ markCompletedByUuid: jest.fn<any>().mockRejectedValue(repoError) });
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-completed`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+      expect(await res.json()).toStrictEqual({ error: 'Failed to mark item completed' });
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.markCompleted', error: repoError }, 'Failed to mark item completed');
     });
   });
 });

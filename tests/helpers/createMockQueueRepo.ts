@@ -7,6 +7,7 @@ export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueReposit
     enqueue: jest.fn<any>(),
     markRetriggered: jest.fn<any>(),
     markCompleted: jest.fn<any>(),
+    markCompletedByUuid: jest.fn<any>().mockResolvedValue(null),
     reschedule: jest.fn<any>(),
     backoff: jest.fn<any>(),
     markFailed: jest.fn<any>(),
