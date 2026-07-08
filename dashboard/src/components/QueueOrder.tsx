@@ -14,12 +14,14 @@ const QueueOrder = ({
   onMoveComplete,
   headingLevel,
   pendingCount,
+  paused,
 }: {
   items: QueueItem[] | null;
   error: string | null;
   onMoveComplete: () => void;
   headingLevel: 'h2' | 'h3';
   pendingCount: number | null;
+  paused: boolean;
 }) => {
   const [, forceTick] = useState(0);
   const [selectedUuids, setSelectedUuids] = useState<Set<string>>(new Set());
@@ -184,7 +186,7 @@ const QueueOrder = ({
                       <button
                         className="btn-retrigger"
                         onClick={() => handleRetriggerNow(item.uuid)}
-                        disabled={moving || retriggeringUuid !== null}
+                        disabled={moving || retriggeringUuid !== null || paused}
                         aria-label={'Retrigger now for ' + item.repo_full_name + ' #' + item.pr_number}
                         title="Retrigger now"
                       >

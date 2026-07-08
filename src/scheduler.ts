@@ -1,6 +1,7 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
+import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
@@ -45,6 +46,8 @@ export class Scheduler extends IntervalService {
     private readonly pruner: Pruner,
     @inject(TYPES.SourceCommentValidator)
     private readonly commentValidator: SourceCommentValidator,
+    @inject(TYPES.SystemStateRepository)
+    private readonly systemState: SystemStateRepository,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(log, cfg.SCHEDULER_TICK_INTERVAL_MS);
@@ -66,6 +69,11 @@ export class Scheduler extends IntervalService {
     let item: QueueItem | undefined;
     try {
       await this.pruner.prune();
+
+      if (await this.systemState.isSchedulerPaused()) {
+        this.log.debug({ fn: 'Scheduler.tick' }, 'Scheduler is paused; skipping tick');
+        return;
+      }
 
       const eligible = await this.queueOrder.getEffectiveOrder();
       item = eligible[0];

@@ -14,5 +14,6 @@ export * from './QueueStatus.js';
 export * from './RepoFilter.js';
 export * from './Result.js';
 export * from './ReviewLimitComment.js';
+export * from './SchedulerStatus.js';
 export * from './TriggerSource.js';
 export * from './ValidationOutcome.js';

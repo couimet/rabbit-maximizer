@@ -1,5 +1,6 @@
 import type { Config } from '../config.js';
 import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
+import type { SystemStateRepository } from '../db/systemStateRepository.js';
 import { QueueStatus, TriggerSource } from '../types/index.js';
 import { MS_PER_SECOND } from '../utils/durations.js';
 import { isValidUuid } from '../utils/uuidLookup.js';
@@ -57,12 +58,17 @@ export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository
   };
 };
 
-export const createRetriggerNowHandler = (queueOrderRepo: QueueOrderRepository, config: Config, logger: Logger) => {
+export const createRetriggerNowHandler = (queueOrderRepo: QueueOrderRepository, systemStateRepo: SystemStateRepository, config: Config, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const uuid = req.params.uuid as string;
       if (!isValidUuid(uuid)) {
         res.status(StatusCodes.BAD_REQUEST).json({ error: 'uuid must be a valid UUID v4' });
+        return;
+      }
+
+      if (await systemStateRepo.isSchedulerPaused()) {
+        res.status(StatusCodes.CONFLICT).json({ error: 'Maximizer is paused; resume it before retriggering' });
         return;
       }
 

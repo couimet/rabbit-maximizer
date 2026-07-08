@@ -10,7 +10,17 @@ const formatCountdown = (diffMs: number): { h: number; m: number; s: number } =>
   return { h, m, s };
 };
 
-const ReviewCountdown = ({ target }: { target: Date | null }) => {
+const ReviewCountdown = ({
+  target,
+  paused,
+  onTogglePaused,
+  toggling,
+}: {
+  target: Date | null;
+  paused: boolean;
+  onTogglePaused: () => void;
+  toggling: boolean;
+}) => {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -19,26 +29,28 @@ const ReviewCountdown = ({ target }: { target: Date | null }) => {
   }, [target]);
 
   const diffMs = target === null ? 0 : target.getTime() - now;
+  const available = diffMs <= 0;
 
-  if (diffMs <= 0) {
-    return (
-      <div className="countdown-bar available">
-        <div className="countdown-dot available" />
-        <span className="countdown-label">Next review</span>
-        <span className="countdown-value available">Available now</span>
-      </div>
-    );
-  }
+  const barClass = paused ? 'countdown-bar paused' : available ? 'countdown-bar available' : 'countdown-bar waiting';
+  const dotClass = paused ? 'countdown-dot paused' : available ? 'countdown-dot available' : 'countdown-dot waiting';
 
-  const { h, m, s } = formatCountdown(diffMs);
+  const countdownText = available
+    ? 'Available now'
+    : (() => {
+        const { h, m, s } = formatCountdown(diffMs);
+        return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+      })();
 
   return (
-    <div className="countdown-bar waiting">
-      <div className="countdown-dot waiting" />
-      <span className="countdown-label">Next review available in</span>
-      <span className="countdown-value">
-        {h}h {String(m).padStart(2, '0')}m {String(s).padStart(2, '0')}s
-      </span>
+    <div className={barClass}>
+      <div className="countdown-status">
+        <div className={dotClass} />
+        <span className="countdown-label">{paused ? 'Paused' : 'Next review'}</span>
+        <span className={`countdown-value${available ? ' available' : ''}`}>{countdownText}</span>
+      </div>
+      <button className="countdown-toggle" onClick={onTogglePaused} disabled={toggling} aria-label={paused ? 'Resume scheduler' : 'Pause scheduler'}>
+        {toggling ? '…' : paused ? 'Resume' : 'Pause'}
+      </button>
     </div>
   );
 };

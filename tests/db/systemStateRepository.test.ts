@@ -263,6 +263,122 @@ describe('SystemStateRepositoryImpl', () => {
     });
   });
 
+  describe('isSchedulerPaused', () => {
+    it('returns true when schedulerStatus is paused', async () => {
+      const row = {
+        state_key: 'scheduler_status',
+        value_text: 'paused',
+        value_integer: null,
+        value_float: null,
+        value_datetime: null,
+        updated_at: getUniqueDate().toISOString(),
+      };
+
+      const { prisma } = createMockPrismaClient({
+        systemState: { findUnique: createResolvedMock(row) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.isSchedulerPaused();
+
+      expect(result).toBe(true);
+    });
+
+    it('returns false when schedulerStatus is running', async () => {
+      const row = {
+        state_key: 'scheduler_status',
+        value_text: 'running',
+        value_integer: null,
+        value_float: null,
+        value_datetime: null,
+        updated_at: getUniqueDate().toISOString(),
+      };
+
+      const { prisma } = createMockPrismaClient({
+        systemState: { findUnique: createResolvedMock(row) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.isSchedulerPaused();
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when schedulerStatus key does not exist', async () => {
+      const { prisma } = createMockPrismaClient({
+        systemState: { findUnique: createResolvedMock(null) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.isSchedulerPaused();
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('pauseScheduler', () => {
+    it('sets schedulerStatus to paused', async () => {
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { upsert: jest.fn<any>() },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.pauseScheduler();
+
+      expect(systemState.upsert).toHaveBeenCalledWith({
+        where: { state_key: 'scheduler_status' },
+        create: {
+          state_key: 'scheduler_status',
+          value_text: 'paused',
+          value_integer: null,
+          value_float: null,
+          value_datetime: null,
+          updated_at: expect.any(String),
+        },
+        update: {
+          state_key: 'scheduler_status',
+          value_text: 'paused',
+          value_integer: null,
+          value_float: null,
+          value_datetime: null,
+          updated_at: expect.any(String),
+        },
+      });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'SystemStateRepositoryImpl.setState', key: 'scheduler_status' }, 'System state updated');
+    });
+  });
+
+  describe('resumeScheduler', () => {
+    it('sets schedulerStatus to running', async () => {
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { upsert: jest.fn<any>() },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.resumeScheduler();
+
+      expect(systemState.upsert).toHaveBeenCalledWith({
+        where: { state_key: 'scheduler_status' },
+        create: {
+          state_key: 'scheduler_status',
+          value_text: 'running',
+          value_integer: null,
+          value_float: null,
+          value_datetime: null,
+          updated_at: expect.any(String),
+        },
+        update: {
+          state_key: 'scheduler_status',
+          value_text: 'running',
+          value_integer: null,
+          value_float: null,
+          value_datetime: null,
+          updated_at: expect.any(String),
+        },
+      });
+    });
+  });
+
   describe('container binding', () => {
     it('resolves SystemStateRepository from the container', () => {
       const { prisma } = createMockPrismaClient();

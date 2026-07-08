@@ -1,6 +1,6 @@
 import { DEFAULT_DURATION } from '../../../src/utils/resolveDurationSince.js';
 import type { DashboardStateResponse } from '../api.js';
-import { fetchDashboardState } from '../api.js';
+import { fetchDashboardState, setPaused } from '../api.js';
 
 import QueueOrder from './QueueOrder.js';
 import ReviewCountdown from './ReviewCountdown.js';
@@ -13,6 +13,7 @@ const SummaryStats = () => {
   const [data, setData] = useState<DashboardStateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState(DEFAULT_DURATION);
+  const [toggling, setToggling] = useState(false);
 
   const mountedRef = useRef(false);
   useEffect(() => {
@@ -47,17 +48,46 @@ const SummaryStats = () => {
     return () => clearInterval(intervalId);
   }, [fetchData]);
 
+  const handleTogglePaused = () => {
+    /* c8 ignore next 2 — unreachable: button only renders when data is non-null */
+    if (!data) return;
+    setToggling(true);
+    const next = !data.paused;
+    setPaused(next)
+      .then(() => {
+        if (!mountedRef.current) return;
+        fetchData();
+        setToggling(false);
+      })
+      .catch(() => {
+        if (!mountedRef.current) return;
+        setToggling(false);
+      });
+  };
+
   if (error && !data) return <div className="error">Failed to load summary: {error}</div>;
   if (!data) return <div className="loading">Loading summary…</div>;
 
   return (
     <section>
       {error && <div className="error-banner">Failed to refresh: {error}</div>}
-      <ReviewCountdown target={data.nextReviewAvailableAt ? new Date(data.nextReviewAvailableAt) : null} />
+      <ReviewCountdown
+        target={data.nextReviewAvailableAt ? new Date(data.nextReviewAvailableAt) : null}
+        paused={data.paused}
+        onTogglePaused={handleTogglePaused}
+        toggling={toggling}
+      />
       <h2>Summary</h2>
 
       <div className="section-card">
-        <QueueOrder items={data.pendingItems} error={null} onMoveComplete={fetchData} headingLevel="h3" pendingCount={data.pendingItems.length} />
+        <QueueOrder
+          items={data.pendingItems}
+          error={null}
+          onMoveComplete={fetchData}
+          headingLevel="h3"
+          pendingCount={data.pendingItems.length}
+          paused={data.paused}
+        />
       </div>
 
       <div className="section-card">

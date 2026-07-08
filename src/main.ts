@@ -1,6 +1,7 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
+import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
 import type { CompletionDetector } from './CompletionDetector.js';
 import { config, describeRepoFilter } from './config.js';
@@ -53,6 +54,7 @@ const { stop: stopScheduler } = scheduler.start();
 const queueRepo = container.get<QueueRepository>(TYPES.QueueRepository);
 const queueOrderRepo = container.get<QueueOrderRepository>(TYPES.QueueOrderRepository);
 const eventRepo = container.get<EventRepository>(TYPES.EventRepository);
+const systemStateRepo = container.get<SystemStateRepository>(TYPES.SystemStateRepository);
 const appLogger = container.get<Logger>(TYPES.Logger);
 
 const { stop: stopServer } = setupExpress({
@@ -60,6 +62,7 @@ const { stop: stopServer } = setupExpress({
   queueRepo,
   queueOrderRepo,
   eventRepo,
+  systemStateRepo,
   logger: appLogger,
   port: config.WEB_PORT,
 });
