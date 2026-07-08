@@ -587,10 +587,8 @@ describe('QueueRepositoryImpl', () => {
 
     it('respects skip and take for pagination', async () => {
       const since = getUniqueDate();
-      const row0 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 5000) });
       const row1 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 4000) });
       const row2 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 3000) });
-      const row3 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 2000) });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row1, row2]),
