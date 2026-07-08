@@ -516,6 +516,16 @@ export interface operations {
           'application/json': components['schemas']['PaginatedQueue'];
         };
       };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      500: components['responses']['InternalError'];
     };
   };
   setPaused: {
