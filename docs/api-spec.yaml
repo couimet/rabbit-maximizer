@@ -125,6 +125,51 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/dashboard-state:
+    get:
+      operationId: getDashboardState
+      parameters:
+        - name: duration
+          in: query
+          schema:
+            type: string
+            enum: [24h, 2d, 3d, 5d, 1w]
+            default: 24h
+      responses:
+        '200':
+          description: Dashboard state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardState'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/pause:
+    post:
+      operationId: setPaused
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PauseRequest'
+      responses:
+        '200':
+          description: Pause state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PauseResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/state/next_review_available_at:
     get:
       operationId: getNextReviewAvailable
@@ -279,6 +324,40 @@ components:
           type: integer
         failed:
           type: integer
+      additionalProperties: false
+
+    DashboardState:
+      type: object
+      required: [nextReviewAvailableAt, pendingItems, eventCounts, paused]
+      properties:
+        nextReviewAvailableAt:
+          type: string
+          format: date-time
+          nullable: true
+        pendingItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+        eventCounts:
+          $ref: '#/components/schemas/EventCounts'
+        paused:
+          type: boolean
+      additionalProperties: false
+
+    PauseRequest:
+      type: object
+      required: [paused]
+      properties:
+        paused:
+          type: boolean
+      additionalProperties: false
+
+    PauseResponse:
+      type: object
+      required: [paused]
+      properties:
+        paused:
+          type: boolean
       additionalProperties: false
 
     Summary:

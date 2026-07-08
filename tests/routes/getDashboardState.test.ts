@@ -2,7 +2,7 @@ import { createExpressApp } from '../../src/external-deps/couimet/express-tools/
 import { createGetDashboardStateHandler } from '../../src/routes/getDashboardState.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockLogger, createMockQueueOrderRepo } from '../helpers/index.js';
+import { createMockEventRepo, createMockLogger, createMockQueueOrderRepo, createMockSystemStateRepository } from '../helpers/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
@@ -37,11 +37,20 @@ describe('getDashboardState', () => {
     updated_at: (item.updated_at as Date).toISOString(),
   });
 
-  const startServer = (queueOrderRepoOver: Record<string, unknown> = {}, eventRepoOver: Record<string, unknown> = {}) => {
+  const startServer = (
+    queueOrderRepoOver: Record<string, unknown> = {},
+    eventRepoOver: Record<string, unknown> = {},
+    systemStateRepoOver: Record<string, unknown> = {},
+  ) => {
     const app = createExpressApp({ logger });
     app.get(
       '/api/dashboard-state',
-      createGetDashboardStateHandler(createMockQueueOrderRepo(queueOrderRepoOver as any), createMockEventRepo(eventRepoOver as any), logger),
+      createGetDashboardStateHandler(
+        createMockQueueOrderRepo(queueOrderRepoOver as any),
+        createMockEventRepo(eventRepoOver as any),
+        createMockSystemStateRepository(systemStateRepoOver as any),
+        logger,
+      ),
     );
     server = app.listen(0);
   };
@@ -66,6 +75,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: futureDate1.toISOString(),
       pendingItems: items.map(toJson),
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
+      paused: false,
     });
   });
 
@@ -84,6 +94,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: items.map(toJson),
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
     });
   });
 
@@ -96,6 +107,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
     });
   });
 
@@ -112,6 +124,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: items.map(toJson),
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
     });
   });
 
@@ -124,6 +137,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: [],
       eventCounts: { detected: 1, enqueued: 2, retriggered: 3, failed: 6 },
+      paused: false,
     });
   });
 
@@ -151,6 +165,19 @@ describe('getDashboardState', () => {
     await getJson(server, '/api/dashboard-state?duration=invalid');
 
     expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 86_400_000));
+  });
+
+  it('returns paused true when schedulerStatus is paused', async () => {
+    logger = createMockLogger();
+    startServer({}, {}, { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) });
+
+    const json = await getJson(server, '/api/dashboard-state');
+    expect(json).toStrictEqual({
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: true,
+    });
   });
 
   it('returns 500 and logs error on getEffectiveOrder failure', async () => {

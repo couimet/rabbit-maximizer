@@ -26,7 +26,13 @@ const TICK_DEPTH = 20;
 interface MockDetectorDeps {
   github: jest.Mocked<CoderabbitGitHubClient>;
   onDetected: jest.Mocked<OnDetectedCallback>;
-  systemStateRepo: { getState: jest.Mock<any>; setState: jest.Mock<any> };
+  systemStateRepo: {
+    getState: jest.Mock<any>;
+    setState: jest.Mock<any>;
+    isSchedulerPaused: jest.Mock<any>;
+    pauseScheduler: jest.Mock<any>;
+    resumeScheduler: jest.Mock<any>;
+  };
   logger: Logger;
 }
 

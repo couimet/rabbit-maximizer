@@ -1,4 +1,5 @@
 import { TYPES } from '../inversify-types.js';
+import { SchedulerStatus } from '../types/SchedulerStatus.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 
@@ -51,6 +52,9 @@ export const VALUE_SETTER: Record<ValueColumn, (base: SystemStateRow, value: unk
 export interface SystemStateRepository {
   getState<K extends StateKey>(key: K, tx?: Prisma.TransactionClient): Promise<StateKeyToType[K] | undefined>;
   setState<K extends StateKey>(key: K, value: StateKeyToType[K], tx?: Prisma.TransactionClient): Promise<void>;
+  isSchedulerPaused(tx?: Prisma.TransactionClient): Promise<boolean>;
+  pauseScheduler(tx?: Prisma.TransactionClient): Promise<void>;
+  resumeScheduler(tx?: Prisma.TransactionClient): Promise<void>;
 }
 
 @injectable()
@@ -99,5 +103,18 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
     });
 
     this.log.debug({ fn: 'SystemStateRepositoryImpl.setState', key }, 'System state updated');
+  }
+
+  async isSchedulerPaused(tx?: Prisma.TransactionClient): Promise<boolean> {
+    const status = await this.getState(StateKey.schedulerStatus, tx);
+    return status === SchedulerStatus.paused;
+  }
+
+  async pauseScheduler(tx?: Prisma.TransactionClient): Promise<void> {
+    await this.setState(StateKey.schedulerStatus, SchedulerStatus.paused, tx);
+  }
+
+  async resumeScheduler(tx?: Prisma.TransactionClient): Promise<void> {
+    await this.setState(StateKey.schedulerStatus, SchedulerStatus.running, tx);
   }
 }

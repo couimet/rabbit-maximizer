@@ -11,8 +11,12 @@ import { StrictMode } from 'react';
 
 const defaultOnMoveComplete = jest.fn();
 
-const renderQueueOrder = (items: ReturnType<typeof makeQueueItem>[] | null = null, error: string | null = null, onMoveComplete = defaultOnMoveComplete) =>
-  render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} />);
+const renderQueueOrder = (
+  items: ReturnType<typeof makeQueueItem>[] | null = null,
+  error: string | null = null,
+  onMoveComplete = defaultOnMoveComplete,
+  paused = false,
+) => render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} paused={paused} />);
 
 const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   id: getUniqueInt(),
@@ -75,7 +79,7 @@ describe('QueueOrder', () => {
     });
 
     it('includes pending count in heading when pendingCount is provided', () => {
-      render(<QueueOrder items={[makeQueueItem()]} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={3} />);
+      render(<QueueOrder items={[makeQueueItem()]} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={3} paused={false} />);
       expect(screen.getByText('Queue Order — 3 pending item(s)')).toBeInTheDocument();
     });
 
@@ -144,7 +148,7 @@ describe('QueueOrder', () => {
 
       render(
         <StrictMode>
-          <QueueOrder items={items} error={null} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} />
+          <QueueOrder items={items} error={null} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} paused={false} />
         </StrictMode>,
       );
 
@@ -466,6 +470,23 @@ describe('QueueOrder', () => {
 
       const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
       expect(stateUpdateWarnings).toHaveLength(0);
+    });
+
+    it('disables retrigger buttons when paused is true', () => {
+      const items = [makeQueueItem(), makeQueueItem()];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+
+      const buttons = screen.getAllByLabelText(/^Retrigger now/);
+      expect(buttons).toHaveLength(2);
+      expect(buttons[0]).toBeDisabled();
+      expect(buttons[1]).toBeDisabled();
+    });
+
+    it('retrigger buttons are enabled when paused is false', () => {
+      const items = [makeQueueItem()];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={false} />);
+
+      expect(screen.getByLabelText(/^Retrigger now/)).not.toBeDisabled();
     });
   });
 });

@@ -81,6 +81,26 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>Integer IDs are internal implementation details. UUIDs decouple API consumers from database internals and prevent enumeration attacks.</rationale>
 </rule>
 
+<rule id="C008" priority="critical">
+  <title>No default parameter values</title>
+  <never>Use default parameter values in function signatures (`paused = false`, `timeout = 5000`)</never>
+  <do>Make every parameter required. Callers must pass every argument explicitly</do>
+  <do>Combine with `?:` optional markers only when the caller genuinely may omit the value and the function handles `undefined` explicitly</do>
+  <rationale>Default values create falsy traps (`''`, `0`, `false`, `null` all trigger the default, not just `undefined`). Required parameters force call sites to be explicit, making intent visible and contracts harder to accidentally break. Optional `?:` without defaults is acceptable when absence has a clear semantic meaning distinct from any falsy value.</rationale>
+  <bad-example>
+    ```typescript
+    // BAD: falsy trap — paused={false} still gets defaulted
+    const QueueOrder = ({ paused = false }: { paused?: boolean }) => { ... }
+    ```
+  </bad-example>
+  <good-example>
+    ```typescript
+    // GOOD: required — every caller must think about paused
+    const QueueOrder = ({ paused }: { paused: boolean }) => { ... }
+    ```
+  </good-example>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

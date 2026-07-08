@@ -7,7 +7,8 @@ const viteMock = createMockVite();
 
 jest.unstable_mockModule('vite', () => viteMock);
 
-const { createMockEventRepo, createMockLogger, createMockQueueOrderRepo, createMockQueueRepo } = await import('./helpers/index.js');
+const { createMockEventRepo, createMockLogger, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } =
+  await import('./helpers/index.js');
 
 const { setupExpress } = await import('../src/express.js');
 const { fetchResponse } = await import('./helpers/fetchResponse.js');
@@ -26,6 +27,7 @@ describe('setupExpress', () => {
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),
+      systemStateRepo: createMockSystemStateRepository(),
       logger,
       port: 0,
     });

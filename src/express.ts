@@ -1,6 +1,7 @@
 import type { EventRepository } from './db/eventRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
+import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import { createExpressApp } from './external-deps/couimet/express-tools/createExpressApp.js';
@@ -12,6 +13,7 @@ import {
   createGetSummaryHandler,
   createMoveQueueOrderHandler,
   createRetriggerNowHandler,
+  createSetPausedHandler,
 } from './routes/index.js';
 import { trySetupVite } from './routes/setupVite.js';
 import type { Config } from './config.js';
@@ -30,6 +32,7 @@ export interface ExpressDeps {
   eventRepo: EventRepository;
   queueOrderRepo: QueueOrderRepository;
   queueRepo: QueueRepository;
+  systemStateRepo: SystemStateRepository;
   logger: Logger;
   port: number;
 }
@@ -40,17 +43,18 @@ export interface ExpressApp {
 }
 
 export const setupExpress = (deps: ExpressDeps): ExpressApp => {
-  const { config, queueRepo, queueOrderRepo, eventRepo, logger, port } = deps;
+  const { config, queueRepo, queueOrderRepo, eventRepo, systemStateRepo, logger, port } = deps;
   const production = isProduction();
   const app = createExpressApp({ logger, helmet: production });
 
   app.use(express.json());
   app.get('/api/summary', createGetSummaryHandler(queueRepo, eventRepo, logger));
   app.get('/api/queue', createGetQueueHandler(queueRepo, logger));
-  app.get('/api/dashboard-state', createGetDashboardStateHandler(queueOrderRepo, eventRepo, logger));
+  app.get('/api/dashboard-state', createGetDashboardStateHandler(queueOrderRepo, eventRepo, systemStateRepo, logger));
   app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, logger));
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
-  app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, config, logger));
+  app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, config, logger));
+  app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, logger));
 
   app.get('/icon.png', (_req: Request, res: Response) => res.sendFile('assets/icon.png', { root: '.' }));

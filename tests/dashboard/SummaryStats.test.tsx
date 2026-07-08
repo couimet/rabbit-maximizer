@@ -25,7 +25,6 @@ const mockDashboardState = (data: Record<string, unknown>) => {
 
 describe('SummaryStats', () => {
   afterEach(() => {
-    (globalThis.fetch as jest.Mock).mockRestore?.();
     localStorage.clear();
   });
 
@@ -48,6 +47,7 @@ describe('SummaryStats', () => {
       nextReviewAvailableAt: null,
       pendingItems: [],
       eventCounts: DEFAULT_EVENT_COUNTS,
+      paused: false,
     };
 
     beforeEach(() => {
@@ -75,6 +75,7 @@ describe('SummaryStats', () => {
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 0 },
+        paused: false,
       };
       let capturedUrl = '';
       globalThis.fetch = jest.fn((url: string) => {
@@ -101,17 +102,20 @@ describe('SummaryStats', () => {
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
+        paused: false,
       };
       const freshData = {
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: { detected: 9, enqueued: 0, retriggered: 0, failed: 0 },
+        paused: false,
       };
 
       mockDashboardState({
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
       });
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
@@ -146,12 +150,14 @@ describe('SummaryStats', () => {
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: { detected: 9, enqueued: 0, retriggered: 0, failed: 0 },
+        paused: false,
       };
 
       mockDashboardState({
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
       });
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
@@ -187,6 +193,7 @@ describe('SummaryStats', () => {
     const dashboardData = {
       pendingItems: [],
       eventCounts: DEFAULT_EVENT_COUNTS,
+      paused: false,
     };
 
     it('renders Available now when nextReviewAvailableAt is null', async () => {
@@ -204,7 +211,7 @@ describe('SummaryStats', () => {
     it('renders countdown text when nextReviewAvailableAt is in the future', async () => {
       mockDashboardState({ ...dashboardData, nextReviewAvailableAt: new Date(Date.now() + 120_000).toISOString() });
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Next review available in')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Next review')).toBeInTheDocument());
     });
   });
 
@@ -228,7 +235,13 @@ describe('SummaryStats', () => {
       resolveFetch!({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ nextReviewAvailableAt: null, pendingItems: [], eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 } }),
+        json: () =>
+          Promise.resolve({
+            nextReviewAvailableAt: null,
+            pendingItems: [],
+            eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+            paused: false,
+          }),
       } as Response);
 
       await new Promise((r) => setTimeout(r, 0));
@@ -254,6 +267,7 @@ describe('SummaryStats', () => {
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
+        paused: false,
       });
 
       render(
@@ -281,11 +295,13 @@ describe('SummaryStats', () => {
         nextReviewAvailableAt: null,
         pendingItems: [queueItem],
         eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
+        paused: false,
       };
       const refreshedData = {
         nextReviewAvailableAt: null,
         pendingItems: [queueItem],
         eventCounts: { detected: 2, enqueued: 0, retriggered: 0, failed: 0 },
+        paused: false,
       };
 
       let dashboardCallCount = 0;
@@ -315,6 +331,151 @@ describe('SummaryStats', () => {
     });
   });
 
+  describe('pause toggle', () => {
+    const dashboardData = {
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      eventCounts: DEFAULT_EVENT_COUNTS,
+      paused: false,
+    };
+
+    it('renders Pause button when not paused', async () => {
+      mockDashboardState(dashboardData);
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Pause')).toBeInTheDocument());
+    });
+
+    it('renders Resume button when paused', async () => {
+      mockDashboardState({ ...dashboardData, paused: true });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Resume')).toBeInTheDocument());
+    });
+
+    it('calls setPaused API on pause button click', async () => {
+      mockDashboardState(dashboardData);
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Pause')).toBeInTheDocument());
+
+      const refreshedData = { ...dashboardData, paused: true };
+      globalThis.fetch = jest.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ paused: true }),
+          } as Response);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(refreshedData),
+        } as Response);
+      }) as unknown as typeof fetch;
+
+      fireEvent.click(screen.getByText('Pause'));
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/pause', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paused: true }),
+        });
+      });
+    });
+
+    it('calls setPaused API on resume button click', async () => {
+      mockDashboardState({ ...dashboardData, paused: true });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Resume')).toBeInTheDocument());
+
+      const refreshedData = { ...dashboardData, paused: false };
+      globalThis.fetch = jest.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ paused: false }),
+          } as Response);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(refreshedData),
+        } as Response);
+      }) as unknown as typeof fetch;
+
+      fireEvent.click(screen.getByText('Resume'));
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/pause', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paused: false }),
+        });
+      });
+    });
+
+    it('handles setPaused API failure gracefully', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      mockDashboardState(dashboardData);
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Pause')).toBeInTheDocument());
+
+      globalThis.fetch = jest.fn(() => Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
+
+      fireEvent.click(screen.getByText('Pause'));
+
+      await waitFor(() => expect(screen.getByText('Failed to toggle pause: Network error')).toBeInTheDocument());
+      expect(screen.getByText('Pause')).toBeInTheDocument();
+      expect(consoleErrorSpy).toHaveBeenCalledWith('Failed to toggle pause state:', expect.any(Error));
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('does not update state on unmount during setPaused success', async () => {
+      mockDashboardState(dashboardData);
+      const { unmount } = renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Pause')).toBeInTheDocument());
+
+      let resolveSetPaused: (v: Response) => void;
+      const pendingSetPaused = new Promise<Response>((r) => {
+        resolveSetPaused = r;
+      });
+      globalThis.fetch = jest.fn(() => pendingSetPaused) as unknown as typeof fetch;
+
+      fireEvent.click(screen.getByText('Pause'));
+      unmount();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      resolveSetPaused!({ ok: true, status: 200, json: () => Promise.resolve({ paused: true }) } as Response);
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
+    });
+
+    it('does not update state on unmount during setPaused failure', async () => {
+      mockDashboardState(dashboardData);
+      const { unmount } = renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Pause')).toBeInTheDocument());
+
+      let rejectSetPaused!: (err: Error) => void;
+      const pendingSetPaused = new Promise<Response>((_, reject) => {
+        rejectSetPaused = reject;
+      });
+      globalThis.fetch = jest.fn(() => pendingSetPaused) as unknown as typeof fetch;
+
+      fireEvent.click(screen.getByText('Pause'));
+      unmount();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      rejectSetPaused(new Error('Network error'));
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
+    });
+  });
+
   describe('error', () => {
     it('shows error message on HTTP failure', async () => {
       globalThis.fetch = jest.fn(() =>
@@ -335,6 +496,7 @@ describe('SummaryStats', () => {
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
       });
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());

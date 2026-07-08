@@ -51,3 +51,10 @@ export const moveQueueItems = (queueItemUuids: string[], direction: 'up' | 'down
 
 export const retriggerNow = (uuid: string): Promise<{ ok: boolean; schedulerTickIntervalSec: number }> =>
   fetchJson<{ ok: boolean; schedulerTickIntervalSec: number }>(API_BASE + '/queue/' + uuid + '/retrigger-now', { method: 'POST' });
+
+export const setPaused = (paused: boolean): Promise<{ paused: boolean }> =>
+  fetchJson<{ paused: boolean }>(`${API_BASE}/pause`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paused }),
+  });

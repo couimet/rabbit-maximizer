@@ -2,6 +2,7 @@ import type { Config } from '../src/config.js';
 import type { EventRepository, NewEvent } from '../src/db/eventRepository.js';
 import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
+import type { SystemStateRepository } from '../src/db/systemStateRepository.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import type { Pruner } from '../src/Pruner.js';
@@ -19,6 +20,7 @@ import {
   createMockQueueOrderRepo,
   createMockQueueRepo,
   createMockSourceCommentValidator,
+  createMockSystemStateRepository,
   drainMicrotasks,
   makeUniqueRepoName,
 } from './helpers/index.js';
@@ -62,6 +64,7 @@ interface MockSchedulerDeps {
   logger: Logger;
   pruner: jest.Mocked<Pruner>;
   commentValidator: jest.Mocked<SourceCommentValidator>;
+  systemState: jest.Mocked<SystemStateRepository>;
 }
 
 const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
@@ -101,6 +104,8 @@ const setup = (): MockSchedulerDeps => {
 
   const pruner = createMockPruner();
 
+  const systemState = createMockSystemStateRepository();
+
   const config: Config = {
     DETECTION_MODE: 'poll',
     GITHUB_API_TIMEOUT_MS: 10_000,
@@ -117,7 +122,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_TICK_INTERVAL_MS: TICK_INTERVAL_MS,
   };
 
-  return { config, queue, queueOrder, github, events, observation, prisma, tx, logger, pruner, commentValidator };
+  return { config, queue, queueOrder, github, events, observation, prisma, tx, logger, pruner, commentValidator, systemState };
 };
 
 describe('Scheduler', () => {
@@ -142,6 +147,7 @@ describe('Scheduler', () => {
       deps.config,
       deps.pruner,
       deps.commentValidator,
+      deps.systemState,
       deps.logger,
     );
 
@@ -323,10 +329,79 @@ describe('Scheduler', () => {
 
       await drainMicrotasks(SHORT_DRAIN);
 
+      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
       expect(deps.github.postRetrigger).not.toHaveBeenCalled();
       expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('skips processing when scheduler is paused', async () => {
+      const item = makeItem();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.systemState.isSchedulerPaused.mockResolvedValue(true);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
+      expect(deps.logger.debug).toHaveBeenCalledWith({ fn: 'Scheduler.tick' }, 'Scheduler is paused; skipping tick');
+      expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
+      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('prunes before checking pause state', async () => {
+      deps.systemState.isSchedulerPaused.mockResolvedValue(true);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.pruner.prune).toHaveBeenCalled();
+      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('proceeds normally when schedulerStatus is undefined', async () => {
+      const item = makeItem();
+      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.systemState.isSchedulerPaused.mockResolvedValue(false);
+      deps.github.postRetrigger.mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
+      expect(deps.github.postRetrigger).toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('proceeds normally when schedulerStatus is running', async () => {
+      const item = makeItem();
+      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.systemState.isSchedulerPaused.mockResolvedValue(false);
+      deps.github.postRetrigger.mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
+      expect(deps.github.postRetrigger).toHaveBeenCalled();
 
       await stop();
     });

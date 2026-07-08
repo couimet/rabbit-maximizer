@@ -3,7 +3,7 @@ import { createExpressApp } from '../../src/external-deps/couimet/express-tools/
 import { createGetQueueOrderHandler, createMoveQueueOrderHandler, createRetriggerNowHandler } from '../../src/routes/queueOrderRoutes.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockLogger, createMockQueueOrderRepo } from '../helpers/index.js';
+import { createMockLogger, createMockQueueOrderRepo, createMockSystemStateRepository } from '../helpers/index.js';
 import { postJson } from '../helpers/postJson.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -218,15 +218,48 @@ describe('queueOrderRoutes', () => {
   });
 
   describe('POST /api/queue/:uuid/retrigger-now', () => {
-    const startServer = (over = {}) => {
+    const startServer = (over = {}, systemStateRepoOver = {}) => {
       logger = createMockLogger();
       const app = createExpressApp({ logger });
       app.post(
         '/api/queue/:uuid/retrigger-now',
-        createRetriggerNowHandler(createMockQueueOrderRepo(over), { SCHEDULER_TICK_INTERVAL_MS: 10000 } as Config, logger),
+        createRetriggerNowHandler(
+          createMockQueueOrderRepo(over),
+          createMockSystemStateRepository(systemStateRepoOver as any),
+          { SCHEDULER_TICK_INTERVAL_MS: 10000 } as Config,
+          logger,
+        ),
       );
       server = app.listen(0);
     };
+
+    it('returns 409 when scheduler is paused', async () => {
+      startServer({}, { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) });
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.CONFLICT);
+      expect(await res.json()).toStrictEqual({ error: 'Maximizer is paused; resume it before retriggering' });
+    });
+
+    it('proceeds normally when schedulerStatus is running', async () => {
+      const moveToTop = jest.fn<any>().mockResolvedValue({ ...makeItem(1, UUID_A), status: 'pending' });
+      startServer(
+        {
+          getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]),
+          moveToTop,
+        },
+        { isSchedulerPaused: jest.fn<any>().mockResolvedValue(false) },
+      );
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(await res.json()).toStrictEqual({ ok: true, schedulerTickIntervalSec: 10 });
+      expect(moveToTop).toHaveBeenCalledWith(UUID_A, 'dashboard_retrigger_now');
+    });
 
     it('returns 200 with { ok: true, schedulerTickIntervalSec: 10 }', async () => {
       const moveToTop = jest.fn<any>().mockResolvedValue({ ...makeItem(1, UUID_A), status: 'pending' });

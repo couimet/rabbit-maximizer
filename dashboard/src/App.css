@@ -472,9 +472,9 @@ a:hover {
 .countdown-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 16px 24px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px;
   margin-bottom: 20px;
   background: #fff;
   border: 1px solid #e3d6c3;
@@ -488,6 +488,17 @@ a:hover {
   border-left: 4px solid #5cb85c;
   background: linear-gradient(135deg, #fff 0%, #f4faf5 100%);
 }
+.countdown-bar.paused {
+  border-left: 4px solid #c95b4f;
+  background: linear-gradient(135deg, #fff 0%, #fef8f7 100%);
+}
+
+.countdown-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .countdown-dot {
   width: 12px;
   height: 12px;
@@ -500,6 +511,9 @@ a:hover {
 }
 .countdown-dot.available {
   background: #5cb85c;
+}
+.countdown-dot.paused {
+  background: #c95b4f;
 }
 @keyframes pulse {
   0%,
@@ -525,4 +539,32 @@ a:hover {
 }
 .countdown-value.available {
   color: #2d6a4f;
+}
+
+.countdown-toggle {
+  padding: 6px 18px;
+  border: 1px solid #d5c9b5;
+  background: #faf7f2;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b5e4f;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.countdown-toggle:hover:not(:disabled) {
+  background: #f38222;
+  border-color: #f38222;
+  color: #fff;
+}
+.countdown-toggle:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
