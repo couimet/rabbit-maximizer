@@ -1,0 +1,35 @@
+name: Request CodeRabbit Full Review
+description: Posts a @coderabbitai full review comment on a pull request to trigger a fresh CodeRabbit full review
+inputs:
+  repo:
+    description: Repository to post the comment on (owner/repo). Defaults to the current repository.
+    required: false
+    default: ${{ github.repository }}
+  pr-number:
+    description: Pull request number to post the review request on
+    required: true
+  trigger:
+    description: What triggered this review request (e.g., rabbit-maximizer-restacker, workflow-dispatch). Included in comment metadata for debugging.
+    required: false
+    default: workflow
+  metadata:
+    description: 'Additional JSON-serializable metadata to include in the comment (e.g., {"parent_pr": "https://github.com/..."}). Merged into the comment''s JSON block.'
+    required: false
+    default: '{}'
+outputs:
+  comment-id:
+    description: GitHub comment ID of the posted review request
+    value: ${{ steps.request.outputs.comment-id }}
+runs:
+  using: composite
+  steps:
+    - name: Request CodeRabbit full review
+      id: request
+      shell: bash
+      env:
+        REPO: ${{ inputs.repo }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        GITHUB_TOKEN: ${{ github.token }}
+        TRIGGER: ${{ inputs.trigger }}
+        METADATA: ${{ inputs.metadata }}
+      run: ${{ github.action_path }}/request-coderabbit-full-review.sh
