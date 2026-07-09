@@ -4,6 +4,7 @@ import { TYPES } from '../../src/inversify-types.js';
 import type { ObservationContextProvider } from '../../src/observability/observationContext.js';
 import { UuidObservationContextProvider } from '../../src/observability/observationContext.js';
 import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
+import { MarkQueueItemCompletedProbe } from '../../src/probes/MarkQueueItemCompletedProbe.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
@@ -59,6 +60,15 @@ describe('ProbeFactory', () => {
     );
 
     expect(probe).toBeInstanceOf(QueueItemProbe);
+  });
+
+  it('creates a MarkQueueItemCompletedProbe with the current observation context', () => {
+    const { eventRepository, logger } = makeMocks();
+
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const probe = factory.createMarkQueueItemCompletedProbe('test-uuid');
+
+    expect(probe).toBeInstanceOf(MarkQueueItemCompletedProbe);
   });
 
   describe('container binding', () => {

@@ -25,7 +25,8 @@ export interface QueueRepository {
   enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  markCompletedByUuid(uuid: string, tx: Prisma.TransactionClient): Promise<QueueItem | undefined>;
+  // TODO [2026-07-15]: #126 — revisit optional tx holistically; several methods use mandatory tx but could benefit from enforceTx()
+  markCompletedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -150,20 +151,25 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.toQueueItem(row);
   }
 
-  async markCompletedByUuid(uuid: string, tx: Prisma.TransactionClient): Promise<QueueItem | undefined> {
+  async markCompletedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined> {
+    if (!tx) {
+      return this.transaction((tx) => this.markCompletedByUuid(uuid, tx));
+    }
+
+    const db = this.client(tx);
     const probe = this.probeFactory.createMarkQueueItemCompletedProbe(uuid);
 
-    const row = await this.client(tx).reviewQueue.findUnique({ where: { uuid } });
+    const row = await db.reviewQueue.findUnique({ where: { uuid } });
     if (!row) {
       probe.queueItemNotFound();
       return undefined;
     }
 
-    const updated = await this.client(tx).reviewQueue.update({
+    const updated = await db.reviewQueue.update({
       where: { id: row.id },
       data: { status: QueueStatus.completed, completed_at: new Date() },
     });
-    await probe.queueItemMarkedCompleted(updated, tx);
+    await probe.queueItemMarkedCompleted(updated, db);
 
     return this.toQueueItem(updated);
   }
@@ -225,12 +231,13 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     const db = this.client(tx);
     const statuses = includeCompleted ? [QueueStatus.retriggered, QueueStatus.completed] : [QueueStatus.retriggered];
     const where = { retriggered_at: { gte: since }, status: { in: statuses } };
-    const rows = await db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' } });
-    const total = rows.length;
-    const paged = rows.slice(skip, skip + take);
+    const [rows, total] = await Promise.all([
+      db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' }, skip, take }),
+      db.reviewQueue.count({ where }),
+    ]);
 
-    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeCompleted, count: rows.length }, 'Fetched triggered queue');
-    return { items: paged.map((row) => this.toQueueItem(row)), total };
+    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeCompleted, count: rows.length, total }, 'Fetched triggered queue');
+    return { items: rows.map((row) => this.toQueueItem(row)), total };
   }
 
   async getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null> {

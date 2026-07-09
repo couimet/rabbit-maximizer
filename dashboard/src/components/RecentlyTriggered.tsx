@@ -64,7 +64,6 @@ const RecentlyTriggered = () => {
     [duration, includeCompleted],
   );
 
-  // Initial fetch and poll
   useEffect(() => {
     setPage(1);
     setItems([]);

@@ -24,6 +24,7 @@ export class MarkQueueItemCompletedProbe {
         repo_full_name: row.repo_full_name,
         pr_number: row.pr_number,
         correlation_id: this.observation.correlationId,
+        request_id: this.observation.requestId,
         version: this.observation.version,
         payload: {
           retriggered_comment_url: row.retrigger_comment_url ?? undefined,

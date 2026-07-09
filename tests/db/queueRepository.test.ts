@@ -354,6 +354,7 @@ describe('QueueRepositoryImpl', () => {
           repo_full_name: row.repo_full_name,
           pr_number: row.pr_number,
           correlation_id: observationContext.correlationId,
+          request_id: observationContext.requestId,
           version: observationContext.version,
           payload: { retriggered_comment_url: COMMENT_URL },
         },
@@ -381,9 +382,15 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.markCompletedByUuid(row.uuid, prisma as unknown as Prisma.TransactionClient);
 
       expect(probeEvents.record).toHaveBeenCalledWith(
-        expect.objectContaining({
+        {
+          type: 'completed',
+          repo_full_name: row.repo_full_name,
+          pr_number: row.pr_number,
+          correlation_id: observationContext.correlationId,
+          request_id: observationContext.requestId,
+          version: observationContext.version,
           payload: { retriggered_comment_url: undefined },
-        }),
+        },
         prisma,
       );
       expect(result).toStrictEqual(toExpectedItem(completedRow));
@@ -403,6 +410,40 @@ describe('QueueRepositoryImpl', () => {
       expect(logger.warn).toHaveBeenCalledWith(
         { fn: 'MarkQueueItemCompletedProbe.queueItemNotFound', uuid: 'missing-uuid' },
         'Queue item not found for mark-completed',
+      );
+    });
+
+    it('wraps in a transaction when called without tx', async () => {
+      const row = makeRow({ status: QueueStatus.retriggered });
+      const completedRow = { ...row, status: QueueStatus.completed, completed_at: frozenNow };
+      const { prisma, reviewQueue, event, queueOrder, systemState } = createMockPrismaClient({
+        reviewQueue: {
+          findUnique: createResolvedMock(row),
+          update: createResolvedMock(completedRow),
+        },
+      });
+      const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
+      const sut = new QueueRepositoryImpl(prisma, events as any, probeFactory, logger);
+
+      const result = await sut.markCompletedByUuid(row.uuid);
+
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(result).toStrictEqual(toExpectedItem(completedRow));
+      expect(probeEvents.record).toHaveBeenCalledWith(
+        {
+          type: 'completed',
+          repo_full_name: row.repo_full_name,
+          pr_number: row.pr_number,
+          correlation_id: observationContext.correlationId,
+          request_id: observationContext.requestId,
+          version: observationContext.version,
+          payload: { retriggered_comment_url: row.retrigger_comment_url ?? undefined },
+        },
+        { reviewQueue, event, queueOrder, systemState, $executeRawUnsafe: (prisma as any).$executeRawUnsafe, $executeRaw: (prisma as any).$executeRaw },
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'MarkQueueItemCompletedProbe.queueItemMarkedCompleted', uuid: row.uuid, id: row.id },
+        'Marked review completed by UUID',
       );
     });
   });
@@ -619,6 +660,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row2, row1]),
+          count: createResolvedMock(2),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -629,10 +671,15 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
         orderBy: { retriggered_at: 'desc' },
+        skip: 0,
+        take: 50,
+      });
+      expect(reviewQueue.count).toHaveBeenCalledWith({
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
       });
       expect(result).toStrictEqual({ items: [toExpectedItem(row2), toExpectedItem(row1)], total: 2 });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeCompleted: false, count: 2 },
+        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeCompleted: false, count: 2, total: 2 },
         'Fetched triggered queue',
       );
     });
@@ -644,6 +691,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row, completedRow]),
+          count: createResolvedMock(2),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -654,19 +702,23 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'completed'] } },
         orderBy: { retriggered_at: 'desc' },
+        skip: 0,
+        take: 50,
+      });
+      expect(reviewQueue.count).toHaveBeenCalledWith({
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'completed'] } },
       });
       expect(result.items).toStrictEqual([toExpectedItem(row), toExpectedItem(completedRow)]);
     });
 
     it('respects skip and take for pagination', async () => {
       const since = getUniqueDate();
-      const row0 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 5000) });
       const row1 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 4000) });
       const row2 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 3000) });
-      const row3 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 2000) });
-      const { prisma } = createMockPrismaClient({
+      const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
-          findMany: createResolvedMock([row0, row1, row2, row3]),
+          findMany: createResolvedMock([row1, row2]),
+          count: createResolvedMock(4),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -674,6 +726,15 @@ describe('QueueRepositoryImpl', () => {
 
       const result = await sut.getTriggered(since, 1, 2, false);
 
+      expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+        orderBy: { retriggered_at: 'desc' },
+        skip: 1,
+        take: 2,
+      });
+      expect(reviewQueue.count).toHaveBeenCalledWith({
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+      });
       expect(result).toStrictEqual({ items: [toExpectedItem(row1), toExpectedItem(row2)], total: 4 });
     });
   });

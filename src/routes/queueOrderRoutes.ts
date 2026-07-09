@@ -103,7 +103,7 @@ export const createMarkCompletedHandler = (queueRepo: QueueRepository, logger: L
         return;
       }
 
-      const item = await queueRepo.markCompletedByUuid(uuid, undefined!);
+      const item = await queueRepo.markCompletedByUuid(uuid);
       if (!item) {
         res.status(StatusCodes.NOT_FOUND).json({ error: `Queue item not found: ${uuid}` });
         return;

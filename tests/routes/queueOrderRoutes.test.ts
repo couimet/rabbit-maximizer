@@ -11,6 +11,7 @@ import { getJson } from '../helpers/getJson.js';
 import { createMockLogger, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } from '../helpers/index.js';
 import { postJson } from '../helpers/postJson.js';
 
+import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
@@ -338,14 +339,16 @@ describe('queueOrderRoutes', () => {
     };
 
     it('returns 200 with { ok: true }', async () => {
-      const item = { ...makeItem(1, UUID_A), repo_full_name: 'c/r', pr_number: 42 };
-      startServer({ markCompletedByUuid: jest.fn<any>().mockResolvedValue(item) });
+      const item = { ...makeItem(1, UUID_A), repo_full_name: 'c/r', pr_number: getUniqueInt() };
+      const markCompletedByUuid = jest.fn<any>().mockResolvedValue(item);
+      startServer({ markCompletedByUuid });
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-completed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
+      expect(markCompletedByUuid).toHaveBeenCalledWith(UUID_A);
     });
 
     it('returns 400 for non-UUID id', async () => {
