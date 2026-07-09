@@ -7,25 +7,33 @@ const { version } = pkg;
 const repoUrl = pkg.repository.url;
 
 export const buildCommentBody = (sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): string => {
-  let marker: string;
   let triggerLine: string;
-
-  const baseMarker = `\u{1F527} rabbit-maximizer v${version} run=${runId}`;
+  let sourceUrlForMetadata: string | null;
 
   switch (triggerSource) {
     case TriggerSource.dashboard_retrigger_now:
-      marker = `${baseMarker} [manual]`;
       triggerLine = `\u{26A1} Triggered manually from dashboard`;
+      sourceUrlForMetadata = null;
       break;
     case TriggerSource.scheduler:
-      marker = baseMarker;
       triggerLine = `\u{21A9} Triggered by: ${sourceCommentUrl}`;
+      sourceUrlForMetadata = sourceCommentUrl;
       break;
     default:
       throw RabbitMaximizerError.forUnexpectedSwitchDefault('triggerSource', triggerSource, 'buildCommentBody');
   }
 
-  const footer = [`\u{1F916} rabbit-maximizer | ${repoUrl} | v${version} | run=${runId}`, triggerLine].join('\n');
+  const footer = `\u{1F916} [rabbit-maximizer](${repoUrl}) v${version} — run=${runId}`;
 
-  return [REVIEW_BOT_RETRIGGER_COMMAND, '', marker, '', '---', '', footer].join('\n');
+  const metadata = {
+    version,
+    runId,
+    triggerSource,
+    sourceCommentUrl: sourceUrlForMetadata,
+    timestamp: new Date().toISOString(),
+  };
+
+  const jsonComment = `<!-- rabbit-maximizer\n${JSON.stringify(metadata, null, 2)}\n-->`;
+
+  return [REVIEW_BOT_RETRIGGER_COMMAND, '', triggerLine, '', '---', '', footer, '', jsonComment].join('\n');
 };
