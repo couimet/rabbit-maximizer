@@ -1,7 +1,7 @@
 import { PollDetector } from '../src/detectorPoll.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
+import type { DetectedComment } from '../src/types/DetectedComment.js';
 import type { OnDetectedCallback } from '../src/types/OnDetectedCallback.js';
-import type { ReviewLimitComment } from '../src/types/ReviewLimitComment.js';
 
 import { createMockCoderabbitGitHubClient, createMockOnDetectedCallback, createMockSystemStateRepository, drainMicrotasks } from './helpers/index.js';
 
@@ -31,16 +31,11 @@ interface MockDetectorDeps {
   logger: Logger;
 }
 
-const makeComment = (overrides: {
-  commentId?: number;
-  repoFullName?: string;
-  prNumber?: number;
-  createdAt?: string;
-  updatedAt?: string;
-}): ReviewLimitComment => ({
+const makeComment = (overrides: { commentId?: number; repoFullName?: string; prNumber?: number; createdAt?: string; updatedAt?: string }): DetectedComment => ({
   url: getUniqueString({ prefix: 'https://gh/c/' }),
   repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: overrides.prNumber ?? getUniqueInt(),
+  pr_title: getUniqueString({ prefix: 'pr-title-' }),
   comment_id: overrides.commentId ?? getUniqueInt(),
   created_at: overrides.createdAt ?? getUniqueDate().toISOString(),
   updated_at: overrides.updatedAt ?? getUniqueDate().toISOString(),
@@ -162,8 +157,8 @@ describe('PollDetector', () => {
 
   describe('concurrency', () => {
     it('skips tick when another tick is already in-flight', async () => {
-      let resolveSearch: (value: ReviewLimitComment[]) => void;
-      const searchPromise = new Promise<ReviewLimitComment[]>((resolve) => {
+      let resolveSearch: (value: DetectedComment[]) => void;
+      const searchPromise = new Promise<DetectedComment[]>((resolve) => {
         resolveSearch = resolve;
       });
       deps.github.searchReviewLimitComments.mockReturnValue(searchPromise);

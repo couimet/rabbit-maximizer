@@ -26,6 +26,7 @@ const makeItem = (over: Record<string, unknown> = {}) => ({
   uuid: getUniqueString({ prefix: 'uuid-' }),
   repo_full_name: `${getUniqueString({ prefix: 'owner' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: getUniqueInt(),
+  pr_title: getUniqueString({ prefix: 'pr-' }),
   status: QueueStatus.retriggered,
   not_before: getUniqueDate().toISOString(),
   attempts: 0,
@@ -59,6 +60,7 @@ describe('RecentlyTriggered', () => {
 
       await waitFor(() => expect(screen.getByText(item.repo_full_name)).toBeInTheDocument());
       expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument();
+      expect(screen.getByText(item.pr_title)).toBeInTheDocument();
     });
 
     it('shows empty message when no items exist', async () => {

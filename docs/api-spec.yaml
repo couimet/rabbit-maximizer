@@ -305,6 +305,7 @@ components:
         - uuid
         - repo_full_name
         - pr_number
+        - pr_title
         - status
         - not_before
         - attempts
@@ -320,6 +321,8 @@ components:
           type: string
         pr_number:
           type: integer
+        pr_title:
+          type: string
         status:
           $ref: '#/components/schemas/QueueStatus'
         not_before:

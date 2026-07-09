@@ -150,8 +150,7 @@ const QueueOrder = ({
                   />
                 </th>
                 <th className="col-position">#</th>
-                <th>Repo</th>
-                <th>PR</th>
+                <th>Repo / PR</th>
                 <th>Not Before</th>
                 <th className="col-actions"></th>
               </tr>
@@ -174,12 +173,11 @@ const QueueOrder = ({
                     <td>
                       <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
                         {item.repo_full_name}
-                      </a>
-                    </td>
-                    <td>
+                      </a>{' '}
                       <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
                         #{item.pr_number}
                       </a>
+                      <span className="pr-title">{item.pr_title}</span>
                     </td>
                     <td>{formatRelativeFuture(item.not_before)}</td>
                     <td className="col-actions">

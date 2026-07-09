@@ -1,7 +1,16 @@
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import type { ProbeFactory } from '../probes/ProbeFactory.js';
-import { type CommentDetails, type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
+import {
+  type CommentDetails,
+  type EnqueueData,
+  type EnqueueResult,
+  EventType,
+  type PaginatedResult,
+  type QueueItem,
+  QueueStatus,
+  TriggerSource,
+} from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
 import type { EventRepository } from './eventRepository.js';
@@ -11,15 +20,6 @@ import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
 const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
-
-export interface EnqueueData {
-  repo: string;
-  pr: number;
-  notBefore: Date;
-  sourceCommentUrl: string;
-  sourceCommentId: number;
-  newWait: number;
-}
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -53,7 +53,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   /* c8 ignore stop */
 
   async enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
-    const { repo, pr, notBefore, sourceCommentUrl, sourceCommentId, newWait } = data;
+    const { repo, pr, prTitle, notBefore, sourceCommentUrl, sourceCommentId, newWait } = data;
     const db = this.client(tx);
     const recentRetriggered = await db.reviewQueue.findFirst({
       where: {
@@ -73,6 +73,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         data: {
           repo_full_name: repo,
           pr_number: pr,
+          pr_title: prTitle,
           not_before: notBefore,
           source_comment_url: sourceCommentUrl,
           source_comment_id: sourceCommentId,
@@ -276,6 +277,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       uuid: row.uuid,
       repo_full_name: row.repo_full_name,
       pr_number: row.pr_number,
+      pr_title: row.pr_title,
       status: row.status as QueueStatus,
       not_before: row.not_before,
       attempts: row.attempts,

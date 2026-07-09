@@ -1,5 +1,6 @@
 import { TYPES } from '../inversify-types.js';
 import { REVIEW_BOT_LOGIN } from '../types/coderabbit.js';
+import type { DetectedComment } from '../types/DetectedComment.js';
 import type { PRState } from '../types/PRState.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
 import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
@@ -21,7 +22,7 @@ const SEARCH_MAX_PAGES = 3;
 const COMMENTS_FETCH_PER_PAGE = 100;
 
 export interface CoderabbitGitHubClient {
-  searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<ReviewLimitComment[]>;
+  searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]>;
 
   fetchComment(owner: string, repo: string, commentId: number): Promise<string>;
 
@@ -43,11 +44,11 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
   ) {}
   /* c8 ignore stop */
 
-  async searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<ReviewLimitComment[]> {
+  async searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]> {
     const query = buildSearchQuery(repoFilter);
     this.log.debug({ fn: 'searchReviewLimitComments', query }, 'Searching for rate-limit comments');
 
-    const results: ReviewLimitComment[] = [];
+    const results: DetectedComment[] = [];
     for (let page = 1; page <= SEARCH_MAX_PAGES; page++) {
       // issuesAndPullRequests is the canonical GET /search/issues endpoint.
       // Octokit's generated types mark it deprecated pending a rename that
@@ -81,6 +82,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
           results.push({
             repo_full_name: repoFullName,
             pr_number: item.number,
+            pr_title: item.title,
             comment_id: rateLimitComment.id,
             url: rateLimitComment.html_url,
             created_at: rateLimitComment.created_at,

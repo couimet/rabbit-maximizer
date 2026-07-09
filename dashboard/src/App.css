@@ -646,3 +646,16 @@ a:hover {
 .mark-completed-button:hover {
   background: #d4edda;
 }
+
+/* Queue Order PR title */
+
+.pr-title {
+  display: block;
+  font-size: 0.82rem;
+  color: #8b7d6b;
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}

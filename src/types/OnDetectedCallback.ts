@@ -1,3 +1,3 @@
-import type { ReviewLimitComment } from './ReviewLimitComment.js';
+import type { DetectedComment } from './DetectedComment.js';
 
-export type OnDetectedCallback = (comment: ReviewLimitComment, waitSeconds: number) => Promise<void>;
+export type OnDetectedCallback = (comment: DetectedComment, waitSeconds: number) => Promise<void>;

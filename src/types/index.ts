@@ -1,5 +1,7 @@
 export * from './coderabbit.js';
 export * from './CommentDetails.js';
+export * from './DetectedComment.js';
+export * from './EnqueueData.js';
 export * from './EnqueueResult.js';
 export * from './EnrichedItem.js';
 export * from './EventLogEntry.js';

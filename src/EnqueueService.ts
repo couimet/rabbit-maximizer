@@ -55,6 +55,7 @@ export class EnqueueService {
           {
             repo: comment.repo_full_name,
             pr: comment.pr_number,
+            prTitle: comment.pr_title,
             notBefore: scheduledFor,
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.comment_id,

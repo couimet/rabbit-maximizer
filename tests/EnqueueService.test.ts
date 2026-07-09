@@ -4,7 +4,7 @@ import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
-import type { ReviewLimitComment } from '../src/types/ReviewLimitComment.js';
+import type { DetectedComment } from '../src/types/DetectedComment.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -12,10 +12,11 @@ import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const MS_PER_SECOND = 1000;
 
-const makeComment = (): ReviewLimitComment => ({
+const makeComment = (): DetectedComment => ({
   url: getUniqueString({ prefix: 'https://gh/c/' }),
   repo_full_name: `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: getUniqueInt(),
+  pr_title: 'Test PR title',
   comment_id: getUniqueInt(),
   created_at: getUniqueDate().toISOString(),
   updated_at: getUniqueDate().toISOString(),
@@ -123,6 +124,7 @@ describe('EnqueueService', () => {
         {
           repo: comment.repo_full_name,
           pr: comment.pr_number,
+          prTitle: comment.pr_title,
           notBefore: expectedScheduledFor,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.comment_id,
@@ -176,6 +178,7 @@ describe('EnqueueService', () => {
         {
           repo: comment.repo_full_name,
           pr: comment.pr_number,
+          prTitle: comment.pr_title,
           notBefore: expectedScheduledFor,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.comment_id,

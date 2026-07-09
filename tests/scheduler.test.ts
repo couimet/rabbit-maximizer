@@ -42,6 +42,7 @@ interface QueueItemStub {
   uuid: string;
   repo_full_name: string;
   pr_number: number;
+  pr_title: string;
   status: QueueStatus;
   not_before: Date;
   attempts: number;
@@ -74,6 +75,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
     uuid: over.uuid ?? getUniqueString({ prefix: 'uuid-' }),
     repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
+    pr_title: over.pr_title ?? getUniqueString({ prefix: 'pr-title-' }),
     status: over.status ?? QueueStatus.pending,
     not_before: over.not_before ?? new Date(Date.now() - 60_000),
     attempts: over.attempts ?? 0,

@@ -242,12 +242,13 @@ describe('client', () => {
       );
     });
 
-    it('returns ReviewLimitComment objects for issues with matching comments', async () => {
+    it('returns DetectedComment objects for issues with matching comments', async () => {
       const matchingCommentId = getUniqueInt();
       const matchingCommentUrl = `https://github.com/couimet/my-repo/issues/${prNumber}#issuecomment-${matchingCommentId}`;
       const matchingCreatedAt = new Date(frozenDate.getTime() - getUniqueInt() * MS_PER_HOUR).toISOString();
       const matchingUpdatedAt = new Date(frozenDate.getTime() - getUniqueInt() * MS_PER_HOUR).toISOString();
       const matchingBody = `${getRandomString()} rate limited by coderabbit.ai ${getRandomString()}`;
+      const prTitle = getUniqueString({ prefix: 'pr-title-' });
 
       search.issuesAndPullRequests.mockResolvedValue({
         data: {
@@ -255,6 +256,7 @@ describe('client', () => {
             {
               repository_url: 'https://api.github.com/repos/couimet/my-repo',
               number: prNumber,
+              title: prTitle,
             },
           ],
         },
@@ -280,6 +282,7 @@ describe('client', () => {
         {
           repo_full_name: 'couimet/my-repo',
           pr_number: prNumber,
+          pr_title: prTitle,
           comment_id: matchingCommentId,
           url: matchingCommentUrl,
           created_at: matchingCreatedAt,

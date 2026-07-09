@@ -119,8 +119,7 @@ const RecentlyTriggered = () => {
           <table className="data-table triggered-table">
             <thead>
               <tr>
-                <th>Repo</th>
-                <th>PR</th>
+                <th>Repo / PR</th>
                 <th>Retriggered</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -132,12 +131,11 @@ const RecentlyTriggered = () => {
                   <td>
                     <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noreferrer">
                       {item.repo_full_name}
-                    </a>
-                  </td>
-                  <td>
+                    </a>{' '}
                     <a href={item.retrigger_comment_url ?? prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noreferrer">
                       #{item.pr_number}
                     </a>
+                    <span className="pr-title">{item.pr_title}</span>
                   </td>
                   <td>{item.retriggered_at ? formatRelativeTime(item.retriggered_at) : '—'}</td>
                   <td>
