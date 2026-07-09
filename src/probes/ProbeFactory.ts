@@ -7,6 +7,7 @@ import type { QueueItem } from '../types/index.js';
 import { DetectedProbe, type DetectedProbeContext } from './DetectedProbe.js';
 import { MarkQueueItemCompletedProbe } from './MarkQueueItemCompletedProbe.js';
 import { QueueItemProbe } from './QueueItemProbe.js';
+import { ReviewRetriggerProbe } from './ReviewRetriggerProbe.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -35,4 +36,11 @@ export class ProbeFactory {
   createMarkQueueItemCompletedProbe(uuid: string): MarkQueueItemCompletedProbe {
     return new MarkQueueItemCompletedProbe(uuid, this.eventRepository, this.observation.current(), this.log);
   }
+
+  /* c8 ignore start — wiring: no logic to test; constructor delegation only */
+  // TODO [2026-07-15]: #123 — move queue back to constructor once circular dep dissolves
+  createReviewRetriggerProbe(item: QueueItem, queue: QueueRepository): ReviewRetriggerProbe {
+    return new ReviewRetriggerProbe(item, queue, this.eventRepository, this.observation.current(), this.log);
+  }
+  /* c8 ignore stop */
 }

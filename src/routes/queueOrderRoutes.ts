@@ -1,9 +1,8 @@
-import type { Config } from '../config.js';
 import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
 import type { QueueRepository } from '../db/queueRepository.js';
 import type { SystemStateRepository } from '../db/systemStateRepository.js';
+import { ReviewTrigger } from '../ReviewTrigger.js';
 import { QueueStatus, TriggerSource } from '../types/index.js';
-import { MS_PER_SECOND } from '../utils/durations.js';
 import { isValidUuid } from '../utils/uuidLookup.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -59,7 +58,12 @@ export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository
   };
 };
 
-export const createRetriggerNowHandler = (queueOrderRepo: QueueOrderRepository, systemStateRepo: SystemStateRepository, config: Config, logger: Logger) => {
+export const createRetriggerNowHandler = (
+  queueOrderRepo: QueueOrderRepository,
+  systemStateRepo: SystemStateRepository,
+  reviewTrigger: ReviewTrigger,
+  logger: Logger,
+) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const uuid = req.params.uuid as string;
@@ -69,24 +73,35 @@ export const createRetriggerNowHandler = (queueOrderRepo: QueueOrderRepository, 
       }
 
       if (await systemStateRepo.isSchedulerPaused()) {
-        res.status(StatusCodes.CONFLICT).json({ error: 'Maximizer is paused; resume it before retriggering' });
-        return;
+        if (req.query.overridePause !== 'true') {
+          logger.info({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Retrigger blocked: scheduler is paused');
+          res.status(StatusCodes.CONFLICT).json({ error: 'Maximizer is paused; resume it before retriggering' });
+          return;
+        }
+        logger.info({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Retriggering while scheduler is paused (overridePause=true)');
       }
 
       const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
       const item = items.find((i) => i.uuid === uuid);
       if (!item) {
-        res.status(StatusCodes.NOT_FOUND).json({ error: `Queue item not found: ${uuid}` });
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Queue item not found');
+        res.status(StatusCodes.NOT_FOUND).json({ error: 'Queue item not found' });
         return;
       }
       if (item.status !== QueueStatus.pending) {
-        res.status(StatusCodes.CONFLICT).json({ error: `Queue item is not pending: ${uuid}` });
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is not pending');
+        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is not pending' });
         return;
       }
 
-      await queueOrderRepo.moveToTop(uuid, TriggerSource.dashboard_retrigger_now);
+      const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
+      if (!result.success) {
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, error: result.error }, 'Failed to retrigger now');
+        res.status(StatusCodes.CONFLICT).json({ error: 'Failed to retrigger now' });
+        return;
+      }
 
-      res.json({ ok: true, schedulerTickIntervalSec: config.SCHEDULER_TICK_INTERVAL_MS / MS_PER_SECOND });
+      res.status(StatusCodes.NO_CONTENT).end();
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.retriggerNow', error }, 'Failed to retrigger now');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to retrigger now' });

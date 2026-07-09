@@ -1,4 +1,3 @@
-import type { Config } from '../../src/config.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import {
   createGetQueueOrderHandler,
@@ -6,6 +5,7 @@ import {
   createMoveQueueOrderHandler,
   createRetriggerNowHandler,
 } from '../../src/routes/queueOrderRoutes.js';
+import { RabbitResult } from '../../src/types/RabbitResult.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
 import { createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } from '../helpers/index.js';
@@ -226,18 +226,22 @@ describe('queueOrderRoutes', () => {
   });
 
   describe('POST /api/queue/:uuid/retrigger-now', () => {
-    const startServer = (over = {}, systemStateRepoOver = {}) => {
+    const TRIGGER_OK = RabbitResult.ok({ retriggeredCommentUrl: 'https://gh/c/retriggered' });
+
+    const startServer = (over = {}, systemStateRepoOver = {}, triggerResult = TRIGGER_OK) => {
       const app = createExpressApp({ logger });
+      const mockReviewTrigger = { trigger: jest.fn<any>().mockResolvedValue(triggerResult) };
       app.post(
         '/api/queue/:uuid/retrigger-now',
         createRetriggerNowHandler(
           createMockQueueOrderRepo(over),
           createMockSystemStateRepository(systemStateRepoOver as any),
-          { SCHEDULER_TICK_INTERVAL_MS: 10000 } as Config,
+          mockReviewTrigger as any,
           logger,
         ),
       );
       server = app.listen(0);
+      return { mockReviewTrigger };
     };
 
     it('returns 409 when scheduler is paused', async () => {
@@ -248,39 +252,62 @@ describe('queueOrderRoutes', () => {
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
       expect(await res.json()).toStrictEqual({ error: 'Maximizer is paused; resume it before retriggering' });
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A }, 'Retrigger blocked: scheduler is paused');
+    });
+
+    it('allows retrigger when paused if overridePause=true is passed', async () => {
+      startServer(
+        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]) },
+        { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) },
+      );
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now?overridePause=true`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.NO_CONTENT);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'api.queueOrder.retriggerNow', uuid: UUID_A },
+        'Retriggering while scheduler is paused (overridePause=true)',
+      );
     });
 
     it('proceeds normally when schedulerStatus is running', async () => {
-      const moveToTop = jest.fn<any>().mockResolvedValue({ ...makeItem(1, UUID_A), status: 'pending' });
       startServer(
-        {
-          getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]),
-          moveToTop,
-        },
+        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]) },
         { isSchedulerPaused: jest.fn<any>().mockResolvedValue(false) },
       );
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
-      expect(res.status).toBe(StatusCodes.OK);
-      expect(await res.json()).toStrictEqual({ ok: true, schedulerTickIntervalSec: 10 });
-      expect(moveToTop).toHaveBeenCalledWith(UUID_A, 'dashboard_retrigger_now');
+      expect(res.status).toBe(StatusCodes.NO_CONTENT);
     });
 
-    it('returns 200 with { ok: true, schedulerTickIntervalSec: 10 }', async () => {
-      const moveToTop = jest.fn<any>().mockResolvedValue({ ...makeItem(1, UUID_A), status: 'pending' });
-      startServer({
-        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]),
-        moveToTop,
-      });
+    it('returns 204', async () => {
+      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]) });
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
-      expect(res.status).toBe(StatusCodes.OK);
-      expect(await res.json()).toStrictEqual({ ok: true, schedulerTickIntervalSec: 10 });
-      expect(moveToTop).toHaveBeenCalledWith(UUID_A, 'dashboard_retrigger_now');
+      expect(res.status).toBe(StatusCodes.NO_CONTENT);
+    });
+
+    it('returns 409 when ReviewTrigger rejects with stale comment', async () => {
+      const triggerErr = RabbitResult.err(
+        new (await import('../../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+          code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+          message: 'Source comment is gone with no replacement',
+          functionName: 'ReviewTrigger.trigger',
+        }),
+      );
+      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'pending' }]) }, {}, triggerErr);
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.CONFLICT);
+      expect(await res.json()).toStrictEqual({ error: 'Failed to retrigger now' });
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, error: triggerErr.error }, 'Failed to retrigger now');
     });
 
     it('returns 400 for non-UUID id', async () => {
@@ -302,7 +329,8 @@ describe('queueOrderRoutes', () => {
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/99999999-9999-9999-9999-999999999999/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NOT_FOUND);
-      expect(await res.json()).toStrictEqual({ error: 'Queue item not found: 99999999-9999-9999-9999-999999999999' });
+      expect(await res.json()).toStrictEqual({ error: 'Queue item not found' });
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: '99999999-9999-9999-9999-999999999999' }, 'Queue item not found');
     });
 
     it('returns 409 when item is not pending', async () => {
@@ -314,7 +342,8 @@ describe('queueOrderRoutes', () => {
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
-      expect(await res.json()).toStrictEqual({ error: `Queue item is not pending: ${UUID_A}` });
+      expect(await res.json()).toStrictEqual({ error: 'Queue item is not pending' });
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'completed' }, 'Queue item is not pending');
     });
 
     it('returns 500 on repository error', async () => {

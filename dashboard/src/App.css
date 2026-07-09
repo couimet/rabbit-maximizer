@@ -681,3 +681,71 @@ a:hover {
 .queue-order-carrots {
   letter-spacing: 2px;
 }
+
+/* Confirm dialog */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-box {
+  background: #fff;
+  border: 1px solid #e3d6c3;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
+.dialog-message {
+  margin: 0 0 20px;
+  font-size: 0.95rem;
+  color: #472e22;
+  line-height: 1.5;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dialog-btn {
+  padding: 6px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.dialog-btn-cancel {
+  border: 1px solid #e3d6c3;
+  background: #fff;
+  color: #8b7d6b;
+}
+
+.dialog-btn-cancel:hover {
+  background: #f4f0e7;
+}
+
+.dialog-btn-confirm {
+  border: 1px solid #f38222;
+  background: #f38222;
+  color: #fff;
+}
+
+.dialog-btn-confirm:hover {
+  background: #e0741a;
+  border-color: #e0741a;
+}
+

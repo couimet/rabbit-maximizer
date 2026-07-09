@@ -16,8 +16,8 @@ import { EnqueueService } from './EnqueueService.js';
 import { TYPES } from './inversify-types.js';
 import { type PruneEvaluator, PruneEvaluatorImpl } from './PruneEvaluator.js';
 import { type Pruner, PrunerImpl } from './Pruner.js';
+import { ReviewTrigger } from './ReviewTrigger.js';
 import { Scheduler } from './scheduler.js';
-import { type SourceCommentValidator, SourceCommentValidatorImpl } from './SourceCommentValidator.js';
 
 import 'reflect-metadata';
 import { getLogger, type Logger } from '@couimet/logger-contract';
@@ -75,7 +75,7 @@ container
 
 container.bind<PollDetector>(TYPES.PollDetector).to(PollDetector).inSingletonScope();
 
+container.bind<ReviewTrigger>(TYPES.ReviewTrigger).to(ReviewTrigger).inSingletonScope();
 container.bind<Scheduler>(TYPES.Scheduler).to(Scheduler).inSingletonScope();
-container.bind<SourceCommentValidator>(TYPES.SourceCommentValidator).to(SourceCommentValidatorImpl).inSingletonScope();
 
 export { container };

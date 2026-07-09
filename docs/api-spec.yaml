@@ -194,6 +194,44 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/queue/{uuid}/retrigger-now:
+    post:
+      operationId: retriggerNow
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: overridePause
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '204':
+          description: Retrigger posted
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Queue item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Scheduler is paused or trigger failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/queue/triggered:
     get:
       operationId: getTriggered

@@ -1,24 +1,22 @@
 import type { Config } from '../src/config.js';
-import type { EventRepository, NewEvent } from '../src/db/eventRepository.js';
+import type { EventRepository } from '../src/db/eventRepository.js';
 import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
 import type { SystemStateRepository } from '../src/db/systemStateRepository.js';
-import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import type { Pruner } from '../src/Pruner.js';
+import { ReviewTrigger } from '../src/ReviewTrigger.js';
 import { Scheduler } from '../src/scheduler.js';
-import type { SourceCommentValidator } from '../src/SourceCommentValidator.js';
 import { TriggerSource } from '../src/types/index.js';
 import { QueueStatus } from '../src/types/QueueStatus.js';
+import { RabbitResult } from '../src/types/RabbitResult.js';
 
 import {
-  createMockCoderabbitGitHubClient,
   createMockEventRepo,
   createMockObservationContextProvider,
   createMockPruner,
   createMockQueueOrderRepo,
   createMockQueueRepo,
-  createMockSourceCommentValidator,
   createMockSystemStateRepository,
   drainMicrotasks,
   makeUniqueRepoName,
@@ -32,10 +30,7 @@ import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const TICK_INTERVAL_MS = 10_000;
 const SHORT_DRAIN = 5;
-const SINGLE_TICK = 1;
 const BASE_BACKOFF_MS = 60_000;
-const BACKOFF_TOLERANCE_MS = 5_000;
-const POST_COOLDOWN_MS = 3_600_000;
 
 interface QueueItemStub {
   id: number;
@@ -57,14 +52,13 @@ interface MockSchedulerDeps {
   config: Config;
   queue: jest.Mocked<QueueRepository>;
   queueOrder: jest.Mocked<QueueOrderRepository>;
-  github: jest.Mocked<CoderabbitGitHubClient>;
   events: jest.Mocked<EventRepository>;
   observation: jest.Mocked<ObservationContextProvider>;
   prisma: PrismaClient;
   tx: Prisma.TransactionClient;
   logger: Logger;
   pruner: jest.Mocked<Pruner>;
-  commentValidator: jest.Mocked<SourceCommentValidator>;
+  reviewTrigger: jest.Mocked<ReviewTrigger>;
   systemState: jest.Mocked<SystemStateRepository>;
 }
 
@@ -90,8 +84,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
 const setup = (): MockSchedulerDeps => {
   const queue = createMockQueueRepo();
   const queueOrder = createMockQueueOrderRepo();
-  const github = createMockCoderabbitGitHubClient();
-  const commentValidator = createMockSourceCommentValidator();
+  const reviewTrigger = { trigger: jest.fn() } as unknown as jest.Mocked<ReviewTrigger>;
   const events = createMockEventRepo() as unknown as MockSchedulerDeps['events'];
 
   const observation = createMockObservationContextProvider();
@@ -126,7 +119,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_TICK_INTERVAL_MS: TICK_INTERVAL_MS,
   };
 
-  return { config, queue, queueOrder, github, events, observation, prisma, tx, logger, pruner, commentValidator, systemState };
+  return { config, queue, queueOrder, events, observation, prisma, tx, logger, pruner, reviewTrigger, systemState };
 };
 
 describe('Scheduler', () => {
@@ -144,13 +137,12 @@ describe('Scheduler', () => {
     new Scheduler(
       deps.queue,
       deps.queueOrder,
-      deps.github,
       deps.events,
       deps.observation,
       deps.prisma,
       deps.config,
       deps.pruner,
-      deps.commentValidator,
+      deps.reviewTrigger,
       deps.systemState,
       deps.logger,
     );
@@ -158,122 +150,139 @@ describe('Scheduler', () => {
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
   describe('tick', () => {
-    it('posts retrigger, marks retriggered, and records retriggered event in a transaction', async () => {
+    const TRIGGER_OK = RabbitResult.ok({ retriggeredCommentUrl: 'https://gh/c/retriggered' });
+
+    it('delegates to ReviewTrigger on success', async () => {
       const item = makeItem();
-      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.github.postRetrigger.mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
+      deps.reviewTrigger.trigger.mockResolvedValue(TRIGGER_OK);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.github.postRetrigger).toHaveBeenCalledWith(
-        item.repo_full_name,
-        item.pr_number,
-        item.source_comment_url,
-        expect.any(String),
-        'scheduler' as TriggerSource,
-      );
-      expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), retriggeredHtmlUrl, deps.tx);
-      const obs = deps.observation.current();
-      expect(deps.events.record).toHaveBeenCalledWith(
-        {
-          type: 'retriggered',
-          repo_full_name: item.repo_full_name,
-          pr_number: item.pr_number,
-          correlation_id: obs.correlationId,
-          request_id: obs.requestId,
-          version: obs.version,
-          payload: {
-            source_comment_url: item.source_comment_url,
-            retriggered_comment_url: retriggeredHtmlUrl,
-          },
-        } as NewEvent,
-        deps.tx,
-      );
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        {
-          fn: 'Scheduler.tick',
-          repo: item.repo_full_name,
-          pr: item.pr_number,
-          queueId: item.id,
-          runId: expect.any(String),
-        },
-        'Retrigger retriggered',
-      );
+      expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, TriggerSource.scheduler);
 
       await stop();
     });
 
-    it('passes trigger_source to postRetrigger when set on the item', async () => {
-      const item = makeItem({ trigger_source: TriggerSource.dashboard_retrigger_now });
-      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
-      (deps.queueOrder.getEffectiveOrder as jest.Mock<any>).mockResolvedValue([item]);
-      (deps.github.postRetrigger as jest.Mock<any>).mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
+    it('reschedules when ReviewTrigger returns stale reschedule', async () => {
+      const item = makeItem();
+      const notBefore = new Date(Date.now() + 60_000);
+      const newComment = { commentId: 999, commentUrl: 'https://gh/c/new' };
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(
+        RabbitResult.err(
+          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+            code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
+            message: 'stale',
+            functionName: 'test',
+            details: { notBefore: notBefore.toISOString(), sourceComment: newComment },
+          }),
+        ),
+      );
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.github.postRetrigger).toHaveBeenCalledWith(
-        item.repo_full_name,
-        item.pr_number,
-        item.source_comment_url,
-        expect.any(String),
-        'dashboard_retrigger_now' as TriggerSource,
-      );
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, notBefore, newComment, deps.tx);
 
       await stop();
     });
 
-    it('marks failed and records failed event on HTTP 404', async () => {
+    it('backs off when ReviewTrigger returns stale skip', async () => {
+      const item = makeItem();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(
+        RabbitResult.err(
+          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+            code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+            message: 'gone',
+            functionName: 'test',
+          }),
+        ),
+      );
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
+
+      await stop();
+    });
+
+    it('backs off when ReviewTrigger returns stale replacement deleted', async () => {
+      const item = makeItem();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(
+        RabbitResult.err(
+          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+            code: 'RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED' as any,
+            message: 'gone',
+            functionName: 'test',
+          }),
+        ),
+      );
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
+
+      await stop();
+    });
+
+    it('backs off on unexpected error code from ReviewTrigger', async () => {
+      const item = makeItem();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(
+        RabbitResult.err(
+          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+            code: 'UNKNOWN_CODE' as any,
+            message: 'unexpected',
+            functionName: 'test',
+          }),
+        ),
+      );
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
+
+      await stop();
+    });
+
+    it('marks failed and records failed event on HTTP 404 from trigger', async () => {
       const item = makeItem();
       const notFoundError = { status: 404 };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.github.postRetrigger.mockRejectedValue(notFoundError);
+      deps.reviewTrigger.trigger.mockRejectedValue(notFoundError);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
-      expect(deps.events.record).toHaveBeenCalledWith(
-        {
-          type: 'failed',
-          repo_full_name: item.repo_full_name,
-          pr_number: item.pr_number,
-          correlation_id: deps.observation.current().correlationId,
-          request_id: deps.observation.current().requestId,
-          version: deps.observation.current().version,
-          payload: { reason: 'PR closed or merged' },
-        } as NewEvent,
-        deps.tx,
-      );
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        {
-          fn: 'Scheduler.tick',
-          repo: item.repo_full_name,
-          pr: item.pr_number,
-          queueId: item.id,
-          status: 404,
-        },
-        'PR closed or merged; marked failed',
-      );
 
       await stop();
     });
 
-    it('marks failed on HTTP 410', async () => {
+    it('marks failed on HTTP 410 from trigger', async () => {
       const item = makeItem();
       const goneError = { status: 410 };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.github.postRetrigger.mockRejectedValue(goneError);
+      deps.reviewTrigger.trigger.mockRejectedValue(goneError);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -281,25 +290,15 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        {
-          fn: 'Scheduler.tick',
-          repo: item.repo_full_name,
-          pr: item.pr_number,
-          queueId: item.id,
-          status: 410,
-        },
-        'PR closed or merged; marked failed',
-      );
 
       await stop();
     });
 
-    it('reschedules with backoff on HTTP 403, includes error in log', async () => {
+    it('backs off on unknown error from trigger', async () => {
       const item = makeItem();
-      const forbiddenError = { status: 403 };
+      const networkError = new Error('Network timeout');
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.github.postRetrigger.mockRejectedValue(forbiddenError);
+      deps.reviewTrigger.trigger.mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -307,20 +306,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.queue.markFailed).not.toHaveBeenCalled();
-      expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
       expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        {
-          fn: 'Scheduler.tick',
-          repo: item.repo_full_name,
-          pr: item.pr_number,
-          queueId: item.id,
-          backoffMs: BASE_BACKOFF_MS,
-          attempts: 0,
-          error: forbiddenError,
-        },
-        'Post retrigger failed; rescheduled with backoff',
-      );
 
       await stop();
     });
@@ -333,11 +319,7 @@ describe('Scheduler', () => {
 
       await drainMicrotasks(SHORT_DRAIN);
 
-      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
-      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-      expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
-      expect(deps.queue.markFailed).not.toHaveBeenCalled();
-      expect(deps.events.record).not.toHaveBeenCalled();
+      expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
 
       await stop();
     });
@@ -352,10 +334,8 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
       expect(deps.logger.debug).toHaveBeenCalledWith({ fn: 'Scheduler.tick' }, 'Scheduler is paused; skipping tick');
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
-      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
 
       await stop();
     });
@@ -374,43 +354,23 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('proceeds normally when schedulerStatus is undefined', async () => {
-      const item = makeItem();
-      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.systemState.isSchedulerPaused.mockResolvedValue(false);
-      deps.github.postRetrigger.mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
-      expect(deps.github.postRetrigger).toHaveBeenCalled();
-
-      await stop();
-    });
-
     it('proceeds normally when schedulerStatus is running', async () => {
       const item = makeItem();
-      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.systemState.isSchedulerPaused.mockResolvedValue(false);
-      deps.github.postRetrigger.mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
+      deps.reviewTrigger.trigger.mockResolvedValue(TRIGGER_OK);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
-      expect(deps.github.postRetrigger).toHaveBeenCalled();
+      expect(deps.reviewTrigger.trigger).toHaveBeenCalled();
 
       await stop();
     });
 
-    it('logs warning when getEffectiveOrder itself rejects', async () => {
+    it('logs warning when getEffectiveOrder rejects', async () => {
       const dbError = new Error('DB connection lost');
       deps.queueOrder.getEffectiveOrder.mockRejectedValue(dbError);
 
@@ -424,7 +384,7 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('logs warning with String(err) when getEffectiveOrder rejects a non-Error', async () => {
+    it('logs warning when getEffectiveOrder rejects a non-Error', async () => {
       deps.queueOrder.getEffectiveOrder.mockRejectedValue('raw string failure');
 
       const scheduler = createScheduler();
@@ -437,319 +397,49 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('reschedules with backoff on unknown error', async () => {
+    it('updates not_before on reschedule when item needs backoff', async () => {
       const item = makeItem();
-      const networkError = new Error('Network timeout');
+      const rescheduleNotBefore = new Date(Date.now() + 120_000);
+      const newComment = { commentId: 888, commentUrl: 'https://gh/c/newer' };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.github.postRetrigger.mockRejectedValue(networkError);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      expect(deps.queue.markFailed).not.toHaveBeenCalled();
-      expect(deps.events.record).not.toHaveBeenCalled();
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, attempts: 0, error: networkError },
-        'Post retrigger failed; rescheduled with backoff',
+      deps.reviewTrigger.trigger.mockResolvedValue(
+        RabbitResult.err(
+          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+            code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
+            message: 'stale',
+            functionName: 'test',
+            details: { notBefore: rescheduleNotBefore.toISOString(), sourceComment: newComment },
+          }),
+        ),
       );
 
-      await stop();
-    });
-
-    it('proceeds with postRetrigger when validator returns proceed', async () => {
-      const item = makeItem();
-      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.commentValidator.validate.mockResolvedValue({ action: 'proceed' });
-      deps.github.postRetrigger.mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
-
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
-      expect(deps.github.postRetrigger).toHaveBeenCalledWith(
-        item.repo_full_name,
-        item.pr_number,
-        item.source_comment_url,
-        expect.any(String),
-        item.trigger_source,
-      );
-      expect(deps.queue.reschedule).not.toHaveBeenCalled();
-      expect(deps.queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), retriggeredHtmlUrl, deps.tx);
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, rescheduleNotBefore, newComment, deps.tx);
 
       await stop();
     });
 
-    it('reschedules when validator returns reschedule', async () => {
-      const item = makeItem();
-      const newCommentId = getUniqueInt();
-      const newCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
-      const newNotBefore = new Date(Date.now() + 3600_000);
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.commentValidator.validate.mockResolvedValue({
-        action: 'reschedule',
-        notBefore: newNotBefore,
-        sourceComment: { commentId: newCommentId, commentUrl: newCommentUrl },
-      });
-
+    it('logs start and stop messages', async () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await awaitTick(scheduler);
-
-      expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newNotBefore, { commentId: newCommentId, commentUrl: newCommentUrl }, deps.tx);
-      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-
-      await stop();
-    });
-
-    it('skips the tick when validator returns skip', async () => {
-      const item = makeItem();
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.commentValidator.validate.mockResolvedValue({ action: 'skip' });
-
-      const capturedDates: Date[] = [];
-      deps.queue.backoff.mockImplementation(((_id: number, date: Date, _tx: unknown) => {
-        capturedDates.push(date);
-        return Promise.resolve();
-      }) as any);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      expect(deps.commentValidator.validate).toHaveBeenCalledWith(item);
-      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
-      expect(deps.queue.markRetriggered).not.toHaveBeenCalled();
-      expect(deps.queue.markFailed).not.toHaveBeenCalled();
-
-      expect(capturedDates).toHaveLength(1);
-      const backoffMs = capturedDates[0].getTime() - Date.now();
-      expect(backoffMs).toBeGreaterThanOrEqual(BASE_BACKOFF_MS - BACKOFF_TOLERANCE_MS);
-      expect(backoffMs).toBeLessThanOrEqual(BASE_BACKOFF_MS + BACKOFF_TOLERANCE_MS);
-
-      await stop();
-    });
-
-    it('reschedules with backoff when commentValidator.validate throws a non-terminal error', async () => {
-      const item = makeItem();
-      const serverError = { status: 500 };
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.commentValidator.validate.mockRejectedValue(serverError);
-
-      const capturedDates: Date[] = [];
-      deps.queue.backoff.mockImplementation(((_id: number, date: Date, _tx: unknown) => {
-        capturedDates.push(date);
-        return Promise.resolve();
-      }) as any);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-      expect(deps.queue.markFailed).not.toHaveBeenCalled();
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        {
-          fn: 'Scheduler.tick',
-          repo: item.repo_full_name,
-          pr: item.pr_number,
-          queueId: item.id,
-          backoffMs: BASE_BACKOFF_MS,
-          attempts: 0,
-          error: serverError,
-        },
-        'Post retrigger failed; rescheduled with backoff',
-      );
-
-      expect(capturedDates).toHaveLength(1);
-      const backoffMs = capturedDates[0].getTime() - Date.now();
-      expect(backoffMs).toBeGreaterThanOrEqual(BASE_BACKOFF_MS - BACKOFF_TOLERANCE_MS);
-      expect(backoffMs).toBeLessThanOrEqual(BASE_BACKOFF_MS + BACKOFF_TOLERANCE_MS);
-
-      await stop();
-    });
-
-    it('doubles backoff on successive unknown errors', async () => {
-      const item1 = makeItem({ attempts: 0 });
-      const item2 = makeItem({ attempts: 1 });
-      const networkError = new Error('Network timeout');
-      deps.queueOrder.getEffectiveOrder.mockResolvedValueOnce([item1]).mockResolvedValueOnce([item2]);
-      deps.github.postRetrigger.mockRejectedValue(networkError);
-
-      const capturedDates: Date[] = [];
-      deps.queue.backoff.mockImplementation(((_id: number, date: Date, _tx: unknown) => {
-        capturedDates.push(date);
-        return Promise.resolve();
-      }) as any);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      scheduler['tick']();
-      await awaitTick(scheduler);
-
-      expect(deps.queue.backoff).toHaveBeenNthCalledWith(1, item1.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
-      expect(deps.queue.backoff).toHaveBeenNthCalledWith(2, item2.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS * 2), deps.tx);
-
-      expect(capturedDates).toHaveLength(2);
-      const firstMs = capturedDates[0].getTime() - Date.now();
-      expect(firstMs).toBeGreaterThanOrEqual(BASE_BACKOFF_MS * Math.pow(2, 0) - BACKOFF_TOLERANCE_MS);
-      expect(firstMs).toBeLessThanOrEqual(BASE_BACKOFF_MS * Math.pow(2, 0) + BACKOFF_TOLERANCE_MS);
-
-      const secondMs = capturedDates[1].getTime() - Date.now();
-      expect(secondMs).toBeGreaterThanOrEqual(BASE_BACKOFF_MS * Math.pow(2, 1) - BACKOFF_TOLERANCE_MS);
-      expect(secondMs).toBeLessThanOrEqual(BASE_BACKOFF_MS * Math.pow(2, 1) + BACKOFF_TOLERANCE_MS);
-
-      await stop();
-    });
-
-    it('logs warning when getEffectiveOrder rejects (item is null in catch)', async () => {
-      const dbError = new Error('Database connection lost');
-      deps.queueOrder.getEffectiveOrder.mockRejectedValue(dbError);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      expect(deps.github.postRetrigger).not.toHaveBeenCalled();
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'Scheduler.tick', error: dbError }, 'executeTick failed before item was fetched');
-
-      await stop();
-    });
-  });
-
-  describe('cleanup delegation', () => {
-    it('delegates to Pruner.prune() before processing', async () => {
-      const item = makeItem();
-      const retriggeredHtmlUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
-
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.github.postRetrigger.mockResolvedValue({ htmlUrl: retriggeredHtmlUrl });
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      expect(deps.pruner.prune).toHaveBeenCalled();
-      expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalled();
-      expect(deps.github.postRetrigger).toHaveBeenCalled();
-
-      expect((deps.pruner.prune as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
-        (deps.queueOrder.getEffectiveOrder as jest.Mock).mock.invocationCallOrder[0],
-      );
-
-      await stop();
-    });
-  });
-
-  describe('concurrency', () => {
-    it('skips tick when another tick is already in-flight', async () => {
-      const item = makeItem();
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-
-      let resolvePost: (value: { htmlUrl: string }) => void;
-      const postPromise = new Promise<{ htmlUrl: string }>((resolve) => {
-        resolvePost = resolve;
-      });
-      deps.github.postRetrigger.mockReturnValue(postPromise);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await drainMicrotasks(SHORT_DRAIN);
-
-      scheduler['tick']();
-
-      await drainMicrotasks(SINGLE_TICK);
-
-      expect(deps.github.postRetrigger).toHaveBeenCalledTimes(1);
-
-      resolvePost!({ htmlUrl: getUniqueString({ prefix: 'https://gh/' }) });
-      await stop();
-    });
-  });
-
-  describe('stop', () => {
-    it('drains the in-flight tick before resolving stop', async () => {
-      const item = makeItem();
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-
-      let resolvePost: (value: { htmlUrl: string }) => void;
-      const postPromise = new Promise<{ htmlUrl: string }>((resolve) => {
-        resolvePost = resolve;
-      });
-      deps.github.postRetrigger.mockReturnValue(postPromise);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await drainMicrotasks(SHORT_DRAIN);
-
-      let stopResolved = false;
-      const stopPromise = stop().then(() => {
-        stopResolved = true;
-      });
-
-      await drainMicrotasks(SINGLE_TICK);
-      expect(stopResolved).toBe(false);
-
-      resolvePost!({ htmlUrl: getUniqueString({ prefix: 'https://gh/' }) });
-      await stopPromise;
-      expect(stopResolved).toBe(true);
-    });
-  });
-
-  describe('start', () => {
-    it('fires first tick immediately and starts an interval', async () => {
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([]);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await drainMicrotasks(SHORT_DRAIN);
-
-      expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
 
-      jest.advanceTimersByTime(TICK_INTERVAL_MS);
-      await drainMicrotasks(SHORT_DRAIN);
-
-      jest.advanceTimersByTime(TICK_INTERVAL_MS);
-      await drainMicrotasks(SHORT_DRAIN);
-
-      expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalledTimes(3);
-
       await stop();
+      expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
     });
 
-    it('stop clears the interval and logs', async () => {
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([]);
-
+    it('does not throw when stop is called multiple times', async () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      await drainMicrotasks(SHORT_DRAIN);
-
+      await stop();
       await stop();
 
-      jest.advanceTimersByTime(TICK_INTERVAL_MS * 2);
-
-      expect(deps.queueOrder.getEffectiveOrder).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
     });
   });

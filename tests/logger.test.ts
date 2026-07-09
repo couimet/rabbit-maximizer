@@ -37,7 +37,7 @@ describe('initLogger', () => {
       ],
     });
 
-    expect(mockPinoFn).toHaveBeenCalledWith(mockTransport);
+    expect(mockPinoFn).toHaveBeenCalledWith({ level: 'debug' }, mockTransport);
     expect(MockPinoAdapter).toHaveBeenCalledWith(mockPinoLogger);
     expect(mockSetLogger).toHaveBeenCalledWith(MockPinoAdapter.mock.instances[0]);
   });

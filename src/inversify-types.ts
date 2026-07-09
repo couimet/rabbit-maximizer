@@ -22,8 +22,8 @@ export const TYPES = {
   Pruner: Symbol.for('Pruner'),
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
+  ReviewTrigger: Symbol.for('ReviewTrigger'),
   Scheduler: Symbol.for('Scheduler'),
-  SourceCommentValidator: Symbol.for('SourceCommentValidator'),
   SystemStateRepository: Symbol.for('SystemStateRepository'),
   // Keep this object alphabetically sorted by key.
 } as const;

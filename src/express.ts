@@ -21,6 +21,7 @@ import {
 import { trySetupVite } from './routes/setupVite.js';
 import type { Config } from './config.js';
 import { isProduction } from './isProduction.js';
+import type { ReviewTrigger } from './ReviewTrigger.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
@@ -35,6 +36,7 @@ export interface ExpressDeps {
   eventRepo: EventRepository;
   queueOrderRepo: QueueOrderRepository;
   queueRepo: QueueRepository;
+  reviewTrigger: ReviewTrigger;
   systemStateRepo: SystemStateRepository;
   logger: Logger;
   port: number;
@@ -46,7 +48,7 @@ export interface ExpressApp {
 }
 
 export const setupExpress = (deps: ExpressDeps): ExpressApp => {
-  const { config, queueRepo, queueOrderRepo, eventRepo, systemStateRepo, logger, port } = deps;
+  const { config, queueRepo, queueOrderRepo, eventRepo, reviewTrigger, systemStateRepo, logger, port } = deps;
   const production = isProduction();
   const app = createExpressApp({ logger, helmet: production });
 
@@ -57,7 +59,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.get('/api/dashboard-state', createGetDashboardStateHandler(queueOrderRepo, eventRepo, systemStateRepo, logger));
   app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, logger));
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
-  app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, config, logger));
+  app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, reviewTrigger, logger));
   app.post('/api/queue/:uuid/mark-completed', createMarkCompletedHandler(queueRepo, logger));
   app.get('/api/queue/triggered', createGetTriggeredHandler(queueRepo, logger));
   app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));

@@ -101,6 +101,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-example>
 </rule>
 
+<rule id="C009" priority="critical">
+  <title>Log the full error from Result-based methods, not just its code</title>
+  <do>Pass the full error object (e.g., `result.error`) as a log attribute when logging a failure from a Result-based method</do>
+  <never>Log only `error.code` or `error.message` — the structured details (code, message, functionName, details) are lost</never>
+  <rationale>A `DetailedError` carries code, message, functionName, and an arbitrary details object. Logging just the code drops everything else — the message explains what happened, functionName pinpoints the source, and details carries operation-specific context (notBefore, sourceComment, etc.). Passing the full error preserves all of it in structured log output.</rationale>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

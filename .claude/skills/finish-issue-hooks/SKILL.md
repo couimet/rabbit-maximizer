@@ -1,6 +1,6 @@
 ---
 name: finish-issue-hooks
-description: Additional verification for /finish-issue — lint before format
+description: Additional verification for /finish-issue — build and check generated drift
 user-invocable: false
 ---
 
@@ -10,4 +10,5 @@ Consulted automatically by `/finish-issue`.
 
 ## Additional Verification
 
-Before the standard format step, run **`pnpm fix`** (`pnpm lint:fix && pnpm format:fix`). The parent skill runs `pnpm format:fix` alone — this adds lint checking. Fix any lint errors before proceeding.
+1. **`pnpm build`** — catches TypeScript errors and stale Prisma types.
+2. **`pnpm ci:check-generated-drift`** — ensures generated API types match the OpenAPI spec.

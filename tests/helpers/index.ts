@@ -8,7 +8,6 @@ export * from './createMockPrismaClient.js';
 export * from './createMockPruner.js';
 export * from './createMockQueueOrderRepo.js';
 export * from './createMockQueueRepo.js';
-export * from './createMockSourceCommentValidator.js';
 export * from './createMockSystemStateRepository.js';
 export * from './createMockVite.js';
 export * from './createResolvedMock.js';
