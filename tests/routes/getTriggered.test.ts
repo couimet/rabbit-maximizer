@@ -2,10 +2,11 @@ import { createExpressApp } from '../../src/external-deps/couimet/express-tools/
 import { createGetTriggeredHandler } from '../../src/routes/getTriggered.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockLogger, createMockQueueRepo, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockQueueRepo, makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';

@@ -1,8 +1,7 @@
 import { IntervalService } from '../src/IntervalService.js';
 
-import { createMockLogger } from './helpers/index.js';
-
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it } from '@jest/globals';
 
 const TICK_MS = 100;

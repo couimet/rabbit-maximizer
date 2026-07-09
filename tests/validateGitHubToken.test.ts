@@ -2,10 +2,11 @@ import { splitRepo } from '../src/github/splitRepo.js';
 import type { RepoFilter } from '../src/types/RepoFilter.js';
 import { validateGitHubToken } from '../src/validateGitHubToken.js';
 
-import { createMockLogger, makeUniqueRepoName } from './helpers/index.js';
+import { makeUniqueRepoName } from './helpers/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Octokit } from '@octokit/rest';
 

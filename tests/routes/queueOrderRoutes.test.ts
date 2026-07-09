@@ -8,11 +8,12 @@ import {
 } from '../../src/routes/queueOrderRoutes.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockLogger, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } from '../helpers/index.js';
+import { createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } from '../helpers/index.js';
 import { postJson } from '../helpers/postJson.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
 import type { Server } from 'http';

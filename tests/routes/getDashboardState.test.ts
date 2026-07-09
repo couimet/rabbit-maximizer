@@ -3,10 +3,11 @@ import { createGetDashboardStateHandler } from '../../src/routes/getDashboardSta
 import { QueueStatus } from '../../src/types/index.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockLogger, createMockQueueOrderRepo, createMockSystemStateRepository, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository, makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';

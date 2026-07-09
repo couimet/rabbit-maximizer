@@ -1,7 +1,6 @@
 import { createGracefulShutdown } from '../src/gracefulShutdown.js';
 
-import { createMockLogger } from './helpers/index.js';
-
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { PrismaClient } from '@prisma/client';
 

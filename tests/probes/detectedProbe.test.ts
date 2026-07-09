@@ -2,9 +2,10 @@ import type { EventRepository } from '../../src/db/eventRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
 import type { EventLogEntry } from '../../src/types/index.js';
-import { createMockLogger, makeUniqueRepoName } from '../helpers/index.js';
+import { makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it, jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
 

@@ -3,10 +3,11 @@ import type { QueueRepository } from '../../src/db/queueRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
-import { createMockLogger, makeUniqueRepoName } from '../helpers/index.js';
+import { makeUniqueRepoName } from '../helpers/index.js';
 
 import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
 

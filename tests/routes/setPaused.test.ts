@@ -1,10 +1,11 @@
 import type { SystemStateRepository } from '../../src/db/systemStateRepository.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import { createSetPausedHandler } from '../../src/routes/setPaused.js';
-import { createMockLogger, createMockSystemStateRepository } from '../helpers/index.js';
+import { createMockSystemStateRepository } from '../helpers/index.js';
 import { postJson } from '../helpers/postJson.js';
 
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
 import type { Server } from 'http';

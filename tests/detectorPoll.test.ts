@@ -3,16 +3,11 @@ import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClien
 import type { OnDetectedCallback } from '../src/types/OnDetectedCallback.js';
 import type { ReviewLimitComment } from '../src/types/ReviewLimitComment.js';
 
-import {
-  createMockCoderabbitGitHubClient,
-  createMockLogger,
-  createMockOnDetectedCallback,
-  createMockSystemStateRepository,
-  drainMicrotasks,
-} from './helpers/index.js';
+import { createMockCoderabbitGitHubClient, createMockOnDetectedCallback, createMockSystemStateRepository, drainMicrotasks } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const DEFAULT_FALLBACK_WAIT_SECONDS = 3600;

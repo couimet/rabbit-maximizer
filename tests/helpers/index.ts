@@ -1,7 +1,6 @@
 export * from './createMockCoderabbitGitHubClient.js';
 export * from './createMockEventRepo.js';
 export * from './createMockFetch.js';
-export * from './createMockLogger.js';
 export * from './createMockObservationContextProvider.js';
 export * from './createMockOctokit.js';
 export * from './createMockOnDetectedCallback.js';

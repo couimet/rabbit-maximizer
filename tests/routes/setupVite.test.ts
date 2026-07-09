@@ -11,7 +11,7 @@ describe('setupVite', () => {
     viteMock.createServer.mockResolvedValue({ middlewares } as any);
     const { setupVite } = await import('../../src/routes/setupVite.js');
     const { createExpressApp } = await import('../../src/external-deps/couimet/express-tools/createExpressApp.js');
-    const { createMockLogger } = await import('../helpers/index.js');
+    const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
     const logger = createMockLogger();
     const app = createExpressApp({ logger });
@@ -27,7 +27,7 @@ describe('setupVite', () => {
     const viteError = new Error('Vite not found');
     viteMock.createServer.mockRejectedValue(viteError);
     const { trySetupVite } = await import('../../src/routes/setupVite.js');
-    const { createMockLogger } = await import('../helpers/index.js');
+    const { createMockLogger } = await import('@couimet/logger-contract-testing');
     const { createExpressApp } = await import('../../src/external-deps/couimet/express-tools/createExpressApp.js');
 
     const logger = createMockLogger();

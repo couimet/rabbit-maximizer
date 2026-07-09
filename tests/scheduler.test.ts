@@ -14,7 +14,6 @@ import { QueueStatus } from '../src/types/QueueStatus.js';
 import {
   createMockCoderabbitGitHubClient,
   createMockEventRepo,
-  createMockLogger,
   createMockObservationContextProvider,
   createMockPruner,
   createMockQueueOrderRepo,
@@ -27,6 +26,7 @@ import {
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 

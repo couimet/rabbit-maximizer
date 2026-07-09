@@ -1,10 +1,11 @@
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import { SourceCommentValidatorImpl } from '../src/SourceCommentValidator.js';
 
-import { createMockCoderabbitGitHubClient, createMockLogger, makeUniqueRepoName } from './helpers/index.js';
+import { createMockCoderabbitGitHubClient, makeUniqueRepoName } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('SourceCommentValidator', () => {

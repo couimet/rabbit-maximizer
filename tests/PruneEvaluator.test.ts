@@ -2,10 +2,11 @@ import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
 import { PruneEvaluatorImpl } from '../src/PruneEvaluator.js';
 import type { QueueItem } from '../src/types/index.js';
 
-import { createMockLogger, makeUniqueRepoName } from './helpers/index.js';
+import { makeUniqueRepoName } from './helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
+import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const makeItem = (repo: string, pr: number): QueueItem => ({ id: getUniqueInt(), repo_full_name: repo, pr_number: pr }) as unknown as QueueItem;
