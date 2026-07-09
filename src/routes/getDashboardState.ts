@@ -26,11 +26,15 @@ export const createGetDashboardStateHandler = (
       const activeEventCounts = filterActiveEventCounts(eventCounts);
 
       const now = new Date();
-      const futureItems = items.filter((item) => item.not_before > now);
-      const nextReviewAvailableAt =
-        futureItems.length > 0
-          ? futureItems.reduce((min, item) => (item.not_before < min ? item.not_before : min), futureItems[0].not_before).toISOString()
-          : null;
+      const hasEligibleNow = items.some((item) => item.not_before <= now);
+      const nextReviewAvailableAt = hasEligibleNow
+        ? null
+        : (() => {
+            const futureItems = items.filter((item) => item.not_before > now);
+            return futureItems.length > 0
+              ? futureItems.reduce((min, item) => (item.not_before < min ? item.not_before : min), futureItems[0].not_before).toISOString()
+              : null;
+          })();
 
       res.json({ nextReviewAvailableAt, pendingItems: items, eventCounts: activeEventCounts, paused });
     } catch (error) {
