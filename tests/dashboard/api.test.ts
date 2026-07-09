@@ -1,4 +1,4 @@
-import { fetchDashboardState, fetchEvents, fetchQueue, fetchQueueOrder, fetchSummary, moveQueueItems } from '../../dashboard/src/api.js';
+import { fetchDashboardState, fetchEvents, fetchQueue, fetchQueueOrder, fetchSummary, markCompleted, moveQueueItems } from '../../dashboard/src/api.js';
 
 import { describe, expect, it, jest } from '@jest/globals';
 
@@ -133,6 +133,24 @@ describe('api', () => {
     it('throws with HTTP status when body has no error field', async () => {
       globalThis.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 502, json: () => Promise.resolve({}) } as Response)) as unknown as typeof fetch;
       await expect(moveQueueItems(['uuid-1'], 'up')).rejects.toThrow('HTTP 502');
+    });
+  });
+
+  describe('markCompleted', () => {
+    const UUID = '11111111-1111-1111-1111-111111111111';
+
+    it('returns parsed JSON on success', async () => {
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response),
+      ) as unknown as typeof fetch;
+      await expect(markCompleted(UUID)).resolves.toStrictEqual({ ok: true });
+    });
+
+    it('throws with body error message on failure', async () => {
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({ error: 'Not found' }) } as Response),
+      ) as unknown as typeof fetch;
+      await expect(markCompleted(UUID)).rejects.toThrow('Not found');
     });
   });
 });

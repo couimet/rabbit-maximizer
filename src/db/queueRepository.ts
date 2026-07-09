@@ -1,5 +1,6 @@
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
+import type { ProbeFactory } from '../probes/ProbeFactory.js';
 import { type CommentDetails, type EnqueueResult, EventType, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
@@ -24,6 +25,8 @@ export interface QueueRepository {
   enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  // TODO [2026-07-15]: #126 — revisit optional tx holistically; several methods use mandatory tx but could benefit from enforceTx()
+  markCompletedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -40,7 +43,9 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PrismaClient) prisma: PrismaClient,
+    // TODO [2026-07-15]: #123 — remove once enqueue() event recording moves to EnqueueProbe
     @inject(TYPES.EventRepository) private readonly events: EventRepository,
+    @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(prisma, log);
@@ -77,6 +82,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       await db.queueOrder.create({ data: { queue_item_id: row.id } });
 
+      // TODO [2026-07-15]: #123 — EnqueueProbe: encapsulate event recording so QueueRepositoryImpl only deals with reviewQueue rows
       await this.events.record(
         {
           type: EventType.enqueued,
@@ -143,6 +149,29 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.markCompleted', id }, 'Marked review completed');
     return this.toQueueItem(row);
+  }
+
+  async markCompletedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined> {
+    if (!tx) {
+      return this.transaction((tx) => this.markCompletedByUuid(uuid, tx));
+    }
+
+    const db = this.client(tx);
+    const probe = this.probeFactory.createMarkQueueItemCompletedProbe(uuid);
+
+    const row = await db.reviewQueue.findUnique({ where: { uuid } });
+    if (!row) {
+      probe.queueItemNotFound();
+      return undefined;
+    }
+
+    const updated = await db.reviewQueue.update({
+      where: { id: row.id },
+      data: { status: QueueStatus.completed, completed_at: new Date() },
+    });
+    await probe.queueItemMarkedCompleted(updated, db);
+
+    return this.toQueueItem(updated);
   }
 
   async reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {

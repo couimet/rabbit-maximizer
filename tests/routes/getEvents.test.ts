@@ -2,8 +2,9 @@ import { createExpressApp } from '../../src/external-deps/couimet/express-tools/
 import { createGetEventsHandler } from '../../src/routes/getEvents.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockLogger } from '../helpers/index.js';
+import { createMockEventRepo, createMockLogger, makeUniqueRepoName } from '../helpers/index.js';
 
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
@@ -27,13 +28,13 @@ describe('getEvents', () => {
   it('returns 200 with paginated events', async () => {
     const items = [
       {
-        id: 1,
-        uuid: 'evt-abc-123',
-        ts: '2026-06-23T14:30:00.000Z',
+        id: getUniqueInt(),
+        uuid: getUniqueString({ prefix: 'evt-' }),
+        ts: getUniqueDate().toISOString(),
         type: 'detected',
-        repo_full_name: 'c/r',
-        pr_number: 42,
-        correlation_id: 'corr-001',
+        repo_full_name: makeUniqueRepoName().fullName,
+        pr_number: getUniqueInt(),
+        correlation_id: getUniqueString({ prefix: 'corr-' }),
         version: '1.0.0',
         payload: {},
       },

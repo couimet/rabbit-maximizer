@@ -4,6 +4,7 @@ import { TYPES } from '../../src/inversify-types.js';
 import type { ObservationContextProvider } from '../../src/observability/observationContext.js';
 import { UuidObservationContextProvider } from '../../src/observability/observationContext.js';
 import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
+import { MarkQueueItemCompletedProbe } from '../../src/probes/MarkQueueItemCompletedProbe.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
@@ -11,11 +12,14 @@ import { createMockLogger, createMockObservationContextProvider, createMockPrism
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
-import { describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
 describe('ProbeFactory', () => {
+  let observationProvider: ReturnType<typeof createMockObservationContextProvider>;
+  let observationContext: ReturnType<ReturnType<typeof createMockObservationContextProvider>['current']>;
+
   const makeMocks = () => {
     const eventRepository = {
       record: jest.fn<any>(),
@@ -31,11 +35,15 @@ describe('ProbeFactory', () => {
     return { eventRepository, queueRepository, logger };
   };
 
-  it('creates a DetectedProbe with the provided observation context', () => {
-    const observationContext = createMockObservationContextProvider().current();
-    const { eventRepository, queueRepository, logger } = makeMocks();
+  beforeEach(() => {
+    observationProvider = createMockObservationContextProvider();
+    observationContext = observationProvider.current();
+  });
 
-    const factory = new ProbeFactory(eventRepository, queueRepository, logger);
+  it('creates a DetectedProbe with the provided observation context', () => {
+    const { eventRepository, logger } = makeMocks();
+
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createDetectedProbe({ repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() }, observationContext);
 
     expect(probe).toBeInstanceOf(DetectedProbe);
@@ -43,15 +51,24 @@ describe('ProbeFactory', () => {
 
   it('creates a QueueItemProbe', () => {
     const { eventRepository, queueRepository, logger } = makeMocks();
-    const observationContext = createMockObservationContextProvider().current();
 
-    const factory = new ProbeFactory(eventRepository, queueRepository, logger);
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createQueueItemProbe(
       { id: getUniqueInt(), repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() } as QueueItem,
       observationContext,
+      queueRepository,
     );
 
     expect(probe).toBeInstanceOf(QueueItemProbe);
+  });
+
+  it('creates a MarkQueueItemCompletedProbe with the current observation context', () => {
+    const { eventRepository, logger } = makeMocks();
+
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const probe = factory.createMarkQueueItemCompletedProbe('test-uuid');
+
+    expect(probe).toBeInstanceOf(MarkQueueItemCompletedProbe);
   });
 
   describe('container binding', () => {

@@ -1,9 +1,11 @@
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import { createGetDashboardStateHandler } from '../../src/routes/getDashboardState.js';
+import { QueueStatus } from '../../src/types/index.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockLogger, createMockQueueOrderRepo, createMockSystemStateRepository } from '../helpers/index.js';
+import { createMockEventRepo, createMockLogger, createMockQueueOrderRepo, createMockSystemStateRepository, makeUniqueRepoName } from '../helpers/index.js';
 
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
@@ -18,15 +20,15 @@ describe('getDashboardState', () => {
   });
 
   const makeQueueItem = (overrides: Record<string, unknown> = {}) => ({
-    id: 1,
-    uuid: '00000000-0000-0000-0000-000000000001',
-    repo_full_name: 'owner/repo',
-    pr_number: 42,
-    status: 'pending',
-    not_before: new Date(),
+    id: getUniqueInt(),
+    uuid: getUniqueString({ prefix: 'uuid-' }),
+    repo_full_name: makeUniqueRepoName().fullName,
+    pr_number: getUniqueInt(),
+    status: QueueStatus.pending,
+    not_before: getUniqueDate(),
     attempts: 0,
-    created_at: new Date(),
-    updated_at: new Date(),
+    created_at: getUniqueDate(),
+    updated_at: getUniqueDate(),
     ...overrides,
   });
 
@@ -113,7 +115,7 @@ describe('getDashboardState', () => {
 
   it('returns pendingItems as the array from getEffectiveOrder', async () => {
     logger = createMockLogger();
-    const items = [makeQueueItem({ id: 1 }), makeQueueItem({ id: 2, repo_full_name: 'a/b', pr_number: 99 })];
+    const items = [makeQueueItem({ id: 1, not_before: new Date(0) }), makeQueueItem({ id: 2, repo_full_name: 'a/b', pr_number: 99, not_before: new Date(0) })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
       { countByType: jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 }) },

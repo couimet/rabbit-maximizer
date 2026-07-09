@@ -2,8 +2,9 @@ import { createExpressApp } from '../../src/external-deps/couimet/express-tools/
 import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockLogger, createMockQueueRepo } from '../helpers/index.js';
+import { createMockEventRepo, createMockLogger, createMockQueueRepo, makeUniqueRepoName } from '../helpers/index.js';
 
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
@@ -25,9 +26,13 @@ describe('getSummary', () => {
 
   it('returns 200 with event counts and oldest pending', async () => {
     logger = createMockLogger();
+    const id = getUniqueInt();
+    const repo = makeUniqueRepoName().fullName;
+    const pr = getUniqueInt();
+    const notBefore = getUniqueDate().toISOString();
     startServer(
       {
-        getOldestPending: jest.fn<any>().mockResolvedValue({ id: 1, repo_full_name: 'c/r', pr_number: 42, not_before: '2026-01-01T00:00:00.000Z' }),
+        getOldestPending: jest.fn<any>().mockResolvedValue({ id, repo_full_name: repo, pr_number: pr, not_before: notBefore }),
       },
       {
         countByType: jest.fn<any>().mockResolvedValue({ detected: 8, enqueued: 7, retriggered: 3, bypassed: 1, completed: 2, failed: 1 }),
@@ -37,7 +42,7 @@ describe('getSummary', () => {
     const json = await getJson(server, '/api/summary');
     expect(json).toStrictEqual({
       eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
-      oldestPending: { id: 1, repo_full_name: 'c/r', pr_number: 42, not_before: '2026-01-01T00:00:00.000Z' },
+      oldestPending: { id, repo_full_name: repo, pr_number: pr, not_before: notBefore },
     });
   });
 

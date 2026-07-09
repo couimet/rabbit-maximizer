@@ -2,8 +2,10 @@
 
 import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
 import { TimezoneProvider } from '../../dashboard/src/timezone.js';
+import { makeUniqueRepoName } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
@@ -299,16 +301,18 @@ describe('SummaryStats', () => {
     });
 
     it('re-fetches dashboard state when QueueOrder calls onMoveComplete', async () => {
+      const repo = makeUniqueRepoName().fullName;
+      const prNumber = getUniqueInt();
       const queueItem = {
-        uuid: '00000000-0000-0000-0000-000000000001',
-        repo_full_name: 'owner/repo',
-        pr_number: 42,
+        uuid: getUniqueString({ prefix: 'uuid-' }),
+        repo_full_name: repo,
+        pr_number: prNumber,
         status: 'pending',
-        not_before: new Date().toISOString(),
+        not_before: getUniqueDate().toISOString(),
         attempts: 0,
         trigger_source: 'scheduler',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: getUniqueDate().toISOString(),
+        updated_at: getUniqueDate().toISOString(),
       };
       const initialData = {
         nextReviewAvailableAt: null,
@@ -346,7 +350,7 @@ describe('SummaryStats', () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Queue Order — 1 pending item(s)')).toBeInTheDocument());
 
-      fireEvent.click(screen.getByLabelText('Select owner/repo #42'));
+      fireEvent.click(screen.getByLabelText(`Select ${repo} #${prNumber}`));
       fireEvent.click(screen.getByText('Move Up'));
 
       await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument());

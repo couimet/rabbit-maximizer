@@ -1,7 +1,7 @@
 import { formatRelativeTime } from '../../../src/utils/formatRelativeTime.js';
 import { type Duration, resolveDurationSince } from '../../../src/utils/resolveDurationSince.js';
 import type { QueueItem } from '../api.js';
-import { fetchTriggered } from '../api.js';
+import { fetchTriggered, markCompleted } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
 import DurationSelect from './DurationSelect.js';
@@ -84,6 +84,16 @@ const RecentlyTriggered = () => {
     fetchData(nextPage, true);
   };
 
+  const handleMarkCompleted = (uuid: string) => {
+    setItems((prev) => prev.filter((i) => i.uuid !== uuid));
+    /* c8 ignore next — safety fallback: total is always set when items are displayed */
+    setTotal((t) => (t !== null ? t - 1 : null));
+    markCompleted(uuid).catch((err: Error) => {
+      setError(err.message);
+      fetchData(1, false);
+    });
+  };
+
   const hasMore = total !== null && items.length < total;
 
   if (error && items.length === 0 && !loading) return <div className="error">Failed to load triggered items: {error}</div>;
@@ -113,6 +123,7 @@ const RecentlyTriggered = () => {
                 <th>PR</th>
                 <th>Retriggered</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -134,6 +145,13 @@ const RecentlyTriggered = () => {
                       <span className="status-pill completed">Completed</span>
                     ) : (
                       <span className="status-pill retriggered">Retriggered</span>
+                    )}
+                  </td>
+                  <td>
+                    {item.status !== 'completed' && (
+                      <button className="mark-completed-button" onClick={() => handleMarkCompleted(item.uuid)} title="Mark as completed">
+                        ✓
+                      </button>
                     )}
                   </td>
                 </tr>
