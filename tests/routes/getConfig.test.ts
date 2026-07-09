@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
-const makeConfig = (overrides: Partial<Config> = {}): Config => ({
+const makeConfig = (overrides?: Partial<Config>): Config => ({
   DATABASE_URL: 'file:./data/rabbit-maximizer.db',
   DETECTION_MODE: 'poll',
   GITHUB_API_TIMEOUT_MS: 10_000,

@@ -21,7 +21,7 @@ export const usePauseNotification = ({ paused }: UsePauseNotificationOptions): v
     };
   }, []);
 
-  // Request permission on mount (fire-and-forget)
+  // fire-and-forget — errors are silently ignored
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {
@@ -94,6 +94,7 @@ export const usePauseNotification = ({ paused }: UsePauseNotificationOptions): v
             if (typeof Notification === 'undefined') return;
             if (Notification.permission !== 'granted') return;
 
+            notificationRef.current?.close();
             const notification = new Notification('Rabbit Maximizer is paused', {
               body: 'The maximizer has been paused. Reviews are not being requested. Resume to continue.',
             });

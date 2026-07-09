@@ -3,6 +3,9 @@ import { type Config, ConfigSchema } from '../../src/schemas/config.js';
 import { getRandomString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
+const DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES = 30;
+const DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES = 15;
+
 describe('ConfigSchema', () => {
   let githubPat: string;
   let webhookSecret: string;
@@ -17,8 +20,8 @@ describe('ConfigSchema', () => {
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_MS: 10_000,
       GITHUB_PAT: githubPat,
-      PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES: 30,
-      PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES: 15,
+      PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES: DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES,
+      PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES: DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES,
       POLL_INTERVAL: 90,
       REVIEW_LIMIT_BUFFER_SECONDS: 60,
       REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: 3600,
@@ -81,7 +84,7 @@ describe('ConfigSchema', () => {
     const result = ConfigSchema.safeParse(rest);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES).toBe(30);
+      expect(result.data.PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES).toBe(DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES);
     }
   });
 
@@ -90,7 +93,7 @@ describe('ConfigSchema', () => {
     const result = ConfigSchema.safeParse(rest);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES).toBe(15);
+      expect(result.data.PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES).toBe(DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES);
     }
   });
 
