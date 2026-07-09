@@ -125,6 +125,19 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/config:
+    get:
+      operationId: getConfig
+      responses:
+        '200':
+          description: Public client-facing configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicConfig'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/dashboard-state:
     get:
       operationId: getDashboardState
@@ -445,6 +458,16 @@ components:
       properties:
         paused:
           type: boolean
+      additionalProperties: false
+
+    PublicConfig:
+      type: object
+      required: [pauseNotificationInitialDelayMinutes, pauseNotificationRepeatIntervalMinutes]
+      properties:
+        pauseNotificationInitialDelayMinutes:
+          type: integer
+        pauseNotificationRepeatIntervalMinutes:
+          type: integer
       additionalProperties: false
 
     Summary:

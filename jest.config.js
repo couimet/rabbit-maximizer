@@ -31,6 +31,7 @@ export default {
     '!src/container.ts',
     '!src/**/*.d.ts',
     '!src/**/index.ts',
+    '!dashboard/src/**/index.ts',
     '!src/types/Result.ts',
   ],
   coverageDirectory: 'coverage',

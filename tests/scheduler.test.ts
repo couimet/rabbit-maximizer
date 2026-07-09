@@ -110,6 +110,8 @@ const setup = (): MockSchedulerDeps => {
     DETECTION_MODE: 'poll',
     GITHUB_API_TIMEOUT_MS: 10_000,
     GITHUB_PAT: 'test-pat',
+    PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES: 30,
+    PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES: 15,
     POLL_INTERVAL: 90,
     REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
     DATABASE_URL: 'file:./data/test.db',

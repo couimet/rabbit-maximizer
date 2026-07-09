@@ -6,6 +6,7 @@ import DurationSelect from './DurationSelect.js';
 import QueueOrder from './QueueOrder.js';
 import RecentlyTriggered from './RecentlyTriggered.js';
 import ReviewCountdown from './ReviewCountdown.js';
+import { usePauseNotification } from './usePauseNotification.js';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -67,6 +68,8 @@ const SummaryStats = () => {
         setToggling(false);
       });
   };
+
+  usePauseNotification({ paused: data ? data.paused : false });
 
   if (error && !data) return <div className="error">Failed to load summary: {error}</div>;
   if (!data) return <div className="loading">Loading summary…</div>;
