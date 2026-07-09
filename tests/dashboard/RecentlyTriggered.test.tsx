@@ -60,6 +60,7 @@ describe('RecentlyTriggered', () => {
 
       await waitFor(() => expect(screen.getByText(item.repo_full_name)).toBeInTheDocument());
       expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument();
+      expect(screen.getByText(item.pr_title)).toBeInTheDocument();
     });
 
     it('shows empty message when no items exist', async () => {

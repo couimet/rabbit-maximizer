@@ -65,6 +65,8 @@ describe('QueueOrder', () => {
       expect(screen.getByText(item2.repo_full_name)).toBeInTheDocument();
       expect(screen.getByText(`#${item1.pr_number}`)).toBeInTheDocument();
       expect(screen.getByText(`#${item2.pr_number}`)).toBeInTheDocument();
+      expect(screen.getByText(item1.pr_title)).toBeInTheDocument();
+      expect(screen.getByText(item2.pr_title)).toBeInTheDocument();
     });
 
     it('renders repo links opening in new tabs', () => {
