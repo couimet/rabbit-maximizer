@@ -14,6 +14,7 @@ interface MakeRowOverrides {
   id?: number;
   repo_full_name?: string;
   pr_number?: number;
+  pr_title?: string;
   status?: string;
   not_before?: Date;
   attempts?: number;
@@ -32,6 +33,7 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
     uuid: getUniqueString({ prefix: 'uuid-' }),
     repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
+    pr_title: over.pr_title ?? 'Test PR title',
     status: over.status ?? 'pending',
     not_before: over.not_before ?? new Date(Date.now() - 60_000),
     attempts: over.attempts ?? 0,
@@ -58,6 +60,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   uuid: row.uuid,
   repo_full_name: row.repo_full_name,
   pr_number: row.pr_number,
+  pr_title: row.pr_title,
   status: row.status as QueueStatus,
   not_before: row.not_before,
   attempts: row.attempts,

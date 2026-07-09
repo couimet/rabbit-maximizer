@@ -25,6 +25,8 @@ model ReviewQueue {
   /// Max 140: GitHub owner/org (<=39) + "/" + repo (<=100). Sources and CHECK in the init migration; mirrored in src/schemas/lengths.ts.
   repo_full_name String
   pr_number      Int
+  /// Max 256 (GitHub PR title). Set at enqueue time.
+  pr_title       String
   /// Max 25; one of 'pending' | 'retriggered' | 'completed' | 'failed' (CHECK in the init migration).
   status         String    @default("pending")
   not_before     DateTime

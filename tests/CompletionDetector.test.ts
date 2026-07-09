@@ -44,6 +44,7 @@ const makeRetriggeredItem = (overrides: { id?: number; retriggeredAt?: Date; rep
     uuid: getUniqueString({ prefix: 'uuid-' }),
     repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
     pr_number: overrides.prNumber ?? getUniqueInt(),
+    pr_title: 'Test PR title',
     status: QueueStatus.retriggered,
     not_before: getUniqueDate(),
     attempts: 1,

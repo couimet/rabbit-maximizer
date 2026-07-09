@@ -194,6 +194,7 @@ export interface components {
       uuid: string;
       repo_full_name: string;
       pr_number: number;
+      pr_title: string;
       status: components['schemas']['QueueStatus'];
       /**
        * Format: date-time

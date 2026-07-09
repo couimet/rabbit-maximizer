@@ -147,6 +147,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       uuid: row.uuid,
       repo_full_name: row.repo_full_name,
       pr_number: row.pr_number,
+      pr_title: row.pr_title,
       status: row.status as QueueStatus,
       not_before: row.not_before,
       attempts: row.attempts,

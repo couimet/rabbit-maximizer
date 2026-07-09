@@ -11,6 +11,7 @@ const makeItem = (): QueueItem => {
     uuid: getUniqueString({ prefix: 'uuid-' }),
     repo_full_name: `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
     pr_number: getUniqueInt(),
+    pr_title: getUniqueString({ prefix: 'pr-title-' }),
     status: QueueStatus.pending,
     not_before: getUniqueDate(),
     attempts: 0,

@@ -6,6 +6,7 @@ export interface QueueItem {
   readonly uuid: string;
   readonly repo_full_name: string;
   readonly pr_number: number;
+  readonly pr_title: string;
   readonly status: QueueStatus;
   readonly not_before: Date;
   readonly attempts: number;

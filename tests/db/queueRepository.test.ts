@@ -15,6 +15,7 @@ interface RowOverrides {
   id?: number;
   repo_full_name?: string;
   pr_number?: number;
+  pr_title?: string;
   status?: string;
   not_before?: Date;
   attempts?: number;
@@ -34,6 +35,7 @@ const makeRow = (over: RowOverrides = {}) => {
     uuid: getUniqueString({ prefix: 'uuid-' }),
     repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
+    pr_title: over.pr_title ?? 'Test PR title',
     status: over.status ?? 'pending',
     not_before: over.not_before ?? getUniqueDate(),
     attempts: over.attempts ?? 0,
@@ -54,6 +56,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
   uuid: row.uuid,
   repo_full_name: row.repo_full_name,
   pr_number: row.pr_number,
+  pr_title: row.pr_title,
   status: row.status as QueueStatus,
   not_before: row.not_before,
   attempts: row.attempts,
@@ -105,7 +108,7 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, events as any, probeFactory, logger);
 
       const { item: result, created } = await sut.enqueue(
-        { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
+        { repo, pr, prTitle: 'Test PR title', notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         obs,
         prisma as unknown as Prisma.TransactionClient,
       );
@@ -114,6 +117,7 @@ describe('QueueRepositoryImpl', () => {
         data: {
           repo_full_name: repo,
           pr_number: pr,
+          pr_title: 'Test PR title',
           not_before: notBefore,
           source_comment_url: sourceUrl,
           source_comment_id: commentId,
@@ -157,7 +161,7 @@ describe('QueueRepositoryImpl', () => {
       const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
-        { repo, pr, notBefore: existing.not_before, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
+        { repo, pr, prTitle: 'Test PR title', notBefore: existing.not_before, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         observationContext,
         prisma as unknown as Prisma.TransactionClient,
       );
@@ -192,7 +196,7 @@ describe('QueueRepositoryImpl', () => {
       const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
-        { repo, pr, notBefore: newNotBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
+        { repo, pr, prTitle: 'Test PR title', notBefore: newNotBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         observationContext,
         prisma as unknown as Prisma.TransactionClient,
       );
@@ -223,7 +227,7 @@ describe('QueueRepositoryImpl', () => {
       const newWait = getUniqueInt();
       const notBefore = getUniqueDate();
       const { item: result, created } = await sut.enqueue(
-        { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
+        { repo, pr, prTitle: 'Test PR title', notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         observationContext,
         prisma as unknown as Prisma.TransactionClient,
       );
@@ -253,7 +257,7 @@ describe('QueueRepositoryImpl', () => {
       const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
-        { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
+        { repo, pr, prTitle: 'Test PR title', notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
         observationContext,
         prisma as unknown as Prisma.TransactionClient,
       );
@@ -265,6 +269,7 @@ describe('QueueRepositoryImpl', () => {
         data: {
           repo_full_name: repo,
           pr_number: pr,
+          pr_title: 'Test PR title',
           not_before: notBefore,
           source_comment_url: sourceUrl,
           source_comment_id: commentId,
@@ -561,7 +566,7 @@ describe('QueueRepositoryImpl', () => {
       const newWait = getUniqueInt();
       await expect(() =>
         sut.enqueue(
-          { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
+          { repo, pr, prTitle: 'Test PR title', notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
           observationContext,
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -586,7 +591,7 @@ describe('QueueRepositoryImpl', () => {
       const newWait = getUniqueInt();
       await expect(() =>
         sut.enqueue(
-          { repo, pr, notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
+          { repo, pr, prTitle: 'Test PR title', notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait },
           observationContext,
           prisma as unknown as Prisma.TransactionClient,
         ),
