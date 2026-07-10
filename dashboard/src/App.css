@@ -659,3 +659,25 @@ a:hover {
   text-overflow: ellipsis;
   margin-top: 2px;
 }
+
+.row-waiting td {
+  color: #b0a392;
+}
+
+.row-waiting a {
+  color: #b0a392;
+}
+
+.status-pill.eligible {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-pill.cooldown {
+  background: #fef5e7;
+  color: #b86e1a;
+}
+
+.queue-order-carrots {
+  letter-spacing: 2px;
+}

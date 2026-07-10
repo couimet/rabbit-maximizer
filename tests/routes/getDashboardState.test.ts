@@ -58,7 +58,7 @@ describe('getDashboardState', () => {
     server = app.listen(0);
   };
 
-  it('returns nextReviewAvailableAt from oldest pending item future not_before', async () => {
+  it('returns null for nextReviewAvailableAt when at least one pending item is eligible now', async () => {
     logger = createMockLogger();
     const futureDate1 = new Date(Date.now() + 900_000);
     const pastDate = new Date(Date.now() - 3_600_000);
@@ -68,6 +68,25 @@ describe('getDashboardState', () => {
       makeQueueItem({ id: 2, not_before: pastDate }),
       makeQueueItem({ id: 3, not_before: futureDate1 }),
     ];
+    startServer(
+      { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
+      { countByType: jest.fn<any>().mockResolvedValue({ detected: 5, enqueued: 3, retriggered: 2, failed: 1, bypassed: 0, completed: 0 }) },
+    );
+
+    const json = await getJson(server, '/api/dashboard-state');
+    expect(json).toStrictEqual({
+      nextReviewAvailableAt: null,
+      pendingItems: items.map(toJson),
+      eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
+      paused: false,
+    });
+  });
+
+  it('returns nextReviewAvailableAt from oldest future not_before when all items are in the future', async () => {
+    logger = createMockLogger();
+    const futureDate1 = new Date(Date.now() + 900_000);
+    const futureDate2 = new Date(Date.now() + 3_600_000);
+    const items = [makeQueueItem({ id: 1, not_before: futureDate2 }), makeQueueItem({ id: 2, not_before: futureDate1 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
       { countByType: jest.fn<any>().mockResolvedValue({ detected: 5, enqueued: 3, retriggered: 2, failed: 1, bypassed: 0, completed: 0 }) },
