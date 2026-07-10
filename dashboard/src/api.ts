@@ -24,6 +24,7 @@ const fetchJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? `HTTP ${res.status}`);
   }
+  if (res.status === 204) return undefined as T;
   return res.json();
 };
 
@@ -57,8 +58,10 @@ export const moveQueueItems = (queueItemUuids: string[], direction: 'up' | 'down
     body: JSON.stringify({ queueItemUuids, direction }),
   });
 
-export const retriggerNow = (uuid: string): Promise<{ ok: boolean; schedulerTickIntervalSec: number }> =>
-  fetchJson<{ ok: boolean; schedulerTickIntervalSec: number }>(API_BASE + '/queue/' + uuid + '/retrigger-now', { method: 'POST' });
+export const retriggerNow = (uuid: string, overridePause?: boolean): Promise<void> => {
+  const query = overridePause ? '?overridePause=true' : '';
+  return fetchJson<void>(`${API_BASE}/queue/${uuid}/retrigger-now${query}`, { method: 'POST' });
+};
 
 export const markCompleted = (uuid: string): Promise<{ ok: boolean }> =>
   fetchJson<{ ok: boolean }>(`${API_BASE}/queue/${uuid}/mark-completed`, { method: 'POST' });

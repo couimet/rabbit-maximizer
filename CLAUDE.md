@@ -101,6 +101,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-example>
 </rule>
 
+<rule id="C009" priority="critical">
+  <title>Log the full error from Result-based methods, not just its code</title>
+  <do>Pass the full error object (e.g., `result.error`) as a log attribute when logging a failure from a Result-based method</do>
+  <never>Log only `error.code` or `error.message` — the structured details (code, message, functionName, details) are lost</never>
+  <rationale>A `DetailedError` carries code, message, functionName, and an arbitrary details object. Logging just the code drops everything else — the message explains what happened, functionName pinpoints the source, and details carries operation-specific context (notBefore, sourceComment, etc.). Passing the full error preserves all of it in structured log output.</rationale>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>
@@ -133,6 +140,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Use string literals in assertions for config keys: `expect(x).toBe('delimiterLine')`</do>
   <setup>Enum values ARE allowed in test setup (mocks, fixtures) for type safety</setup>
   <exception>External library enums in assertions: use actual constant</exception>
+  <see>T009 — T009 takes precedence when a literal is shared between test setup and assertions. T003 is about freezing production contracts (enum values, user-facing text, config keys); T009 is about preventing drift in test-internal data plumbing between setup and assertions.</see>
   <rationale>Assertions freeze contracts — catches accidental enum/text changes. Setup code benefits from type safety.</rationale>
   <bad-example>
     ```typescript
@@ -219,6 +227,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>For timestamps shared between setup (ISO format) and assertions (display format), define the ISO constant and derive the display constant via `formatDate(ISO_CONST, 'UTC')`</do>
   <never>Duplicate a literal in both a `beforeEach`/setup block and an assertion — extract it so the two stays are linked by a single source of truth</never>
   <rationale>Prevents "magic number" drift between setup data and expected values. When a test fails because the setup value changed, the assertion message shows the constant name rather than a stale literal.</rationale>
+  <see>T003 — T009 takes precedence over T003 for test-internal plumbing values (mock props, fixture data). T003 governs assertions against production contract values (enums, user-facing text). Favor `getUniqueString()` or `getUniqueInt()` from `@couimet/dynamic-testing` over static literals for shared constants — dynamic values prove the value is passed through rather than matching a hardcoded default at the destination. Exception: UI component tests (React Testing Library) that look up elements by text content (`getByText`, `getByRole`) need static literal strings that match what the component renders.</see>
 </rule>
 
 <rule id="P001" priority="critical">

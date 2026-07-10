@@ -11,6 +11,7 @@ import { setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { TYPES } from './inversify-types.js';
 import { initLogger } from './logger.js';
+import { ReviewTrigger } from './ReviewTrigger.js';
 import type { Scheduler } from './scheduler.js';
 import { validateGitHubToken } from './validateGitHubToken.js';
 
@@ -55,6 +56,7 @@ const queueRepo = container.get<QueueRepository>(TYPES.QueueRepository);
 const queueOrderRepo = container.get<QueueOrderRepository>(TYPES.QueueOrderRepository);
 const eventRepo = container.get<EventRepository>(TYPES.EventRepository);
 const systemStateRepo = container.get<SystemStateRepository>(TYPES.SystemStateRepository);
+const reviewTrigger = container.get<ReviewTrigger>(TYPES.ReviewTrigger);
 const appLogger = container.get<Logger>(TYPES.Logger);
 
 const { stop: stopServer } = setupExpress({
@@ -62,6 +64,7 @@ const { stop: stopServer } = setupExpress({
   queueRepo,
   queueOrderRepo,
   eventRepo,
+  reviewTrigger,
   systemStateRepo,
   logger: appLogger,
   port: config.WEB_PORT,

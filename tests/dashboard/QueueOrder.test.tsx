@@ -415,7 +415,7 @@ describe('QueueOrder', () => {
     });
 
     it('calls retriggerNow API on click', async () => {
-      createMockFetch(200, { ok: true, schedulerTickIntervalSec: 10 });
+      createMockFetch(204, undefined);
       renderQueueOrder([item1, item2], null, onMoveComplete);
 
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
@@ -428,13 +428,13 @@ describe('QueueOrder', () => {
     });
 
     it('shows success toast with interval on success', async () => {
-      createMockFetch(200, { ok: true, schedulerTickIntervalSec: 10 });
+      createMockFetch(204, undefined);
       renderQueueOrder([item1, item2], null, onMoveComplete);
 
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
 
       await waitFor(() => {
-        expect(screen.getByText('Retrigger requested — scheduler will pick it up within 10 seconds')).toBeInTheDocument();
+        expect(screen.getByText('Retrigger requested')).toBeInTheDocument();
       });
     });
 
@@ -450,8 +450,8 @@ describe('QueueOrder', () => {
     });
 
     it('button disabled while request in flight', async () => {
-      let resolveRetrigger!: (value: { ok: boolean; schedulerTickIntervalSec: number }) => void;
-      const retriggerPromise = new Promise<{ ok: boolean; schedulerTickIntervalSec: number }>((resolve) => {
+      let resolveRetrigger!: (value: void | PromiseLike<void>) => void;
+      const retriggerPromise = new Promise<void>((resolve) => {
         resolveRetrigger = resolve;
       });
       globalThis.fetch = jest.fn(() =>
@@ -469,15 +469,15 @@ describe('QueueOrder', () => {
         expect(screen.getAllByLabelText(/^Retrigger now/)[0]).toBeDisabled();
       });
 
-      resolveRetrigger({ ok: true, schedulerTickIntervalSec: 10 });
+      resolveRetrigger();
 
       await waitFor(() => {
-        expect(screen.getByText('Retrigger requested — scheduler will pick it up within 10 seconds')).toBeInTheDocument();
+        expect(screen.getByText('Retrigger requested')).toBeInTheDocument();
       });
     });
 
     it('calls onMoveComplete on success', async () => {
-      createMockFetch(200, { ok: true, schedulerTickIntervalSec: 10 });
+      createMockFetch(204, undefined);
       renderQueueOrder([item1, item2], null, onMoveComplete);
 
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
@@ -488,8 +488,8 @@ describe('QueueOrder', () => {
     });
 
     it('does not update state after unmount on success', async () => {
-      let resolveRetrigger!: (value: { ok: boolean; schedulerTickIntervalSec: number }) => void;
-      const retriggerPromise = new Promise<{ ok: boolean; schedulerTickIntervalSec: number }>((resolve) => {
+      let resolveRetrigger!: (value: void | PromiseLike<void>) => void;
+      const retriggerPromise = new Promise<void>((resolve) => {
         resolveRetrigger = resolve;
       });
       globalThis.fetch = jest.fn(() =>
@@ -505,7 +505,7 @@ describe('QueueOrder', () => {
       unmount();
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      resolveRetrigger({ ok: true, schedulerTickIntervalSec: 10 });
+      resolveRetrigger();
       await new Promise((r) => setTimeout(r, 0));
 
       const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
@@ -531,21 +531,54 @@ describe('QueueOrder', () => {
       expect(stateUpdateWarnings).toHaveLength(0);
     });
 
-    it('disables retrigger buttons when paused is true', () => {
-      const items = [makeQueueItem(), makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
-
-      const buttons = screen.getAllByLabelText(/^Retrigger now/);
-      expect(buttons).toHaveLength(2);
-      expect(buttons[0]).toBeDisabled();
-      expect(buttons[1]).toBeDisabled();
-    });
-
     it('retrigger buttons are enabled when paused is false', () => {
       const items = [makeQueueItem()];
       render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={false} />);
 
       expect(screen.getByLabelText(/^Retrigger now/)).not.toBeDisabled();
+    });
+
+    it('retrigger buttons are enabled when paused is true', () => {
+      const items = [makeQueueItem()];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+
+      expect(screen.getByLabelText(/^Retrigger now/)).not.toBeDisabled();
+    });
+
+    it('shows confirmation dialog when retrigger is clicked while paused', () => {
+      const items = [makeQueueItem()];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+
+      fireEvent.click(screen.getByLabelText(/^Retrigger now/));
+
+      expect(screen.getByText(/scheduler is currently paused. Retrigger anyway/)).toBeInTheDocument();
+      expect(screen.getByText('Retrigger anyway')).toBeInTheDocument();
+    });
+
+    it('confirming the dialog calls retriggerNow with overridePause=true', async () => {
+      createMockFetch(204, undefined);
+      const items = [makeQueueItem()];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+
+      fireEvent.click(screen.getByLabelText(/^Retrigger now/));
+      fireEvent.click(screen.getByText('Retrigger anyway'));
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue/' + items[0].uuid + '/retrigger-now?overridePause=true', {
+          method: 'POST',
+        });
+      });
+    });
+
+    it('canceling the dialog does not call retriggerNow', () => {
+      const items = [makeQueueItem()];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+
+      fireEvent.click(screen.getByLabelText(/^Retrigger now/));
+      fireEvent.click(screen.getByText('Cancel'));
+
+      expect(screen.queryByText(/scheduler is currently paused. Retrigger anyway/)).not.toBeInTheDocument();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     });
   });
 });

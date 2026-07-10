@@ -3,6 +3,8 @@ import type { QueueItem } from '../api.js';
 import { moveQueueItems, retriggerNow } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
+import ConfirmDialog from './ConfirmDialog.js';
+
 import { useEffect, useRef, useState } from 'react';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
@@ -29,6 +31,7 @@ const QueueOrder = ({
   const [moveError, setMoveError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const [retriggeringUuid, setRetriggeringUuid] = useState<string | null>(null);
+  const [confirmRetriggerUuid, setConfirmRetriggerUuid] = useState<string | null>(null);
 
   const mountedRef = useRef(false);
   useEffect(() => {
@@ -90,11 +93,19 @@ const QueueOrder = ({
   };
 
   const handleRetriggerNow = (uuid: string) => {
+    if (paused) {
+      setConfirmRetriggerUuid(uuid);
+      return;
+    }
+    executeRetrigger(uuid);
+  };
+
+  const executeRetrigger = (uuid: string) => {
     setRetriggeringUuid(uuid);
-    retriggerNow(uuid)
-      .then((res) => {
+    retriggerNow(uuid, paused)
+      .then(() => {
         if (!mountedRef.current) return;
-        setToast({ message: 'Retrigger requested — scheduler will pick it up within ' + res.schedulerTickIntervalSec + ' seconds', variant: 'success' });
+        setToast({ message: 'Retrigger requested', variant: 'success' });
         setRetriggeringUuid(null);
         onMoveComplete();
       })
@@ -198,7 +209,7 @@ const QueueOrder = ({
                       <button
                         className="btn-retrigger"
                         onClick={() => handleRetriggerNow(item.uuid)}
-                        disabled={moving || retriggeringUuid !== null || paused}
+                        disabled={moving || retriggeringUuid !== null}
                         aria-label={'Retrigger now for ' + item.repo_full_name + ' #' + item.pr_number}
                         title="Retrigger now"
                       >
@@ -227,6 +238,17 @@ const QueueOrder = ({
             </tbody>
           </table>
         </>
+      )}
+      {confirmRetriggerUuid !== null && (
+        <ConfirmDialog
+          message="The scheduler is currently paused. Retrigger anyway?"
+          confirmLabel="Retrigger anyway"
+          onConfirm={() => {
+            executeRetrigger(confirmRetriggerUuid);
+            setConfirmRetriggerUuid(null);
+          }}
+          onCancel={() => setConfirmRetriggerUuid(null)}
+        />
       )}
     </section>
   );

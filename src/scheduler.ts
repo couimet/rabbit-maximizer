@@ -3,27 +3,25 @@ import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
+import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
-import { EventType, type QueueItem } from './types/index.js';
+import { EventType, type QueueItem, TriggerSource } from './types/index.js';
 import { computeSchedulerBackoff, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
 import { IntervalService } from './IntervalService.js';
 import { TYPES } from './inversify-types.js';
 import type { Pruner } from './Pruner.js';
-import type { SourceCommentValidator } from './SourceCommentValidator.js';
+import { ReviewTrigger } from './ReviewTrigger.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type PrismaClient } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { inject, injectable } from 'inversify';
-import { randomUUID } from 'node:crypto';
 
 const TERMINAL_HTTP_STATUSES = [StatusCodes.NOT_FOUND, StatusCodes.GONE];
 
 @injectable()
 export class Scheduler extends IntervalService {
-  private readonly postCooldownMs: number;
   private readonly baseBackoff: number;
   private readonly maxBackoff: number;
 
@@ -33,8 +31,6 @@ export class Scheduler extends IntervalService {
     private readonly queue: QueueRepository,
     @inject(TYPES.QueueOrderRepository)
     private readonly queueOrder: QueueOrderRepository,
-    @inject(TYPES.CoderabbitGitHubClient)
-    private readonly github: CoderabbitGitHubClient,
     // TODO [2026-07-15]: #123 — remove once retrigger/failure event recording moves to probes
     @inject(TYPES.EventRepository)
     private readonly events: EventRepository,
@@ -45,14 +41,13 @@ export class Scheduler extends IntervalService {
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.Pruner)
     private readonly pruner: Pruner,
-    @inject(TYPES.SourceCommentValidator)
-    private readonly commentValidator: SourceCommentValidator,
+    @inject(TYPES.ReviewTrigger)
+    private readonly reviewTrigger: ReviewTrigger,
     @inject(TYPES.SystemStateRepository)
     private readonly systemState: SystemStateRepository,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(log, cfg.SCHEDULER_TICK_INTERVAL_MS);
-    this.postCooldownMs = cfg.SCHEDULER_POST_COOLDOWN * MS_PER_SECOND;
     this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE * MS_PER_SECOND;
     this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX * MS_PER_SECOND;
   }
@@ -64,6 +59,30 @@ export class Scheduler extends IntervalService {
 
   protected onStop(): void {
     this.log.info({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
+  }
+
+  private async handleStaleCommentReschedule(item: QueueItem, err: RabbitMaximizerError): Promise<void> {
+    const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
+    const notBefore = new Date(details.notBefore);
+    const sourceComment = details.sourceComment;
+    await this.prisma.$transaction(async (tx) => {
+      await this.queue.reschedule(item.id, notBefore, sourceComment, tx);
+    });
+    this.log.info(
+      { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, newNotBefore: notBefore, error: err },
+      'Stale source comment replaced; rescheduled with updated not_before',
+    );
+  }
+
+  private async handleStaleCommentSkip(item: QueueItem, err: RabbitMaximizerError): Promise<void> {
+    const backoffMs = computeSchedulerBackoff(item.attempts, this.baseBackoff, this.maxBackoff);
+    await this.prisma.$transaction(async (tx) => {
+      await this.queue.backoff(item.id, new Date(Date.now() + backoffMs), tx);
+    });
+    this.log.warn(
+      { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs, error: err },
+      'Stale source comment with no replacement; rescheduled with backoff',
+    );
   }
 
   protected async executeTick(): Promise<void> {
@@ -81,71 +100,23 @@ export class Scheduler extends IntervalService {
       if (!item) return;
 
       const item_ = item;
-      const runId = randomUUID();
 
-      const outcome = await this.commentValidator.validate(item_);
+      const result = await this.reviewTrigger.trigger(item_, TriggerSource.scheduler);
 
-      switch (outcome.action) {
-        case 'reschedule': {
-          await this.prisma.$transaction(async (tx) => {
-            await this.queue.reschedule(item_.id, outcome.notBefore, outcome.sourceComment, tx);
-          });
-          this.log.info(
-            { fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, newNotBefore: outcome.notBefore },
-            'Stale source comment replaced; rescheduled with updated not_before',
-          );
-          return;
+      if (!result.success) {
+        const err = result.error;
+        switch (err.code) {
+          case RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE:
+            await this.handleStaleCommentReschedule(item_, err);
+            return;
+          case RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED:
+          case RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP:
+            await this.handleStaleCommentSkip(item_, err);
+            return;
+          default:
+            throw RabbitMaximizerError.forUnexpectedSwitchDefault('TriggerOutcome.error.code', err.code, 'Scheduler.executeTick');
         }
-        case 'skip': {
-          const backoffMs = computeSchedulerBackoff(item_.attempts, this.baseBackoff, this.maxBackoff);
-          await this.prisma.$transaction(async (tx) => {
-            await this.queue.backoff(item_.id, new Date(Date.now() + backoffMs), tx);
-          });
-          this.log.warn(
-            { fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, backoffMs },
-            'Stale source comment with no replacement; rescheduled with backoff',
-          );
-          return;
-        }
-        case 'proceed':
-          break;
-        /* c8 ignore next 3 — unreachable: every ValidationOutcome action is explicitly handled */
-        default:
-          throw RabbitMaximizerError.forUnexpectedSwitchDefault('ValidationOutcome.action', (outcome as { action: string }).action, 'Scheduler.executeTick');
       }
-
-      const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(
-        item_.repo_full_name,
-        item_.pr_number,
-        item_.source_comment_url,
-        runId,
-        item_.trigger_source,
-      );
-
-      const obs = this.observation.current();
-
-      await this.prisma.$transaction(async (tx) => {
-        await this.queue.markRetriggered(item_.id, new Date(Date.now() + this.postCooldownMs), retriggeredCommentUrl, tx);
-
-        // TODO [2026-07-15]: #123 — SchedulerRetriggerProbe: encapsulate event recording; scheduler should not own EventRepository
-        await this.events.record(
-          {
-            type: EventType.retriggered,
-            repo_full_name: item_.repo_full_name,
-            pr_number: item_.pr_number,
-            correlation_id: obs.correlationId,
-            request_id: obs.requestId,
-            version: obs.version,
-            payload: {
-              source_comment_url: item_.source_comment_url,
-              retriggered_comment_url: retriggeredCommentUrl,
-            },
-          },
-          tx,
-        );
-      });
-
-      this.log.info({ fn: 'Scheduler.tick', repo: item_.repo_full_name, pr: item_.pr_number, queueId: item_.id, runId }, 'Retrigger retriggered');
     } catch (err: unknown) {
       if (!item) {
         this.log.warn({ fn: 'Scheduler.tick', error: err }, 'executeTick failed before item was fetched');

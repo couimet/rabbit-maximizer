@@ -20,5 +20,5 @@ export const initLogger = (): void => {
     ],
   });
 
-  setLogger(new PinoAdapter(pino(transport)));
+  setLogger(new PinoAdapter(pino({ level: process.env.LOG_LEVEL ?? 'info' }, transport)));
 };
