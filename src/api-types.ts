@@ -68,6 +68,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/queue/order/move-to-top': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['moveToTop'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/events': {
     parameters: {
       query?: never;
@@ -298,6 +314,9 @@ export interface components {
       page: number;
       pageSize: number;
     };
+    MoveToTopRequest: {
+      queueItemUuid: string;
+    };
     QueueOrderMoveRequest: {
       queueItemIds: number[];
       /** @enum {string} */
@@ -430,6 +449,56 @@ export interface operations {
       };
       /** @description Queue items not found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  moveToTop: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MoveToTopRequest'];
+      };
+    };
+    responses: {
+      /** @description Item moved to top of queue */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Queue item not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Item is not pending */
+      409: {
         headers: {
           [name: string]: unknown;
         };
