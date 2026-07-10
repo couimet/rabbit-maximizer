@@ -5,6 +5,7 @@ import { TriggerSource } from '../types/TriggerSource.js';
 
 const { version } = pkg;
 const repoUrl = pkg.repository.url;
+const JSON_METADATA_INDENT_SPACES = 2;
 
 export const buildCommentBody = (sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): string => {
   let triggerLine: string;
@@ -33,7 +34,9 @@ export const buildCommentBody = (sourceCommentUrl: string, runId: string, trigge
     timestamp: new Date().toISOString(),
   };
 
-  const jsonComment = `<!-- rabbit-maximizer\n${JSON.stringify(metadata, null, 2)}\n-->`;
+  const rawJson = JSON.stringify(metadata, null, JSON_METADATA_INDENT_SPACES);
+  const safeJson = rawJson.replace(/-->/g, '--\\u003E');
+  const jsonComment = `<!-- rabbit-maximizer\n${safeJson}\n-->`;
 
   return [REVIEW_BOT_RETRIGGER_COMMAND, '', triggerLine, '', '---', '', footer, '', jsonComment].join('\n');
 };

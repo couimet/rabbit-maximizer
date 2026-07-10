@@ -78,6 +78,21 @@ describe('buildCommentBody', () => {
     });
   });
 
+  it('sanitizes --> in metadata values to prevent HTML comment termination', () => {
+    const { owner, repo } = makeUniqueRepoName();
+    const prNumber = getUniqueInt();
+    const commentId = getUniqueInt();
+    const runId = getUniqueString({ prefix: 'run-' });
+
+    const triggerUrl = `https://github.com/${owner}/-->${repo}/issues/${prNumber}#issuecomment-${commentId}`;
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler);
+
+    const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
+    expect(jsonMatch).not.toBeNull();
+    const parsed = JSON.parse(jsonMatch![1]);
+    expect(parsed.sourceCommentUrl).toBe(triggerUrl);
+  });
+
   it('throws for an unexpected triggerSource value', () => {
     const { owner, repo } = makeUniqueRepoName();
     const prNumber = getUniqueInt();
