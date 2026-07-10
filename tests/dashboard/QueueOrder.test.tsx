@@ -637,14 +637,16 @@ describe('QueueOrder', () => {
       });
     });
 
+    const ERROR_MESSAGE_NOT_PENDING = 'Queue item is not pending';
+
     it('shows error toast on failure', async () => {
-      createMockFetch(409, { error: 'Queue item is not pending' });
+      createMockFetch(409, { error: ERROR_MESSAGE_NOT_PENDING });
       renderQueueOrder([item1, item2], null, onMoveComplete);
 
       fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
 
       await waitFor(() => {
-        expect(screen.getByText('Queue item is not pending')).toBeInTheDocument();
+        expect(screen.getByText(ERROR_MESSAGE_NOT_PENDING)).toBeInTheDocument();
       });
     });
 

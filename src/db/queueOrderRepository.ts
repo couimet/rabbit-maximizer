@@ -75,6 +75,30 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
   moveToTop(uuid: string): Promise<QueueItem> {
     return this.transaction(async (tx) => {
+      const db = this.client(tx);
+      const rawItem = await db.reviewQueue.findUnique({
+        where: { uuid },
+        select: { id: true, status: true },
+      });
+
+      if (!rawItem) {
+        throw new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND,
+          message: `Queue item ${uuid} not found`,
+          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          details: { uuid },
+        });
+      }
+
+      if (rawItem.status !== QueueStatus.pending) {
+        throw new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
+          message: `Queue item ${uuid} is not pending`,
+          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          details: { uuid, status: rawItem.status },
+        });
+      }
+
       const ordered = await this.readEffectiveOrder(tx, false);
       const item = findByUuid(ordered, uuid);
 
@@ -84,15 +108,6 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
           message: `Queue item ${uuid} not found`,
           functionName: 'QueueOrderRepositoryImpl.moveToTop',
           details: { uuid },
-        });
-      }
-
-      if (item.status !== QueueStatus.pending) {
-        throw new RabbitMaximizerError({
-          code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
-          message: `Queue item ${uuid} is not pending`,
-          functionName: 'QueueOrderRepositoryImpl.moveToTop',
-          details: { uuid, status: item.status },
         });
       }
 

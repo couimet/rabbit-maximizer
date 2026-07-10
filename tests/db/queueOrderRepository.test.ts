@@ -388,6 +388,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const { prisma, queueOrder } = createMockPrismaClient({
         reviewQueue: {
+          findUnique: jest.fn<any>().mockResolvedValue({ id: itemB.id, status: 'pending' }),
           findMany: jest
             .fn<any>()
             .mockResolvedValueOnce([itemA, itemB, itemC])
@@ -421,6 +422,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const { prisma, queueOrder } = createMockPrismaClient({
         reviewQueue: {
+          findUnique: jest.fn<any>().mockResolvedValue({ id: itemA.id, status: 'pending' }),
           findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]),
         },
         queueOrder: {
@@ -450,6 +452,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: {
+          findUnique: jest.fn<any>().mockResolvedValue({ id: itemB.id, status: 'pending' }),
           findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemB, itemA]),
         },
         queueOrder: {
@@ -470,11 +473,9 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('throws when item is not found', async () => {
-      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
-
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
-          findMany: jest.fn<any>().mockResolvedValueOnce([itemA]).mockResolvedValueOnce([itemA]),
+          findUnique: jest.fn<any>().mockResolvedValue(null),
         },
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
@@ -491,7 +492,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
-          findMany: jest.fn<any>().mockResolvedValueOnce([itemA]).mockResolvedValueOnce([itemA]),
+          findUnique: jest.fn<any>().mockResolvedValue({ id: itemA.id, status: itemA.status }),
         },
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);

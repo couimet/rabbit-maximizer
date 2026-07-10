@@ -158,10 +158,10 @@ const QueueOrder = ({
       ) : (
         <>
           <div className="queue-order-toolbar">
-            <button disabled={!hasSelection || moving || retriggeringUuid !== null} onClick={() => moveSelected('up')}>
+            <button disabled={!hasSelection || moving || retriggeringUuid !== null || movingToTopUuid !== null} onClick={() => moveSelected('up')}>
               Move Up
             </button>
-            <button disabled={!hasSelection || moving || retriggeringUuid !== null} onClick={() => moveSelected('down')}>
+            <button disabled={!hasSelection || moving || retriggeringUuid !== null || movingToTopUuid !== null} onClick={() => moveSelected('down')}>
               Move Down
             </button>
           </div>
