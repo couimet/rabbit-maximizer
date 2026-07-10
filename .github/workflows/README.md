@@ -14,11 +14,11 @@ Triggered by `pull_request_target` `closed` events. Each comment includes struct
 
 Comment posting is delegated to the standalone [`request-coderabbit-full-review`](../.github/actions/request-coderabbit-full-review/) composite action. Both the workflow and the action are structured for extraction to `couimet/github-actions`.
 
-| Input / env            | Required | Default                 | Description                                                   |
-| ---------------------- | -------- | ----------------------- | ------------------------------------------------------------- |
-| `GITHUB_RUN_ID`        | auto     | (GitHub Actions run ID) | Run identifier embedded in comment metadata for traceability. |
-| `github.event.repo`    | auto     | (event payload)         | Repository full name (e.g. `owner/repo`).                     |
-| `github.event.pr.head` | auto     | (event payload)         | The merged PR's head ref, used as the `--base` filter.        |
+| Input / env                          | Required | Default         | Description                                               |
+| ------------------------------------ | -------- | --------------- | --------------------------------------------------------- |
+| `github.event.repository.full_name`  | auto     | (event payload) | Repository full name (e.g. `owner/repo`).                 |
+| `github.event.pull_request.head.ref` | auto     | (event payload) | The merged PR's head ref, used as the `--base` filter.    |
+| `github.event.pull_request.number`   | auto     | (event payload) | The merged PR's number, used to post the summary comment. |
 
 When extracted to `couimet/github-actions`, the reusable workflow will accept these as explicit inputs:
 

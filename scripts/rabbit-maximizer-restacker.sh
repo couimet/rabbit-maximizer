@@ -31,27 +31,32 @@ fi
 # Save the real GITHUB_OUTPUT so we can write step outputs at the end.
 # Each action invocation overrides GITHUB_OUTPUT to capture its comment-id.
 REAL_GITHUB_OUTPUT="${GITHUB_OUTPUT:-/dev/null}"
-METADATA="{\"merged_branch\":\"$MERGED_BRANCH\"}"
+METADATA="$(jq -n --arg merged_branch "$MERGED_BRANCH" '{merged_branch: $merged_branch}')"
 CAPTURE_DIR="$(mktemp -d)"
 
 CHILD_LINKS=""
+FAILED_COUNT=0
 for PR_NUMBER in $CHILD_PRS; do
   echo "Posting review trigger on child PR #$PR_NUMBER..."
 
   CAPTURE_FILE="$CAPTURE_DIR/pr-$PR_NUMBER.outputs"
-  PR_NUMBER="$PR_NUMBER" \
+  if PR_NUMBER="$PR_NUMBER" \
     REPO="$REPO" \
     TRIGGER="rabbit-maximizer-restacker" \
     METADATA="$METADATA" \
     GITHUB_OUTPUT="$CAPTURE_FILE" \
-    bash "$ACTION_SCRIPT"
-
-  COMMENT_ID=$(grep 'comment-id=' "$CAPTURE_FILE" 2>/dev/null | sed 's/comment-id=//' || echo "?")
-  COMMENT_URL="https://github.com/$REPO/pull/$PR_NUMBER#issuecomment-$COMMENT_ID"
-  CHILD_LINKS="${CHILD_LINKS}| #$PR_NUMBER | [review request]($COMMENT_URL) |
+    bash "$ACTION_SCRIPT"; then
+    COMMENT_ID=$(grep 'comment-id=' "$CAPTURE_FILE" 2>/dev/null | sed 's/comment-id=//' || echo "?")
+    COMMENT_URL="https://github.com/$REPO/pull/$PR_NUMBER#issuecomment-$COMMENT_ID"
+    CHILD_LINKS="${CHILD_LINKS}| #$PR_NUMBER | [review request]($COMMENT_URL) |
 "
-
-  echo "Posted review trigger on PR #$PR_NUMBER"
+    echo "Posted review trigger on PR #$PR_NUMBER"
+  else
+    echo "Warning: Failed to post review trigger on PR #$PR_NUMBER" >&2
+    CHILD_LINKS="${CHILD_LINKS}| #$PR_NUMBER | ⚠️ failed |
+"
+    FAILED_COUNT=$((FAILED_COUNT + 1))
+  fi
 done
 
 rm -rf "$CAPTURE_DIR"
@@ -70,6 +75,9 @@ Branch \`$MERGED_BRANCH\` merged. Requested CodeRabbit full review on $CHILD_COU
 |---|---|
 $CHILD_LINKS
 EOF
+  if [ "$FAILED_COUNT" -gt 0 ]; then
+    echo "_${FAILED_COUNT} review request(s) failed to post. See workflow logs for details._" >> "$SUMMARY_FILE"
+  fi
   echo "summary-file=$SUMMARY_FILE" >> "$REAL_GITHUB_OUTPUT"
   echo "Summary written for merged PR #$MERGED_PR_NUMBER"
 fi

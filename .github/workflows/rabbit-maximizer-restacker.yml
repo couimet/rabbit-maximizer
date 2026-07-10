@@ -21,7 +21,10 @@ jobs:
         id: restack
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash scripts/rabbit-maximizer-restacker.sh "${{ github.event.repository.full_name }}" "${{ github.event.pull_request.head.ref }}" "${{ github.event.pull_request.number }}"
+          REPO_FULL_NAME: ${{ github.event.repository.full_name }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash scripts/rabbit-maximizer-restacker.sh "$REPO_FULL_NAME" "$PR_HEAD_REF" "$PR_NUMBER"
 
       - name: Post summary on merged PR
         if: steps.restack.outputs.summary-file != ''

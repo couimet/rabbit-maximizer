@@ -163,3 +163,34 @@ MOCK
   grep -q "issuecomment-99999" "$SUMMARY_FILE"
   [[ "$output" == *"Summary written for merged PR #136"* ]]
 }
+
+@test "gh api fails during comment posting -> script continues, records failure in summary" {
+  export GITHUB_OUTPUT="$TEST_TEMP_DIR/step-outputs"
+  touch "$GITHUB_OUTPUT"
+
+  cat > "$TEST_TEMP_DIR/bin/gh" <<'MOCK'
+#!/usr/bin/env bash
+if [ "$1" = "pr" ] && [ "$2" = "list" ]; then
+  echo "42"
+  exit 0
+fi
+if [ "$1" = "api" ]; then
+  echo "gh: API error" >&2
+  exit 1
+fi
+echo "Unexpected gh call: $*" >&2
+exit 1
+MOCK
+
+  run bash "$SCRIPT" "test-owner/test-repo" "feature-branch" "136"
+  [ "$status" -eq 0 ]
+
+  [[ "$output" == *"Warning: Failed to post review trigger on PR #42"* ]]
+
+  SUMMARY_FILE="$(grep 'summary-file=' "$GITHUB_OUTPUT" | sed 's/summary-file=//')"
+  [ -f "$SUMMARY_FILE" ]
+  grep -q "⚠️ failed" "$SUMMARY_FILE"
+  grep -q "1 review request(s) failed" "$SUMMARY_FILE"
+
+  [[ "$output" == *"Summary written for merged PR #136"* ]]
+}
