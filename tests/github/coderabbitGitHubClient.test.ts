@@ -538,6 +538,35 @@ describe('client', () => {
 
       expect(result).toBeUndefined();
     });
+
+    it('returns undefined when the newest comment is our own retrigger comment', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const since = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/our-retrigger',
+            created_at: new Date(since.getTime() + MS_PER_HOUR * 48).toISOString(),
+            body: '<!-- rabbit-maximizer -->\n@coderabbitai full review\n\n🔧 rabbit-maximizer v0.1.0 run=abc',
+            user: { login: 'couimet' },
+          },
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/coderabbit-review',
+            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
+            body: '## Summary by CodeRabbit\n\nHere is your review.',
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
   });
 
   describe('findLatestReviewLimitComment', () => {

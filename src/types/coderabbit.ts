@@ -1,4 +1,9 @@
-/** Hidden HTML marker prefix our tool embeds in its comments so detection skips them. */
+/**
+ * Unclosed HTML comment prefix embedded in our retrigger comments so `hasOwnRetriggerMarker()`
+ * can identify them via `includes()`. Intentionally left open (no trailing `-->`) so the
+ * prefix matches any variant — with or without extra attributes appended before the closing
+ * delimiter. Callers that build a full comment body are responsible for closing it with ` -->`.
+ */
 export const REVIEW_BOT_SELF_MARKER_PREFIX = '<!-- rabbit-maximizer';
 
 /** Hidden HTML marker that identifies a CodeRabbit rate-limit comment. Used by hasRateLimitMarker() for precise verification against the full comment body (which includes HTML comments via the REST API). */
