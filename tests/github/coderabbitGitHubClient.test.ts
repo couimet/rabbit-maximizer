@@ -68,12 +68,23 @@ describe('client', () => {
       const expectedBody = [
         '@coderabbitai full review',
         '',
-        `🔧 rabbit-maximizer v${VERSION} run=${runId}`,
+        `↩ Triggered by: ${triggerUrl}`,
         '',
         '---',
         '',
-        `🤖 rabbit-maximizer | ${REPO_URL} | v${VERSION} | run=${runId}`,
-        `↩ Triggered by: ${triggerUrl}`,
+        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`,
+        '',
+        `<!-- rabbit-maximizer\n${JSON.stringify(
+          {
+            version: VERSION,
+            runId,
+            triggerSource: 'scheduler',
+            sourceCommentUrl: triggerUrl,
+            timestamp: frozenDate.toISOString(),
+          },
+          null,
+          2,
+        )}\n-->`,
       ].join('\n');
 
       expect(issues.createComment).toHaveBeenCalledWith({
@@ -115,12 +126,23 @@ describe('client', () => {
       const expectedBody = [
         '@coderabbitai full review',
         '',
-        `🔧 rabbit-maximizer v${VERSION} run=${runId} [manual]`,
+        '⚡ Triggered manually from dashboard',
         '',
         '---',
         '',
-        `🤖 rabbit-maximizer | ${REPO_URL} | v${VERSION} | run=${runId}`,
-        '⚡ Triggered manually from dashboard',
+        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`,
+        '',
+        `<!-- rabbit-maximizer\n${JSON.stringify(
+          {
+            version: VERSION,
+            runId,
+            triggerSource: 'dashboard_retrigger_now',
+            sourceCommentUrl: null,
+            timestamp: frozenDate.toISOString(),
+          },
+          null,
+          2,
+        )}\n-->`,
       ].join('\n');
 
       expect(issues.createComment).toHaveBeenCalledWith({
