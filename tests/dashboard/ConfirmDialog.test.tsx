@@ -41,4 +41,12 @@ describe('ConfirmDialog', () => {
     fireEvent.click(screen.getByText(MESSAGE).closest('.dialog-overlay')!);
     expect(onCancel).toHaveBeenCalled();
   });
+
+  it('calls onCancel when Escape is pressed', () => {
+    const onCancel = jest.fn();
+    render(<ConfirmDialog message={MESSAGE} confirmLabel={CONFIRM_LABEL} onConfirm={jest.fn()} onCancel={onCancel} />);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledWith();
+  });
 });

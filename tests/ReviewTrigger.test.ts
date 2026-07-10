@@ -50,7 +50,7 @@ const setup = () => {
 
 describe('ReviewTrigger', () => {
   it('returns ok with retriggeredCommentUrl when source comment is valid', async () => {
-    const { github, probeFactory, reviewTrigger } = setup();
+    const { github, probeFactory, logger, reviewTrigger } = setup();
     const item = makeItem();
     github.fetchComment.mockResolvedValue('rate limited by coderabbit.ai');
     github.postRetrigger.mockResolvedValue({ htmlUrl: COMMENT_URL });
@@ -66,6 +66,10 @@ describe('ReviewTrigger', () => {
 
     expect(result.success).toBe(true);
     expect(result.value).toStrictEqual({ retriggeredCommentUrl: COMMENT_URL });
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
+    );
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found', async () => {

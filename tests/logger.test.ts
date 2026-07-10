@@ -37,8 +37,25 @@ describe('initLogger', () => {
       ],
     });
 
-    expect(mockPinoFn).toHaveBeenCalledWith({ level: 'debug' }, mockTransport);
+    expect(mockPinoFn).toHaveBeenCalledWith({ level: 'info' }, mockTransport);
     expect(MockPinoAdapter).toHaveBeenCalledWith(mockPinoLogger);
     expect(mockSetLogger).toHaveBeenCalledWith(MockPinoAdapter.mock.instances[0]);
+  });
+
+  it('uses LOG_LEVEL env var over the info default when set', () => {
+    const prev = process.env.LOG_LEVEL;
+    process.env.LOG_LEVEL = 'debug';
+
+    try {
+      const mockTransport = {};
+      mockTransportFn.mockReturnValue(mockTransport);
+      mockPinoFn.mockReturnValue(mockPinoLogger);
+
+      initLogger();
+
+      expect(mockPinoFn).toHaveBeenCalledWith({ level: 'debug' }, mockTransport);
+    } finally {
+      process.env.LOG_LEVEL = prev;
+    }
   });
 });

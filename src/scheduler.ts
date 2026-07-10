@@ -69,18 +69,18 @@ export class Scheduler extends IntervalService {
       await this.queue.reschedule(item.id, notBefore, sourceComment, tx);
     });
     this.log.info(
-      { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, newNotBefore: notBefore },
+      { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, newNotBefore: notBefore, error: err },
       'Stale source comment replaced; rescheduled with updated not_before',
     );
   }
 
-  private async handleStaleCommentSkip(item: QueueItem): Promise<void> {
+  private async handleStaleCommentSkip(item: QueueItem, err: RabbitMaximizerError): Promise<void> {
     const backoffMs = computeSchedulerBackoff(item.attempts, this.baseBackoff, this.maxBackoff);
     await this.prisma.$transaction(async (tx) => {
       await this.queue.backoff(item.id, new Date(Date.now() + backoffMs), tx);
     });
     this.log.warn(
-      { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs },
+      { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs, error: err },
       'Stale source comment with no replacement; rescheduled with backoff',
     );
   }
@@ -111,7 +111,7 @@ export class Scheduler extends IntervalService {
             return;
           case RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED:
           case RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP:
-            await this.handleStaleCommentSkip(item_);
+            await this.handleStaleCommentSkip(item_, err);
             return;
           default:
             throw RabbitMaximizerError.forUnexpectedSwitchDefault('TriggerOutcome.error.code', err.code, 'Scheduler.executeTick');

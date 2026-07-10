@@ -3,10 +3,12 @@ import type { QueueRepository } from '../../src/db/queueRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
 import { EventType, QueueStatus, TriggerSource } from '../../src/types/index.js';
+import { createMockEventRepo, createMockQueueRepo } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
 
 const TX = {} as Prisma.TransactionClient;
@@ -30,16 +32,30 @@ const makeItem = () => ({
 const LOGGING_CTX = (item: ReturnType<typeof makeItem>) => ({ fn: 'ReviewRetriggerProbe', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id });
 
 describe('ReviewRetriggerProbe', () => {
+  let queue: jest.Mocked<QueueRepository>;
+  let events: jest.Mocked<EventRepository>;
+  let logger: Logger;
+  let observation: ObservationContext;
+
+  beforeEach(() => {
+    queue = createMockQueueRepo();
+    events = createMockEventRepo();
+    logger = createMockLogger();
+    observation = {
+      correlationId: getUniqueString({ prefix: 'corr-' }),
+      requestId: getUniqueString({ prefix: 'req-' }),
+      version: getUniqueString({ prefix: 'v' }),
+    };
+  });
+
+  const createProbe = (item: ReturnType<typeof makeItem>) => new ReviewRetriggerProbe(item, queue, events, observation, logger);
+
   it('marks retriggered, records event, and logs on reviewRetriggered', async () => {
     const item = makeItem();
-    const queue = { markRetriggered: jest.fn() } as unknown as jest.Mocked<QueueRepository>;
-    const events = { record: jest.fn() } as unknown as jest.Mocked<EventRepository>;
-    const observation = { correlationId: 'cid', requestId: 'rid', version: 'v1' } as ObservationContext;
-    const logger = createMockLogger();
     const cooldownUntil = getUniqueDate();
-    const retriggeredCommentUrl = 'https://gh/c/retriggered';
-    const probe = new ReviewRetriggerProbe(item, queue, events, observation, logger);
+    const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
+    const probe = createProbe(item);
     await probe.reviewRetriggered(retriggeredCommentUrl, cooldownUntil, TX);
 
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, cooldownUntil, retriggeredCommentUrl, TX);
@@ -48,9 +64,9 @@ describe('ReviewRetriggerProbe', () => {
         type: EventType.retriggered,
         repo_full_name: item.repo_full_name,
         pr_number: item.pr_number,
-        correlation_id: 'cid',
-        request_id: 'rid',
-        version: 'v1',
+        correlation_id: observation.correlationId,
+        request_id: observation.requestId,
+        version: observation.version,
         payload: {
           source_comment_url: item.source_comment_url,
           retriggered_comment_url: retriggeredCommentUrl,
@@ -63,10 +79,9 @@ describe('ReviewRetriggerProbe', () => {
 
   it('logs on staleCommentRescheduled', () => {
     const item = makeItem();
-    const logger = createMockLogger();
     const notBefore = getUniqueDate();
-    const probe = new ReviewRetriggerProbe(item, {} as any, {} as any, {} as any, logger);
 
+    const probe = createProbe(item);
     probe.staleCommentRescheduled(notBefore);
 
     expect(logger.info).toHaveBeenCalledWith({ ...LOGGING_CTX(item), notBefore }, 'Stale source comment replaced; cannot retrigger');
@@ -74,9 +89,8 @@ describe('ReviewRetriggerProbe', () => {
 
   it('logs on staleCommentSkipped', () => {
     const item = makeItem();
-    const logger = createMockLogger();
-    const probe = new ReviewRetriggerProbe(item, {} as any, {} as any, {} as any, logger);
 
+    const probe = createProbe(item);
     probe.staleCommentSkipped();
 
     expect(logger.info).toHaveBeenCalledWith(LOGGING_CTX(item), 'No replacement rate-limit comment found; cannot retrigger');
@@ -84,10 +98,9 @@ describe('ReviewRetriggerProbe', () => {
 
   it('logs on staleCommentReplacementDeleted', () => {
     const item = makeItem();
-    const logger = createMockLogger();
-    const REPLACEMENT_ID = 999;
-    const probe = new ReviewRetriggerProbe(item, {} as any, {} as any, {} as any, logger);
+    const REPLACEMENT_ID = getUniqueInt();
 
+    const probe = createProbe(item);
     probe.staleCommentReplacementDeleted(REPLACEMENT_ID);
 
     expect(logger.info).toHaveBeenCalledWith(

@@ -162,7 +162,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, TriggerSource.scheduler);
+      expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
 
       await stop();
     });
@@ -171,17 +171,14 @@ describe('Scheduler', () => {
       const item = makeItem();
       const notBefore = new Date(Date.now() + 60_000);
       const newComment = { commentId: 999, commentUrl: 'https://gh/c/new' };
+      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
+        message: 'stale',
+        functionName: 'test',
+        details: { notBefore: notBefore.toISOString(), sourceComment: newComment },
+      });
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(
-        RabbitResult.err(
-          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-            code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
-            message: 'stale',
-            functionName: 'test',
-            details: { notBefore: notBefore.toISOString(), sourceComment: newComment },
-          }),
-        ),
-      );
+      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -189,22 +186,23 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, notBefore, newComment, deps.tx);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, newNotBefore: notBefore, error: staleErr },
+        'Stale source comment replaced; rescheduled with updated not_before',
+      );
 
       await stop();
     });
 
     it('backs off when ReviewTrigger returns stale skip', async () => {
       const item = makeItem();
+      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+        message: 'gone',
+        functionName: 'test',
+      });
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(
-        RabbitResult.err(
-          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-            code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
-            message: 'gone',
-            functionName: 'test',
-          }),
-        ),
-      );
+      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -212,22 +210,23 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, error: staleErr },
+        'Stale source comment with no replacement; rescheduled with backoff',
+      );
 
       await stop();
     });
 
     it('backs off when ReviewTrigger returns stale replacement deleted', async () => {
       const item = makeItem();
+      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED' as any,
+        message: 'gone',
+        functionName: 'test',
+      });
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(
-        RabbitResult.err(
-          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-            code: 'RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED' as any,
-            message: 'gone',
-            functionName: 'test',
-          }),
-        ),
-      );
+      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -235,6 +234,10 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, error: staleErr },
+        'Stale source comment with no replacement; rescheduled with backoff',
+      );
 
       await stop();
     });

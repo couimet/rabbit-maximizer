@@ -1,3 +1,5 @@
+import { RabbitMaximizerError } from '../../src/errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from '../../src/errors/RabbitMaximizerErrorCodes.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import {
   createGetQueueOrderHandler,
@@ -294,8 +296,8 @@ describe('queueOrderRoutes', () => {
 
     it('returns 409 when ReviewTrigger rejects with stale comment', async () => {
       const triggerErr = RabbitResult.err(
-        new (await import('../../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-          code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+        new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP,
           message: 'Source comment is gone with no replacement',
           functionName: 'ReviewTrigger.trigger',
         }),

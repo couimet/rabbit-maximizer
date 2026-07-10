@@ -140,6 +140,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Use string literals in assertions for config keys: `expect(x).toBe('delimiterLine')`</do>
   <setup>Enum values ARE allowed in test setup (mocks, fixtures) for type safety</setup>
   <exception>External library enums in assertions: use actual constant</exception>
+  <see>T009 — T009 takes precedence when a literal is shared between test setup and assertions. T003 is about freezing production contracts (enum values, user-facing text, config keys); T009 is about preventing drift in test-internal data plumbing between setup and assertions.</see>
   <rationale>Assertions freeze contracts — catches accidental enum/text changes. Setup code benefits from type safety.</rationale>
   <bad-example>
     ```typescript
@@ -226,6 +227,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>For timestamps shared between setup (ISO format) and assertions (display format), define the ISO constant and derive the display constant via `formatDate(ISO_CONST, 'UTC')`</do>
   <never>Duplicate a literal in both a `beforeEach`/setup block and an assertion — extract it so the two stays are linked by a single source of truth</never>
   <rationale>Prevents "magic number" drift between setup data and expected values. When a test fails because the setup value changed, the assertion message shows the constant name rather than a stale literal.</rationale>
+  <see>T003 — T009 takes precedence over T003 for test-internal plumbing values (mock props, fixture data). T003 governs assertions against production contract values (enums, user-facing text). Favor `getUniqueString()` or `getUniqueInt()` from `@couimet/dynamic-testing` over static literals for shared constants — dynamic values prove the value is passed through rather than matching a hardcoded default at the destination. Exception: UI component tests (React Testing Library) that look up elements by text content (`getByText`, `getByRole`) need static literal strings that match what the component renders.</see>
 </rule>
 
 <rule id="P001" priority="critical">
