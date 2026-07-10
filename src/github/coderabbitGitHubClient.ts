@@ -151,6 +151,11 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       per_page: COMMENTS_FETCH_PER_PAGE,
     });
 
+    // If the newest comment is our own retrigger, CodeRabbit hasn't responded yet — nothing to complete
+    if (response.data.length > 0 && response.data[0].body && hasOwnRetriggerMarker(response.data[0].body)) {
+      return undefined;
+    }
+
     const completedComment = response.data.find(
       (c) => c.user?.login === REVIEW_BOT_LOGIN && c.body && !hasRateLimitMarker(c.body) && new Date(c.created_at) > since,
     );
