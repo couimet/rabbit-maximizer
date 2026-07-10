@@ -589,7 +589,7 @@ export interface operations {
           'application/json': components['schemas']['Error'];
         };
       };
-      /** @description Scheduler is paused or trigger failed */
+      /** @description Scheduler is paused, item is not pending, or trigger failed */
       409: {
         headers: {
           [name: string]: unknown;

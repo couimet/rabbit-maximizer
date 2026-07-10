@@ -739,13 +739,12 @@ a:hover {
 }
 
 .dialog-btn-confirm {
-  border: 1px solid #d4650a;
-  background: #d4650a;
+  border: 1px solid #b85508;
+  background: #b85508;
   color: #fff;
 }
 
 .dialog-btn-confirm:hover {
-  background: #b85508;
-  border-color: #b85508;
+  background: #9e4806;
+  border-color: #9e4806;
 }
-

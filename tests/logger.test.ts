@@ -23,6 +23,8 @@ jest.unstable_mockModule('@couimet/logger-contract-adapters', () => ({
 const { initLogger } = await import('../src/logger.js');
 
 describe('initLogger', () => {
+  const DEBUG_LOG_LEVEL = 'debug';
+
   it('builds dual-target pino transport (pino-roll + pino-pretty), wraps it in PinoAdapter, and registers via setLogger', () => {
     const mockTransport = {};
     mockTransportFn.mockReturnValue(mockTransport);
@@ -44,7 +46,7 @@ describe('initLogger', () => {
 
   it('uses LOG_LEVEL env var over the info default when set', () => {
     const prev = process.env.LOG_LEVEL;
-    process.env.LOG_LEVEL = 'debug';
+    process.env.LOG_LEVEL = DEBUG_LOG_LEVEL;
 
     try {
       const mockTransport = {};
@@ -53,7 +55,7 @@ describe('initLogger', () => {
 
       initLogger();
 
-      expect(mockPinoFn).toHaveBeenCalledWith({ level: 'debug' }, mockTransport);
+      expect(mockPinoFn).toHaveBeenCalledWith({ level: DEBUG_LOG_LEVEL }, mockTransport);
     } finally {
       process.env.LOG_LEVEL = prev;
     }
