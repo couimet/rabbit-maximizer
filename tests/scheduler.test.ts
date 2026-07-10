@@ -19,10 +19,9 @@ import {
   createMockQueueRepo,
   createMockSystemStateRepository,
   drainMicrotasks,
-  makeUniqueRepoName,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -66,8 +65,8 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
   const commentId = getUniqueInt();
   return {
     id: over.id ?? getUniqueInt(),
-    uuid: over.uuid ?? getUniqueString({ prefix: 'uuid-' }),
-    repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
+    uuid: over.uuid ?? getUuid(),
+    repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? getUniqueString({ prefix: 'pr-title-' }),
     status: over.status ?? QueueStatus.pending,

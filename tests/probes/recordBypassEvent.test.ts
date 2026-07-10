@@ -3,7 +3,7 @@ import type { ObservationContext } from '../../src/observability/observationCont
 import { recordBypassEvent } from '../../src/probes/recordBypassEvent.js';
 import { BypassReason } from '../../src/types/index.js';
 
-import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it, jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
 
@@ -16,11 +16,11 @@ describe('recordBypassEvent', () => {
     } as unknown as EventRepository;
     const tx = makeTx();
     const observation: ObservationContext = {
-      correlationId: getUniqueString({ prefix: 'corr-' }),
-      requestId: getUniqueString({ prefix: 'req-' }),
+      correlationId: getUuid(),
+      requestId: getUuid(),
       version: '1.0.0',
     };
-    const repo = getUniqueString({ prefix: 'owner/' });
+    const repo = getUniqueGitHubRepoRef().fullName;
     const pr = getUniqueInt();
 
     await recordBypassEvent({ events, tx, reason: BypassReason.prMerged, observation, repo_full_name: repo, pr_number: pr });
@@ -45,11 +45,11 @@ describe('recordBypassEvent', () => {
     } as unknown as EventRepository;
     const tx = makeTx();
     const observation: ObservationContext = {
-      correlationId: getUniqueString({ prefix: 'corr-' }),
-      requestId: getUniqueString({ prefix: 'req-' }),
+      correlationId: getUuid(),
+      requestId: getUuid(),
       version: '1.0.0',
     };
-    const repo = getUniqueString({ prefix: 'owner/' });
+    const repo = getUniqueGitHubRepoRef().fullName;
     const pr = getUniqueInt();
 
     await recordBypassEvent({ events, tx, reason: BypassReason.prClosedWithoutMerge, observation, repo_full_name: repo, pr_number: pr });

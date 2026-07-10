@@ -3,15 +3,9 @@ import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClien
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.js';
 
-import {
-  createMockCoderabbitGitHubClient,
-  createMockEventRepo,
-  createMockObservationContextProvider,
-  createMockQueueRepo,
-  makeUniqueRepoName,
-} from './helpers/index.js';
+import { createMockCoderabbitGitHubClient, createMockEventRepo, createMockObservationContextProvider, createMockQueueRepo } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -41,8 +35,8 @@ const makeRetriggeredItem = (overrides: { id?: number; retriggeredAt?: Date; rep
   const commentId = getUniqueInt();
   return {
     id: overrides.id ?? getUniqueInt(),
-    uuid: getUniqueString({ prefix: 'uuid-' }),
-    repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
+    uuid: getUuid(),
+    repo_full_name: overrides.repoFullName ?? getUniqueGitHubRepoRef().fullName,
     pr_number: overrides.prNumber ?? getUniqueInt(),
     pr_title: 'Test PR title',
     status: QueueStatus.retriggered,
@@ -118,7 +112,7 @@ describe('CompletionDetector', () => {
   describe('detection', () => {
     it('transitions item to completed when a review comment is found', async () => {
       const retriggeredAt = getUniqueDate();
-      const { owner, repo, fullName: repoFullName } = makeUniqueRepoName();
+      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
       const prNumber = getUniqueInt();
       const item = makeRetriggeredItem({ retriggeredAt, repoFullName, prNumber });
       const completedCommentUrl = `https://github.com/${repoFullName}/issues/${prNumber}#issuecomment-${getUniqueInt()}`;

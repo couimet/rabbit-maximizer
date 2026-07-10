@@ -2,9 +2,7 @@ import { splitRepo } from '../src/github/splitRepo.js';
 import type { RepoFilter } from '../src/types/RepoFilter.js';
 import { validateGitHubToken } from '../src/validateGitHubToken.js';
 
-import { makeUniqueRepoName } from './helpers/index.js';
-
-import { getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -42,8 +40,8 @@ describe('validateGitHubToken', () => {
   describe('repo resolution', () => {
     it('resolves concrete repos and logs the count', async () => {
       mockAuth();
-      const { fullName: repo1 } = makeUniqueRepoName();
-      const { fullName: repo2 } = makeUniqueRepoName();
+      const { fullName: repo1 } = getUniqueGitHubRepoRef();
+      const { fullName: repo2 } = getUniqueGitHubRepoRef();
       const repoFilter: RepoFilter[] = [
         { pattern: repo1, scope: 'repo' },
         { pattern: repo2, scope: 'repo' },
@@ -57,7 +55,7 @@ describe('validateGitHubToken', () => {
 
     it('expands user-scope wildcards via listForUser', async () => {
       mockAuth();
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const { owner } = splitRepo(repo);
       const repoFilter: RepoFilter[] = [{ pattern: `${owner}/*`, scope: 'user' }];
 
@@ -77,7 +75,7 @@ describe('validateGitHubToken', () => {
 
     it('paginates listForUser when results span multiple pages', async () => {
       mockAuth();
-      const repos = Array.from({ length: 150 }, () => makeUniqueRepoName().fullName);
+      const repos = Array.from({ length: 150 }, () => getUniqueGitHubRepoRef().fullName);
       const repoFilter: RepoFilter[] = [{ pattern: 'owner/*', scope: 'user' }];
 
       rest.repos.listForUser

@@ -2,9 +2,9 @@ import { createExpressApp } from '../../src/external-deps/couimet/express-tools/
 import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockQueueRepo, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockEventRepo, createMockQueueRepo } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
@@ -28,7 +28,7 @@ describe('getSummary', () => {
   it('returns 200 with event counts and oldest pending', async () => {
     logger = createMockLogger();
     const id = getUniqueInt();
-    const repo = makeUniqueRepoName().fullName;
+    const repo = getUniqueGitHubRepoRef().fullName;
     const pr = getUniqueInt();
     const notBefore = getUniqueDate().toISOString();
     startServer(

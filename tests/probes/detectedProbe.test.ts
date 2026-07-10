@@ -2,9 +2,8 @@ import type { EventRepository } from '../../src/db/eventRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
 import type { EventLogEntry } from '../../src/types/index.js';
-import { makeUniqueRepoName } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it, jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
@@ -19,14 +18,14 @@ const makeEventRepository = (entry: EventLogEntry): { eventRepository: EventRepo
 
 describe('DetectedProbe', () => {
   it('logs intent and records a detected event', async () => {
-    const { fullName: repo } = makeUniqueRepoName();
+    const { fullName: repo } = getUniqueGitHubRepoRef();
     const pr = getUniqueInt();
-    const correlationId = getUniqueString({ prefix: 'corr-' });
-    const requestId = getUniqueString({ prefix: 'req-' });
+    const correlationId = getUuid();
+    const requestId = getUuid();
     const version = getUniqueString({ prefix: 'v' });
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
-    const entryUuid = getUniqueString({ prefix: 'uuid-' });
+    const entryUuid = getUuid();
     const tx = makeTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
@@ -63,10 +62,10 @@ describe('DetectedProbe', () => {
   });
 
   it('forwards the transaction client to the repository', async () => {
-    const { fullName: repo } = makeUniqueRepoName();
+    const { fullName: repo } = getUniqueGitHubRepoRef();
     const pr = getUniqueInt();
-    const observation: ObservationContext = { correlationId: getUniqueString(), version: getUniqueString() };
-    const entryUuid = getUniqueString({ prefix: 'uuid-' });
+    const observation: ObservationContext = { correlationId: getUuid(), version: getUniqueString() };
+    const entryUuid = getUuid();
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
     const logger = createMockLogger();
@@ -91,12 +90,12 @@ describe('DetectedProbe', () => {
   });
 
   it('records a bypassed event for merged PRs', async () => {
-    const { fullName: repo } = makeUniqueRepoName();
+    const { fullName: repo } = getUniqueGitHubRepoRef();
     const pr = getUniqueInt();
-    const correlationId = getUniqueString({ prefix: 'corr-' });
-    const requestId = getUniqueString({ prefix: 'req-' });
+    const correlationId = getUuid();
+    const requestId = getUuid();
     const version = getUniqueString({ prefix: 'v' });
-    const entryUuid = getUniqueString({ prefix: 'uuid-' });
+    const entryUuid = getUuid();
     const tx = makeTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
@@ -125,12 +124,12 @@ describe('DetectedProbe', () => {
   });
 
   it('records a bypassed event for closed-without-merge PRs', async () => {
-    const { fullName: repo } = makeUniqueRepoName();
+    const { fullName: repo } = getUniqueGitHubRepoRef();
     const pr = getUniqueInt();
-    const correlationId = getUniqueString({ prefix: 'corr-' });
-    const requestId = getUniqueString({ prefix: 'req-' });
+    const correlationId = getUuid();
+    const requestId = getUuid();
     const version = getUniqueString({ prefix: 'v' });
-    const entryUuid = getUniqueString({ prefix: 'uuid-' });
+    const entryUuid = getUuid();
     const tx = makeTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
@@ -159,9 +158,9 @@ describe('DetectedProbe', () => {
   });
 
   it('logs when the queue item already exists', () => {
-    const { fullName: repo } = makeUniqueRepoName();
+    const { fullName: repo } = getUniqueGitHubRepoRef();
     const pr = getUniqueInt();
-    const observation: ObservationContext = { correlationId: getUniqueString(), version: getUniqueString() };
+    const observation: ObservationContext = { correlationId: getUuid(), version: getUniqueString() };
     const logger = createMockLogger();
 
     const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, {} as EventRepository, observation, logger);

@@ -3,9 +3,8 @@ import type { QueueRepository } from '../../src/db/queueRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
-import { makeUniqueRepoName } from '../helpers/index.js';
 
-import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -36,8 +35,8 @@ describe('QueueItemProbe', () => {
     logger = createMockLogger();
 
     observation = {
-      correlationId: getUniqueString({ prefix: 'corr-' }),
-      requestId: getUniqueString({ prefix: 'req-' }),
+      correlationId: getUuid(),
+      requestId: getUuid(),
       version: '1.0.0',
     };
   });
@@ -46,7 +45,7 @@ describe('QueueItemProbe', () => {
 
   describe('processMergedBeforeRetrigger', () => {
     it('marks completed, records bypassed event, and logs', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       const tx = makeTx();
@@ -76,7 +75,7 @@ describe('QueueItemProbe', () => {
 
   describe('processClosedBeforeRetrigger', () => {
     it('marks failed, records bypassed event, and logs', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       const tx = makeTx();
@@ -106,7 +105,7 @@ describe('QueueItemProbe', () => {
 
   describe('processRetriggered', () => {
     it('marks retriggered, records retriggered event, and logs', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });

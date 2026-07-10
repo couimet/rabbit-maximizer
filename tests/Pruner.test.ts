@@ -5,14 +5,13 @@ import type { PruneEvaluator } from '../src/PruneEvaluator.js';
 import { PrunerImpl } from '../src/Pruner.js';
 import type { QueueItem } from '../src/types/index.js';
 
-import { makeUniqueRepoName } from './helpers/index.js';
-
-import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
 
-const makeItem = (): QueueItem => ({ id: getUniqueInt(), repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() }) as unknown as QueueItem;
+const makeItem = (): QueueItem =>
+  ({ id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() }) as unknown as QueueItem;
 
 describe('Pruner', () => {
   let log: Logger;
@@ -48,8 +47,8 @@ describe('Pruner', () => {
 
     observation = {
       current: jest.fn().mockReturnValue({
-        correlationId: getUniqueString({ prefix: 'corr-' }),
-        requestId: getUniqueString({ prefix: 'req-' }),
+        correlationId: getUuid(),
+        requestId: getUuid(),
         version: '1.0.0',
       }),
     } as unknown as ObservationContextProvider;

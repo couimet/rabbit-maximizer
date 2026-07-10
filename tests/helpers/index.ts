@@ -12,5 +12,4 @@ export * from './createMockSystemStateRepository.js';
 export * from './createMockVite.js';
 export * from './createResolvedMock.js';
 export * from './drainMicrotasks.js';
-export * from './makeUniqueRepoName.js';
 export * from './postJson.js';

@@ -1,9 +1,8 @@
 import pkg from '../../package.json' with { type: 'json' };
 import { buildCommentBody } from '../../src/github/buildCommentBody.js';
 import { TriggerSource } from '../../src/types/index.js';
-import { makeUniqueRepoName } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const VERSION = pkg.version;
@@ -19,7 +18,7 @@ describe('buildCommentBody', () => {
   });
 
   it('builds the retrigger comment with JSON metadata, footer, and trigger link for scheduler', () => {
-    const { owner, repo } = makeUniqueRepoName();
+    const { owner, repo } = getUniqueGitHubRepoRef();
     const prNumber = getUniqueInt();
     const commentId = getUniqueInt();
     const runId = getUniqueString({ prefix: 'run-' });
@@ -49,7 +48,7 @@ describe('buildCommentBody', () => {
   });
 
   it('builds the retrigger comment with JSON metadata and manual trigger line for dashboard_retrigger_now', () => {
-    const { owner, repo } = makeUniqueRepoName();
+    const { owner, repo } = getUniqueGitHubRepoRef();
     const prNumber = getUniqueInt();
     const commentId = getUniqueInt();
     const runId = getUniqueString({ prefix: 'run-' });
@@ -79,7 +78,7 @@ describe('buildCommentBody', () => {
   });
 
   it('sanitizes --> in metadata values to prevent HTML comment termination', () => {
-    const { owner, repo } = makeUniqueRepoName();
+    const { owner, repo } = getUniqueGitHubRepoRef();
     const prNumber = getUniqueInt();
     const commentId = getUniqueInt();
     const runId = getUniqueString({ prefix: 'run-' });
@@ -94,7 +93,7 @@ describe('buildCommentBody', () => {
   });
 
   it('throws for an unexpected triggerSource value', () => {
-    const { owner, repo } = makeUniqueRepoName();
+    const { owner, repo } = getUniqueGitHubRepoRef();
     const prNumber = getUniqueInt();
     const commentId = getUniqueInt();
     const runId = getUniqueString({ prefix: 'run-' });

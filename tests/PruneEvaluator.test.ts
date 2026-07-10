@@ -2,9 +2,7 @@ import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
 import { PruneEvaluatorImpl } from '../src/PruneEvaluator.js';
 import type { QueueItem } from '../src/types/index.js';
 
-import { makeUniqueRepoName } from './helpers/index.js';
-
-import { getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -27,7 +25,7 @@ describe('PruneEvaluator', () => {
 
   describe('evaluate', () => {
     it('returns merged outcome for merged PRs', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: '2026-01-01T00:00:00Z' });
@@ -39,7 +37,7 @@ describe('PruneEvaluator', () => {
     });
 
     it('returns closed outcome for closed-without-merge PRs', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: null });
@@ -51,7 +49,7 @@ describe('PruneEvaluator', () => {
     });
 
     it('skips open PRs', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'open', merged_at: null });
@@ -64,7 +62,7 @@ describe('PruneEvaluator', () => {
     });
 
     it('skips items where fetch returns undefined', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       (fetcher.fetch as jest.Mock<any>).mockResolvedValue(undefined);
@@ -84,9 +82,9 @@ describe('PruneEvaluator', () => {
     });
 
     it('evaluates multiple items concurrently', async () => {
-      const { fullName: repo1 } = makeUniqueRepoName();
-      const { fullName: repo2 } = makeUniqueRepoName();
-      const { fullName: repo3 } = makeUniqueRepoName();
+      const { fullName: repo1 } = getUniqueGitHubRepoRef();
+      const { fullName: repo2 } = getUniqueGitHubRepoRef();
+      const { fullName: repo3 } = getUniqueGitHubRepoRef();
       const pr1 = getUniqueInt();
       const pr2 = getUniqueInt();
       const pr3 = getUniqueInt();

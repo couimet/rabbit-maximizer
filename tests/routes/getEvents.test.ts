@@ -2,9 +2,9 @@ import { createExpressApp } from '../../src/external-deps/couimet/express-tools/
 import { createGetEventsHandler } from '../../src/routes/getEvents.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockEventRepo } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
@@ -30,12 +30,12 @@ describe('getEvents', () => {
     const items = [
       {
         id: getUniqueInt(),
-        uuid: getUniqueString({ prefix: 'evt-' }),
+        uuid: getUuid(),
         ts: getUniqueDate().toISOString(),
         type: 'detected',
-        repo_full_name: makeUniqueRepoName().fullName,
+        repo_full_name: getUniqueGitHubRepoRef().fullName,
         pr_number: getUniqueInt(),
-        correlation_id: getUniqueString({ prefix: 'corr-' }),
+        correlation_id: getUuid(),
         version: '1.0.0',
         payload: {},
       },

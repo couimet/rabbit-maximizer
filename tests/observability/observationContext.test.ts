@@ -1,6 +1,6 @@
 import pkg from '../../package.json' with { type: 'json' };
 
-import { getUniqueString } from '@couimet/dynamic-testing';
+import { getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it, jest } from '@jest/globals';
 
 const randomUUID = jest.fn();
@@ -12,8 +12,8 @@ describe('UuidObservationContextProvider', () => {
   const EXPECTED_UUID_CALLS = 2;
 
   it('returns uuid correlation and request ids plus the package version', () => {
-    const correlationId = getUniqueString({ prefix: 'corr-' });
-    const requestId = getUniqueString({ prefix: 'req-' });
+    const correlationId = getUuid();
+    const requestId = getUuid();
     randomUUID.mockReturnValueOnce(correlationId).mockReturnValueOnce(requestId);
 
     const sut = new UuidObservationContextProvider();
