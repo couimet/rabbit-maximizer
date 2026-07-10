@@ -503,6 +503,25 @@ describe('QueueOrderRepositoryImpl', () => {
         details: { uuid: itemA.uuid, status: 'completed' },
       });
     });
+
+    it('throws when findUnique succeeds but the item is absent from the effective order', async () => {
+      const UUID = '00000000-0000-0000-0000-000000000999';
+      const otherItem = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
+
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: {
+          findUnique: jest.fn<any>().mockResolvedValue({ id: 99, status: 'pending' }),
+          findMany: jest.fn<any>().mockResolvedValueOnce([otherItem]),
+        },
+      });
+      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+
+      await expect(sut.moveToTop(UUID)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_FOUND', {
+        message: `Queue item ${UUID} not found`,
+        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+        details: { uuid: UUID },
+      });
+    });
   });
 
   describe('container binding', () => {
