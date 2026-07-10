@@ -15,6 +15,7 @@ import {
   createGetTriggeredHandler,
   createMarkCompletedHandler,
   createMoveQueueOrderHandler,
+  createMoveToTopHandler,
   createRetriggerNowHandler,
   createSetPausedHandler,
 } from './routes/index.js';
@@ -59,6 +60,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.get('/api/dashboard-state', createGetDashboardStateHandler(queueOrderRepo, eventRepo, systemStateRepo, logger));
   app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, logger));
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
+  app.post('/api/queue/order/move-to-top', createMoveToTopHandler(queueOrderRepo, logger));
   app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, reviewTrigger, logger));
   app.post('/api/queue/:uuid/mark-completed', createMarkCompletedHandler(queueRepo, logger));
   app.get('/api/queue/triggered', createGetTriggeredHandler(queueRepo, logger));

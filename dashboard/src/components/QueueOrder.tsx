@@ -1,6 +1,6 @@
 import { formatRelativeFuture } from '../../../src/utils/formatRelativeFuture.js';
 import type { QueueItem } from '../api.js';
-import { moveQueueItems, retriggerNow } from '../api.js';
+import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
 import ConfirmDialog from './ConfirmDialog.js';
@@ -31,6 +31,7 @@ const QueueOrder = ({
   const [moveError, setMoveError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: 'success' | 'error' } | null>(null);
   const [retriggeringUuid, setRetriggeringUuid] = useState<string | null>(null);
+  const [movingToTopUuid, setMovingToTopUuid] = useState<string | null>(null);
   const [confirmRetriggerUuid, setConfirmRetriggerUuid] = useState<string | null>(null);
 
   const mountedRef = useRef(false);
@@ -89,6 +90,22 @@ const QueueOrder = ({
         if (!mountedRef.current) return;
         setMoveError(err.message);
         setMoving(false);
+      });
+  };
+
+  const handleMoveToTop = (uuid: string) => {
+    setMovingToTopUuid(uuid);
+    moveToTop(uuid)
+      .then(() => {
+        if (!mountedRef.current) return;
+        setToast({ message: 'Moved to top', variant: 'success' });
+        setMovingToTopUuid(null);
+        onMoveComplete();
+      })
+      .catch((err: Error) => {
+        if (!mountedRef.current) return;
+        setToast({ message: err.message, variant: 'error' });
+        setMovingToTopUuid(null);
       });
   };
 
@@ -156,7 +173,7 @@ const QueueOrder = ({
                     type="checkbox"
                     checked={allSelected}
                     onChange={toggleSelectAll}
-                    disabled={moving || retriggeringUuid !== null}
+                    disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
                     aria-label="Select all pending items"
                   />
                 </th>
@@ -177,7 +194,7 @@ const QueueOrder = ({
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(item.uuid)}
-                        disabled={moving || retriggeringUuid !== null}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label={`Select ${item.repo_full_name} #${item.pr_number}`}
                       />
                     </td>
@@ -209,7 +226,7 @@ const QueueOrder = ({
                       <button
                         className="btn-retrigger"
                         onClick={() => handleRetriggerNow(item.uuid)}
-                        disabled={moving || retriggeringUuid !== null}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label={'Retrigger now for ' + item.repo_full_name + ' #' + item.pr_number}
                         title="Retrigger now"
                       >
@@ -217,8 +234,16 @@ const QueueOrder = ({
                       </button>
                       <button
                         className="btn-arrow"
+                        onClick={() => handleMoveToTop(item.uuid)}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
+                        aria-label="Move to top"
+                      >
+                        ⇈
+                      </button>
+                      <button
+                        className="btn-arrow"
                         onClick={() => moveSingle(item.uuid, 'up')}
-                        disabled={moving || retriggeringUuid !== null}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label="Move up"
                       >
                         ↑
@@ -226,7 +251,7 @@ const QueueOrder = ({
                       <button
                         className="btn-arrow"
                         onClick={() => moveSingle(item.uuid, 'down')}
-                        disabled={moving || retriggeringUuid !== null}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label="Move down"
                       >
                         ↓

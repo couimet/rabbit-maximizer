@@ -1,4 +1,13 @@
-import { fetchDashboardState, fetchEvents, fetchQueue, fetchQueueOrder, fetchSummary, markCompleted, moveQueueItems } from '../../dashboard/src/api.js';
+import {
+  fetchDashboardState,
+  fetchEvents,
+  fetchQueue,
+  fetchQueueOrder,
+  fetchSummary,
+  markCompleted,
+  moveQueueItems,
+  moveToTop,
+} from '../../dashboard/src/api.js';
 
 import { describe, expect, it, jest } from '@jest/globals';
 
@@ -133,6 +142,32 @@ describe('api', () => {
     it('throws with HTTP status when body has no error field', async () => {
       globalThis.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 502, json: () => Promise.resolve({}) } as Response)) as unknown as typeof fetch;
       await expect(moveQueueItems(['uuid-1'], 'up')).rejects.toThrow('HTTP 502');
+    });
+  });
+
+  describe('moveToTop', () => {
+    const UUID = '11111111-1111-1111-1111-111111111111';
+
+    it('sends POST with body and resolves on 204', async () => {
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 204 } as Response)) as unknown as typeof fetch;
+      await expect(moveToTop(UUID)).resolves.toBeUndefined();
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue/order/move-to-top', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queueItemUuid: UUID }),
+      });
+    });
+
+    it('throws with body error message on failure', async () => {
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({ ok: false, status: 409, json: () => Promise.resolve({ error: 'Queue item is not pending' }) } as Response),
+      ) as unknown as typeof fetch;
+      await expect(moveToTop(UUID)).rejects.toThrow('Queue item is not pending');
+    });
+
+    it('throws with HTTP status when body has no error field', async () => {
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 502, json: () => Promise.resolve({}) } as Response)) as unknown as typeof fetch;
+      await expect(moveToTop(UUID)).rejects.toThrow('HTTP 502');
     });
   });
 

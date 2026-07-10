@@ -386,9 +386,8 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
       const itemC = makeRow({ id: 3 }, { position: 3, id: getUniqueInt() });
 
-      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+      const { prisma, queueOrder } = createMockPrismaClient({
         reviewQueue: {
-          update: jest.fn<any>().mockResolvedValue({}),
           findMany: jest
             .fn<any>()
             .mockResolvedValueOnce([itemA, itemB, itemC])
@@ -402,12 +401,8 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveToTop(itemB.uuid, TriggerSource.dashboard_retrigger_now);
+      const result = await sut.moveToTop(itemB.uuid);
 
-      expect(reviewQueue.update).toHaveBeenCalledWith({
-        where: { id: itemB.id },
-        data: { not_before: frozenNow, trigger_source: 'dashboard_retrigger_now' },
-      });
       expect(queueOrder.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id, itemC.queueOrder.id] } },
         data: { position: null },
@@ -424,9 +419,8 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
       const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
 
-      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+      const { prisma, queueOrder } = createMockPrismaClient({
         reviewQueue: {
-          update: jest.fn<any>().mockResolvedValue({}),
           findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]),
         },
         queueOrder: {
@@ -436,12 +430,8 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.moveToTop(itemA.uuid, TriggerSource.dashboard_retrigger_now);
+      const result = await sut.moveToTop(itemA.uuid);
 
-      expect(reviewQueue.update).toHaveBeenCalledWith({
-        where: { id: itemA.id },
-        data: { not_before: frozenNow, trigger_source: 'dashboard_retrigger_now' },
-      });
       expect(queueOrder.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [itemA.queueOrder.id, itemB.queueOrder.id] } },
         data: { position: null },
@@ -451,17 +441,15 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(result).toStrictEqual(toExpectedItem(itemA));
     });
 
-    it('sets trigger_source when passed', async () => {
-      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
-      const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
+    it('does not update not_before or trigger_source (position-only reorder)', async () => {
+      const itemA = makeRow({ id: 1, not_before: new Date('2026-06-01'), trigger_source: null }, { position: 1, id: getUniqueInt() });
+      const itemB = makeRow({ id: 2, not_before: new Date('2026-06-15'), trigger_source: null }, { position: 2, id: getUniqueInt() });
 
-      const {
-        prisma,
-        reviewQueue,
-        queueOrder: _queueOrder,
-      } = createMockPrismaClient({
+      const ORIGINAL_NOT_BEFORE = itemB.not_before;
+      const ORIGINAL_TRIGGER_SOURCE = itemB.trigger_source;
+
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: {
-          update: jest.fn<any>().mockResolvedValue({}),
           findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemB, itemA]),
         },
         queueOrder: {
@@ -471,34 +459,48 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await sut.moveToTop(itemB.uuid, TriggerSource.dashboard_retrigger_now);
+      const result = await sut.moveToTop(itemB.uuid);
 
-      expect(reviewQueue.update).toHaveBeenCalledWith({
-        where: { id: itemB.id },
-        data: { not_before: expect.any(Date), trigger_source: 'dashboard_retrigger_now' },
-      });
+      expect(reviewQueue.update).not.toHaveBeenCalled();
+      expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemB.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
+      expect(result.not_before).toStrictEqual(ORIGINAL_NOT_BEFORE);
+      expect(result.trigger_source).toBe(ORIGINAL_TRIGGER_SOURCE);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid: itemB.uuid }, 'Moved item to top');
     });
 
-    it('throws when item is not found or not pending', async () => {
+    it('throws when item is not found', async () => {
       const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
-          update: jest.fn<any>().mockResolvedValue({}),
-          findMany: jest.fn<any>().mockResolvedValue([itemA]),
+          findMany: jest.fn<any>().mockResolvedValueOnce([itemA]).mockResolvedValueOnce([itemA]),
         },
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999', TriggerSource.dashboard_retrigger_now)).rejects.toBeDetailedError(
-        'QUEUE_ITEM_NOT_FOUND',
-        {
-          message: 'Queue item 00000000-0000-0000-0000-000000000999 not found or not pending',
-          functionName: 'QueueOrderRepositoryImpl.moveToTop',
-          details: { uuid: '00000000-0000-0000-0000-000000000999' },
+      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999')).rejects.toBeDetailedError('QUEUE_ITEM_NOT_FOUND', {
+        message: 'Queue item 00000000-0000-0000-0000-000000000999 not found',
+        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+        details: { uuid: '00000000-0000-0000-0000-000000000999' },
+      });
+    });
+
+    it('throws when item is not pending', async () => {
+      const itemA = makeRow({ id: 1, status: 'completed' }, { position: 1, id: getUniqueInt() });
+
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: {
+          findMany: jest.fn<any>().mockResolvedValueOnce([itemA]).mockResolvedValueOnce([itemA]),
         },
-      );
+      });
+      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+
+      await expect(sut.moveToTop(itemA.uuid)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_PENDING', {
+        message: `Queue item ${itemA.uuid} is not pending`,
+        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+        details: { uuid: itemA.uuid, status: 'completed' },
+      });
     });
   });
 

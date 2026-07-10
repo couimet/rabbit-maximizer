@@ -15,7 +15,7 @@ export type MoveDirection = 'up' | 'down';
 export interface QueueOrderRepository {
   getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]>;
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]>;
-  moveToTop(uuid: string, triggerSource: TriggerSource): Promise<QueueItem>;
+  moveToTop(uuid: string): Promise<QueueItem>;
 }
 
 @injectable()
@@ -73,7 +73,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     });
   }
 
-  moveToTop(uuid: string, triggerSource: TriggerSource): Promise<QueueItem> {
+  moveToTop(uuid: string): Promise<QueueItem> {
     return this.transaction(async (tx) => {
       const ordered = await this.readEffectiveOrder(tx, false);
       const item = findByUuid(ordered, uuid);
@@ -81,18 +81,22 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       if (!item) {
         throw new RabbitMaximizerError({
           code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND,
-          message: `Queue item ${uuid} not found or not pending`,
+          message: `Queue item ${uuid} not found`,
           functionName: 'QueueOrderRepositoryImpl.moveToTop',
           details: { uuid },
         });
       }
 
-      const numericId = item.id;
+      if (item.status !== QueueStatus.pending) {
+        throw new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
+          message: `Queue item ${uuid} is not pending`,
+          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          details: { uuid, status: item.status },
+        });
+      }
 
-      await tx.reviewQueue.update({
-        where: { id: numericId },
-        data: { not_before: new Date(), trigger_source: triggerSource },
-      });
+      const numericId = item.id;
 
       const orderedIds = ordered.map((i) => i.id);
       const newOrder = [numericId, ...orderedIds.filter((oid) => oid !== numericId)];
