@@ -1,6 +1,8 @@
 import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
 import type { QueueRepository } from '../db/queueRepository.js';
 import type { SystemStateRepository } from '../db/systemStateRepository.js';
+import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 import { ReviewTrigger } from '../ReviewTrigger.js';
 import { QueueStatus, TriggerSource } from '../types/index.js';
 import { isValidUuid } from '../utils/uuidLookup.js';
@@ -105,6 +107,36 @@ export const createRetriggerNowHandler = (
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.retriggerNow', error }, 'Failed to retrigger now');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to retrigger now' });
+    }
+  };
+};
+
+export const createMoveToTopHandler = (queueOrderRepo: QueueOrderRepository, logger: Logger) => {
+  return async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { queueItemUuid } = req.body ?? {};
+
+      if (!isValidUuid(queueItemUuid)) {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'queueItemUuid must be a valid UUID v4' });
+        return;
+      }
+
+      await queueOrderRepo.moveToTop(queueItemUuid);
+
+      res.status(StatusCodes.NO_CONTENT).end();
+    } catch (error) {
+      if (error instanceof RabbitMaximizerError) {
+        if (error.code === RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND) {
+          res.status(StatusCodes.NOT_FOUND).json({ error: error.message });
+          return;
+        }
+        if (error.code === RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING) {
+          res.status(StatusCodes.CONFLICT).json({ error: error.message });
+          return;
+        }
+      }
+      logger.error({ fn: 'api.queueOrder.moveToTop', error }, 'Failed to move item to top');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to move item to top' });
     }
   };
 };

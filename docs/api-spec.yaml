@@ -98,6 +98,39 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/queue/order/move-to-top:
+    post:
+      operationId: moveToTop
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveToTopRequest'
+      responses:
+        '204':
+          description: Item moved to top of queue
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Queue item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Item is not pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/events:
     get:
       operationId: getEvents
@@ -557,6 +590,14 @@ components:
           type: integer
         pageSize:
           type: integer
+      additionalProperties: false
+
+    MoveToTopRequest:
+      type: object
+      required: [queueItemUuid]
+      properties:
+        queueItemUuid:
+          type: string
       additionalProperties: false
 
     QueueOrderMoveRequest:

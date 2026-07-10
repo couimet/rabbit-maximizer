@@ -5,6 +5,7 @@ import {
   createGetQueueOrderHandler,
   createMarkCompletedHandler,
   createMoveQueueOrderHandler,
+  createMoveToTopHandler,
   createRetriggerNowHandler,
 } from '../../src/routes/queueOrderRoutes.js';
 import { RabbitResult } from '../../src/types/RabbitResult.js';
@@ -360,6 +361,88 @@ describe('queueOrderRoutes', () => {
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to retrigger now' });
       expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', error: repoError }, 'Failed to retrigger now');
+    });
+  });
+
+  describe('POST /api/queue/order/move-to-top', () => {
+    const startServer = (over = {}) => {
+      const app = createExpressApp({ logger });
+      app.use(express.json());
+      app.post('/api/queue/order/move-to-top', createMoveToTopHandler(createMockQueueOrderRepo(over), logger));
+      server = app.listen(0);
+    };
+
+    it('moves item to top and returns 204', async () => {
+      startServer({
+        moveToTop: jest.fn<any>().mockResolvedValue({}),
+      });
+
+      const res = await postJson(server, '/api/queue/order/move-to-top', { queueItemUuid: UUID_C });
+      expect(res.status).toBe(StatusCodes.NO_CONTENT);
+      expect(await res.text()).toBe('');
+    });
+
+    it('returns 204 when moving item already at top', async () => {
+      startServer({
+        moveToTop: jest.fn<any>().mockResolvedValue({}),
+      });
+
+      const res = await postJson(server, '/api/queue/order/move-to-top', { queueItemUuid: UUID_A });
+      expect(res.status).toBe(StatusCodes.NO_CONTENT);
+      expect(await res.text()).toBe('');
+    });
+
+    it('returns 400 when queueItemUuid is not a valid UUID', async () => {
+      startServer();
+
+      const res = await postJson(server, '/api/queue/order/move-to-top', { queueItemUuid: 'not-a-uuid' });
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(await res.json()).toStrictEqual({ error: 'queueItemUuid must be a valid UUID v4' });
+    });
+
+    it('returns 400 when request body is missing', async () => {
+      startServer();
+
+      const addr = server.address();
+      if (!addr || typeof addr === 'string') throw new Error('Server not listening');
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/order/move-to-top`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+    });
+
+    it('returns 404 when queueItemUuid does not exist', async () => {
+      const notFoundError = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND,
+        message: 'Queue item 99999999-9999-9999-9999-999999999999 not found',
+        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+      });
+      startServer({ moveToTop: jest.fn<any>().mockRejectedValue(notFoundError) });
+
+      const res = await postJson(server, '/api/queue/order/move-to-top', { queueItemUuid: '99999999-9999-9999-9999-999999999999' });
+      expect(res.status).toBe(StatusCodes.NOT_FOUND);
+      expect(await res.json()).toStrictEqual({ error: 'Queue item 99999999-9999-9999-9999-999999999999 not found' });
+    });
+
+    it('returns 409 when item is not pending', async () => {
+      const notPendingError = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
+        message: `Queue item ${UUID_A} is not pending`,
+        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+      });
+      startServer({ moveToTop: jest.fn<any>().mockRejectedValue(notPendingError) });
+
+      const res = await postJson(server, '/api/queue/order/move-to-top', { queueItemUuid: UUID_A });
+      expect(res.status).toBe(StatusCodes.CONFLICT);
+      expect(await res.json()).toStrictEqual({ error: `Queue item ${UUID_A} is not pending` });
+    });
+
+    it('returns 500 and logs error on unexpected failure', async () => {
+      const repoError = new Error('DB down');
+      startServer({ moveToTop: jest.fn<any>().mockRejectedValue(repoError) });
+
+      const res = await postJson(server, '/api/queue/order/move-to-top', { queueItemUuid: UUID_A });
+      expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+      expect(await res.json()).toStrictEqual({ error: 'Failed to move item to top' });
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.moveToTop', error: repoError }, 'Failed to move item to top');
     });
   });
 

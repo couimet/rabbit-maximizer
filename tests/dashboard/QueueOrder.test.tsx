@@ -581,4 +581,144 @@ describe('QueueOrder', () => {
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
   });
+
+  describe('move to top', () => {
+    let item1: ReturnType<typeof makeQueueItem>;
+    let item2: ReturnType<typeof makeQueueItem>;
+    let onMoveComplete: jest.Mock;
+
+    beforeEach(() => {
+      item1 = makeQueueItem();
+      item2 = makeQueueItem();
+      onMoveComplete = jest.fn();
+    });
+
+    it('renders move-to-top button per row', () => {
+      renderQueueOrder([item1, item2]);
+
+      const buttons = screen.getAllByLabelText('Move to top');
+      expect(buttons).toHaveLength(2);
+    });
+
+    it('calls moveToTop API on click', async () => {
+      createMockFetch(204, undefined);
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+
+      fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/queue/order/move-to-top', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queueItemUuid: item1.uuid }),
+        });
+      });
+    });
+
+    it('shows success toast on success', async () => {
+      createMockFetch(204, undefined);
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+
+      fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Moved to top')).toBeInTheDocument();
+      });
+    });
+
+    it('calls onMoveComplete on success', async () => {
+      createMockFetch(204, undefined);
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+
+      fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
+
+      await waitFor(() => {
+        expect(onMoveComplete).toHaveBeenCalled();
+      });
+    });
+
+    const ERROR_MESSAGE_NOT_PENDING = 'Queue item is not pending';
+
+    it('shows error toast on failure', async () => {
+      createMockFetch(409, { error: ERROR_MESSAGE_NOT_PENDING });
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+
+      fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText(ERROR_MESSAGE_NOT_PENDING)).toBeInTheDocument();
+      });
+    });
+
+    it('button disabled while request in flight', async () => {
+      let resolveMoveToTop!: (value: void | PromiseLike<void>) => void;
+      const moveToTopPromise = new Promise<void>((resolve) => {
+        resolveMoveToTop = resolve;
+      });
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => moveToTopPromise,
+        } as Response),
+      ) as unknown as typeof fetch;
+
+      renderQueueOrder([item1, item2], null, onMoveComplete);
+      fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
+
+      await waitFor(() => {
+        expect(screen.getAllByLabelText('Move to top')[0]).toBeDisabled();
+      });
+
+      resolveMoveToTop();
+
+      await waitFor(() => {
+        expect(screen.getByText('Moved to top')).toBeInTheDocument();
+      });
+    });
+
+    it('does not update state after unmount on success', async () => {
+      let resolveMoveToTop!: (value: void | PromiseLike<void>) => void;
+      const moveToTopPromise = new Promise<void>((resolve) => {
+        resolveMoveToTop = resolve;
+      });
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => moveToTopPromise,
+        } as Response),
+      ) as unknown as typeof fetch;
+
+      const { unmount } = renderQueueOrder([item1, item2], null, onMoveComplete);
+      fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
+      unmount();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      resolveMoveToTop();
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
+    });
+
+    it('does not update state after unmount on error', async () => {
+      let rejectMoveToTop!: (reason: Error) => void;
+      const moveToTopFetchPromise = new Promise<Response>((_, reject) => {
+        rejectMoveToTop = reject;
+      });
+      globalThis.fetch = jest.fn(() => moveToTopFetchPromise) as unknown as typeof fetch;
+
+      const { unmount } = renderQueueOrder([item1, item2], null, onMoveComplete);
+      fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
+      unmount();
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      rejectMoveToTop(new Error('Network error'));
+      await new Promise((r) => setTimeout(r, 0));
+
+      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
+      expect(stateUpdateWarnings).toHaveLength(0);
+    });
+  });
 });

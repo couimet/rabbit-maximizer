@@ -58,6 +58,13 @@ export const moveQueueItems = (queueItemUuids: string[], direction: 'up' | 'down
     body: JSON.stringify({ queueItemUuids, direction }),
   });
 
+export const moveToTop = (queueItemUuid: string): Promise<void> =>
+  fetchJson<void>(`${API_BASE}/queue/order/move-to-top`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ queueItemUuid }),
+  });
+
 export const retriggerNow = (uuid: string, overridePause?: boolean): Promise<void> => {
   const query = overridePause ? '?overridePause=true' : '';
   return fetchJson<void>(`${API_BASE}/queue/${uuid}/retrigger-now${query}`, { method: 'POST' });
