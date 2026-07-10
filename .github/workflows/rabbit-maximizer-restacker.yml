@@ -1,0 +1,37 @@
+name: rabbit-maximizer-restacker
+
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  restack:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Request full reviews on stacked child PRs
+        id: restack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_FULL_NAME: ${{ github.event.repository.full_name }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash scripts/rabbit-maximizer-restacker.sh "$REPO_FULL_NAME" "$PR_HEAD_REF" "$PR_NUMBER"
+
+      - name: Post summary on merged PR
+        if: steps.restack.outputs.summary-file != ''
+        uses: couimet/github-actions/publish-pr-comment@main
+        with:
+          comment-file: ${{ steps.restack.outputs.summary-file }}
+          github-token: ${{ github.token }}
+          header: rabbit-maximizer-restacker summary
+          pr-number: ${{ github.event.pull_request.number }}
+          create-new: true
