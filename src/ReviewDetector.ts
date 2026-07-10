@@ -52,7 +52,7 @@ export class ReviewDetector extends IntervalService {
         if (item.retriggered_at == null) continue;
 
         const { owner, repo } = splitRepo(item.repo_full_name);
-        const completedReview = await this.github.findReviewComment(owner, repo, item.pr_number, item.retriggered_at);
+        const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, item.retriggered_at);
 
         if (!completedReview) continue;
 
@@ -72,6 +72,7 @@ export class ReviewDetector extends IntervalService {
               version: obs.version,
               payload: {
                 retriggered_comment_url: completedReview.htmlUrl,
+                review_id: completedReview.reviewId,
               },
             },
             tx,
@@ -84,6 +85,8 @@ export class ReviewDetector extends IntervalService {
             repo: item.repo_full_name,
             pr: item.pr_number,
             queueId: item.id,
+            reviewUrl: completedReview.htmlUrl,
+            reviewId: completedReview.reviewId,
           },
           'Review detected',
         );

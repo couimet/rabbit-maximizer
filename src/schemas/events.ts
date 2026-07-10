@@ -13,6 +13,7 @@ export const DetectedPayloadSchema = z.object({
   source_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH).optional(),
 });
 
+// TODO [2026-07-25]: #79 — remove once the schema squash eliminates old enqueued events with `scheduled_for`
 /** Pre-process stored payload JSON before Zod validation. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const normalizePayload = (type: string, raw: Record<string, any>): Record<string, any> => {
@@ -38,8 +39,10 @@ export const BypassedPayloadSchema = z.object({
   detail: z.string().max(REASON_MAX_LENGTH).optional(),
 });
 
+// TODO [2026-07-25]: #79 — drop .optional() on both fields once the schema squash removes historical completed events
 export const CompletedPayloadSchema = z.object({
   retriggered_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH).optional(),
+  review_id: z.number().int().positive().optional(),
 });
 
 export const FailedPayloadSchema = z.object({

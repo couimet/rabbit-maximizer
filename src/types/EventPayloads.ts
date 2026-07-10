@@ -19,8 +19,10 @@ export interface RetriggeredPayload {
   readonly retriggered_comment_url: string;
 }
 
+// TODO [2026-07-25]: #79 — drop ? on both fields once the schema squash removes historical completed events
 export interface CompletedPayload {
   readonly retriggered_comment_url?: string;
+  readonly review_id?: number;
 }
 
 export interface FailedPayload {

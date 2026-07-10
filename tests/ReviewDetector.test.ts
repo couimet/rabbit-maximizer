@@ -116,9 +116,10 @@ describe('ReviewDetector', () => {
       const prNumber = getUniqueInt();
       const item = makeRetriggeredItem({ retriggeredAt, repoFullName, prNumber });
       const completedCommentUrl = `https://github.com/${repoFullName}/issues/${prNumber}#issuecomment-${getUniqueInt()}`;
+      const reviewId = getUniqueInt();
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findReviewComment.mockResolvedValue({ htmlUrl: completedCommentUrl });
+      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: completedCommentUrl, reviewId });
 
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
@@ -127,7 +128,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findReviewComment).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
       expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
       const obs = deps.observation.current();
       expect(deps.events.record).toHaveBeenCalledWith(
@@ -140,12 +141,13 @@ describe('ReviewDetector', () => {
           version: obs.version,
           payload: {
             retriggered_comment_url: completedCommentUrl,
+            review_id: reviewId,
           },
         },
         {},
       );
       expect(deps.logger.info).toHaveBeenCalledWith(
-        { fn: 'ReviewDetector.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
+        { fn: 'ReviewDetector.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, reviewUrl: completedCommentUrl, reviewId },
         'Review detected',
       );
     });
@@ -153,7 +155,7 @@ describe('ReviewDetector', () => {
     it('skips items where no review is found', async () => {
       const item = makeRetriggeredItem({});
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findReviewComment.mockResolvedValue(undefined);
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
       detector.start();
@@ -172,7 +174,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findReviewComment).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
     it('skips items with null retriggered_at', async () => {
@@ -185,21 +187,21 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findReviewComment).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
     it('processes multiple retriggered items in sequence', async () => {
       const item1 = makeRetriggeredItem({ repoFullName: 'org-a/repo-a', prNumber: 1 });
       const item2 = makeRetriggeredItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
-      deps.github.findReviewComment.mockResolvedValue(undefined);
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
       detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findReviewComment).toHaveBeenCalledTimes(2);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -245,8 +247,8 @@ describe('ReviewDetector', () => {
       const item2 = makeRetriggeredItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
 
-      const perItemError = new Error('findReviewComment failed');
-      deps.github.findReviewComment.mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);
+      const perItemError = new Error('findCompletedReview failed');
+      deps.github.findCompletedReview.mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);
 
       const detector = createDetector();
       detector.start();
@@ -257,7 +259,7 @@ describe('ReviewDetector', () => {
         { fn: 'ReviewDetector.tick', error: perItemError },
         'Review detection tick failed; will retry on next interval',
       );
-      expect(deps.github.findReviewComment).toHaveBeenCalledTimes(2);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(2);
     });
   });
 });

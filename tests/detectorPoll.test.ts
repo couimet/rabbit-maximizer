@@ -137,7 +137,12 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
+      const [owner, repo] = comment.repo_full_name.split('/');
       expect(deps.onDetected).not.toHaveBeenCalled();
+      expect(deps.logger.debug).toHaveBeenCalledWith(
+        { fn: 'PollDetector.tick', owner, repo, commentId: comment.comment_id },
+        'Skipping comment with own retrigger marker',
+      );
     });
 
     it('skips comments that lack the rate-limit marker', async () => {
@@ -151,7 +156,12 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
+      const [owner, repo] = comment.repo_full_name.split('/');
       expect(deps.onDetected).not.toHaveBeenCalled();
+      expect(deps.logger.debug).toHaveBeenCalledWith(
+        { fn: 'PollDetector.tick', owner, repo, commentId: comment.comment_id },
+        'Skipping comment without rate-limit marker',
+      );
     });
   });
 
@@ -206,7 +216,7 @@ describe('PollDetector', () => {
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
     });
 
-    it('logs warning when rate limit response has non-numeric x-ratelimit-reset header', async () => {
+    it('falls through to generic error log when rate limit response has non-numeric x-ratelimit-reset header', async () => {
       const rateLimitError = {
         status: 429,
         response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
@@ -218,10 +228,7 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        { fn: 'PollDetector.tick', status: 429 },
-        'Rate limit response missing valid x-ratelimit-reset header; skipping backoff',
-      );
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: rateLimitError }, 'Poll tick failed; will retry on next interval');
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
 
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
@@ -241,7 +248,7 @@ describe('PollDetector', () => {
       expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: networkError }, 'Poll tick failed; will retry on next interval');
     });
 
-    it('logs warning when rate limit response is missing a valid x-ratelimit-reset header', async () => {
+    it('falls through to generic error log when rate limit response is missing a valid x-ratelimit-reset header', async () => {
       const badHeaderError = {
         status: 403,
         response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
@@ -255,10 +262,7 @@ describe('PollDetector', () => {
         await Promise.resolve();
       }
 
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        { fn: 'PollDetector.tick', status: 403 },
-        'Rate limit response missing valid x-ratelimit-reset header; skipping backoff',
-      );
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: badHeaderError }, 'Poll tick failed; will retry on next interval');
     });
   });
 
