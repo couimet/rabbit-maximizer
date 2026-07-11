@@ -6,7 +6,7 @@ import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { DetectedComment } from '../src/types/DetectedComment.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
@@ -14,7 +14,7 @@ const MS_PER_SECOND = 1000;
 
 const makeComment = (): DetectedComment => ({
   url: getUniqueString({ prefix: 'https://gh/c/' }),
-  repo_full_name: `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
+  repo_full_name: getUniqueGitHubRepoRef().fullName,
   pr_number: getUniqueInt(),
   pr_title: 'Test PR title',
   comment_id: getUniqueInt(),
@@ -57,17 +57,15 @@ describe('EnqueueService', () => {
 
     probe = {
       processStarted: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      processCompleted: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
-      processMerged: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
-      processClosedWithoutMerge: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUniqueString() }),
+      processCompleted: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUuid() }),
+      processMerged: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUuid() }),
+      processClosedWithoutMerge: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUuid() }),
       processAlreadyQueued: jest.fn(),
     };
     probes = { createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) } as unknown as ProbeFactory;
 
     observation = {
-      current: jest
-        .fn()
-        .mockReturnValue({ correlationId: getUniqueString({ prefix: 'corr-' }), requestId: getUniqueString({ prefix: 'req-' }), version: '1.0.0' }),
+      current: jest.fn().mockReturnValue({ correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' }),
     } as unknown as ObservationContextProvider;
 
     fetcher = {

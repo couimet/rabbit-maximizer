@@ -2,7 +2,7 @@ import { parseEventRow } from '../../src/schemas/events.js';
 import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from '../../src/schemas/lengths.js';
 import { EventType } from '../../src/types/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 import type { Event as PrismaEvent } from '@prisma/client';
 
@@ -12,12 +12,12 @@ const DEFAULT_NEW_WAIT = 60;
 const baseRow = (over: Partial<PrismaEvent>): PrismaEvent =>
   ({
     id: getUniqueInt(),
-    uuid: getUniqueString(),
+    uuid: getUuid(),
     ts: getUniqueDate(),
     type: 'detected',
-    repo_full_name: getUniqueString(),
+    repo_full_name: getUniqueGitHubRepoRef().fullName,
     pr_number: getUniqueInt(),
-    correlation_id: getUniqueString(),
+    correlation_id: getUuid(),
     request_id: null,
     version: getUniqueString(),
     payload: '{}',
@@ -33,7 +33,7 @@ describe('parseEventRow', () => {
       git_sha: getUniqueString(),
       node_version: getUniqueString(),
     };
-    const requestId = getUniqueString();
+    const requestId = getUuid();
     const row = baseRow({
       type: 'detected',
       request_id: requestId,

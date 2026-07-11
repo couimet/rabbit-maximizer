@@ -1,9 +1,9 @@
 import { type QueueOrderRepository, QueueOrderRepositoryImpl } from '../../src/db/queueOrderRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { type QueueItem, QueueStatus, TriggerSource } from '../../src/types/index.js';
-import { createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -30,8 +30,8 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
   const commentId = getUniqueInt();
   return {
     id: over.id ?? getUniqueInt(),
-    uuid: getUniqueString({ prefix: 'uuid-' }),
-    repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
+    uuid: getUuid(),
+    repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? 'Test PR title',
     status: over.status ?? 'pending',

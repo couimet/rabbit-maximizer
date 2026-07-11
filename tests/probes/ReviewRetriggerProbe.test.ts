@@ -5,7 +5,7 @@ import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
 import { EventType, QueueStatus, TriggerSource } from '../../src/types/index.js';
 import { createMockEventRepo, createMockQueueRepo } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -15,8 +15,8 @@ const TX = {} as Prisma.TransactionClient;
 
 const makeItem = () => ({
   id: getUniqueInt(),
-  uuid: getUniqueString({ prefix: 'uuid-' }),
-  repo_full_name: `${getUniqueString({ prefix: 'o' })}/${getUniqueString({ prefix: 'r' })}`,
+  uuid: getUuid(),
+  repo_full_name: getUniqueGitHubRepoRef().fullName,
   pr_number: getUniqueInt(),
   status: QueueStatus.pending,
   not_before: getUniqueDate(),
@@ -42,8 +42,8 @@ describe('ReviewRetriggerProbe', () => {
     events = createMockEventRepo();
     logger = createMockLogger();
     observation = {
-      correlationId: getUniqueString({ prefix: 'corr-' }),
-      requestId: getUniqueString({ prefix: 'req-' }),
+      correlationId: getUuid(),
+      requestId: getUuid(),
       version: getUniqueString({ prefix: 'v' }),
     };
   });

@@ -3,7 +3,7 @@ import { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import { ReviewTrigger } from '../src/ReviewTrigger.js';
 import { QueueStatus, TriggerSource } from '../src/types/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it, jest } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
@@ -16,8 +16,8 @@ const NEW_COMMENT_URL = 'https://gh/c/new-comment';
 
 const makeItem = () => ({
   id: getUniqueInt(),
-  uuid: getUniqueString({ prefix: 'uuid-' }),
-  repo_full_name: `${getUniqueString({ prefix: 'o' })}/${getUniqueString({ prefix: 'r' })}`,
+  uuid: getUuid(),
+  repo_full_name: getUniqueGitHubRepoRef().fullName,
   pr_number: getUniqueInt(),
   status: QueueStatus.pending,
   not_before: getUniqueDate(),

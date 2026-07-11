@@ -1,9 +1,9 @@
 import type { CoderabbitGitHubClient } from '../../src/github/coderabbitGitHubClient.js';
 import { PRStateFetcherImpl } from '../../src/github/PRStateFetcher.js';
 import type { PRState } from '../../src/types/PRState.js';
-import { createMockCoderabbitGitHubClient, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockCoderabbitGitHubClient } from '../helpers/index.js';
 
-import { getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -22,7 +22,7 @@ describe('PRStateFetcher', () => {
 
   describe('fetch', () => {
     it('returns PR state on success', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const prState: PRState = { state: 'open', merged_at: null };
       github.getPRState.mockResolvedValue(prState);
@@ -34,7 +34,7 @@ describe('PRStateFetcher', () => {
     });
 
     it('returns undefined and logs warning on failure', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const apiError = new Error('API rate limit');
       github.getPRState.mockRejectedValue(apiError);

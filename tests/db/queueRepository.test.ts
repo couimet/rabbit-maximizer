@@ -2,9 +2,9 @@ import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/queueRep
 import { TYPES } from '../../src/inversify-types.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueStatus, TriggerSource } from '../../src/types/index.js';
-import { createMockObservationContextProvider, createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockObservationContextProvider, createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -32,8 +32,8 @@ const makeRow = (over: RowOverrides = {}) => {
   const commentId = getUniqueInt();
   return {
     id: over.id ?? getUniqueInt(),
-    uuid: getUniqueString({ prefix: 'uuid-' }),
-    repo_full_name: over.repo_full_name ?? makeUniqueRepoName().fullName,
+    uuid: getUuid(),
+    repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? 'Test PR title',
     status: over.status ?? 'pending',
@@ -92,7 +92,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('enqueue', () => {
     it('creates a pending row, records enqueued event, inserts queue_order, and returns it', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const notBefore = getUniqueDate();
       const commentId = getUniqueInt();
@@ -143,7 +143,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('returns the existing pending row when the PR is already queued (P2002)', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const existing = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.pending });
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
@@ -174,7 +174,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('updates not_before on the existing pending item when re-detected with a different value', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const originalNotBefore = getUniqueDate();
       const newNotBefore = new Date(originalNotBefore.getTime() - 600_000);
@@ -212,7 +212,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('returns the existing retriggered item when a recent retriggered row exists (within cooldown)', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const recentRetriggered = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.retriggered, not_before: new Date(Date.now() + 3_600_000) });
 
@@ -242,7 +242,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('creates a new pending row when the cooldown has expired', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const newRow = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.pending });
       const notBefore = getUniqueDate();
@@ -551,7 +551,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('enqueue error paths', () => {
     it('logs warning and rethrows when a non-P2002 error occurs', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const networkError = new Error('Connection lost');
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
@@ -576,7 +576,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('logs warning and rethrows when P2002 fires but no pending row exists', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({

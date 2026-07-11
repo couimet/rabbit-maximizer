@@ -5,7 +5,7 @@ import type { OnDetectedCallback } from '../src/types/OnDetectedCallback.js';
 
 import { createMockCoderabbitGitHubClient, createMockOnDetectedCallback, createMockSystemStateRepository, drainMicrotasks } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -33,7 +33,7 @@ interface MockDetectorDeps {
 
 const makeComment = (overrides: { commentId?: number; repoFullName?: string; prNumber?: number; createdAt?: string; updatedAt?: string }): DetectedComment => ({
   url: getUniqueString({ prefix: 'https://gh/c/' }),
-  repo_full_name: overrides.repoFullName ?? `${getUniqueString({ prefix: 'org' })}/${getUniqueString({ prefix: 'repo' })}`,
+  repo_full_name: overrides.repoFullName ?? getUniqueGitHubRepoRef().fullName,
   pr_number: overrides.prNumber ?? getUniqueInt(),
   pr_title: getUniqueString({ prefix: 'pr-title-' }),
   comment_id: overrides.commentId ?? getUniqueInt(),

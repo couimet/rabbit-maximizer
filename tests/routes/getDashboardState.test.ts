@@ -3,9 +3,9 @@ import { createGetDashboardStateHandler } from '../../src/routes/getDashboardSta
 import { QueueStatus } from '../../src/types/index.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
@@ -22,8 +22,8 @@ describe('getDashboardState', () => {
 
   const makeQueueItem = (overrides: Record<string, unknown> = {}) => ({
     id: getUniqueInt(),
-    uuid: getUniqueString({ prefix: 'uuid-' }),
-    repo_full_name: makeUniqueRepoName().fullName,
+    uuid: getUuid(),
+    repo_full_name: getUniqueGitHubRepoRef().fullName,
     pr_number: getUniqueInt(),
     status: QueueStatus.pending,
     not_before: getUniqueDate(),

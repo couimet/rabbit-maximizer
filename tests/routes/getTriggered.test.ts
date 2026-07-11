@@ -2,9 +2,9 @@ import { createExpressApp } from '../../src/external-deps/couimet/express-tools/
 import { createGetTriggeredHandler } from '../../src/routes/getTriggered.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockQueueRepo, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockQueueRepo } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -32,7 +32,7 @@ describe('getTriggered', () => {
   };
 
   it('returns 200 with paginated triggered items', async () => {
-    const items = [{ id: getUniqueInt(), repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() }];
+    const items = [{ id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() }];
     startServer({ getTriggered: jest.fn<any>().mockResolvedValue({ items, total: 1 }) });
 
     const json = await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}`);

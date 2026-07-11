@@ -5,9 +5,8 @@ import { TriggerSource } from '../../src/types/index.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
 import type { MockIssuesRest, MockPullsRest, MockSearchRest } from '../helpers/index.js';
 import { createMockOctokit } from '../helpers/index.js';
-import { makeUniqueRepoName } from '../helpers/index.js';
 
-import { getRandomString, getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getRandomString, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -52,7 +51,7 @@ describe('client', () => {
 
   describe('postRetrigger', () => {
     it('posts a comment with the correct body template', async () => {
-      const { owner, repo, fullName } = makeUniqueRepoName();
+      const { owner, repo, fullName } = getUniqueGitHubRepoRef();
       const responseCommentId = getUniqueInt();
       issues.createComment.mockResolvedValue({
         data: {
@@ -110,7 +109,7 @@ describe('client', () => {
     });
 
     it('posts a comment with manual marker and footer when triggerSource is dashboard_retrigger_now', async () => {
-      const { owner, repo, fullName } = makeUniqueRepoName();
+      const { owner, repo, fullName } = getUniqueGitHubRepoRef();
       const responseCommentId = getUniqueInt();
       issues.createComment.mockResolvedValue({
         data: {
@@ -170,7 +169,7 @@ describe('client', () => {
 
   describe('fetchComment', () => {
     it('returns the comment body from the API response', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const bodyText = getRandomString();
       issues.getComment.mockResolvedValue({
         data: { body: bodyText },
@@ -191,7 +190,7 @@ describe('client', () => {
     });
 
     it('returns empty string when the comment body is null', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       issues.getComment.mockResolvedValue({
         data: { body: null },
       });
@@ -385,7 +384,7 @@ describe('client', () => {
 
   describe('getPRState', () => {
     it('splits the repo string and calls pulls.get', async () => {
-      const { owner, repo, fullName } = makeUniqueRepoName();
+      const { owner, repo, fullName } = getUniqueGitHubRepoRef();
       pulls.get.mockResolvedValue({
         data: { state: 'open', merged_at: null },
       });
@@ -403,7 +402,7 @@ describe('client', () => {
     });
 
     it('maps response to PRState', async () => {
-      const { fullName } = makeUniqueRepoName();
+      const { fullName } = getUniqueGitHubRepoRef();
       const mergedAt = getUniqueDate().toISOString();
       pulls.get.mockResolvedValue({
         data: { state: 'closed', merged_at: mergedAt },
@@ -418,7 +417,7 @@ describe('client', () => {
 
   describe('findCompletedReview', () => {
     it('returns the comment URL when a non-rate-limit bot comment exists after the since date', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
       const commentId = getUniqueInt();
       const htmlUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
@@ -452,7 +451,7 @@ describe('client', () => {
     });
 
     it('excludes comments containing the rate-limit marker', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
@@ -474,7 +473,7 @@ describe('client', () => {
     });
 
     it('excludes comments created before the since date', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
@@ -496,7 +495,7 @@ describe('client', () => {
     });
 
     it('returns undefined when no bot comments exist', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
@@ -518,7 +517,7 @@ describe('client', () => {
     });
 
     it('returns undefined when comment body is empty', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
@@ -540,7 +539,7 @@ describe('client', () => {
     });
 
     it('returns undefined when the newest comment is our own retrigger comment', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
@@ -571,7 +570,7 @@ describe('client', () => {
 
   describe('findLatestReviewLimitComment', () => {
     it('returns the latest rate-limit comment when one exists', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const rateLimitCommentId = getUniqueInt();
       const htmlUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${rateLimitCommentId}`;
       const created_at = getUniqueDate().toISOString();
@@ -622,7 +621,7 @@ describe('client', () => {
     });
 
     it('returns undefined when no rate-limit comment exists', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
 
       issues.listComments.mockResolvedValue({
         data: [
@@ -644,7 +643,7 @@ describe('client', () => {
     });
 
     it('skips comments with retrigger markers', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
 
       issues.listComments.mockResolvedValue({
         data: [

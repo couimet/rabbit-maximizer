@@ -3,10 +3,10 @@
 import EventHistory from '../../dashboard/src/components/EventHistory.js';
 import { TimezoneProvider } from '../../dashboard/src/timezone.js';
 import { formatDate } from '../../src/utils/formatDate.js';
-import { createMockFetch, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockFetch } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
 
@@ -38,13 +38,13 @@ const TS_2_DISPLAY = formatDate(TS_2_ISO, 'UTC');
 
 const makeEvent = (over: Record<string, unknown> = {}) => ({
   id: getUniqueInt(),
-  uuid: getUniqueString({ prefix: 'evt-' }),
+  uuid: getUuid(),
   ts: getUniqueDate().toISOString(),
   type: 'detected',
-  repo_full_name: makeUniqueRepoName().fullName,
+  repo_full_name: getUniqueGitHubRepoRef().fullName,
   pr_number: getUniqueInt(),
-  correlation_id: getUniqueString({ prefix: 'corr-' }),
-  request_id: getUniqueString({ prefix: 'req-' }),
+  correlation_id: getUuid(),
+  request_id: getUuid(),
   version: '1.0.0',
   metadata: {},
   payload: {},

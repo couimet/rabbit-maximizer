@@ -8,9 +8,9 @@ import { MarkQueueItemCompletedProbe } from '../../src/probes/MarkQueueItemCompl
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
-import { createMockObservationContextProvider, createMockPrismaClient, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockObservationContextProvider, createMockPrismaClient } from '../helpers/index.js';
 
-import { getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -45,7 +45,7 @@ describe('ProbeFactory', () => {
     const { eventRepository, logger } = makeMocks();
 
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
-    const probe = factory.createDetectedProbe({ repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() }, observationContext);
+    const probe = factory.createDetectedProbe({ repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() }, observationContext);
 
     expect(probe).toBeInstanceOf(DetectedProbe);
   });
@@ -55,7 +55,7 @@ describe('ProbeFactory', () => {
 
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createQueueItemProbe(
-      { id: getUniqueInt(), repo_full_name: makeUniqueRepoName().fullName, pr_number: getUniqueInt() } as QueueItem,
+      { id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() } as QueueItem,
       observationContext,
       queueRepository,
     );

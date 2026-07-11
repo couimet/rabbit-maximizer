@@ -2,10 +2,9 @@
 
 import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
 import { TimezoneProvider } from '../../dashboard/src/timezone.js';
-import { makeUniqueRepoName } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
@@ -322,10 +321,10 @@ describe('SummaryStats', () => {
     });
 
     it('re-fetches dashboard state when QueueOrder calls onMoveComplete', async () => {
-      const repo = makeUniqueRepoName().fullName;
+      const repo = getUniqueGitHubRepoRef().fullName;
       const prNumber = getUniqueInt();
       const queueItem = {
-        uuid: getUniqueString({ prefix: 'uuid-' }),
+        uuid: getUuid(),
         repo_full_name: repo,
         pr_number: prNumber,
         status: 'pending',

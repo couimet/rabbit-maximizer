@@ -1,9 +1,9 @@
 import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/eventRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { EventType } from '../../src/types/index.js';
-import { createMockPrismaClient, createResolvedMock, makeUniqueRepoName } from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it } from '@jest/globals';
@@ -15,14 +15,14 @@ describe('EventRepositoryImpl', () => {
 
   describe('record', () => {
     it('inserts a detected event and returns the parsed entry', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
-      const correlationId = getUniqueString({ prefix: 'corr-' });
-      const requestId = getUniqueString({ prefix: 'req-' });
+      const correlationId = getUuid();
+      const requestId = getUuid();
       const version = getUniqueString({ prefix: 'v' });
       const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
       const id = getUniqueInt();
-      const uuid = getUniqueString({ prefix: 'uuid-' });
+      const uuid = getUuid();
       const ts = getUniqueDate();
 
       const storedRow = {
@@ -85,9 +85,9 @@ describe('EventRepositoryImpl', () => {
     });
 
     it('writes through the transaction client and serializes metadata', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
-      const correlationId = getUniqueString({ prefix: 'corr-' });
+      const correlationId = getUuid();
       const version = getUniqueString({ prefix: 'v' });
       const reason = getUniqueString({ prefix: 'reason-' });
       const metadata = {
@@ -98,7 +98,7 @@ describe('EventRepositoryImpl', () => {
 
       const storedRow = {
         id: getUniqueInt(),
-        uuid: getUniqueString(),
+        uuid: getUuid(),
         ts,
         type: 'failed',
         repo_full_name: repo,
@@ -151,19 +151,19 @@ describe('EventRepositoryImpl', () => {
 
   describe('listForPr', () => {
     it('returns events for a PR ordered by ts', async () => {
-      const { fullName: repo } = makeUniqueRepoName();
+      const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const detectedUrl = getUniqueString({ prefix: 'https://gh/c/' });
       const scheduledFor = getUniqueDate();
 
       const detectedRow = {
         id: getUniqueInt(),
-        uuid: getUniqueString(),
+        uuid: getUuid(),
         ts: getUniqueDate(),
         type: 'detected',
         repo_full_name: repo,
         pr_number: pr,
-        correlation_id: getUniqueString(),
+        correlation_id: getUuid(),
         request_id: null,
         version: getUniqueString(),
         payload: JSON.stringify({ source_comment_url: detectedUrl }),
@@ -171,12 +171,12 @@ describe('EventRepositoryImpl', () => {
       };
       const enqueuedRow = {
         id: getUniqueInt(),
-        uuid: getUniqueString(),
+        uuid: getUuid(),
         ts: getUniqueDate(),
         type: 'enqueued',
         repo_full_name: repo,
         pr_number: pr,
-        correlation_id: getUniqueString(),
+        correlation_id: getUuid(),
         request_id: null,
         version: getUniqueString(),
         payload: JSON.stringify({
@@ -245,19 +245,19 @@ describe('EventRepositoryImpl', () => {
     it('returns paginated events sorted by ts descending, with total count', async () => {
       const skip = 0;
       const take = 10;
-      const repo = makeUniqueRepoName().fullName;
+      const repo = getUniqueGitHubRepoRef().fullName;
       const pr = getUniqueInt();
       const sourceCommentUrl = getUniqueString();
       const retriggeredCommentUrl = getUniqueString();
       const rows = [
         {
           id: getUniqueInt(),
-          uuid: getUniqueString(),
+          uuid: getUuid(),
           ts: getUniqueDate(),
           type: 'retriggered',
           repo_full_name: repo,
           pr_number: pr,
-          correlation_id: getUniqueString(),
+          correlation_id: getUuid(),
           request_id: null,
           version: getUniqueString(),
           payload: JSON.stringify({ source_comment_url: sourceCommentUrl, retriggered_comment_url: retriggeredCommentUrl }),
