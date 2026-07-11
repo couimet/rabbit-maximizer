@@ -441,9 +441,8 @@ describe('client', () => {
         owner,
         repo,
         pull_number: prNumber,
-        sort: 'created',
-        direction: 'desc',
         per_page: 100,
+        page: 1,
       });
       expect(result).toStrictEqual({ htmlUrl, reviewId });
       expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
@@ -538,6 +537,77 @@ describe('client', () => {
       const result = await client.findCompletedReview(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
+    });
+
+    it('paginates to the next page when the first page has no match and is full', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const since = getUniqueDate();
+      const reviewId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+
+      pulls.listReviews
+        .mockResolvedValueOnce({
+          data: Array.from({ length: 100 }, () => ({
+            id: getUniqueInt(),
+            html_url: 'https://example.com/non-matching',
+            submitted_at: new Date(since.getTime() + MS_PER_HOUR).toISOString(),
+            body: 'Not a code review',
+            user: { login: 'some-other-bot' },
+          })),
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: reviewId,
+              html_url: htmlUrl,
+              submitted_at: submittedAt,
+              body: '**Actionable comments posted: 1**',
+              user: { login: 'coderabbitai[bot]' },
+            },
+          ],
+        });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(pulls.listReviews).toHaveBeenCalledWith({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: 100,
+        page: 1,
+      });
+      expect(pulls.listReviews).toHaveBeenCalledWith({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: 100,
+        page: 2,
+      });
+      expect(result).toStrictEqual({ htmlUrl, reviewId });
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
+    });
+
+    it('stops paginating when a page returns fewer than the per-page limit', async () => {
+      const { owner, repo } = makeUniqueRepoName();
+      const since = getUniqueDate();
+
+      pulls.listReviews.mockResolvedValue({
+        data: Array.from({ length: 50 }, () => ({
+          id: getUniqueInt(),
+          html_url: 'https://example.com/non-matching',
+          submitted_at: new Date(since.getTime() + MS_PER_HOUR).toISOString(),
+          body: 'Not a code review',
+          user: { login: 'some-other-bot' },
+        })),
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+      expect(pulls.listReviews).toHaveBeenCalledTimes(1);
     });
   });
 

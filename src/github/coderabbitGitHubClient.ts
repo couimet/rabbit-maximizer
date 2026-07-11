@@ -143,20 +143,26 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
   async findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined> {
     this.log.debug({ fn: 'findCompletedReview', owner, repo, pr }, 'Searching for completed review');
 
-    const response = await this.octokit.rest.pulls.listReviews({
-      owner,
-      repo,
-      pull_number: pr,
-      sort: 'created',
-      direction: 'desc',
-      per_page: COMMENTS_FETCH_PER_PAGE,
-    });
+    for (let page = 1; ; page++) {
+      const response = await this.octokit.rest.pulls.listReviews({
+        owner,
+        repo,
+        pull_number: pr,
+        per_page: COMMENTS_FETCH_PER_PAGE,
+        page,
+      });
 
-    const completedReview = response.data.find((r) => isMatchingCompletedReview(r, since));
+      const completedReview = response.data.find((r) => isMatchingCompletedReview(r, since));
 
-    if (completedReview) {
-      this.log.info({ fn: 'findCompletedReview', owner, repo, pr, reviewId: completedReview.id, htmlUrl: completedReview.html_url }, 'Found completed review');
-      return { htmlUrl: completedReview.html_url, reviewId: completedReview.id };
+      if (completedReview) {
+        this.log.info(
+          { fn: 'findCompletedReview', owner, repo, pr, reviewId: completedReview.id, htmlUrl: completedReview.html_url },
+          'Found completed review',
+        );
+        return { htmlUrl: completedReview.html_url, reviewId: completedReview.id };
+      }
+
+      if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
     }
 
     return undefined;

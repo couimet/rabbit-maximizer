@@ -91,6 +91,34 @@ describe('parseGitHubRateLimitError', () => {
     expect(parseGitHubRateLimitError(err)).toBeUndefined();
   });
 
+  it('returns undefined when x-ratelimit-reset is an empty string', () => {
+    const err = {
+      status: 403,
+      response: {
+        headers: {
+          'x-ratelimit-remaining': '0',
+          'x-ratelimit-reset': '',
+        },
+      },
+    };
+
+    expect(parseGitHubRateLimitError(err)).toBeUndefined();
+  });
+
+  it('returns undefined when x-ratelimit-reset is null', () => {
+    const err = {
+      status: 403,
+      response: {
+        headers: {
+          'x-ratelimit-remaining': '0',
+          'x-ratelimit-reset': null,
+        },
+      },
+    };
+
+    expect(parseGitHubRateLimitError(err)).toBeUndefined();
+  });
+
   it('returns undefined for a non-object error', () => {
     expect(parseGitHubRateLimitError('some string error')).toBeUndefined();
   });

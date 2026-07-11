@@ -16,7 +16,12 @@ export const parseGitHubRateLimitError = (err: unknown): RateLimitInfo | undefin
     return undefined;
   }
 
-  const resetEpoch = Number(error.response.headers['x-ratelimit-reset']);
+  const resetHeader = error.response.headers['x-ratelimit-reset'];
+  if (!resetHeader) {
+    return undefined;
+  }
+
+  const resetEpoch = Number(resetHeader);
   if (Number.isNaN(resetEpoch)) {
     return undefined;
   }
