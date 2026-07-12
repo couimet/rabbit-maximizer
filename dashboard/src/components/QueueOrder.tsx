@@ -5,6 +5,7 @@ import { prUrl, repoUrl } from '../githubUrl.js';
 
 import ConfirmDialog from './ConfirmDialog.js';
 
+import './QueueOrder.css';
 import { useEffect, useRef, useState } from 'react';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
