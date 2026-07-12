@@ -77,6 +77,36 @@
   cursor: default;
 }
 
+.btn-retrigger {
+  padding: 2px 8px;
+  border: 1px solid #e3d6c3;
+  background: #fff;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #8b7d6b;
+  line-height: 1;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.btn-retrigger:hover:not(:disabled) {
+  background: #f4f0e7;
+  border-color: #f38222;
+  color: #f38222;
+}
+
+.btn-retrigger:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.queue-order-carrots {
+  letter-spacing: 2px;
+}
+
 .row-selected {
   background: #fef7f0;
 }
