@@ -1,6 +1,6 @@
 export enum QueueStatus {
   pending = 'pending',
   retriggered = 'retriggered',
-  completed = 'completed',
+  reviewed = 'reviewed',
   failed = 'failed',
 }

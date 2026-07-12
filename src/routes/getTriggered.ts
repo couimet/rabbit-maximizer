@@ -24,10 +24,10 @@ export const createGetTriggeredHandler = (queueRepo: QueueRepository, logger: Lo
 
       const page = Math.max(DEFAULT_PAGE, parseInt(String(req.query.page)) || DEFAULT_PAGE);
       const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(MIN_PAGE_SIZE, parseInt(String(req.query.pageSize)) || TRIGGERED_PAGE_SIZE));
-      const includeCompleted = req.query.include_completed === 'true';
+      const includeReviewed = req.query.include_reviewed === 'true';
       const skip = (page - 1) * pageSize;
 
-      const { items, total } = await queueRepo.getTriggered(since, skip, pageSize, includeCompleted);
+      const { items, total } = await queueRepo.getTriggered(since, skip, pageSize, includeReviewed);
 
       res.json({ data: items, total, page, pageSize });
     } catch (error) {

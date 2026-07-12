@@ -5,7 +5,7 @@ import { EventType } from '../types/index.js';
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma, ReviewQueue } from '@prisma/client';
 
-export class MarkQueueItemCompletedProbe {
+export class MarkQueueItemReviewedProbe {
   constructor(
     private readonly uuid: string,
     private readonly events: EventRepository,
@@ -14,10 +14,10 @@ export class MarkQueueItemCompletedProbe {
   ) {}
 
   queueItemNotFound(): void {
-    this.log.warn({ fn: 'MarkQueueItemCompletedProbe.queueItemNotFound', uuid: this.uuid }, 'Queue item not found for mark-completed');
+    this.log.warn({ fn: 'MarkQueueItemReviewedProbe.queueItemNotFound', uuid: this.uuid }, 'Queue item not found for mark-reviewed');
   }
 
-  async queueItemMarkedCompleted(row: ReviewQueue, tx: Prisma.TransactionClient): Promise<void> {
+  async queueItemMarkedReviewed(row: ReviewQueue, tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {
         type: EventType.completed,
@@ -32,6 +32,6 @@ export class MarkQueueItemCompletedProbe {
       },
       tx,
     );
-    this.log.debug({ fn: 'MarkQueueItemCompletedProbe.queueItemMarkedCompleted', uuid: this.uuid, id: row.id }, 'Marked review completed by UUID');
+    this.log.debug({ fn: 'MarkQueueItemReviewedProbe.queueItemMarkedReviewed', uuid: this.uuid, id: row.id }, 'Marked review reviewed by UUID');
   }
 }

@@ -13,7 +13,7 @@ import {
   createGetQueueOrderHandler,
   createGetSummaryHandler,
   createGetTriggeredHandler,
-  createMarkCompletedHandler,
+  createMarkReviewedHandler,
   createMoveQueueOrderHandler,
   createMoveToTopHandler,
   createRetriggerNowHandler,
@@ -62,7 +62,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
   app.post('/api/queue/order/move-to-top', createMoveToTopHandler(queueOrderRepo, logger));
   app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, reviewTrigger, logger));
-  app.post('/api/queue/:uuid/mark-completed', createMarkCompletedHandler(queueRepo, logger));
+  app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, logger));
   app.get('/api/queue/triggered', createGetTriggeredHandler(queueRepo, logger));
   app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, logger));

@@ -66,14 +66,14 @@ describe('getTriggered', () => {
     expect(await res.json()).toStrictEqual({ error: 'since must be a valid ISO 8601 datetime' });
   });
 
-  it('passes include_completed=true to the repository', async () => {
+  it('passes include_reviewed=true to the repository', async () => {
     const getTriggered = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
     startServer({ getTriggered });
-    await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}&include_completed=true`);
+    await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}&include_reviewed=true`);
     expect(getTriggered).toHaveBeenCalledWith(expect.any(Date), 0, 50, true);
   });
 
-  it('defaults include_completed to false', async () => {
+  it('defaults include_reviewed to false', async () => {
     const getTriggered = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
     startServer({ getTriggered });
     await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}`);

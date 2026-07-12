@@ -7,7 +7,6 @@
 export const TYPES = {
   Config: Symbol.for('Config'),
   CoderabbitGitHubClient: Symbol.for('CoderabbitGitHubClient'),
-  CompletionDetector: Symbol.for('CompletionDetector'),
   EnqueueService: Symbol.for('EnqueueService'),
   EventRepository: Symbol.for('EventRepository'),
   Logger: Symbol.for('Logger'),
@@ -22,6 +21,7 @@ export const TYPES = {
   Pruner: Symbol.for('Pruner'),
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
+  ReviewDetector: Symbol.for('ReviewDetector'),
   ReviewTrigger: Symbol.for('ReviewTrigger'),
   Scheduler: Symbol.for('Scheduler'),
   SystemStateRepository: Symbol.for('SystemStateRepository'),

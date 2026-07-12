@@ -3,7 +3,6 @@ import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
-import type { CompletionDetector } from './CompletionDetector.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
 import type { PollDetector } from './detectorPoll.js';
@@ -11,6 +10,7 @@ import { setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { TYPES } from './inversify-types.js';
 import { initLogger } from './logger.js';
+import type { ReviewDetector } from './ReviewDetector.js';
 import { ReviewTrigger } from './ReviewTrigger.js';
 import type { Scheduler } from './scheduler.js';
 import { validateGitHubToken } from './validateGitHubToken.js';
@@ -46,8 +46,8 @@ log.info({ fn: 'main' }, `Connected to ${describeDatabaseUrl(config.DATABASE_URL
 const detector = container.get<PollDetector>(TYPES.PollDetector);
 const { stop: stopDetector } = detector.start();
 
-const completionDetector = container.get<CompletionDetector>(TYPES.CompletionDetector);
-const { stop: stopCompletionDetector } = completionDetector.start();
+const reviewDetector = container.get<ReviewDetector>(TYPES.ReviewDetector);
+const { stop: stopReviewDetector } = reviewDetector.start();
 
 const scheduler = container.get<Scheduler>(TYPES.Scheduler);
 const { stop: stopScheduler } = scheduler.start();
@@ -72,7 +72,7 @@ const { stop: stopServer } = setupExpress({
 
 log.info({ fn: 'main', port: config.WEB_PORT }, 'Dashboard API server started');
 
-const gracefulShutdown = createGracefulShutdown({ stopDetector, stopCompletionDetector, stopScheduler, stopServer, prisma, log });
+const gracefulShutdown = createGracefulShutdown({ stopDetector, stopReviewDetector, stopScheduler, stopServer, prisma, log });
 
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);

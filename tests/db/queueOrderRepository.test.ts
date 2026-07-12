@@ -23,7 +23,7 @@ interface MakeRowOverrides {
   trigger_source?: string | null;
   retriggered_at?: Date | null;
   failed_at?: Date | null;
-  completed_at?: Date | null;
+  reviewed_at?: Date | null;
 }
 
 const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: number | null } = {}) => {
@@ -42,7 +42,7 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
     trigger_source: over.trigger_source ?? null,
     retriggered_at: over.retriggered_at ?? null,
     failed_at: over.failed_at ?? null,
-    completed_at: over.completed_at ?? null,
+    reviewed_at: over.reviewed_at ?? null,
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
     queueOrder: {
@@ -69,7 +69,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   trigger_source: row.trigger_source as TriggerSource,
   retriggered_at: row.retriggered_at ?? undefined,
   failed_at: row.failed_at ?? undefined,
-  completed_at: row.completed_at ?? undefined,
+  reviewed_at: row.reviewed_at ?? undefined,
   created_at: row.created_at,
   updated_at: row.updated_at,
 });
@@ -488,7 +488,7 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('throws when item is not pending', async () => {
-      const itemA = makeRow({ id: 1, status: 'completed' }, { position: 1, id: getUniqueInt() });
+      const itemA = makeRow({ id: 1, status: 'reviewed' }, { position: 1, id: getUniqueInt() });
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
@@ -500,7 +500,7 @@ describe('QueueOrderRepositoryImpl', () => {
       await expect(sut.moveToTop(itemA.uuid)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_PENDING', {
         message: `Queue item ${itemA.uuid} is not pending`,
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
-        details: { uuid: itemA.uuid, status: 'completed' },
+        details: { uuid: itemA.uuid, status: 'reviewed' },
       });
     });
 

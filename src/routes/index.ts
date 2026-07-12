@@ -6,7 +6,7 @@ export { createGetSummaryHandler } from './getSummary.js';
 export { createGetTriggeredHandler } from './getTriggered.js';
 export {
   createGetQueueOrderHandler,
-  createMarkCompletedHandler,
+  createMarkReviewedHandler,
   createMoveQueueOrderHandler,
   createMoveToTopHandler,
   createRetriggerNowHandler,

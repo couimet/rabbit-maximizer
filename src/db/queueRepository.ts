@@ -24,15 +24,15 @@ const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 export interface QueueRepository {
   enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markReviewed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   // TODO [2026-07-15]: #126 — revisit optional tx holistically; several methods use mandatory tx but could benefit from enforceTx()
-  markCompletedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
+  markReviewedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getTriggered(since: Date, skip: number, take: number, includeCompleted: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
+  getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
@@ -143,22 +143,22 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.toQueueItem(row);
   }
 
-  async markCompleted(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async markReviewed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.client(tx).reviewQueue.update({
       where: { id },
-      data: { status: QueueStatus.completed, completed_at: new Date() },
+      data: { status: QueueStatus.reviewed, reviewed_at: new Date() },
     });
-    this.log.debug({ fn: 'QueueRepositoryImpl.markCompleted', id }, 'Marked review completed');
+    this.log.debug({ fn: 'QueueRepositoryImpl.markReviewed', id }, 'Marked review reviewed');
     return this.toQueueItem(row);
   }
 
-  async markCompletedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined> {
+  async markReviewedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined> {
     if (!tx) {
-      return this.transaction((tx) => this.markCompletedByUuid(uuid, tx));
+      return this.transaction((tx) => this.markReviewedByUuid(uuid, tx));
     }
 
     const db = this.client(tx);
-    const probe = this.probeFactory.createMarkQueueItemCompletedProbe(uuid);
+    const probe = this.probeFactory.createMarkQueueItemReviewedProbe(uuid);
 
     const row = await db.reviewQueue.findUnique({ where: { uuid } });
     if (!row) {
@@ -168,9 +168,9 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
     const updated = await db.reviewQueue.update({
       where: { id: row.id },
-      data: { status: QueueStatus.completed, completed_at: new Date() },
+      data: { status: QueueStatus.reviewed, reviewed_at: new Date() },
     });
-    await probe.queueItemMarkedCompleted(updated, db);
+    await probe.queueItemMarkedReviewed(updated, db);
 
     return this.toQueueItem(updated);
   }
@@ -228,16 +228,16 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return rows.map((row) => this.toQueueItem(row));
   }
 
-  async getTriggered(since: Date, skip: number, take: number, includeCompleted: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+  async getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
     const db = this.client(tx);
-    const statuses = includeCompleted ? [QueueStatus.retriggered, QueueStatus.completed] : [QueueStatus.retriggered];
+    const statuses = includeReviewed ? [QueueStatus.retriggered, QueueStatus.reviewed] : [QueueStatus.retriggered];
     const where = { retriggered_at: { gte: since }, status: { in: statuses } };
     const [rows, total] = await Promise.all([
       db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' }, skip, take }),
       db.reviewQueue.count({ where }),
     ]);
 
-    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeCompleted, count: rows.length, total }, 'Fetched triggered queue');
+    this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeReviewed, count: rows.length, total }, 'Fetched triggered queue');
     return { items: rows.map((row) => this.toQueueItem(row)), total };
   }
 
@@ -263,7 +263,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       by: ['status'],
       _count: { status: true },
     });
-    const counts: Record<QueueStatus, number> = { pending: 0, retriggered: 0, completed: 0, failed: 0 };
+    const counts: Record<QueueStatus, number> = { pending: 0, retriggered: 0, reviewed: 0, failed: 0 };
     for (const row of rows) {
       counts[row.status as QueueStatus] = row._count.status;
     }
@@ -287,7 +287,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       retrigger_comment_url: row.retrigger_comment_url ?? undefined,
       retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
-      completed_at: row.completed_at ?? undefined,
+      reviewed_at: row.reviewed_at ?? undefined,
       created_at: row.created_at,
       updated_at: row.updated_at,
     };

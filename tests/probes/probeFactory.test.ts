@@ -4,7 +4,7 @@ import { TYPES } from '../../src/inversify-types.js';
 import type { ObservationContextProvider } from '../../src/observability/observationContext.js';
 import { UuidObservationContextProvider } from '../../src/observability/observationContext.js';
 import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
-import { MarkQueueItemCompletedProbe } from '../../src/probes/MarkQueueItemCompletedProbe.js';
+import { MarkQueueItemReviewedProbe } from '../../src/probes/MarkQueueItemReviewedProbe.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
@@ -27,7 +27,7 @@ describe('ProbeFactory', () => {
       listForPr: jest.fn<any>(),
     } as unknown as EventRepository;
     const queueRepository = {
-      markCompleted: jest.fn<any>(),
+      markReviewed: jest.fn<any>(),
       markFailed: jest.fn<any>(),
       markPosted: jest.fn<any>(),
     } as unknown as QueueRepository;
@@ -63,13 +63,13 @@ describe('ProbeFactory', () => {
     expect(probe).toBeInstanceOf(QueueItemProbe);
   });
 
-  it('creates a MarkQueueItemCompletedProbe with the current observation context', () => {
+  it('creates a MarkQueueItemReviewedProbe with the current observation context', () => {
     const { eventRepository, logger } = makeMocks();
 
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
-    const probe = factory.createMarkQueueItemCompletedProbe('test-uuid');
+    const probe = factory.createMarkQueueItemReviewedProbe('test-uuid');
 
-    expect(probe).toBeInstanceOf(MarkQueueItemCompletedProbe);
+    expect(probe).toBeInstanceOf(MarkQueueItemReviewedProbe);
   });
 
   describe('container binding', () => {

@@ -132,7 +132,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/queue/{uuid}/mark-completed': {
+  '/api/queue/{uuid}/mark-reviewed': {
     parameters: {
       query?: never;
       header?: never;
@@ -141,7 +141,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    post: operations['markCompleted'];
+    post: operations['markReviewed'];
     delete?: never;
     options?: never;
     head?: never;
@@ -220,7 +220,7 @@ export interface components {
       error: string;
     };
     /** @enum {string} */
-    QueueStatus: 'pending' | 'retriggered' | 'completed' | 'failed';
+    QueueStatus: 'pending' | 'retriggered' | 'reviewed' | 'failed';
     QueueItem: {
       id: number;
       uuid: string;
@@ -243,7 +243,7 @@ export interface components {
       /** Format: date-time */
       failed_at?: string | null;
       /** Format: date-time */
-      completed_at?: string | null;
+      reviewed_at?: string | null;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */
@@ -577,7 +577,7 @@ export interface operations {
       500: components['responses']['InternalError'];
     };
   };
-  markCompleted: {
+  markReviewed: {
     parameters: {
       query?: never;
       header?: never;
@@ -588,7 +588,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Item marked completed */
+      /** @description Item marked reviewed */
       200: {
         headers: {
           [name: string]: unknown;
@@ -676,7 +676,7 @@ export interface operations {
         since: string;
         page?: number;
         pageSize?: number;
-        include_completed?: boolean;
+        include_reviewed?: boolean;
       };
       header?: never;
       path?: never;

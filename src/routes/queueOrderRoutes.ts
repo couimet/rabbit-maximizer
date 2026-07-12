@@ -141,7 +141,7 @@ export const createMoveToTopHandler = (queueOrderRepo: QueueOrderRepository, log
   };
 };
 
-export const createMarkCompletedHandler = (queueRepo: QueueRepository, logger: Logger) => {
+export const createMarkReviewedHandler = (queueRepo: QueueRepository, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const uuid = req.params.uuid as string;
@@ -150,7 +150,7 @@ export const createMarkCompletedHandler = (queueRepo: QueueRepository, logger: L
         return;
       }
 
-      const item = await queueRepo.markCompletedByUuid(uuid);
+      const item = await queueRepo.markReviewedByUuid(uuid);
       if (!item) {
         res.status(StatusCodes.NOT_FOUND).json({ error: `Queue item not found: ${uuid}` });
         return;
@@ -158,8 +158,8 @@ export const createMarkCompletedHandler = (queueRepo: QueueRepository, logger: L
 
       res.json({ ok: true });
     } catch (error) {
-      logger.error({ fn: 'api.queueOrder.markCompleted', error }, 'Failed to mark item completed');
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to mark item completed' });
+      logger.error({ fn: 'api.queueOrder.markReviewed', error }, 'Failed to mark item reviewed');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to mark item reviewed' });
     }
   };
 };

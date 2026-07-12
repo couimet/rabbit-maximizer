@@ -90,12 +90,12 @@ describe('RecentlyTriggered', () => {
       expect(link).toHaveAttribute('href', `https://github.com/${item.repo_full_name}/pull/${item.pr_number}`);
     });
 
-    it('shows Completed pill when status is completed', async () => {
-      const item = makeItem({ status: QueueStatus.completed });
+    it('shows Reviewed pill when status is reviewed', async () => {
+      const item = makeItem({ status: QueueStatus.reviewed });
       mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       render(<RecentlyTriggered />);
 
-      await waitFor(() => expect(screen.getByText('Completed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Reviewed')).toBeInTheDocument());
     });
 
     it('shows Retriggered pill when status is retriggered', async () => {
@@ -154,19 +154,19 @@ describe('RecentlyTriggered', () => {
     });
   });
 
-  describe('show completed toggle', () => {
-    it('includes show completed checkbox', async () => {
+  describe('show reviewed toggle', () => {
+    it('includes show reviewed checkbox', async () => {
       mockTriggeredEndpoint();
       render(<RecentlyTriggered />);
 
-      await waitFor(() => expect(screen.getByLabelText('Show completed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByLabelText('Show reviewed')).toBeInTheDocument());
     });
 
-    it('toggles include_completed and refetches', async () => {
+    it('toggles include_reviewed and refetches', async () => {
       mockTriggeredEndpoint();
       render(<RecentlyTriggered />);
 
-      await waitFor(() => expect(screen.getByLabelText('Show completed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByLabelText('Show reviewed')).toBeInTheDocument());
 
       globalThis.fetch = jest.fn((url: string) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
@@ -175,13 +175,13 @@ describe('RecentlyTriggered', () => {
         return Promise.reject(new Error('Unexpected fetch: ' + url));
       }) as unknown as typeof fetch;
 
-      fireEvent.click(screen.getByLabelText('Show completed'));
+      fireEvent.click(screen.getByLabelText('Show reviewed'));
 
       await waitFor(() => {
         const calls = (globalThis.fetch as jest.Mock).mock.calls as unknown[][];
         const triggeredCall = calls.find((call) => String(call[0]).includes('/queue/triggered'));
         expect(triggeredCall).toBeDefined();
-        expect(new URL('http://localhost' + String(triggeredCall![0])).searchParams.get('include_completed')).toBe('true');
+        expect(new URL('http://localhost' + String(triggeredCall![0])).searchParams.get('include_reviewed')).toBe('true');
       });
     });
   });
@@ -267,14 +267,14 @@ describe('RecentlyTriggered', () => {
     });
   });
 
-  describe('mark completed', () => {
+  describe('mark reviewed', () => {
     it('optimistically removes item from the list on click', async () => {
       const item = makeItem();
       globalThis.fetch = jest.fn((url: string, _init?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
           return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
         }
-        if (typeof url === 'string' && url.includes('/mark-completed')) {
+        if (typeof url === 'string' && url.includes('/mark-reviewed')) {
           return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response);
         }
         return Promise.reject(new Error('Unexpected fetch'));
@@ -284,18 +284,18 @@ describe('RecentlyTriggered', () => {
 
       await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
 
-      fireEvent.click(screen.getByTitle('Mark as completed'));
+      fireEvent.click(screen.getByTitle('Mark as reviewed'));
 
       await waitFor(() => expect(screen.queryByText('#' + String(item.pr_number))).not.toBeInTheDocument());
     });
 
-    it('restores items on mark-completed API failure', async () => {
+    it('restores items on mark-reviewed API failure', async () => {
       const item = makeItem();
       globalThis.fetch = jest.fn((url: string, _init?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
           return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
         }
-        if (typeof url === 'string' && url.includes('/mark-completed')) {
+        if (typeof url === 'string' && url.includes('/mark-reviewed')) {
           return Promise.reject(new Error('API error'));
         }
         return Promise.reject(new Error('Unexpected fetch'));
@@ -305,7 +305,7 @@ describe('RecentlyTriggered', () => {
 
       await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
 
-      fireEvent.click(screen.getByTitle('Mark as completed'));
+      fireEvent.click(screen.getByTitle('Mark as reviewed'));
 
       await waitFor(() => expect(screen.getByText('#' + String(item.pr_number))).toBeInTheDocument());
     });

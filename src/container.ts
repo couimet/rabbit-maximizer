@@ -9,13 +9,13 @@ import { type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
 import { ProbeFactory } from './probes/ProbeFactory.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { CompletionDetector } from './CompletionDetector.js';
 import { type Config, config } from './config.js';
 import { PollDetector } from './detectorPoll.js';
 import { EnqueueService } from './EnqueueService.js';
 import { TYPES } from './inversify-types.js';
 import { type PruneEvaluator, PruneEvaluatorImpl } from './PruneEvaluator.js';
 import { type Pruner, PrunerImpl } from './Pruner.js';
+import { ReviewDetector } from './ReviewDetector.js';
 import { ReviewTrigger } from './ReviewTrigger.js';
 import { Scheduler } from './scheduler.js';
 
@@ -46,7 +46,7 @@ container
 
 container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClientImpl).inSingletonScope();
 
-container.bind<CompletionDetector>(TYPES.CompletionDetector).to(CompletionDetector).inSingletonScope();
+container.bind<ReviewDetector>(TYPES.ReviewDetector).to(ReviewDetector).inSingletonScope();
 
 container.bind<PRStateFetcher>(TYPES.PRStateFetcher).to(PRStateFetcherImpl).inSingletonScope();
 
