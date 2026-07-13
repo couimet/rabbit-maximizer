@@ -26,6 +26,7 @@ const makeItem = () => ({
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   source_comment_id: STALE_COMMENT_ID,
   trigger_source: TriggerSource.scheduler,
+  pull_request_id: getUniqueInt(),
   created_at: getUniqueDate(),
   updated_at: getUniqueDate(),
 });

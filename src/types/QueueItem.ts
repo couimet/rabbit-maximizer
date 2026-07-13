@@ -17,6 +17,7 @@ export interface QueueItem {
   readonly retriggered_at?: Date;
   readonly failed_at?: Date;
   readonly reviewed_at?: Date;
+  readonly pull_request_id: number;
   readonly created_at: Date;
   readonly updated_at: Date;
 }

@@ -33,6 +33,12 @@ export interface MockQueueOrderDelegate {
   aggregate: jest.Mock<any>;
 }
 
+export interface MockPullRequestDelegate {
+  create: jest.Mock<any>;
+  findUnique: jest.Mock<any>;
+  update: jest.Mock<any>;
+}
+
 export interface MockSystemStateDelegate {
   findUnique: jest.Mock<any>;
   upsert: jest.Mock<any>;
@@ -47,6 +53,7 @@ export interface MockPrismaOptions {
   reviewQueue?: Partial<MockReviewQueueDelegate>;
   event?: Partial<MockEventDelegate>;
   queueOrder?: Partial<MockQueueOrderDelegate>;
+  pullRequest?: Partial<MockPullRequestDelegate>;
   systemState?: Partial<MockSystemStateDelegate>;
   $executeRawUnsafe?: jest.Mock<any>;
   $executeRaw?: jest.Mock<any>;
@@ -58,6 +65,7 @@ export interface MockPrismaResult {
   reviewQueue: MockReviewQueueDelegate;
   event: MockEventDelegate;
   queueOrder: MockQueueOrderDelegate;
+  pullRequest: MockPullRequestDelegate;
   systemState: MockSystemStateDelegate;
 }
 
@@ -94,6 +102,12 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
     aggregate: jest.fn<any>(),
     ...overrides.queueOrder,
   };
+  const pullRequest: MockPullRequestDelegate = {
+    create: jest.fn<any>(),
+    findUnique: jest.fn<any>(),
+    update: jest.fn<any>(),
+    ...overrides.pullRequest,
+  };
   const systemState: MockSystemStateDelegate = {
     findUnique: jest.fn<any>(),
     upsert: jest.fn<any>(),
@@ -107,13 +121,14 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
   const $executeRawUnsafe: jest.Mock<any> = overrides.$executeRawUnsafe ?? jest.fn<any>();
   const $executeRaw: jest.Mock<any> = overrides.$executeRaw ?? jest.fn<any>();
 
-  const mockForTx = { reviewQueue, event, queueOrder, systemState, $executeRawUnsafe, $executeRaw };
+  const mockForTx = { reviewQueue, event, queueOrder, pullRequest, systemState, $executeRawUnsafe, $executeRaw };
   const $transaction: jest.Mock<any> = overrides.$transaction ?? jest.fn<any>().mockImplementation((fn: (tx: unknown) => unknown) => fn(mockForTx));
 
   return {
     prisma: { ...mockForTx, $transaction } as unknown as PrismaClient,
     reviewQueue,
     event,
+    pullRequest,
     queueOrder,
     systemState,
   };

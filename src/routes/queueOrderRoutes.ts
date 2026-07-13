@@ -1,3 +1,4 @@
+import type { PullRequestRepository } from '../db/pullRequestRepository.js';
 import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
 import type { QueueRepository } from '../db/queueRepository.js';
 import type { SystemStateRepository } from '../db/systemStateRepository.js';
@@ -8,6 +9,7 @@ import { QueueStatus, TriggerSource } from '../types/index.js';
 import { isValidUuid } from '../utils/uuidLookup.js';
 
 import type { Logger } from '@couimet/logger-contract';
+import type { PrismaClient } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
@@ -141,7 +143,7 @@ export const createMoveToTopHandler = (queueOrderRepo: QueueOrderRepository, log
   };
 };
 
-export const createMarkReviewedHandler = (queueRepo: QueueRepository, logger: Logger) => {
+export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullRequests: PullRequestRepository, prisma: PrismaClient, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const uuid = req.params.uuid as string;
@@ -150,7 +152,13 @@ export const createMarkReviewedHandler = (queueRepo: QueueRepository, logger: Lo
         return;
       }
 
-      const item = await queueRepo.markReviewedByUuid(uuid);
+      const item = await prisma.$transaction(async (tx) => {
+        const updated = await queueRepo.markReviewedByUuid(uuid, tx);
+        if (!updated) return null;
+        await pullRequests.recordReview(updated.pull_request_id, tx);
+        return updated;
+      });
+
       if (!item) {
         res.status(StatusCodes.NOT_FOUND).json({ error: `Queue item not found: ${uuid}` });
         return;

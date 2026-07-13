@@ -7,6 +7,48 @@ generator client {
 }
 
 // ---------------------------------------------------------------------------
+// PullRequest — canonical home for PR identity and system-observed history.
+//
+// Column notes:
+//   id                        Internal auto-increment PK.
+//   uuid                      External-facing stable identifier (UUID v4).
+//   title / author_login      Cached from GitHub at detection time.
+//   first_seen_at             Earliest created_at across all queue rows for this PR.
+//   first_review_limit_at     Earliest review-limit comment timestamp (NULL if none).
+//   last_review_limit_at      Latest review-limit comment timestamp (NULL if none).
+//   last_review_requested_at  Last time we posted a retrigger comment.
+//   last_coderabbit_review_at Last time CodeRabbit performed a review.
+//   retrigger_count           Total retrigger comments posted.
+//   review_count              Total reviews actually performed by CodeRabbit.
+// ---------------------------------------------------------------------------
+
+model PullRequest {
+  id                        Int       @id @default(autoincrement())
+  uuid                      String    @unique @default(uuid())
+  repo_full_name            String
+  pr_number                 Int
+  title                     String
+  author_login              String
+  first_seen_at             DateTime
+  first_review_limit_at     DateTime?
+  last_review_limit_at      DateTime?
+  last_review_requested_at  DateTime?
+  last_coderabbit_review_at DateTime?
+  retrigger_count           Int       @default(0)
+  review_count              Int       @default(0)
+  created_at                DateTime  @default(now())
+  updated_at                DateTime  @updatedAt
+
+  queueItems  ReviewQueue[]
+  events      Event[]
+
+  @@index([last_coderabbit_review_at])
+  @@index([last_review_requested_at])
+  @@unique([repo_full_name, pr_number])
+  @@map("pull_request")
+}
+
+// ---------------------------------------------------------------------------
 // ReviewQueue — current state of pending/reviewed/failed review requests.
 //
 // Column notes:
@@ -22,6 +64,7 @@ model ReviewQueue {
   id             Int       @id @default(autoincrement())
   /// Max 36 (UUID v4). Enforced by CHECK in the init migration.
   uuid           String    @unique @default(uuid())
+  pull_request_id Int?
   /// Max 140: GitHub owner/org (<=39) + "/" + repo (<=100). Sources and CHECK in the init migration; mirrored in src/schemas/lengths.ts.
   repo_full_name String
   pr_number      Int
@@ -46,7 +89,10 @@ model ReviewQueue {
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 
+  pullRequest   PullRequest? @relation(fields: [pull_request_id], references: [id])
+
   @@index([status, not_before], map: "review_queue_status_not_before_idx")
+  @@index([pull_request_id])
   @@map("review_queue")
 }
 
@@ -74,6 +120,7 @@ model Event {
   ts             DateTime @default(now())
   /// Max 25; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed' (CHECK in the init + bypass migration).
   type           String
+  pull_request_id Int?
   /// Max 140: GitHub owner/org + "/" + repo. See review_queue / init migration for sources.
   repo_full_name String
   pr_number      Int
@@ -88,7 +135,10 @@ model Event {
   /// JSON blob; max 2048. Provenance (git sha, build id, host, node version).
   metadata       String?
 
+  pullRequest     PullRequest? @relation(fields: [pull_request_id], references: [id])
+
   @@index([repo_full_name, pr_number, ts], map: "events_repo_pr_ts_idx")
+  @@index([pull_request_id])
   @@map("events")
 }
 

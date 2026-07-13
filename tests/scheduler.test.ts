@@ -43,6 +43,7 @@ interface QueueItemStub {
   source_comment_url: string;
   source_comment_id: number;
   trigger_source: TriggerSource;
+  pull_request_id: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -75,6 +76,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
     source_comment_url: over.source_comment_url ?? `https://github.com/test-owner/test-repo/pull/${getUniqueInt()}#issuecomment-${commentId}`,
     source_comment_id: over.source_comment_id ?? commentId,
     trigger_source: over.trigger_source ?? TriggerSource.scheduler,
+    pull_request_id: getUniqueInt(),
     created_at: over.created_at ?? getUniqueDate(),
     updated_at: over.updated_at ?? getUniqueDate(),
   };

@@ -43,6 +43,7 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
     retriggered_at: over.retriggered_at ?? null,
     failed_at: over.failed_at ?? null,
     reviewed_at: over.reviewed_at ?? null,
+    pull_request_id: getUniqueInt(),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
     queueOrder: {
@@ -70,6 +71,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   retriggered_at: row.retriggered_at ?? undefined,
   failed_at: row.failed_at ?? undefined,
   reviewed_at: row.reviewed_at ?? undefined,
+  pull_request_id: row.pull_request_id!,
   created_at: row.created_at,
   updated_at: row.updated_at,
 });

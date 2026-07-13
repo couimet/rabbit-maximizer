@@ -8,7 +8,7 @@ import { MarkQueueItemReviewedProbe } from '../../src/probes/MarkQueueItemReview
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
-import { createMockObservationContextProvider, createMockPrismaClient } from '../helpers/index.js';
+import { createMockObservationContextProvider, createMockPrismaClient, createMockPullRequestRepo } from '../helpers/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -32,8 +32,9 @@ describe('ProbeFactory', () => {
       markPosted: jest.fn<any>(),
     } as unknown as QueueRepository;
     const logger = createMockLogger();
+    const pullRequests = createMockPullRequestRepo();
 
-    return { eventRepository, queueRepository, logger };
+    return { eventRepository, queueRepository, pullRequests, logger };
   };
 
   beforeEach(() => {
@@ -42,18 +43,18 @@ describe('ProbeFactory', () => {
   });
 
   it('creates a DetectedProbe with the provided observation context', () => {
-    const { eventRepository, logger } = makeMocks();
+    const { eventRepository, pullRequests, logger } = makeMocks();
 
-    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, pullRequests as any, observationProvider as any, logger);
     const probe = factory.createDetectedProbe({ repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() }, observationContext);
 
     expect(probe).toBeInstanceOf(DetectedProbe);
   });
 
   it('creates a QueueItemProbe', () => {
-    const { eventRepository, queueRepository, logger } = makeMocks();
+    const { eventRepository, queueRepository, pullRequests, logger } = makeMocks();
 
-    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, pullRequests as any, observationProvider as any, logger);
     const probe = factory.createQueueItemProbe(
       { id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() } as QueueItem,
       observationContext,
@@ -64,9 +65,9 @@ describe('ProbeFactory', () => {
   });
 
   it('creates a MarkQueueItemReviewedProbe with the current observation context', () => {
-    const { eventRepository, logger } = makeMocks();
+    const { eventRepository, pullRequests, logger } = makeMocks();
 
-    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, pullRequests as any, observationProvider as any, logger);
     const probe = factory.createMarkQueueItemReviewedProbe('test-uuid');
 
     expect(probe).toBeInstanceOf(MarkQueueItemReviewedProbe);
@@ -76,12 +77,14 @@ describe('ProbeFactory', () => {
     it('resolves ProbeFactory from the container', () => {
       const { prisma } = createMockPrismaClient();
       const logger = createMockLogger();
+      const pullRequests = createMockPullRequestRepo();
       const container = new Container();
 
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
       container.bind<EventRepository>(TYPES.EventRepository).to(EventRepositoryImpl);
       container.bind<QueueRepository>(TYPES.QueueRepository).toConstantValue({} as unknown as QueueRepository);
+      container.bind(TYPES.PullRequestRepository).toConstantValue(pullRequests);
       container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(UuidObservationContextProvider);
       container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory);
 

@@ -6,6 +6,7 @@ export * from './createMockOctokit.js';
 export * from './createMockOnDetectedCallback.js';
 export * from './createMockPrismaClient.js';
 export * from './createMockPruner.js';
+export * from './createMockPullRequestRepo.js';
 export * from './createMockQueueOrderRepo.js';
 export * from './createMockQueueRepo.js';
 export * from './createMockSystemStateRepository.js';

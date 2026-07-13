@@ -32,6 +32,7 @@ const makeItem = (over: Record<string, unknown> = {}) => ({
   attempts: 0,
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   trigger_source: TriggerSource.scheduler,
+  pull_request_id: getUniqueInt(),
   retrigger_comment_url: getUniqueString({ prefix: 'https://gh/c/retriggered-' }),
   retriggered_at: new Date(getUniqueDate().getTime() - 1_800_000).toISOString(),
   created_at: getUniqueDate().toISOString(),

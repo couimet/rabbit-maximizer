@@ -1,4 +1,5 @@
 import type { EventRepository } from './db/eventRepository.js';
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
@@ -55,6 +56,7 @@ const { stop: stopScheduler } = scheduler.start();
 const queueRepo = container.get<QueueRepository>(TYPES.QueueRepository);
 const queueOrderRepo = container.get<QueueOrderRepository>(TYPES.QueueOrderRepository);
 const eventRepo = container.get<EventRepository>(TYPES.EventRepository);
+const pullRequestRepo = container.get<PullRequestRepository>(TYPES.PullRequestRepository);
 const systemStateRepo = container.get<SystemStateRepository>(TYPES.SystemStateRepository);
 const reviewTrigger = container.get<ReviewTrigger>(TYPES.ReviewTrigger);
 const appLogger = container.get<Logger>(TYPES.Logger);
@@ -64,6 +66,8 @@ const { stop: stopServer } = setupExpress({
   queueRepo,
   queueOrderRepo,
   eventRepo,
+  pullRequestRepo,
+  prisma,
   reviewTrigger,
   systemStateRepo,
   logger: appLogger,

@@ -30,6 +30,7 @@ const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   attempts: getUniqueInt(),
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   trigger_source: TriggerSource.scheduler,
+  pull_request_id: getUniqueInt(),
   created_at: getUniqueDate().toISOString(),
   updated_at: getUniqueDate().toISOString(),
   ...over,

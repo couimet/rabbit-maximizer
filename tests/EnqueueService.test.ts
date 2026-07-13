@@ -6,6 +6,8 @@ import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { DetectedComment } from '../src/types/DetectedComment.js';
 
+import { createMockPullRequestRepo } from './helpers/index.js';
+
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
@@ -36,10 +38,12 @@ describe('EnqueueService', () => {
     processAlreadyQueued: jest.Mock;
   };
   let fetcher: PRStateFetcher;
+  let mockPullRequests: ReturnType<typeof createMockPullRequestRepo>;
 
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-06-22T12:00:00Z'));
+    mockPullRequests = createMockPullRequestRepo();
 
     queue = {
       enqueue: jest.fn<any>().mockResolvedValue({ item: {}, created: true }),
@@ -73,7 +77,7 @@ describe('EnqueueService', () => {
     } as unknown as PRStateFetcher;
   });
 
-  const createService = () => new EnqueueService(queue, prisma, probes, observation, fetcher);
+  const createService = () => new EnqueueService(queue, mockPullRequests, prisma, probes, observation, fetcher);
 
   describe('handle', () => {
     it('bypasses via probe when PR is already merged', async () => {
@@ -108,6 +112,8 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = makeComment();
       const waitSeconds = 330;
+      const pullRequestId = getUniqueInt();
+      mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
       const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       await svc.handle(comment, waitSeconds);
@@ -127,6 +133,7 @@ describe('EnqueueService', () => {
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.comment_id,
           newWait: waitSeconds,
+          pullRequestId,
         },
         observation.current(),
         tx,
@@ -168,6 +175,8 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = makeComment();
       const waitSeconds = 120;
+      const pullRequestId = getUniqueInt();
+      mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
       const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       await svc.handle(comment, waitSeconds);
@@ -181,6 +190,7 @@ describe('EnqueueService', () => {
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.comment_id,
           newWait: waitSeconds,
+          pullRequestId,
         },
         observation.current(),
         tx,
