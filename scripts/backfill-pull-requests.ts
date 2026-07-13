@@ -15,6 +15,16 @@ async function backfill(): Promise<void> {
   for (const pair of pairs) {
     const { repo_full_name, pr_number } = pair;
 
+    const existing = await prisma.pullRequest.findUnique({
+      where: { repo_full_name_pr_number: { repo_full_name, pr_number } },
+      select: { id: true },
+    });
+
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
     const queueRows = await prisma.reviewQueue.findMany({
       where: { repo_full_name, pr_number },
       orderBy: { created_at: 'asc' },
@@ -34,36 +44,38 @@ async function backfill(): Promise<void> {
     const lastCoderabbitReviewAt = reviewedRows.length > 0 ? reviewedRows[reviewedRows.length - 1].reviewed_at! : null;
     const reviewCount = reviewedRows.length;
 
-    const pr = await prisma.pullRequest.create({
-      data: {
-        repo_full_name,
-        pr_number,
-        title: '<unknown>',
-        author_login: '<unknown>',
-        first_seen_at: firstSeenAt,
-        first_review_limit_at: firstReviewLimitAt,
-        last_review_limit_at: lastReviewLimitAt,
-        last_review_requested_at: lastReviewRequestedAt,
-        last_coderabbit_review_at: lastCoderabbitReviewAt,
-        retrigger_count: retriggerCount,
-        review_count: reviewCount,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      const pr = await tx.pullRequest.create({
+        data: {
+          repo_full_name,
+          pr_number,
+          title: '<unknown>',
+          author_login: '<unknown>',
+          first_seen_at: firstSeenAt,
+          first_review_limit_at: firstReviewLimitAt,
+          last_review_limit_at: lastReviewLimitAt,
+          last_review_requested_at: lastReviewRequestedAt,
+          last_coderabbit_review_at: lastCoderabbitReviewAt,
+          retrigger_count: retriggerCount,
+          review_count: reviewCount,
+        },
+      });
 
-    await prisma.reviewQueue.updateMany({
-      where: { repo_full_name, pr_number },
-      data: { pull_request_id: pr.id },
-    });
+      await tx.reviewQueue.updateMany({
+        where: { repo_full_name, pr_number },
+        data: { pull_request_id: pr.id },
+      });
 
-    await prisma.events.updateMany({
-      where: { repo_full_name, pr_number },
-      data: { pull_request_id: pr.id },
+      await tx.events.updateMany({
+        where: { repo_full_name, pr_number },
+        data: { pull_request_id: pr.id },
+      });
     });
 
     created++;
   }
 
-  console.log(`Created ${created} pull_request rows, skipped ${skipped} (no review-limit comment and no review activity)`);
+  console.log(`Created ${created} pull_request rows, skipped ${skipped} (already exist)`);
 }
 
 backfill()

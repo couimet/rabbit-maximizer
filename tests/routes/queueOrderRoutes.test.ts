@@ -455,12 +455,13 @@ describe('queueOrderRoutes', () => {
       const pullRequests = { recordReview: jest.fn<any>().mockResolvedValue(undefined) };
       app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(createMockQueueRepo(over), pullRequests as any, prisma as any, logger));
       server = app.listen(0);
+      return { pullRequests };
     };
 
     it('returns 200 with { ok: true }', async () => {
       const item = { ...makeItem(1, UUID_A), repo_full_name: 'c/r', pr_number: getUniqueInt() };
       const markReviewedByUuid = jest.fn<any>().mockResolvedValue(item);
-      startServer({ markReviewedByUuid });
+      const { pullRequests } = startServer({ markReviewedByUuid });
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
@@ -468,6 +469,7 @@ describe('queueOrderRoutes', () => {
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
       expect(markReviewedByUuid).toHaveBeenCalledWith(UUID_A, {});
+      expect(pullRequests.recordReview).toHaveBeenCalledWith(1, {});
     });
 
     it('returns 400 for non-UUID id', async () => {

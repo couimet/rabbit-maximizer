@@ -37,13 +37,16 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
 
     const existing = await db.pullRequest.findUnique({
       where: { repo_full_name_pr_number: { repo_full_name: repoFullName, pr_number: prNumber } },
-      select: { id: true },
+      select: { id: true, first_review_limit_at: true },
     });
 
     if (existing) {
       const updateData: Record<string, unknown> = {};
       if (data.reviewLimitAt) {
         updateData.last_review_limit_at = data.reviewLimitAt;
+        if (existing.first_review_limit_at === null) {
+          updateData.first_review_limit_at = data.reviewLimitAt;
+        }
       }
       if (data.prTitle !== undefined) {
         updateData.title = data.prTitle;

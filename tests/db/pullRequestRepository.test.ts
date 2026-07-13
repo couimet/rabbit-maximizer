@@ -117,6 +117,23 @@ describe('PullRequestRepositoryImpl', () => {
       });
     });
 
+    it('sets first_review_limit_at on existing PR when it was previously null', async () => {
+      const reviewLimitAt = new Date();
+      const existing = { id: getUniqueInt(), first_review_limit_at: null };
+
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(existing) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.upsert(repoFullName, prNumber, { reviewLimitAt });
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id: existing.id },
+        data: { first_review_limit_at: reviewLimitAt, last_review_limit_at: reviewLimitAt },
+      });
+    });
+
     it('updates title on existing PR when prTitle is provided', async () => {
       const prTitle = 'Updated PR title';
       const existing = { id: getUniqueInt() };

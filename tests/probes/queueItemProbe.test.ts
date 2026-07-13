@@ -14,7 +14,13 @@ import type { Prisma } from '@prisma/client';
 const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
 
 const makeItem = (repo: string, pr: number): QueueItem =>
-  ({ id: getUniqueInt(), repo_full_name: repo, pr_number: pr, source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }) }) as unknown as QueueItem;
+  ({
+    id: getUniqueInt(),
+    repo_full_name: repo,
+    pr_number: pr,
+    pull_request_id: getUniqueInt(),
+    source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+  }) as unknown as QueueItem;
 
 describe('QueueItemProbe', () => {
   let queue: QueueRepository;
@@ -57,6 +63,7 @@ describe('QueueItemProbe', () => {
       await probe.processMergedBeforeRetrigger(tx);
 
       expect(queue.markReviewed).toHaveBeenCalledWith(item.id, tx);
+      expect(pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'bypassed',
@@ -119,6 +126,7 @@ describe('QueueItemProbe', () => {
       await probe.processRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
 
       expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, cooldownUntil, retriggeredCommentUrl, tx);
+      expect(pullRequests.recordRetrigger).toHaveBeenCalledWith(item.pull_request_id, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'retriggered',

@@ -39,8 +39,15 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       include: { queueOrder: true },
       orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
     });
-    this.log.debug({ fn: 'QueueOrderRepositoryImpl.getEffectiveOrder', count: rows.length, eligibleOnly }, 'Fetched effective order');
-    return rows.map((row) => this.toQueueItem(row));
+    const validRows = rows.filter((row) => row.pull_request_id !== null);
+    if (validRows.length < rows.length) {
+      this.log.warn(
+        { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', total: rows.length, valid: validRows.length },
+        'Filtered out rows with null pull_request_id',
+      );
+    }
+    this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length, eligibleOnly }, 'Fetched effective order');
+    return validRows.map((row) => this.toQueueItem(row));
   }
 
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]> {
@@ -176,6 +183,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       reviewed_at: row.reviewed_at ?? undefined,
+      // Guaranteed non-null by the filter in readEffectiveOrder
       pull_request_id: row.pull_request_id!,
       created_at: row.created_at,
       updated_at: row.updated_at,
