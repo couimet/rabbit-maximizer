@@ -191,13 +191,13 @@ describe('PullRequestRepositoryImpl', () => {
     });
   });
 
-  describe('recordRetrigger', () => {
+  describe('incrementRetriggerCount', () => {
     it('increments retrigger_count and sets last_review_requested_at', async () => {
       const id = getUniqueInt();
       const { prisma, pullRequest } = createMockPrismaClient();
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.recordRetrigger(id, prisma);
+      await sut.incrementRetriggerCount(id, prisma);
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id },
@@ -206,7 +206,7 @@ describe('PullRequestRepositoryImpl', () => {
           last_review_requested_at: expect.any(Date) as unknown as Date,
         },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordRetrigger', id }, 'Recorded retrigger on PullRequest');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
     });
   });
 

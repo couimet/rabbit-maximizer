@@ -30,8 +30,8 @@ interface MockReviewDetectorDeps {
   config: { POLL_INTERVAL: number };
 }
 
-const makeRetriggeredItem = (overrides: Partial<QueueItem> & { commentId?: number } = {}): QueueItem => {
-  const { commentId: overrideCommentId, ...rest } = overrides;
+const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: number }): QueueItem => {
+  const { commentId: overrideCommentId, ...rest } = overrides ?? {};
   const commentId = overrideCommentId ?? getUniqueInt();
   const defaults: QueueItem = {
     id: getUniqueInt(),

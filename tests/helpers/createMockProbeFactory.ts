@@ -3,6 +3,7 @@ import type { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import {
   createMockDetectedProbe,
   createMockEnqueueProbe,
+  createMockMarkQueueItemReviewedProbe,
   createMockPrunerProbe,
   createMockReviewDetectorProbe,
   createMockReviewRetriggerProbe,
@@ -14,7 +15,7 @@ import { jest } from '@jest/globals';
 export const createMockProbeFactory = (overrides?: Partial<Record<keyof ProbeFactory, jest.Mock>>): jest.Mocked<ProbeFactory> =>
   ({
     createDetectedProbe: jest.fn().mockReturnValue(createMockDetectedProbe()),
-    createMarkQueueItemReviewedProbe: jest.fn(),
+    createMarkQueueItemReviewedProbe: jest.fn().mockReturnValue(createMockMarkQueueItemReviewedProbe()),
     createEnqueueProbe: jest.fn().mockReturnValue(createMockEnqueueProbe()),
     createSchedulerProbe: jest.fn().mockReturnValue(createMockSchedulerProbe()),
     createPrunerProbe: jest.fn().mockReturnValue(createMockPrunerProbe()),

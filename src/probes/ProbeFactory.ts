@@ -1,6 +1,4 @@
 import type { EventRepository } from '../db/eventRepository.js';
-import type { PullRequestRepository } from '../db/pullRequestRepository.js';
-import type { QueueRepository } from '../db/queueRepository.js';
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext, ObservationContextProvider } from '../observability/observationContext.js';
 import type { QueueItem } from '../types/index.js';
@@ -22,13 +20,13 @@ export class ProbeFactory {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.EventRepository) private readonly eventRepository: EventRepository,
-    @inject(TYPES.PullRequestRepository) private readonly pullRequests: PullRequestRepository,
-    @inject(TYPES.QueueRepository) private readonly queueRepository: QueueRepository,
     @inject(TYPES.ObservationContextProvider) private readonly observation: ObservationContextProvider,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
 
+  // C011 exception: same ObservationContext must be shared with queue.enqueue() in EnqueueService.handle
+  // This is the only factory method that accepts ObservationContext directly.
   createDetectedProbe(context: DetectedProbeContext, observation: ObservationContext): DetectedProbe {
     return new DetectedProbe(context, this.eventRepository, observation, this.log);
   }
@@ -46,11 +44,11 @@ export class ProbeFactory {
   }
 
   createSchedulerProbe(params: CreateSchedulerProbeParams): SchedulerProbe {
-    return new SchedulerProbe(params.baseBackoff, params.maxBackoff, this.queueRepository, this.eventRepository, this.observation.current(), this.log);
+    return new SchedulerProbe(params.baseBackoff, params.maxBackoff, this.eventRepository, this.observation.current(), this.log);
   }
 
-  createReviewRetriggerProbe(item: QueueItem, queue: QueueRepository): ReviewRetriggerProbe {
-    return new ReviewRetriggerProbe(item, queue, this.pullRequests, this.eventRepository, this.observation.current(), this.log);
+  createReviewRetriggerProbe(item: QueueItem): ReviewRetriggerProbe {
+    return new ReviewRetriggerProbe(item, this.eventRepository, this.observation.current(), this.log);
   }
 
   createReviewDetectorProbe(): ReviewDetectorProbe {

@@ -1,4 +1,5 @@
 import type { EventRepository } from '../../src/db/eventRepository.js';
+import { RabbitMaximizerError } from '../../src/errors/RabbitMaximizerError.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { SchedulerProbe } from '../../src/probes/SchedulerProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
@@ -8,6 +9,9 @@ import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
+
+const BASE_BACKOFF_MS = 60_000;
+const MAX_BACKOFF_MS = 3_600_000;
 
 const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
 const makeItem = (repo: string, pr: number): QueueItem =>
@@ -30,8 +34,7 @@ describe('SchedulerProbe', () => {
     observation = { correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' };
   });
 
-  const createProbe = () =>
-    new SchedulerProbe(60000, 3600000, { markFailed: jest.fn(), backoff: jest.fn(), reschedule: jest.fn() } as any, events, observation, logger);
+  const createProbe = () => new SchedulerProbe(BASE_BACKOFF_MS, MAX_BACKOFF_MS, events, observation, logger);
 
   describe('pruningCompleted', () => {
     it('logs debug', () => {
@@ -57,60 +60,41 @@ describe('SchedulerProbe', () => {
     });
   });
 
-  describe('rescheduled', () => {
-    it('logs info with item context', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
-      const NEW_NOT_BEFORE = getUniqueDate();
-      const probe = createProbe();
-      probe.withItem(item);
-      probe.rescheduled(NEW_NOT_BEFORE);
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.rescheduled', repo, pr, queueId: item.id, newNotBefore: NEW_NOT_BEFORE },
-        'Stale source comment replaced; rescheduled with updated not_before',
-      );
-    });
-  });
-
-  describe('skipped', () => {
-    it('logs warn with item context', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
-      const BACKOFF_MS = getUniqueInt();
-      const probe = createProbe();
-      probe.withItem(item);
-      probe.skipped(BACKOFF_MS);
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.skipped', repo, pr, queueId: item.id, backoffMs: BACKOFF_MS },
-        'Stale source comment with no replacement; rescheduled with backoff',
-      );
-    });
-  });
-
   describe('withItem', () => {
-    it('updates item for subsequent calls', () => {
+    it('switches item context for subsequent probe calls', async () => {
       const { fullName: firstRepo } = getUniqueGitHubRepoRef();
       const firstPr = getUniqueInt();
       const firstItem = makeItem(firstRepo, firstPr);
+      const firstNotBefore = getUniqueDate();
       const { fullName: secondRepo } = getUniqueGitHubRepoRef();
       const secondPr = getUniqueInt();
       const secondItem = makeItem(secondRepo, secondPr);
-      const NEW_NOT_BEFORE = getUniqueDate();
+      const secondNotBefore = getUniqueDate();
       const probe = createProbe();
 
       probe.withItem(firstItem);
-      probe.rescheduled(NEW_NOT_BEFORE);
+      const firstError = new RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
+        message: 'test',
+        functionName: 'test',
+        details: { notBefore: firstNotBefore.toISOString(), sourceComment: { commentId: 1, commentUrl: 'https://gh/c/1' } },
+      });
+      await probe.triggerFailed(firstError, makeTx());
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.rescheduled', repo: firstRepo, pr: firstPr, queueId: firstItem.id, newNotBefore: NEW_NOT_BEFORE },
+        { fn: 'SchedulerProbe.rescheduled', repo: firstRepo, pr: firstPr, queueId: firstItem.id, newNotBefore: firstNotBefore, error: firstError },
         'Stale source comment replaced; rescheduled with updated not_before',
       );
 
       probe.withItem(secondItem);
-      probe.rescheduled(NEW_NOT_BEFORE);
+      const secondError = new RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
+        message: 'test',
+        functionName: 'test',
+        details: { notBefore: secondNotBefore.toISOString(), sourceComment: { commentId: 2, commentUrl: 'https://gh/c/2' } },
+      });
+      await probe.triggerFailed(secondError, makeTx());
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.rescheduled', repo: secondRepo, pr: secondPr, queueId: secondItem.id, newNotBefore: NEW_NOT_BEFORE },
+        { fn: 'SchedulerProbe.rescheduled', repo: secondRepo, pr: secondPr, queueId: secondItem.id, newNotBefore: secondNotBefore, error: secondError },
         'Stale source comment replaced; rescheduled with updated not_before',
       );
     });
@@ -138,12 +122,12 @@ describe('SchedulerProbe', () => {
         },
         tx,
       );
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'SchedulerProbe.retriggered', repo, pr, queueId: item.id }, 'Retrigger retriggered');
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'SchedulerProbe.retriggered', repo, pr, queueId: item.id }, 'Review retriggered');
     });
   });
 
   describe('prClosedOrMerged', () => {
-    it('marks failed, records event and logs info', async () => {
+    it('records event and logs info', async () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
@@ -172,7 +156,7 @@ describe('SchedulerProbe', () => {
   });
 
   describe('backedOff', () => {
-    it('backs off and logs warn without recording event', async () => {
+    it('logs warn without recording event', async () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
@@ -192,19 +176,24 @@ describe('SchedulerProbe', () => {
   });
 
   describe('triggerFailed', () => {
-    it('reschedules on RETRIGGER_STALE_COMMENT_RESCHEDULE', async () => {
+    it('calls rescheduled on RETRIGGER_STALE_COMMENT_RESCHEDULE', async () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       const NOT_BEFORE = getUniqueDate();
       const NEW_COMMENT = { commentId: getUniqueInt(), commentUrl: getUniqueString({ prefix: 'https://gh/c/' }) };
       const tx = makeTx();
-      const result = { error: { code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE', details: { notBefore: NOT_BEFORE.toISOString(), sourceComment: NEW_COMMENT } } };
+      const error = new RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
+        message: 'test',
+        functionName: 'test',
+        details: { notBefore: NOT_BEFORE.toISOString(), sourceComment: NEW_COMMENT },
+      });
       const probe = createProbe();
       probe.withItem(item);
-      await probe.triggerFailed(result, tx);
+      await probe.triggerFailed(error, tx);
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.rescheduled', repo, pr, queueId: item.id, newNotBefore: NOT_BEFORE },
+        { fn: 'SchedulerProbe.rescheduled', repo, pr, queueId: item.id, newNotBefore: NOT_BEFORE, error },
         'Stale source comment replaced; rescheduled with updated not_before',
       );
     });
@@ -214,13 +203,17 @@ describe('SchedulerProbe', () => {
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
       const tx = makeTx();
-      const result = { error: { code: 'RETRIGGER_STALE_COMMENT_SKIP' } };
+      const error = new RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+        message: 'test',
+        functionName: 'test',
+      });
       const probe = createProbe();
       probe.withItem(item);
-      await probe.triggerFailed(result, tx);
+      await probe.triggerFailed(error, tx);
       expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.skipped', repo, pr, queueId: item.id, backoffMs: 60000 },
-        'Stale source comment with no replacement; rescheduled with backoff',
+        { fn: 'SchedulerProbe.skipped', repo, pr, queueId: item.id, backoffMs: BASE_BACKOFF_MS, error },
+        `Stale source comment with no replacement; rescheduled with backoff (code: RETRIGGER_STALE_COMMENT_SKIP)`,
       );
     });
   });

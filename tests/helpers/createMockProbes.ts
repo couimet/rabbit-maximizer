@@ -2,7 +2,6 @@ import { jest } from '@jest/globals';
 
 export interface MockPrunerProbe {
   withItem: jest.Mock<any>;
-  withTx: jest.Mock<any>;
   noItemsToPrune: jest.Mock<any>;
   prMerged: jest.Mock<any>;
   prClosedWithoutMerge: jest.Mock<any>;
@@ -10,7 +9,6 @@ export interface MockPrunerProbe {
 }
 export const createMockPrunerProbe = (): MockPrunerProbe => ({
   withItem: jest.fn<any>(),
-  withTx: jest.fn<any>(),
   noItemsToPrune: jest.fn<any>(),
   prMerged: jest.fn<any>().mockResolvedValue(undefined),
   prClosedWithoutMerge: jest.fn<any>().mockResolvedValue(undefined),
@@ -98,4 +96,13 @@ export const createMockReviewRetriggerProbe = (): MockReviewRetriggerProbe => ({
   staleCommentReplacementDeleted: jest.fn<any>(),
   staleCommentRescheduled: jest.fn<any>(),
   reviewRetriggered: jest.fn<any>(),
+});
+
+export interface MockMarkQueueItemReviewedProbe {
+  queueItemNotFound: jest.Mock<any>;
+  queueItemMarkedReviewed: jest.Mock<any>;
+}
+export const createMockMarkQueueItemReviewedProbe = (): MockMarkQueueItemReviewedProbe => ({
+  queueItemNotFound: jest.fn<any>(),
+  queueItemMarkedReviewed: jest.fn<any>(),
 });

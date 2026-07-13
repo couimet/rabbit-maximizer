@@ -21,13 +21,13 @@ describe('EnqueueProbe', () => {
     observation = { correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' };
   });
 
-  const createProbe = () => new EnqueueProbe(events, observation, {} as Prisma.TransactionClient, logger);
+  const createProbe = (tx: Prisma.TransactionClient) => new EnqueueProbe(events, observation, tx, logger);
 
   describe('recentlyRetriggered', () => {
     it('logs debug when PR was recently retriggered', () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
-      const probe = createProbe();
+      const probe = createProbe(makeTx());
       probe.recentlyRetriggered(repo, pr);
       expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.recentlyRetriggered', repo, pr },
@@ -37,13 +37,15 @@ describe('EnqueueProbe', () => {
   });
 
   describe('enqueued', () => {
-    it('records enqueued event and logs debug', async () => {
+    const EVENT_UUID = getUuid();
+    it('records enqueued event and logs info with event uuid', async () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const NOT_BEFORE = getUniqueDate();
       const NEW_WAIT = getUniqueInt();
       const tx = makeTx();
-      const probe = createProbe();
+      const probe = createProbe(tx);
+      (events.record as jest.Mock<any>).mockResolvedValue({ uuid: EVENT_UUID });
       await probe.enqueued({ repo, pr, notBefore: NOT_BEFORE, newWait: NEW_WAIT });
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
@@ -57,7 +59,7 @@ describe('EnqueueProbe', () => {
         },
         tx,
       );
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'EnqueueProbe.enqueued', repo, pr }, 'Enqueued event recorded');
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'EnqueueProbe.enqueued', repo, pr, eventUuid: EVENT_UUID }, 'Queue item enqueued');
     });
   });
 
@@ -66,7 +68,7 @@ describe('EnqueueProbe', () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const STATUS = getUniqueString({ prefix: 'status-' });
-      const probe = createProbe();
+      const probe = createProbe(makeTx());
       probe.alreadyQueued(repo, pr, STATUS);
       expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.alreadyQueued', repo, pr, status: STATUS },
@@ -81,7 +83,7 @@ describe('EnqueueProbe', () => {
       const pr = getUniqueInt();
       const OLD_NOT_BEFORE = getUniqueDate();
       const NEW_NOT_BEFORE = getUniqueDate();
-      const probe = createProbe();
+      const probe = createProbe(makeTx());
       probe.alreadyQueuedRescheduled(repo, pr, OLD_NOT_BEFORE, NEW_NOT_BEFORE);
       expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.alreadyQueuedRescheduled', repo, pr, oldNotBefore: OLD_NOT_BEFORE, newNotBefore: NEW_NOT_BEFORE },

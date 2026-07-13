@@ -39,53 +39,54 @@ describe('ProbeFactory', () => {
 
   it('creates a DetectedProbe with the provided observation context', () => {
     const { eventRepository, logger } = makeMocks();
-    const factory = new ProbeFactory(eventRepository, {} as any, {} as any, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createDetectedProbe({ repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() }, observationContext);
     expect(probe).toBeInstanceOf(DetectedProbe);
   });
 
   it('creates a MarkQueueItemReviewedProbe with the current observation context', () => {
     const { eventRepository, logger } = makeMocks();
-    const factory = new ProbeFactory(eventRepository, {} as any, {} as any, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createMarkQueueItemReviewedProbe('test-uuid');
     expect(probe).toBeInstanceOf(MarkQueueItemReviewedProbe);
   });
 
   it('creates an EnqueueProbe', () => {
     const { eventRepository, logger } = makeMocks();
-    const factory = new ProbeFactory(eventRepository, {} as any, {} as any, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createEnqueueProbe({} as Prisma.TransactionClient);
     expect(probe).toBeInstanceOf(EnqueueProbe);
   });
 
   it('creates a SchedulerProbe', () => {
     const { eventRepository, logger } = makeMocks();
-    const factory = new ProbeFactory(eventRepository, {} as any, {} as any, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createSchedulerProbe({ baseBackoff: 60000, maxBackoff: 3600000 });
     expect(probe).toBeInstanceOf(SchedulerProbe);
   });
 
   it('creates a PrunerProbe', () => {
     const { eventRepository, logger } = makeMocks();
-    const factory = new ProbeFactory(eventRepository, {} as any, {} as any, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createPrunerProbe();
     expect(probe).toBeInstanceOf(PrunerProbe);
   });
 
   it('creates a ReviewDetectorProbe', () => {
     const { eventRepository, logger } = makeMocks();
-    const factory = new ProbeFactory(eventRepository, {} as any, {} as any, observationProvider as any, logger);
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createReviewDetectorProbe();
     expect(probe).toBeInstanceOf(ReviewDetectorProbe);
   });
 
   it('creates a ReviewRetriggerProbe', () => {
     const { eventRepository, logger } = makeMocks();
-    const factory = new ProbeFactory(eventRepository, {} as any, {} as any, observationProvider as any, logger);
-    const probe = factory.createReviewRetriggerProbe(
-      { id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() } as QueueItem,
-      {} as any,
-    );
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const probe = factory.createReviewRetriggerProbe({
+      id: getUniqueInt(),
+      repo_full_name: getUniqueGitHubRepoRef().fullName,
+      pr_number: getUniqueInt(),
+    } as QueueItem);
     expect(probe).toBeInstanceOf(ReviewRetriggerProbe);
   });
 

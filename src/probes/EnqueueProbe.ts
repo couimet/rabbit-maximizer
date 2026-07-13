@@ -18,7 +18,7 @@ export class EnqueueProbe {
   }
 
   async enqueued(params: { repo: string; pr: number; notBefore: Date; newWait: number }): Promise<void> {
-    await this.events.record(
+    const event = await this.events.record(
       {
         type: EventType.enqueued,
         repo_full_name: params.repo,
@@ -30,7 +30,7 @@ export class EnqueueProbe {
       },
       this.tx,
     );
-    this.log.debug({ fn: 'EnqueueProbe.enqueued', repo: params.repo, pr: params.pr }, 'Enqueued event recorded');
+    this.log.info({ fn: 'EnqueueProbe.enqueued', repo: params.repo, pr: params.pr, eventUuid: event.uuid }, 'Queue item enqueued');
   }
 
   alreadyQueued(repo: string, pr: number, status: string): void {

@@ -15,7 +15,7 @@ export interface PullRequestRepository {
   ): Promise<{ id: number; created: boolean }>;
   findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<{ id: number } | null>;
   updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
-  recordRetrigger(id: number, tx: Prisma.TransactionClient): Promise<void>;
+  incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
   recordReview(id: number, tx: Prisma.TransactionClient): Promise<void>;
 }
 
@@ -86,7 +86,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
     this.log.debug({ fn: 'PullRequestRepositoryImpl.updateTitle', id }, 'Updated PullRequest title');
   }
 
-  async recordRetrigger(id: number, tx: Prisma.TransactionClient): Promise<void> {
+  async incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void> {
     await this.client(tx).pullRequest.update({
       where: { id },
       data: {
@@ -94,7 +94,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
         last_review_requested_at: new Date(),
       },
     });
-    this.log.debug({ fn: 'PullRequestRepositoryImpl.recordRetrigger', id }, 'Recorded retrigger on PullRequest');
+    this.log.debug({ fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
   }
 
   async recordReview(id: number, tx: Prisma.TransactionClient): Promise<void> {

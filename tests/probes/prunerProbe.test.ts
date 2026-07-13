@@ -42,8 +42,7 @@ describe('PrunerProbe', () => {
       const tx = makeTx();
       const probe = createProbe();
       probe.withItem(item);
-      probe.withTx(tx);
-      await probe.prMerged();
+      await probe.prMerged(tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'bypassed',
@@ -71,8 +70,7 @@ describe('PrunerProbe', () => {
       const tx = makeTx();
       const probe = createProbe();
       probe.withItem(item);
-      probe.withTx(tx);
-      await probe.prClosedWithoutMerge();
+      await probe.prClosedWithoutMerge(tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'bypassed',

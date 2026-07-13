@@ -1,5 +1,6 @@
 import type { Config } from '../src/config.js';
 import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
+import type { QueueRepository } from '../src/db/queueRepository.js';
 import type { SystemStateRepository } from '../src/db/systemStateRepository.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { Pruner } from '../src/Pruner.js';
@@ -13,6 +14,7 @@ import {
   createMockProbeFactory,
   createMockPruner,
   createMockQueueOrderRepo,
+  createMockQueueRepo,
   createMockSchedulerProbe,
   createMockSystemStateRepository,
   drainMicrotasks,
@@ -48,6 +50,7 @@ interface QueueItemStub {
 interface MockSchedulerDeps {
   config: Config;
   queueOrder: jest.Mocked<QueueOrderRepository>;
+  queue: jest.Mocked<QueueRepository>;
   prisma: PrismaClient;
   tx: Prisma.TransactionClient;
   logger: Logger;
@@ -80,6 +83,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
 
 const setup = (): MockSchedulerDeps => {
   const queueOrder = createMockQueueOrderRepo();
+  const queue = createMockQueueRepo();
   const reviewTrigger = { trigger: jest.fn() } as unknown as jest.Mocked<ReviewTrigger>;
 
   const tx = {} as Prisma.TransactionClient;
@@ -115,7 +119,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_TICK_INTERVAL_MS: TICK_INTERVAL_MS,
   };
 
-  return { config, queueOrder, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState };
+  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState };
 };
 
 describe('Scheduler', () => {
@@ -130,7 +134,7 @@ describe('Scheduler', () => {
   });
 
   const createScheduler = () =>
-    new Scheduler(deps.queueOrder, deps.prisma, deps.config, deps.pruner, deps.reviewTrigger, deps.probeFactory, deps.systemState, deps.logger);
+    new Scheduler(deps.queueOrder, deps.prisma, deps.config, deps.pruner, deps.reviewTrigger, deps.queue, deps.probeFactory, deps.systemState, deps.logger);
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
@@ -162,13 +166,16 @@ describe('Scheduler', () => {
         functionName: 'test',
         details: { notBefore: notBefore.toISOString(), sourceComment: newComment },
       });
+      const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
+
+      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
 
       await stop();
     });
@@ -180,13 +187,16 @@ describe('Scheduler', () => {
         message: 'gone',
         functionName: 'test',
       });
+      const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
+
+      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
 
       await stop();
     });
@@ -198,34 +208,37 @@ describe('Scheduler', () => {
         message: 'gone',
         functionName: 'test',
       });
+      const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
+
+      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
 
       await stop();
     });
 
     it('backs off on unexpected error code from ReviewTrigger', async () => {
       const item = makeItem();
+      const unexpectedErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+        code: 'UNKNOWN_CODE' as any,
+        message: 'unexpected',
+        functionName: 'test',
+      });
+      const triggerResult = RabbitResult.err(unexpectedErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(
-        RabbitResult.err(
-          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-            code: 'UNKNOWN_CODE' as any,
-            message: 'unexpected',
-            functionName: 'test',
-          }),
-        ),
-      );
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
+
+      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
 
       await stop();
     });
@@ -385,7 +398,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(staleErr, deps.tx);
+      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(staleErr.error, deps.tx);
 
       await stop();
     });

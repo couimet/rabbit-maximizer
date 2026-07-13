@@ -1,4 +1,5 @@
 import type { QueueRepository } from '../src/db/queueRepository.js';
+import { RabbitMaximizerError } from '../src/errors/RabbitMaximizerError.js';
 import type { PruneEvaluator } from '../src/PruneEvaluator.js';
 import { PrunerImpl } from '../src/Pruner.js';
 import type { QueueItem } from '../src/types/index.js';
@@ -49,12 +50,11 @@ describe('Pruner', () => {
       await createPruner().prune();
       expect(prisma.$transaction).toHaveBeenCalledTimes(2);
       expect(mockProbe.withItem).toHaveBeenCalledWith(mergedItem);
-      expect(mockProbe.withTx).toHaveBeenCalledWith(tx);
       expect(queue.markReviewed).toHaveBeenCalledWith(mergedItem.id, tx);
-      expect(mockProbe.prMerged).toHaveBeenCalled();
+      expect(mockProbe.prMerged).toHaveBeenCalledWith(tx);
       expect(mockProbe.withItem).toHaveBeenCalledWith(closedItem);
       expect(queue.markFailed).toHaveBeenCalledWith(closedItem.id, tx);
-      expect(mockProbe.prClosedWithoutMerge).toHaveBeenCalled();
+      expect(mockProbe.prClosedWithoutMerge).toHaveBeenCalledWith(tx);
     });
 
     it('delegates to probe when there are no pending items', async () => {
@@ -94,7 +94,7 @@ describe('Pruner', () => {
       (pruneEvaluator.evaluate as jest.Mock<any>).mockResolvedValue([{ item, outcome: 'bad' as any }]);
       await createPruner().prune();
       expect(mockProbe.caughtError).toHaveBeenCalledTimes(1);
-      expect(mockProbe.caughtError).toHaveBeenCalledWith(expect.objectContaining({ code: 'UNEXPECTED_CODE_PATH', functionName: 'PrunerImpl.prune' }));
+      expect(mockProbe.caughtError).toHaveBeenCalledWith(RabbitMaximizerError.forUnexpectedSwitchDefault('prune outcome', 'bad', 'PrunerImpl.prune'));
     });
   });
 });

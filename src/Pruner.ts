@@ -36,15 +36,14 @@ export class PrunerImpl implements Pruner {
       probe.withItem(e.item);
       try {
         await this.prisma.$transaction(async (tx) => {
-          probe.withTx(tx);
           switch (e.outcome) {
             case 'merged':
               await this.queue.markReviewed(e.item.id, tx);
-              await probe.prMerged();
+              await probe.prMerged(tx);
               break;
             case 'closed-without-merge':
               await this.queue.markFailed(e.item.id, tx);
-              await probe.prClosedWithoutMerge();
+              await probe.prClosedWithoutMerge(tx);
               break;
             default:
               throw RabbitMaximizerError.forUnexpectedSwitchDefault('prune outcome', e.outcome, 'PrunerImpl.prune');

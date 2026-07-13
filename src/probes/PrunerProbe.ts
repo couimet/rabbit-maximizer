@@ -9,7 +9,6 @@ import type { Prisma } from '@prisma/client';
 
 export class PrunerProbe {
   private item: QueueItem | undefined;
-  private tx: Prisma.TransactionClient | undefined;
 
   constructor(
     private readonly events: EventRepository,
@@ -21,18 +20,14 @@ export class PrunerProbe {
     this.item = item;
   }
 
-  withTx(tx: Prisma.TransactionClient): void {
-    this.tx = tx;
-  }
-
   noItemsToPrune(): void {
     this.log.info({ fn: 'PrunerProbe.noItemsToPrune' }, 'No items to prune');
   }
 
-  async prMerged(): Promise<void> {
+  async prMerged(tx: Prisma.TransactionClient): Promise<void> {
     await recordBypassEvent({
       events: this.events,
-      tx: this.tx!,
+      tx,
       reason: BypassReason.prMerged,
       observation: this.observation,
       repo_full_name: this.item!.repo_full_name,
@@ -44,10 +39,10 @@ export class PrunerProbe {
     );
   }
 
-  async prClosedWithoutMerge(): Promise<void> {
+  async prClosedWithoutMerge(tx: Prisma.TransactionClient): Promise<void> {
     await recordBypassEvent({
       events: this.events,
-      tx: this.tx!,
+      tx,
       reason: BypassReason.prClosedWithoutMerge,
       observation: this.observation,
       repo_full_name: this.item!.repo_full_name,

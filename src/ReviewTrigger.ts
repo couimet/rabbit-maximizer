@@ -1,3 +1,4 @@
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
@@ -36,6 +37,8 @@ export class ReviewTrigger {
     private readonly probeFactory: ProbeFactory,
     @inject(TYPES.QueueRepository)
     private readonly queue: QueueRepository,
+    @inject(TYPES.PullRequestRepository)
+    private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.PrismaClient)
     private readonly prisma: PrismaClient,
     @inject(TYPES.Config) cfg: Config,
@@ -48,7 +51,7 @@ export class ReviewTrigger {
   /* c8 ignore stop */
 
   async trigger(item: QueueItem, triggerSource: TriggerSource): Promise<RabbitResult<TriggerDetails>> {
-    const probe = this.probeFactory.createReviewRetriggerProbe(item, this.queue);
+    const probe = this.probeFactory.createReviewRetriggerProbe(item);
     const { owner, repo } = splitRepo(item.repo_full_name);
 
     let storedBody: string;
@@ -127,6 +130,8 @@ export class ReviewTrigger {
     const cooldownUntil = new Date(Date.now() + this.postCooldownMs);
 
     await this.prisma.$transaction(async (tx) => {
+      await this.queue.markRetriggered(item.id, cooldownUntil, retriggeredCommentUrl, tx);
+      await this.pullRequests.incrementRetriggerCount(item.pull_request_id, tx);
       await probe.reviewRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
     });
 

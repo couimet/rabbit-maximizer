@@ -87,8 +87,8 @@ describe('QueueRepositoryImpl', () => {
     logger = createMockLogger();
     observation = createMockObservationContextProvider();
     observationContext = observation.current();
-    probeEvents = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
-    probeFactory = new ProbeFactory(probeEvents as any, {} as any, {} as any, observation as any, logger);
+    probeEvents = { record: jest.fn<any>().mockResolvedValue({ uuid: getUuid() }), listForPr: jest.fn<any>() };
+    probeFactory = new ProbeFactory(probeEvents as any, observation as any, logger);
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);
   });

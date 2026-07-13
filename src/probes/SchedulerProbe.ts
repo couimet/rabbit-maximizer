@@ -1,5 +1,5 @@
 import type { EventRepository } from '../db/eventRepository.js';
-import type { QueueRepository } from '../db/queueRepository.js';
+import type { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import { EventType, type QueueItem } from '../types/index.js';
@@ -19,7 +19,6 @@ export class SchedulerProbe {
   constructor(
     private readonly baseBackoff: number,
     private readonly maxBackoff: number,
-    private readonly queue: QueueRepository,
     private readonly events: EventRepository,
     private readonly observation: ObservationContext,
     private readonly log: Logger,
@@ -43,20 +42,6 @@ export class SchedulerProbe {
     this.log.warn({ fn: 'SchedulerProbe.tickFailed', error }, 'executeTick failed before item was fetched');
   }
 
-  rescheduled(newNotBefore: Date): void {
-    this.log.info(
-      { fn: 'SchedulerProbe.rescheduled', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, newNotBefore },
-      'Stale source comment replaced; rescheduled with updated not_before',
-    );
-  }
-
-  skipped(backoffMs: number): void {
-    this.log.warn(
-      { fn: 'SchedulerProbe.skipped', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, backoffMs },
-      'Stale source comment with no replacement; rescheduled with backoff',
-    );
-  }
-
   async retriggered(retriggeredCommentUrl: string, tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {
@@ -72,12 +57,11 @@ export class SchedulerProbe {
     );
     this.log.info(
       { fn: 'SchedulerProbe.retriggered', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id },
-      'Retrigger retriggered',
+      'Review retriggered',
     );
   }
 
   async prClosedOrMerged(status: number, tx: Prisma.TransactionClient): Promise<void> {
-    await this.queue.markFailed(this.item!.id, tx);
     await this.events.record(
       {
         type: EventType.failed,
@@ -96,26 +80,29 @@ export class SchedulerProbe {
     );
   }
 
-  async backedOff(backoffMs: number, attempts: number, error: unknown, tx: Prisma.TransactionClient): Promise<void> {
-    await this.queue.backoff(this.item!.id, new Date(Date.now() + backoffMs), tx);
+  backedOff(backoffMs: number, attempts: number, error: unknown, _tx: Prisma.TransactionClient): void {
     this.log.warn(
       { fn: 'SchedulerProbe.backedOff', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, backoffMs, attempts, error },
       'Post retrigger failed; rescheduled with backoff',
     );
   }
 
-  async triggerFailed(result: { error: { code: string; details?: unknown } }, tx: Prisma.TransactionClient): Promise<void> {
+  triggerFailed(error: RabbitMaximizerError, _tx: Prisma.TransactionClient): void {
     const item = this.item!;
-    const err = result.error;
 
-    if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
-      const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
-      await this.queue.reschedule(item.id, new Date(details.notBefore), details.sourceComment, tx);
-      this.rescheduled(new Date(details.notBefore));
+    if (error.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
+      const details = error.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
+      const newNotBefore = new Date(details.notBefore);
+      this.log.info(
+        { fn: 'SchedulerProbe.rescheduled', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, newNotBefore, error },
+        'Stale source comment replaced; rescheduled with updated not_before',
+      );
     } else {
       const backoffMs = computeSchedulerBackoff(item.attempts, this.baseBackoff, this.maxBackoff);
-      await this.queue.backoff(item.id, new Date(Date.now() + backoffMs), tx);
-      this.skipped(backoffMs);
+      this.log.warn(
+        { fn: 'SchedulerProbe.skipped', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs, error },
+        `Stale source comment with no replacement; rescheduled with backoff (code: ${error.code})`,
+      );
     }
   }
 }
