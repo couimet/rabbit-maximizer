@@ -23,7 +23,7 @@ describe('createGracefulShutdown', () => {
         return Promise.resolve();
       }),
       stopReviewDetector: jest.fn<any>().mockImplementation(() => {
-        order.push('completion');
+        order.push('review-detector');
         return Promise.resolve();
       }),
       stopScheduler: jest.fn<any>().mockImplementation(() => {
@@ -49,7 +49,7 @@ describe('createGracefulShutdown', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(deps.log.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'gracefulShutdown' }, 'Shutting down');
-    expect(order).toStrictEqual(['detector', 'completion', 'scheduler', 'server', 'prisma']);
+    expect(order).toStrictEqual(['detector', 'review-detector', 'scheduler', 'server', 'prisma']);
     expect(process.exit).toHaveBeenCalledWith(0);
   });
 
@@ -75,7 +75,7 @@ describe('createGracefulShutdown', () => {
   });
 
   it('logs warning when stopReviewDetector fails and continues chain', async () => {
-    const err = new Error('completion crash');
+    const err = new Error('review detector crash');
     const deps = {
       stopDetector: jest.fn<any>().mockResolvedValue(undefined),
       stopReviewDetector: jest.fn<any>().mockRejectedValue(err),

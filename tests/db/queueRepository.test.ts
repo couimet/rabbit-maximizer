@@ -334,14 +334,14 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('markReviewedByUuid', () => {
-    it('finds by UUID, marks the row reviewed, and records a completed event', async () => {
+    it('finds by UUID, marks the row reviewed, and records a reviewed event', async () => {
       const COMMENT_URL = 'https://gh/c/retriggered-123';
       const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: COMMENT_URL });
-      const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
+      const reviewedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findUnique: createResolvedMock(row),
-          update: createResolvedMock(completedRow),
+          update: createResolvedMock(reviewedRow),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -366,20 +366,20 @@ describe('QueueRepositoryImpl', () => {
         },
         prisma,
       );
-      expect(result).toStrictEqual(toExpectedItem(completedRow));
+      expect(result).toStrictEqual(toExpectedItem(reviewedRow));
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'MarkQueueItemReviewedProbe.queueItemMarkedReviewed', uuid: row.uuid, id: row.id },
         'Marked review reviewed by UUID',
       );
     });
 
-    it('records a completed event with undefined retriggered_comment_url when row has null', async () => {
+    it('records a reviewed event with undefined retriggered_comment_url when row has null', async () => {
       const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: null });
-      const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
+      const reviewedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
           findUnique: createResolvedMock(row),
-          update: createResolvedMock(completedRow),
+          update: createResolvedMock(reviewedRow),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -399,7 +399,7 @@ describe('QueueRepositoryImpl', () => {
         },
         prisma,
       );
-      expect(result).toStrictEqual(toExpectedItem(completedRow));
+      expect(result).toStrictEqual(toExpectedItem(reviewedRow));
     });
 
     it('returns undefined when UUID is not found', async () => {
@@ -421,11 +421,11 @@ describe('QueueRepositoryImpl', () => {
 
     it('wraps in a transaction when called without tx', async () => {
       const row = makeRow({ status: QueueStatus.retriggered });
-      const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
+      const reviewedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma, reviewQueue, event, queueOrder, systemState } = createMockPrismaClient({
         reviewQueue: {
           findUnique: createResolvedMock(row),
-          update: createResolvedMock(completedRow),
+          update: createResolvedMock(reviewedRow),
         },
       });
       const events = { record: jest.fn<any>(), listForPr: jest.fn<any>() };
@@ -434,7 +434,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.markReviewedByUuid(row.uuid);
 
       expect(prisma.$transaction).toHaveBeenCalled();
-      expect(result).toStrictEqual(toExpectedItem(completedRow));
+      expect(result).toStrictEqual(toExpectedItem(reviewedRow));
       expect(probeEvents.record).toHaveBeenCalledWith(
         {
           type: 'completed',
@@ -693,10 +693,10 @@ describe('QueueRepositoryImpl', () => {
     it('includes reviewed items when includeReviewed is true', async () => {
       const since = getUniqueDate();
       const row = makeRow({ status: QueueStatus.retriggered, retriggered_at: since });
-      const completedRow = makeRow({ status: QueueStatus.reviewed, retriggered_at: since });
+      const reviewedRow = makeRow({ status: QueueStatus.reviewed, retriggered_at: since });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
-          findMany: createResolvedMock([row, completedRow]),
+          findMany: createResolvedMock([row, reviewedRow]),
           count: createResolvedMock(2),
         },
       });
@@ -714,7 +714,7 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.count).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'reviewed'] } },
       });
-      expect(result.items).toStrictEqual([toExpectedItem(row), toExpectedItem(completedRow)]);
+      expect(result.items).toStrictEqual([toExpectedItem(row), toExpectedItem(reviewedRow)]);
     });
 
     it('respects skip and take for pagination', async () => {
