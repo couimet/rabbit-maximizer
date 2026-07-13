@@ -3,7 +3,13 @@ import type { ObservationContextProvider } from '../src/observability/observatio
 import { ReviewDetector } from '../src/ReviewDetector.js';
 import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.js';
 
-import { createMockCoderabbitGitHubClient, createMockEventRepo, createMockObservationContextProvider, createMockQueueRepo } from './helpers/index.js';
+import {
+  createMockCoderabbitGitHubClient,
+  createMockEventRepo,
+  createMockObservationContextProvider,
+  createMockPullRequestRepo,
+  createMockQueueRepo,
+} from './helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -27,6 +33,7 @@ interface MockReviewDetectorDeps {
   events: { record: jest.Mock<any> };
   prisma: { $transaction: jest.Mock<any> };
   observation: jest.Mocked<ObservationContextProvider>;
+  pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   logger: Logger;
   config: { POLL_INTERVAL: number };
 }
@@ -45,6 +52,7 @@ const makeRetriggeredItem = (overrides: { id?: number; retriggeredAt?: Date; rep
     source_comment_url: `https://github.com/org/repo/issues/1#issuecomment-${commentId}`,
     source_comment_id: commentId,
     trigger_source: TriggerSource.scheduler,
+    pull_request_id: getUniqueInt(),
     retriggered_at: overrides.retriggeredAt ?? getUniqueDate(),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
@@ -59,8 +67,9 @@ const setup = (): MockReviewDetectorDeps => {
   const observation = createMockObservationContextProvider();
   const logger = createMockLogger();
   const config = { POLL_INTERVAL: POLL_INTERVAL_SEC };
+  const pullRequests = createMockPullRequestRepo();
 
-  return { queue, github, events, prisma, observation, logger, config };
+  return { queue, github, events, prisma, observation, logger, config, pullRequests };
 };
 
 describe('ReviewDetector', () => {
@@ -74,6 +83,7 @@ describe('ReviewDetector', () => {
   const createDetector = () =>
     new ReviewDetector(
       deps.queue as any,
+      deps.pullRequests as any,
       deps.github,
       deps.events as any,
       deps.prisma as unknown as PrismaClient,
@@ -120,6 +130,7 @@ describe('ReviewDetector', () => {
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: completedCommentUrl, reviewId });
+      deps.queue.markReviewed.mockResolvedValue(item);
 
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 

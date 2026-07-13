@@ -1,7 +1,3 @@
-/* ===========================================================================
-   Tier 1 — Reset & Base
-   =========================================================================== */
-
 *,
 *::before,
 *::after {
@@ -14,10 +10,6 @@ body {
   background: #f4f0e7;
   color: #472e22;
 }
-
-/* ===========================================================================
-   Tier 2 — Layout Shell
-   =========================================================================== */
 
 .dashboard {
   max-width: 1200px;
@@ -72,70 +64,6 @@ body {
   border-color: #c7b899;
 }
 
-/* Footer */
-
-.dashboard-footer {
-  margin-top: 48px;
-  padding: 16px 0;
-  text-align: center;
-  border-top: 1px solid #e3d6c3;
-}
-
-.dashboard-footer a {
-  font-size: 0.85rem;
-  color: #8b7d6b;
-}
-
-/* Typography */
-
-h2 {
-  font-size: 1.15rem;
-  font-weight: 600;
-  color: #472e22;
-  margin: 0 0 12px;
-}
-
-h3 {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #8b7d6b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0 0 8px;
-}
-
-/* Links */
-
-a {
-  color: #629988;
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
-/* States */
-
-.loading {
-  padding: 32px;
-  text-align: center;
-  color: #8b7d6b;
-}
-
-.error {
-  padding: 32px;
-  text-align: center;
-  color: #d9534f;
-  background: #fef5f5;
-  border: 1px solid #f5c6cb;
-  border-radius: 6px;
-}
-
-/* ===========================================================================
-   Tier 3 — Shared Components
-   =========================================================================== */
-
 /* Tabs */
 
 .tabs {
@@ -169,7 +97,7 @@ a:hover {
   border-bottom-color: #f38222;
 }
 
-/* Cards */
+/* Summary grid */
 
 .section-card {
   background: #fff;
@@ -204,8 +132,6 @@ a:hover {
   border-left: 4px solid #d9534f;
 }
 
-/* Stats */
-
 .stat-label {
   display: block;
   font-size: 0.8rem;
@@ -221,7 +147,25 @@ a:hover {
   color: #472e22;
 }
 
-/* Data table */
+/* Section headings */
+
+h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #472e22;
+  margin: 0 0 12px;
+}
+
+h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #8b7d6b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 8px;
+}
+
+/* Tables */
 
 .data-table {
   width: 100%;
@@ -273,7 +217,7 @@ a:hover {
   color: #8b7d6b;
 }
 
-/* Row tints */
+/* Row status tints */
 
 .row-status-retriggered {
   background: #f0f7f5;
@@ -299,7 +243,7 @@ a:hover {
   font-weight: 600;
 }
 
-/* Badges */
+/* Event type badges */
 
 .badge {
   display: inline-block;
@@ -333,6 +277,17 @@ a:hover {
 .badge.enqueued {
   background: #eaf5f1;
   color: #3d6b5c;
+}
+
+/* Links */
+
+a {
+  color: #629988;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
 }
 
 /* Pagination */
@@ -373,6 +328,110 @@ a:hover {
   color: #8b7d6b;
 }
 
+/* States */
+
+.loading {
+  padding: 32px;
+  text-align: center;
+  color: #8b7d6b;
+}
+
+.error {
+  padding: 32px;
+  text-align: center;
+  color: #d9534f;
+  background: #fef5f5;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+}
+
+/* Queue Order */
+
+.queue-order-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.queue-order-toolbar button {
+  padding: 6px 16px;
+  border: 1px solid #e3d6c3;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #472e22;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.queue-order-toolbar button:hover:not(:disabled) {
+  background: #f4f0e7;
+  border-color: #f38222;
+}
+
+.queue-order-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.col-select {
+  width: 36px;
+  text-align: center;
+}
+
+.col-position {
+  width: 40px;
+  text-align: center;
+  color: #8b7d6b;
+  font-weight: 600;
+}
+
+.col-actions {
+  width: 64px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.btn-arrow {
+  padding: 2px 8px;
+  border: 1px solid #e3d6c3;
+  background: #fff;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #8b7d6b;
+  line-height: 1;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+
+.btn-arrow + .btn-arrow {
+  margin-left: 4px;
+}
+
+.btn-arrow:hover:not(:disabled) {
+  background: #f4f0e7;
+  border-color: #f38222;
+  color: #f38222;
+}
+
+.btn-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.row-selected {
+  background: #fef7f0;
+}
+
+.row-selected td {
+  border-color: #f5d5b0;
+}
+
 /* Duration filter */
 
 .duration-select {
@@ -392,6 +451,20 @@ a:hover {
 .duration-select:focus {
   outline: none;
   border-color: #c7b899;
+}
+
+/* Footer */
+
+.dashboard-footer {
+  margin-top: 48px;
+  padding: 16px 0;
+  text-align: center;
+  border-top: 1px solid #e3d6c3;
+}
+
+.dashboard-footer a {
+  font-size: 0.85rem;
+  color: #8b7d6b;
 }
 
 /* Countdown bar */
@@ -497,7 +570,6 @@ a:hover {
 }
 
 /* RecentlyTriggered */
-
 .show-reviewed-toggle {
   display: inline-flex;
   align-items: center;
@@ -511,8 +583,6 @@ a:hover {
 .show-reviewed-toggle input[type='checkbox'] {
   accent-color: #f38222;
 }
-
-/* Status pills */
 
 .status-pill {
   display: inline-block;
@@ -532,21 +602,9 @@ a:hover {
   color: #2e7d32;
 }
 
-.status-pill.eligible {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-pill.cooldown {
-  background: #fef5e7;
-  color: #b86e1a;
-}
-
 .row-status-reviewed td {
   color: #8b7d6b;
 }
-
-/* Load more */
 
 .load-more-container {
   text-align: center;
@@ -589,7 +647,7 @@ a:hover {
   background: #d4edda;
 }
 
-/* Shared PR title */
+/* Queue Order PR title */
 
 .pr-title {
   display: block;
@@ -600,4 +658,93 @@ a:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   margin-top: 2px;
+}
+
+.row-waiting td {
+  color: #b0a392;
+}
+
+.row-waiting a {
+  color: #b0a392;
+}
+
+.status-pill.eligible {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-pill.cooldown {
+  background: #fef5e7;
+  color: #b86e1a;
+}
+
+.queue-order-carrots {
+  letter-spacing: 2px;
+}
+
+/* Confirm dialog */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-box {
+  background: #fff;
+  border: 1px solid #e3d6c3;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+}
+
+.dialog-message {
+  margin: 0 0 20px;
+  font-size: 0.95rem;
+  color: #472e22;
+  line-height: 1.5;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dialog-btn {
+  padding: 6px 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.dialog-btn-cancel {
+  border: 1px solid #a09080;
+  background: #fff;
+  color: #5e5447;
+}
+
+.dialog-btn-cancel:hover {
+  background: #f0ebe0;
+}
+
+.dialog-btn-confirm {
+  border: 1px solid #b85508;
+  background: #b85508;
+  color: #fff;
+}
+
+.dialog-btn-confirm:hover {
+  background: #9e4806;
+  border-color: #9e4806;
 }

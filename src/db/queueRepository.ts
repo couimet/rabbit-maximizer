@@ -71,6 +71,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     try {
       const row = await db.reviewQueue.create({
         data: {
+          pull_request_id: data.pullRequestId,
           repo_full_name: repo,
           pr_number: pr,
           pr_title: prTitle,
@@ -288,6 +289,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       reviewed_at: row.reviewed_at ?? undefined,
+      pull_request_id: row.pull_request_id!,
       created_at: row.created_at,
       updated_at: row.updated_at,
     };

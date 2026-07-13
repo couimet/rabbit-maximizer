@@ -331,6 +331,7 @@ describe('SummaryStats', () => {
         not_before: getUniqueDate().toISOString(),
         attempts: 0,
         trigger_source: 'scheduler',
+        pull_request_id: getUniqueInt(),
         created_at: getUniqueDate().toISOString(),
         updated_at: getUniqueDate().toISOString(),
       };

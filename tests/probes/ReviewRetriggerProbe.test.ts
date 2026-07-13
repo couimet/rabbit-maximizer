@@ -3,7 +3,7 @@ import type { QueueRepository } from '../../src/db/queueRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
 import { EventType, QueueStatus, TriggerSource } from '../../src/types/index.js';
-import { createMockEventRepo, createMockQueueRepo } from '../helpers/index.js';
+import { createMockEventRepo, createMockPullRequestRepo, createMockQueueRepo } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -25,6 +25,7 @@ const makeItem = () => ({
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   source_comment_id: getUniqueInt(),
   trigger_source: TriggerSource.scheduler,
+  pull_request_id: getUniqueInt(),
   created_at: getUniqueDate(),
   updated_at: getUniqueDate(),
 });
@@ -35,12 +36,14 @@ describe('ReviewRetriggerProbe', () => {
   let queue: jest.Mocked<QueueRepository>;
   let events: jest.Mocked<EventRepository>;
   let logger: Logger;
+  let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let observation: ObservationContext;
 
   beforeEach(() => {
     queue = createMockQueueRepo();
     events = createMockEventRepo();
     logger = createMockLogger();
+    pullRequests = createMockPullRequestRepo();
     observation = {
       correlationId: getUuid(),
       requestId: getUuid(),
@@ -48,7 +51,7 @@ describe('ReviewRetriggerProbe', () => {
     };
   });
 
-  const createProbe = (item: ReturnType<typeof makeItem>) => new ReviewRetriggerProbe(item, queue, events, observation, logger);
+  const createProbe = (item: ReturnType<typeof makeItem>) => new ReviewRetriggerProbe(item, queue, pullRequests, events, observation, logger);
 
   it('marks retriggered, records event, and logs on reviewRetriggered', async () => {
     const item = makeItem();

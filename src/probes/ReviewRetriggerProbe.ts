@@ -1,4 +1,5 @@
 import type { EventRepository } from '../db/eventRepository.js';
+import type { PullRequestRepository } from '../db/pullRequestRepository.js';
 import type { QueueRepository } from '../db/queueRepository.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import { EventType, type QueueItem } from '../types/index.js';
@@ -12,6 +13,7 @@ export class ReviewRetriggerProbe {
   constructor(
     private readonly item: QueueItem,
     private readonly queue: QueueRepository,
+    private readonly pullRequests: PullRequestRepository,
     private readonly events: EventRepository,
     private readonly observation: ObservationContext,
     private readonly log: Logger,
@@ -33,6 +35,7 @@ export class ReviewRetriggerProbe {
 
   async reviewRetriggered(retriggeredCommentUrl: string, cooldownUntil: Date, tx: Prisma.TransactionClient): Promise<void> {
     await this.queue.markRetriggered(this.item.id, cooldownUntil, retriggeredCommentUrl, tx);
+    await this.pullRequests.recordRetrigger(this.item.pull_request_id, tx);
     await this.events.record(
       {
         type: EventType.retriggered,

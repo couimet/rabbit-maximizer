@@ -27,6 +27,7 @@ interface QueueItemStub {
   uuid: string;
   repo_full_name: string;
   pr_number: number;
+  pull_request_id: number;
 }
 
 const UUID_A = '11111111-1111-1111-1111-111111111111';
@@ -39,6 +40,7 @@ const makeItem = (id: number, uuid?: string): QueueItemStub => ({
   uuid: uuid ?? '00000000-0000-0000-0000-00000000000' + id,
   repo_full_name: 'c/r',
   pr_number: id,
+  pull_request_id: 1,
 });
 
 describe('queueOrderRoutes', () => {
@@ -447,23 +449,27 @@ describe('queueOrderRoutes', () => {
   });
 
   describe('POST /api/queue/:uuid/mark-reviewed', () => {
-    const startServer = (over = {}) => {
+    const startServer = (over = {}, txOverride?: { $transaction: jest.Mock<any> }) => {
       const app = createExpressApp({ logger });
-      app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(createMockQueueRepo(over), logger));
+      const prisma = txOverride ?? { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn({})) };
+      const pullRequests = { recordReview: jest.fn<any>().mockResolvedValue(undefined) };
+      app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(createMockQueueRepo(over), pullRequests as any, prisma as any, logger));
       server = app.listen(0);
+      return { pullRequests };
     };
 
     it('returns 200 with { ok: true }', async () => {
       const item = { ...makeItem(1, UUID_A), repo_full_name: 'c/r', pr_number: getUniqueInt() };
       const markReviewedByUuid = jest.fn<any>().mockResolvedValue(item);
-      startServer({ markReviewedByUuid });
+      const { pullRequests } = startServer({ markReviewedByUuid });
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
-      expect(markReviewedByUuid).toHaveBeenCalledWith(UUID_A);
+      expect(markReviewedByUuid).toHaveBeenCalledWith(UUID_A, {});
+      expect(pullRequests.recordReview).toHaveBeenCalledWith(1, {});
     });
 
     it('returns 400 for non-UUID id', async () => {

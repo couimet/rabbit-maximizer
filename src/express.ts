@@ -1,4 +1,5 @@
 import type { EventRepository } from './db/eventRepository.js';
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
@@ -25,6 +26,7 @@ import { isProduction } from './isProduction.js';
 import type { ReviewTrigger } from './ReviewTrigger.js';
 
 import type { Logger } from '@couimet/logger-contract';
+import type { PrismaClient } from '@prisma/client';
 import type { Request, Response } from 'express';
 import express from 'express';
 import path from 'node:path';
@@ -35,6 +37,8 @@ const DASHBOARD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 export interface ExpressDeps {
   config: Config;
   eventRepo: EventRepository;
+  pullRequestRepo: PullRequestRepository;
+  prisma: PrismaClient;
   queueOrderRepo: QueueOrderRepository;
   queueRepo: QueueRepository;
   reviewTrigger: ReviewTrigger;
@@ -49,7 +53,7 @@ export interface ExpressApp {
 }
 
 export const setupExpress = (deps: ExpressDeps): ExpressApp => {
-  const { config, queueRepo, queueOrderRepo, eventRepo, reviewTrigger, systemStateRepo, logger, port } = deps;
+  const { config, queueRepo, queueOrderRepo, eventRepo, pullRequestRepo, prisma, reviewTrigger, systemStateRepo, logger, port } = deps;
   const production = isProduction();
   const app = createExpressApp({ logger, helmet: production });
 
@@ -62,7 +66,7 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
   app.post('/api/queue/order/move-to-top', createMoveToTopHandler(queueOrderRepo, logger));
   app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, reviewTrigger, logger));
-  app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, logger));
+  app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, pullRequestRepo, prisma, logger));
   app.get('/api/queue/triggered', createGetTriggeredHandler(queueRepo, logger));
   app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, logger));

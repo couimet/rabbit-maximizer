@@ -18,6 +18,7 @@ const makeItem = (): QueueItem => {
     source_comment_url: `https://github.com/owner/repo/issues/1#issuecomment-${id}`,
     source_comment_id: id,
     trigger_source: TriggerSource.scheduler,
+    pull_request_id: getUniqueInt(),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
   };

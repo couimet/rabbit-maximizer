@@ -1,3 +1,4 @@
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { PRStateFetcher } from './github/PRStateFetcher.js';
 import { isPRClosedWithoutMerge, isPRMerged } from './github/prStateUtils.js';
@@ -17,6 +18,8 @@ export class EnqueueService {
   constructor(
     @inject(TYPES.QueueRepository)
     private readonly queue: QueueRepository,
+    @inject(TYPES.PullRequestRepository)
+    private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.PrismaClient)
     private readonly prisma: PrismaClient,
     @inject(TYPES.ProbeFactory)
@@ -51,6 +54,12 @@ export class EnqueueService {
       } else if (prState !== undefined && isPRClosedWithoutMerge(prState)) {
         await probe.processClosedWithoutMerge(tx);
       } else {
+        const { id: pullRequestId } = await this.pullRequests.upsert(
+          comment.repo_full_name,
+          comment.pr_number,
+          { prTitle: comment.pr_title, reviewLimitAt: new Date() },
+          tx,
+        );
         const { created } = await this.queue.enqueue(
           {
             repo: comment.repo_full_name,
@@ -60,6 +69,7 @@ export class EnqueueService {
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.comment_id,
             newWait: waitSeconds,
+            pullRequestId,
           },
           obs,
           tx,

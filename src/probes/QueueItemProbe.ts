@@ -1,4 +1,5 @@
 import type { EventRepository } from '../db/eventRepository.js';
+import type { PullRequestRepository } from '../db/pullRequestRepository.js';
 import type { QueueRepository } from '../db/queueRepository.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import { BypassReason, EventType, type QueueItem } from '../types/index.js';
@@ -12,6 +13,7 @@ export class QueueItemProbe {
   constructor(
     private readonly item: QueueItem,
     private readonly queue: QueueRepository,
+    private readonly pullRequests: PullRequestRepository,
     private readonly events: EventRepository,
     private readonly observation: ObservationContext,
     private readonly log: Logger,
@@ -19,6 +21,7 @@ export class QueueItemProbe {
 
   async processMergedBeforeRetrigger(tx: Prisma.TransactionClient): Promise<void> {
     await this.queue.markReviewed(this.item.id, tx);
+    await this.pullRequests.recordReview(this.item.pull_request_id, tx);
     await recordBypassEvent({
       events: this.events,
       tx,
@@ -61,6 +64,7 @@ export class QueueItemProbe {
 
   async processRetriggered(retriggeredCommentUrl: string, cooldownUntil: Date, tx: Prisma.TransactionClient): Promise<void> {
     await this.queue.markRetriggered(this.item.id, cooldownUntil, retriggeredCommentUrl, tx);
+    await this.pullRequests.recordRetrigger(this.item.pull_request_id, tx);
     await this.events.record(
       {
         type: EventType.retriggered,

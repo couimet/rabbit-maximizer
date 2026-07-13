@@ -6,4 +6,5 @@ export interface EnqueueData {
   readonly sourceCommentUrl: string;
   readonly sourceCommentId: number;
   readonly newWait: number;
+  readonly pullRequestId: number;
 }

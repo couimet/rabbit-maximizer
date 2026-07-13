@@ -1,4 +1,5 @@
 import type { EventRepository } from './db/eventRepository.js';
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import { splitRepo } from './github/splitRepo.js';
@@ -19,6 +20,8 @@ export class ReviewDetector extends IntervalService {
   constructor(
     @inject(TYPES.QueueRepository)
     private readonly queue: QueueRepository,
+    @inject(TYPES.PullRequestRepository)
+    private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
     // TODO [2026-07-15]: #123 — remove once completion event recording moves to a probe
@@ -59,7 +62,8 @@ export class ReviewDetector extends IntervalService {
         const obs = this.observation.current();
 
         await this.prisma.$transaction(async (tx) => {
-          await this.queue.markReviewed(item.id, tx);
+          const updated = await this.queue.markReviewed(item.id, tx);
+          await this.pullRequests.recordReview(updated.pull_request_id, tx);
 
           // TODO [2026-07-15]: #123 — CompletionProbe: wire existing DetectedProbe or create new probe to encapsulate event recording
           await this.events.record(

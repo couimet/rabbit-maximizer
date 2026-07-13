@@ -3,6 +3,7 @@ import type { QueueRepository } from '../../src/db/queueRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { QueueItemProbe } from '../../src/probes/QueueItemProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
+import { createMockPullRequestRepo } from '../helpers/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -13,12 +14,19 @@ import type { Prisma } from '@prisma/client';
 const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
 
 const makeItem = (repo: string, pr: number): QueueItem =>
-  ({ id: getUniqueInt(), repo_full_name: repo, pr_number: pr, source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }) }) as unknown as QueueItem;
+  ({
+    id: getUniqueInt(),
+    repo_full_name: repo,
+    pr_number: pr,
+    pull_request_id: getUniqueInt(),
+    source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+  }) as unknown as QueueItem;
 
 describe('QueueItemProbe', () => {
   let queue: QueueRepository;
   let events: EventRepository;
   let logger: Logger;
+  let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let observation: ObservationContext;
 
   beforeEach(() => {
@@ -33,6 +41,7 @@ describe('QueueItemProbe', () => {
     } as unknown as EventRepository;
 
     logger = createMockLogger();
+    pullRequests = createMockPullRequestRepo();
 
     observation = {
       correlationId: getUuid(),
@@ -41,7 +50,7 @@ describe('QueueItemProbe', () => {
     };
   });
 
-  const createProbe = (item: QueueItem) => new QueueItemProbe(item, queue, events, observation, logger);
+  const createProbe = (item: QueueItem) => new QueueItemProbe(item, queue, pullRequests, events, observation, logger);
 
   describe('processMergedBeforeRetrigger', () => {
     it('marks reviewed, records bypassed event, and logs', async () => {
@@ -54,6 +63,7 @@ describe('QueueItemProbe', () => {
       await probe.processMergedBeforeRetrigger(tx);
 
       expect(queue.markReviewed).toHaveBeenCalledWith(item.id, tx);
+      expect(pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'bypassed',
@@ -116,6 +126,7 @@ describe('QueueItemProbe', () => {
       await probe.processRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
 
       expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, cooldownUntil, retriggeredCommentUrl, tx);
+      expect(pullRequests.recordRetrigger).toHaveBeenCalledWith(item.pull_request_id, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'retriggered',

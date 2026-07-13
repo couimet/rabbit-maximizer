@@ -19,6 +19,7 @@ export const TYPES = {
   ProbeFactory: Symbol.for('ProbeFactory'),
   PruneEvaluator: Symbol.for('PruneEvaluator'),
   Pruner: Symbol.for('Pruner'),
+  PullRequestRepository: Symbol.for('PullRequestRepository'),
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
   ReviewDetector: Symbol.for('ReviewDetector'),

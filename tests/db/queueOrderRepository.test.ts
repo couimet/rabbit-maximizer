@@ -43,6 +43,7 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
     retriggered_at: over.retriggered_at ?? null,
     failed_at: over.failed_at ?? null,
     reviewed_at: over.reviewed_at ?? null,
+    pull_request_id: getUniqueInt(),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
     queueOrder: {
@@ -70,6 +71,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   retriggered_at: row.retriggered_at ?? undefined,
   failed_at: row.failed_at ?? undefined,
   reviewed_at: row.reviewed_at ?? undefined,
+  pull_request_id: row.pull_request_id!,
   created_at: row.created_at,
   updated_at: row.updated_at,
 });
@@ -103,7 +105,7 @@ describe('QueueOrderRepositoryImpl', () => {
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.getEffectiveOrder', count: 3, eligibleOnly: true }, 'Fetched effective order');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 3, eligibleOnly: true }, 'Fetched effective order');
     });
 
     it('only returns pending items with not_before <= now', async () => {
@@ -127,6 +129,23 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(result).toStrictEqual([]);
     });
 
+    it('filters out rows with null pull_request_id and logs a warning', async () => {
+      const valid = makeRow();
+      const nullPR = { ...makeRow(), pull_request_id: null };
+      const rows = [valid, nullPR];
+
+      const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
+      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+
+      const result = await sut.getEffectiveOrder();
+
+      expect(result).toStrictEqual([toExpectedItem(valid)]);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', total: 2, valid: 1 },
+        'Filtered out rows with null pull_request_id',
+      );
+    });
+
     it('returns all pending items regardless of not_before when eligibleOnly is false', async () => {
       const rows = [makeRow({ not_before: new Date(Date.now() + 3600_000) })];
 
@@ -141,7 +160,10 @@ describe('QueueOrderRepositoryImpl', () => {
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.getEffectiveOrder', count: 1, eligibleOnly: false }, 'Fetched effective order');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 1, eligibleOnly: false },
+        'Fetched effective order',
+      );
     });
   });
 

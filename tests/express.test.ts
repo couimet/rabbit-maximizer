@@ -27,6 +27,8 @@ describe('setupExpress', () => {
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),
+      pullRequestRepo: {} as any,
+      prisma: {} as any,
       reviewTrigger: { trigger: jest.fn() } as any,
       systemStateRepo: createMockSystemStateRepository(),
       logger,

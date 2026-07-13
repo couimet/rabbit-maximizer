@@ -1,5 +1,6 @@
 import { type EventRepository, EventRepositoryImpl } from './db/eventRepository.js';
 import { createPrismaClient } from './db/prismaClientFactory.js';
+import { type PullRequestRepository, PullRequestRepositoryImpl } from './db/pullRequestRepository.js';
 import { type QueueOrderRepository, QueueOrderRepositoryImpl } from './db/queueOrderRepository.js';
 import { type QueueRepository, QueueRepositoryImpl } from './db/queueRepository.js';
 import { type SystemStateRepository, SystemStateRepositoryImpl } from './db/systemStateRepository.js';
@@ -61,6 +62,8 @@ container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStat
 container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(UuidObservationContextProvider).inSingletonScope();
 
 container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory).inSingletonScope();
+
+container.bind<PullRequestRepository>(TYPES.PullRequestRepository).to(PullRequestRepositoryImpl).inSingletonScope();
 
 container.bind<PruneEvaluator>(TYPES.PruneEvaluator).to(PruneEvaluatorImpl).inSingletonScope();
 
