@@ -7,7 +7,7 @@ describe('QueueStatus', () => {
     expect(QueueStatus).toStrictEqual({
       pending: 'pending',
       retriggered: 'retriggered',
-      completed: 'completed',
+      reviewed: 'reviewed',
       failed: 'failed',
     });
   });

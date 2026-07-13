@@ -16,7 +16,7 @@ export interface QueueItem {
   readonly retrigger_comment_url?: string;
   readonly retriggered_at?: Date;
   readonly failed_at?: Date;
-  readonly completed_at?: Date;
+  readonly reviewed_at?: Date;
   readonly created_at: Date;
   readonly updated_at: Date;
 }

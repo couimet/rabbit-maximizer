@@ -23,7 +23,7 @@ describe('QueueItemProbe', () => {
 
   beforeEach(() => {
     queue = {
-      markCompleted: jest.fn<any>(),
+      markReviewed: jest.fn<any>(),
       markFailed: jest.fn<any>(),
       markRetriggered: jest.fn<any>(),
     } as unknown as QueueRepository;
@@ -44,7 +44,7 @@ describe('QueueItemProbe', () => {
   const createProbe = (item: QueueItem) => new QueueItemProbe(item, queue, events, observation, logger);
 
   describe('processMergedBeforeRetrigger', () => {
-    it('marks completed, records bypassed event, and logs', async () => {
+    it('marks reviewed, records bypassed event, and logs', async () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
@@ -53,7 +53,7 @@ describe('QueueItemProbe', () => {
       const probe = createProbe(item);
       await probe.processMergedBeforeRetrigger(tx);
 
-      expect(queue.markCompleted).toHaveBeenCalledWith(item.id, tx);
+      expect(queue.markReviewed).toHaveBeenCalledWith(item.id, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'bypassed',
@@ -68,7 +68,7 @@ describe('QueueItemProbe', () => {
       );
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'QueueItemProbe.processMergedBeforeRetrigger', repo, pr, queueId: item.id },
-        'Merged before retrigger; marked completed',
+        'Merged before retrigger; marked reviewed',
       );
     });
   });

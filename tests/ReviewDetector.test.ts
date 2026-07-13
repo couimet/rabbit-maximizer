@@ -1,6 +1,6 @@
-import { CompletionDetector } from '../src/CompletionDetector.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
+import { ReviewDetector } from '../src/ReviewDetector.js';
 import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.js';
 
 import { createMockCoderabbitGitHubClient, createMockEventRepo, createMockObservationContextProvider, createMockQueueRepo } from './helpers/index.js';
@@ -21,8 +21,8 @@ const drainMicrotasks = async (depth: number): Promise<void> => {
   }
 };
 
-interface MockCompletionDetectorDeps {
-  queue: { getRetriggeredQueue: jest.Mock<any>; markCompleted: jest.Mock<any> };
+interface MockReviewDetectorDeps {
+  queue: { getRetriggeredQueue: jest.Mock<any>; markReviewed: jest.Mock<any> };
   github: jest.Mocked<CoderabbitGitHubClient>;
   events: { record: jest.Mock<any> };
   prisma: { $transaction: jest.Mock<any> };
@@ -51,10 +51,10 @@ const makeRetriggeredItem = (overrides: { id?: number; retriggeredAt?: Date; rep
   };
 };
 
-const setup = (): MockCompletionDetectorDeps => {
-  const queue = createMockQueueRepo() as unknown as MockCompletionDetectorDeps['queue'];
+const setup = (): MockReviewDetectorDeps => {
+  const queue = createMockQueueRepo() as unknown as MockReviewDetectorDeps['queue'];
   const github = createMockCoderabbitGitHubClient();
-  const events = createMockEventRepo() as unknown as MockCompletionDetectorDeps['events'];
+  const events = createMockEventRepo() as unknown as MockReviewDetectorDeps['events'];
   const prisma = { $transaction: jest.fn<any>() };
   const observation = createMockObservationContextProvider();
   const logger = createMockLogger();
@@ -63,8 +63,8 @@ const setup = (): MockCompletionDetectorDeps => {
   return { queue, github, events, prisma, observation, logger, config };
 };
 
-describe('CompletionDetector', () => {
-  let deps: MockCompletionDetectorDeps;
+describe('ReviewDetector', () => {
+  let deps: MockReviewDetectorDeps;
 
   beforeEach(() => {
     deps = setup();
@@ -72,7 +72,7 @@ describe('CompletionDetector', () => {
   });
 
   const createDetector = () =>
-    new CompletionDetector(
+    new ReviewDetector(
       deps.queue as any,
       deps.github,
       deps.events as any,
@@ -90,7 +90,7 @@ describe('CompletionDetector', () => {
       const { stop } = detector.start();
 
       expect(deps.queue.getRetriggeredQueue).toHaveBeenCalledTimes(1);
-      expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'CompletionDetector.start', pollIntervalSec: POLL_INTERVAL_SEC }, 'Starting completion detector');
+      expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'ReviewDetector.start', pollIntervalSec: POLL_INTERVAL_SEC }, 'Starting review detector');
 
       await stop();
     });
@@ -105,12 +105,12 @@ describe('CompletionDetector', () => {
       jest.advanceTimersByTime(POLL_INTERVAL_MS * 2);
 
       expect(deps.queue.getRetriggeredQueue).toHaveBeenCalledTimes(1);
-      expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'CompletionDetector.stop' }, 'Completion detector stopped');
+      expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'ReviewDetector.stop' }, 'Review detector stopped');
     });
   });
 
   describe('detection', () => {
-    it('transitions item to completed when a review comment is found', async () => {
+    it('transitions item to reviewed when a review comment is found', async () => {
       const retriggeredAt = getUniqueDate();
       const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
       const prNumber = getUniqueInt();
@@ -118,7 +118,7 @@ describe('CompletionDetector', () => {
       const completedCommentUrl = `https://github.com/${repoFullName}/issues/${prNumber}#issuecomment-${getUniqueInt()}`;
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: completedCommentUrl });
+      deps.github.findReviewComment.mockResolvedValue({ htmlUrl: completedCommentUrl });
 
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
@@ -127,8 +127,8 @@ describe('CompletionDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
-      expect(deps.queue.markCompleted).toHaveBeenCalledWith(item.id, {});
+      expect(deps.github.findReviewComment).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
+      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
       const obs = deps.observation.current();
       expect(deps.events.record).toHaveBeenCalledWith(
         {
@@ -145,22 +145,22 @@ describe('CompletionDetector', () => {
         {},
       );
       expect(deps.logger.info).toHaveBeenCalledWith(
-        { fn: 'CompletionDetector.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
-        'Completed review detected',
+        { fn: 'ReviewDetector.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
+        'Review detected',
       );
     });
 
-    it('skips items where no completed review is found', async () => {
+    it('skips items where no review is found', async () => {
       const item = makeRetriggeredItem({});
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findCompletedReview.mockResolvedValue(undefined);
+      deps.github.findReviewComment.mockResolvedValue(undefined);
 
       const detector = createDetector();
       detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.queue.markCompleted).not.toHaveBeenCalled();
+      expect(deps.queue.markReviewed).not.toHaveBeenCalled();
       expect(deps.events.record).not.toHaveBeenCalled();
     });
 
@@ -172,7 +172,7 @@ describe('CompletionDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+      expect(deps.github.findReviewComment).not.toHaveBeenCalled();
     });
 
     it('skips items with null retriggered_at', async () => {
@@ -185,21 +185,21 @@ describe('CompletionDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+      expect(deps.github.findReviewComment).not.toHaveBeenCalled();
     });
 
     it('processes multiple retriggered items in sequence', async () => {
       const item1 = makeRetriggeredItem({ repoFullName: 'org-a/repo-a', prNumber: 1 });
       const item2 = makeRetriggeredItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
-      deps.github.findCompletedReview.mockResolvedValue(undefined);
+      deps.github.findReviewComment.mockResolvedValue(undefined);
 
       const detector = createDetector();
       detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(2);
+      expect(deps.github.findReviewComment).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -245,8 +245,8 @@ describe('CompletionDetector', () => {
       const item2 = makeRetriggeredItem({ repoFullName: 'org-b/repo-b', prNumber: 2 });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
 
-      const perItemError = new Error('findCompletedReview failed');
-      deps.github.findCompletedReview.mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);
+      const perItemError = new Error('findReviewComment failed');
+      deps.github.findReviewComment.mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);
 
       const detector = createDetector();
       detector.start();
@@ -254,10 +254,10 @@ describe('CompletionDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
-        { fn: 'CompletionDetector.tick', error: perItemError },
-        'Completion detection tick failed; will retry on next interval',
+        { fn: 'ReviewDetector.tick', error: perItemError },
+        'Review detection tick failed; will retry on next interval',
       );
-      expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(2);
+      expect(deps.github.findReviewComment).toHaveBeenCalledTimes(2);
     });
   });
 });

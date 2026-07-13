@@ -18,7 +18,7 @@ export class QueueItemProbe {
   ) {}
 
   async processMergedBeforeRetrigger(tx: Prisma.TransactionClient): Promise<void> {
-    await this.queue.markCompleted(this.item.id, tx);
+    await this.queue.markReviewed(this.item.id, tx);
     await recordBypassEvent({
       events: this.events,
       tx,
@@ -34,7 +34,7 @@ export class QueueItemProbe {
         pr: this.item.pr_number,
         queueId: this.item.id,
       },
-      'Merged before retrigger; marked completed',
+      'Merged before retrigger; marked reviewed',
     );
   }
 

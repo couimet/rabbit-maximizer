@@ -30,7 +30,7 @@ export interface CoderabbitGitHubClient {
 
   getPRState(repo: string, pr: number): Promise<PRState>;
 
-  findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined>;
+  findReviewComment(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined>;
 
   findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
 }
@@ -139,8 +139,8 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return { state: response.data.state, merged_at: response.data.merged_at };
   }
 
-  async findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined> {
-    this.log.debug({ fn: 'findCompletedReview', owner, repo, pr }, 'Searching for completed review comment');
+  async findReviewComment(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined> {
+    this.log.debug({ fn: 'findReviewComment', owner, repo, pr }, 'Searching for review comment');
 
     const response = await this.octokit.rest.issues.listComments({
       owner,
@@ -161,10 +161,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     );
 
     if (completedComment) {
-      this.log.debug(
-        { fn: 'findCompletedReview', owner, repo, pr, commentId: completedComment.id, htmlUrl: completedComment.html_url },
-        'Found completed review comment',
-      );
+      this.log.debug({ fn: 'findReviewComment', owner, repo, pr, commentId: completedComment.id, htmlUrl: completedComment.html_url }, 'Found review comment');
       return { htmlUrl: completedComment.html_url };
     }
 

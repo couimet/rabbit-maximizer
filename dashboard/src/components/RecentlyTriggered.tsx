@@ -1,7 +1,7 @@
 import { formatRelativeTime } from '../../../src/utils/formatRelativeTime.js';
 import { type Duration, resolveDurationSince } from '../../../src/utils/resolveDurationSince.js';
 import type { QueueItem } from '../api.js';
-import { fetchTriggered, markCompleted } from '../api.js';
+import { fetchTriggered, markReviewed } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
 import DurationSelect from './DurationSelect.js';
@@ -21,7 +21,7 @@ const RecentlyTriggered = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [duration, setDuration] = useState<Duration>(TRIGGERED_DEFAULT_DURATION);
-  const [includeCompleted, setIncludeCompleted] = useState(false);
+  const [includeReviewed, setIncludeReviewed] = useState(false);
   const [, setTick] = useState(0);
 
   const mountedRef = useRef(false);
@@ -39,7 +39,7 @@ const RecentlyTriggered = () => {
       requestIdRef.current += 1;
       const requestId = requestIdRef.current;
       setLoading(true);
-      fetchTriggered(resolveDurationSince(duration), pageNum, PAGE_SIZE, includeCompleted)
+      fetchTriggered(resolveDurationSince(duration), pageNum, PAGE_SIZE, includeReviewed)
         .then((res) => {
           /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
           if (!mountedRef.current) return;
@@ -61,7 +61,7 @@ const RecentlyTriggered = () => {
           setLoading(false);
         });
     },
-    [duration, includeCompleted],
+    [duration, includeReviewed],
   );
 
   useEffect(() => {
@@ -84,11 +84,11 @@ const RecentlyTriggered = () => {
     fetchData(nextPage, true);
   };
 
-  const handleMarkCompleted = (uuid: string) => {
+  const handleMarkReviewed = (uuid: string) => {
     setItems((prev) => prev.filter((i) => i.uuid !== uuid));
     /* c8 ignore next — safety fallback: total is always set when items are displayed */
     setTotal((t) => (t !== null ? t - 1 : null));
-    markCompleted(uuid).catch((err: Error) => {
+    markReviewed(uuid).catch((err: Error) => {
       setError(err.message);
       fetchData(1, false);
     });
@@ -104,8 +104,8 @@ const RecentlyTriggered = () => {
         Recently Triggered — <DurationSelect value={duration} onChange={setDuration} aria-label="Triggered time range" />
       </h3>
 
-      <label className="show-completed-toggle">
-        <input type="checkbox" checked={includeCompleted} onChange={(e) => setIncludeCompleted(e.target.checked)} /> Show completed
+      <label className="show-reviewed-toggle">
+        <input type="checkbox" checked={includeReviewed} onChange={(e) => setIncludeReviewed(e.target.checked)} /> Show reviewed
       </label>
 
       {error && <div className="error-banner">Failed to refresh: {error}</div>}
@@ -127,7 +127,7 @@ const RecentlyTriggered = () => {
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.uuid} className={item.status === 'completed' ? 'row-status-completed' : ''}>
+                <tr key={item.uuid} className={item.status === 'reviewed' ? 'row-status-reviewed' : ''}>
                   <td>
                     <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noreferrer">
                       {item.repo_full_name}
@@ -139,15 +139,15 @@ const RecentlyTriggered = () => {
                   </td>
                   <td>{item.retriggered_at ? formatRelativeTime(item.retriggered_at) : '—'}</td>
                   <td>
-                    {item.status === 'completed' ? (
-                      <span className="status-pill completed">Completed</span>
+                    {item.status === 'reviewed' ? (
+                      <span className="status-pill reviewed">Reviewed</span>
                     ) : (
                       <span className="status-pill retriggered">Retriggered</span>
                     )}
                   </td>
                   <td>
-                    {item.status !== 'completed' && (
-                      <button className="mark-completed-button" onClick={() => handleMarkCompleted(item.uuid)} title="Mark as completed">
+                    {item.status !== 'reviewed' && (
+                      <button className="mark-reviewed-button" onClick={() => handleMarkReviewed(item.uuid)} title="Mark as reviewed">
                         ✓
                       </button>
                     )}

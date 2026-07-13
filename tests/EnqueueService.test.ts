@@ -44,7 +44,7 @@ describe('EnqueueService', () => {
     queue = {
       enqueue: jest.fn<any>().mockResolvedValue({ item: {}, created: true }),
       markPosted: jest.fn(),
-      markCompleted: jest.fn(),
+      markReviewed: jest.fn(),
       reschedule: jest.fn(),
       markFailed: jest.fn(),
       getPendingQueue: jest.fn(),

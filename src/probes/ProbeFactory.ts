@@ -5,7 +5,7 @@ import type { ObservationContext, ObservationContextProvider } from '../observab
 import type { QueueItem } from '../types/index.js';
 
 import { DetectedProbe, type DetectedProbeContext } from './DetectedProbe.js';
-import { MarkQueueItemCompletedProbe } from './MarkQueueItemCompletedProbe.js';
+import { MarkQueueItemReviewedProbe } from './MarkQueueItemReviewedProbe.js';
 import { QueueItemProbe } from './QueueItemProbe.js';
 import { ReviewRetriggerProbe } from './ReviewRetriggerProbe.js';
 
@@ -33,8 +33,8 @@ export class ProbeFactory {
     return new QueueItemProbe(item, queue, this.eventRepository, observation, this.log);
   }
 
-  createMarkQueueItemCompletedProbe(uuid: string): MarkQueueItemCompletedProbe {
-    return new MarkQueueItemCompletedProbe(uuid, this.eventRepository, this.observation.current(), this.log);
+  createMarkQueueItemReviewedProbe(uuid: string): MarkQueueItemReviewedProbe {
+    return new MarkQueueItemReviewedProbe(uuid, this.eventRepository, this.observation.current(), this.log);
   }
 
   /* c8 ignore start — wiring: no logic to test; constructor delegation only */

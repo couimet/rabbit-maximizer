@@ -3,7 +3,7 @@ import { RabbitMaximizerErrorCodes } from '../../src/errors/RabbitMaximizerError
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import {
   createGetQueueOrderHandler,
-  createMarkCompletedHandler,
+  createMarkReviewedHandler,
   createMoveQueueOrderHandler,
   createMoveToTopHandler,
   createRetriggerNowHandler,
@@ -338,7 +338,7 @@ describe('queueOrderRoutes', () => {
 
     it('returns 409 when item is not pending', async () => {
       startServer({
-        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'completed' }]),
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem(1, UUID_A), status: 'reviewed' }]),
       });
 
       const addr = server.address();
@@ -346,7 +346,7 @@ describe('queueOrderRoutes', () => {
       const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
       expect(await res.json()).toStrictEqual({ error: 'Queue item is not pending' });
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'completed' }, 'Queue item is not pending');
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'reviewed' }, 'Queue item is not pending');
     });
 
     it('returns 500 on repository error', async () => {
@@ -446,24 +446,24 @@ describe('queueOrderRoutes', () => {
     });
   });
 
-  describe('POST /api/queue/:uuid/mark-completed', () => {
+  describe('POST /api/queue/:uuid/mark-reviewed', () => {
     const startServer = (over = {}) => {
       const app = createExpressApp({ logger });
-      app.post('/api/queue/:uuid/mark-completed', createMarkCompletedHandler(createMockQueueRepo(over), logger));
+      app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(createMockQueueRepo(over), logger));
       server = app.listen(0);
     };
 
     it('returns 200 with { ok: true }', async () => {
       const item = { ...makeItem(1, UUID_A), repo_full_name: 'c/r', pr_number: getUniqueInt() };
-      const markCompletedByUuid = jest.fn<any>().mockResolvedValue(item);
-      startServer({ markCompletedByUuid });
+      const markReviewedByUuid = jest.fn<any>().mockResolvedValue(item);
+      startServer({ markReviewedByUuid });
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
-      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-completed`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
-      expect(markCompletedByUuid).toHaveBeenCalledWith(UUID_A);
+      expect(markReviewedByUuid).toHaveBeenCalledWith(UUID_A);
     });
 
     it('returns 400 for non-UUID id', async () => {
@@ -471,31 +471,31 @@ describe('queueOrderRoutes', () => {
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
-      const res = await fetch(`http://[::1]:${addr.port}/api/queue/not-a-uuid/mark-completed`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/not-a-uuid/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.BAD_REQUEST);
       expect(await res.json()).toStrictEqual({ error: 'uuid must be a valid UUID v4' });
     });
 
     it('returns 404 when item not found', async () => {
-      startServer({ markCompletedByUuid: jest.fn<any>().mockResolvedValue(undefined) });
+      startServer({ markReviewedByUuid: jest.fn<any>().mockResolvedValue(undefined) });
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
-      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-completed`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NOT_FOUND);
       expect(await res.json()).toStrictEqual({ error: `Queue item not found: ${UUID_A}` });
     });
 
     it('returns 500 on repository error', async () => {
       const repoError = new Error('DB down');
-      startServer({ markCompletedByUuid: jest.fn<any>().mockRejectedValue(repoError) });
+      startServer({ markReviewedByUuid: jest.fn<any>().mockRejectedValue(repoError) });
 
       const addr = server.address();
       if (!addr || typeof addr === 'string') throw new Error('Server not listening');
-      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-completed`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${addr.port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
-      expect(await res.json()).toStrictEqual({ error: 'Failed to mark item completed' });
-      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.markCompleted', error: repoError }, 'Failed to mark item completed');
+      expect(await res.json()).toStrictEqual({ error: 'Failed to mark item reviewed' });
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.markReviewed', error: repoError }, 'Failed to mark item reviewed');
     });
   });
 });

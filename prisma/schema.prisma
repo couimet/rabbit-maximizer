@@ -7,7 +7,7 @@ generator client {
 }
 
 // ---------------------------------------------------------------------------
-// ReviewQueue — current state of pending/completed/failed review requests.
+// ReviewQueue — current state of pending/reviewed/failed review requests.
 //
 // Column notes:
 //   id              Internal auto-increment PK (pagination, FKs).
@@ -27,7 +27,7 @@ model ReviewQueue {
   pr_number      Int
   /// Max 256 (GitHub PR title). Set at enqueue time.
   pr_title       String
-  /// Max 25; one of 'pending' | 'retriggered' | 'completed' | 'failed' (CHECK in the init migration).
+  /// Max 25; one of 'pending' | 'retriggered' | 'reviewed' | 'failed' (CHECK in the init migration).
   status         String    @default("pending")
   not_before     DateTime
   attempts       Int       @default(0)
@@ -41,7 +41,7 @@ model ReviewQueue {
   retrigger_comment_url String?
   retriggered_at DateTime?
   failed_at      DateTime?
-  completed_at   DateTime?
+  reviewed_at    DateTime?
   queueOrder     QueueOrder?
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt

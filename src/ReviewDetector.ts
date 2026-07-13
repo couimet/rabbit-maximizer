@@ -14,7 +14,7 @@ import type { PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
 @injectable()
-export class CompletionDetector extends IntervalService {
+export class ReviewDetector extends IntervalService {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.QueueRepository)
@@ -36,11 +36,11 @@ export class CompletionDetector extends IntervalService {
   /* c8 ignore stop */
 
   protected onStart(): void {
-    this.log.info({ fn: 'CompletionDetector.start', pollIntervalSec: this.intervalMs / MS_PER_SECOND }, 'Starting completion detector');
+    this.log.info({ fn: 'ReviewDetector.start', pollIntervalSec: this.intervalMs / MS_PER_SECOND }, 'Starting review detector');
   }
 
   protected onStop(): void {
-    this.log.info({ fn: 'CompletionDetector.stop' }, 'Completion detector stopped');
+    this.log.info({ fn: 'ReviewDetector.stop' }, 'Review detector stopped');
   }
 
   protected async executeTick(): Promise<void> {
@@ -52,14 +52,14 @@ export class CompletionDetector extends IntervalService {
         if (item.retriggered_at == null) continue;
 
         const { owner, repo } = splitRepo(item.repo_full_name);
-        const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, item.retriggered_at);
+        const completedReview = await this.github.findReviewComment(owner, repo, item.pr_number, item.retriggered_at);
 
         if (!completedReview) continue;
 
         const obs = this.observation.current();
 
         await this.prisma.$transaction(async (tx) => {
-          await this.queue.markCompleted(item.id, tx);
+          await this.queue.markReviewed(item.id, tx);
 
           // TODO [2026-07-15]: #123 — CompletionProbe: wire existing DetectedProbe or create new probe to encapsulate event recording
           await this.events.record(
@@ -80,15 +80,15 @@ export class CompletionDetector extends IntervalService {
 
         this.log.info(
           {
-            fn: 'CompletionDetector.tick',
+            fn: 'ReviewDetector.tick',
             repo: item.repo_full_name,
             pr: item.pr_number,
             queueId: item.id,
           },
-          'Completed review detected',
+          'Review detected',
         );
       } catch (err: unknown) {
-        this.log.warn({ fn: 'CompletionDetector.tick', error: err }, 'Completion detection tick failed; will retry on next interval');
+        this.log.warn({ fn: 'ReviewDetector.tick', error: err }, 'Review detection tick failed; will retry on next interval');
       }
     }
   }

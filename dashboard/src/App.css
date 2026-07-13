@@ -496,9 +496,9 @@ a:hover {
   cursor: default;
 }
 
-/* Show completed toggle */
+/* RecentlyTriggered */
 
-.show-completed-toggle {
+.show-reviewed-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -508,7 +508,7 @@ a:hover {
   cursor: pointer;
 }
 
-.show-completed-toggle input[type='checkbox'] {
+.show-reviewed-toggle input[type='checkbox'] {
   accent-color: #f38222;
 }
 
@@ -527,7 +527,7 @@ a:hover {
   color: #e65100;
 }
 
-.status-pill.completed {
+.status-pill.reviewed {
   background: #e8f5e9;
   color: #2e7d32;
 }
@@ -542,9 +542,7 @@ a:hover {
   color: #b86e1a;
 }
 
-/* Row status — completed */
-
-.row-status-completed td {
+.row-status-reviewed td {
   color: #8b7d6b;
 }
 
@@ -575,9 +573,7 @@ a:hover {
   cursor: default;
 }
 
-/* Mark completed */
-
-.mark-completed-button {
+.mark-reviewed-button {
   background: none;
   border: 1px solid #e3d6c3;
   border-radius: 3px;
@@ -589,7 +585,7 @@ a:hover {
   transition: background 0.2s;
 }
 
-.mark-completed-button:hover {
+.mark-reviewed-button:hover {
   background: #d4edda;
 }
 

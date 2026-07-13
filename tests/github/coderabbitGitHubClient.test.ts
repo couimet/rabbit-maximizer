@@ -415,7 +415,7 @@ describe('client', () => {
     });
   });
 
-  describe('findCompletedReview', () => {
+  describe('findReviewComment', () => {
     it('returns the comment URL when a non-rate-limit bot comment exists after the since date', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
@@ -436,7 +436,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findReviewComment(owner, repo, prNumber, since);
 
       expect(issues.listComments).toHaveBeenCalledWith({
         owner,
@@ -447,7 +447,7 @@ describe('client', () => {
         per_page: 100,
       });
       expect(result).toStrictEqual({ htmlUrl });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, commentId, htmlUrl }, 'Found completed review comment');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findReviewComment', owner, repo, pr: prNumber, commentId, htmlUrl }, 'Found review comment');
     });
 
     it('excludes comments containing the rate-limit marker', async () => {
@@ -467,7 +467,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findReviewComment(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
     });
@@ -489,7 +489,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findReviewComment(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
     });
@@ -511,7 +511,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findReviewComment(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
     });
@@ -533,7 +533,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findReviewComment(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
     });
@@ -562,7 +562,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findReviewComment(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
     });
