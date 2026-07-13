@@ -3,22 +3,19 @@ import { StateKey } from './db/systemStateRepository.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
+import { parseGitHubRateLimitError } from './github/parseGitHubRateLimitError.js';
 import { parseWaitSeconds } from './github/parseWaitSeconds.js';
 import { splitRepo } from './github/splitRepo.js';
 import type { OnDetectedCallback } from './types/index.js';
+import { MS_PER_SECOND } from './utils/durations.js';
 import { config } from './config.js';
 import { IntervalService } from './IntervalService.js';
 import { TYPES } from './inversify-types.js';
 
-import type { Logger } from '@couimet/logger-contract';
+import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-const MILLISECONDS_PER_SECOND = 1000;
-const HTTP_FORBIDDEN = 403;
-const HTTP_TOO_MANY_REQUESTS = 429;
-const QUOTA_EXHAUSTED = '0';
-
-const POLL_INTERVAL_MS = config.POLL_INTERVAL * MILLISECONDS_PER_SECOND;
+const POLL_INTERVAL_MS = config.POLL_INTERVAL * MS_PER_SECOND;
 
 @injectable()
 export class PollDetector extends IntervalService {
@@ -51,6 +48,8 @@ export class PollDetector extends IntervalService {
   }
 
   protected async executeTick(): Promise<void> {
+    const logCtx: LoggingContext = { fn: 'PollDetector.tick' };
+
     try {
       const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;
@@ -59,13 +58,19 @@ export class PollDetector extends IntervalService {
         const { owner, repo } = splitRepo(c.repo_full_name);
         const body = await this.github.fetchComment(owner, repo, c.comment_id);
 
-        if (!hasRateLimitMarker(body) || hasOwnRetriggerMarker(body)) {
+        if (!hasRateLimitMarker(body)) {
+          this.log.debug({ ...logCtx, owner, repo, commentId: c.comment_id }, 'Skipping comment without rate-limit marker');
+          continue;
+        }
+
+        if (hasOwnRetriggerMarker(body)) {
+          this.log.debug({ ...logCtx, owner, repo, commentId: c.comment_id }, 'Skipping comment with own retrigger marker');
           continue;
         }
 
         const waitSeconds = parseWaitSeconds(body);
         const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SECONDS;
-        const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MILLISECONDS_PER_SECOND);
+        const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MS_PER_SECOND);
         if (!earliestNextReview || candidate < earliestNextReview) {
           earliestNextReview = candidate;
         }
@@ -81,45 +86,19 @@ export class PollDetector extends IntervalService {
         }
       }
     } catch (err: unknown) {
-      const error = err as {
-        status?: number;
-        response?: { headers?: Record<string, string> };
-      };
-      if (
-        (error.status === HTTP_FORBIDDEN || error.status === HTTP_TOO_MANY_REQUESTS) &&
-        error.response?.headers?.['x-ratelimit-remaining'] === QUOTA_EXHAUSTED
-      ) {
-        const resetEpoch = Number(error.response.headers['x-ratelimit-reset']);
-        if (Number.isNaN(resetEpoch)) {
-          this.log.warn(
-            {
-              fn: 'PollDetector.tick',
-              status: error.status,
-            },
-            'Rate limit response missing valid x-ratelimit-reset header; skipping backoff',
-          );
-          return;
-        }
-        const retryAfterMs = Math.max(0, resetEpoch * MILLISECONDS_PER_SECOND - Date.now());
+      const rateLimit = parseGitHubRateLimitError(err);
+
+      if (rateLimit) {
+        const retryAfterMs = Math.max(0, rateLimit.resetEpoch * MS_PER_SECOND - Date.now());
         this.rateLimitRetryAfter = Date.now() + retryAfterMs;
         this.log.warn(
-          {
-            fn: 'PollDetector.tick',
-            status: error.status,
-            retryAfterSec: Math.ceil(retryAfterMs / MILLISECONDS_PER_SECOND),
-          },
+          { ...logCtx, status: rateLimit.status, retryAfterSec: Math.ceil(retryAfterMs / MS_PER_SECOND) },
           'GitHub API rate limit exhausted; backing off until reset',
         );
         return;
       }
 
-      this.log.warn(
-        {
-          fn: 'PollDetector.tick',
-          error: err,
-        },
-        'Poll tick failed; will retry on next interval',
-      );
+      this.log.warn({ ...logCtx, error: err }, 'Poll tick failed; will retry on next interval');
     }
   }
 }

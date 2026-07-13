@@ -13,6 +13,7 @@ export interface MockIssuesRest {
 
 export interface MockPullsRest {
   get: jest.Mock<any>;
+  listReviews: jest.Mock<any>;
 }
 
 export interface MockOctokitOptions {
@@ -45,6 +46,7 @@ export const createMockOctokit = (options?: MockOctokitOptions): MockOctokitResu
   };
   const pulls: MockPullsRest = {
     get: jest.fn<any>(),
+    listReviews: jest.fn<any>(),
     ...options?.rest?.pulls,
   };
 

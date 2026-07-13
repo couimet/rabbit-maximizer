@@ -19,6 +19,7 @@ const REPO_URL = pkg.repository.url;
 const MS_PER_HOUR = 60 * 60 * 1000;
 const SEARCH_PER_PAGE = 100;
 const SEARCH_START_PAGE = 1;
+const REVIEWS_PER_PAGE = 100;
 
 describe('client', () => {
   let octokit: Octokit;
@@ -415,95 +416,97 @@ describe('client', () => {
     });
   });
 
-  describe('findReviewComment', () => {
-    it('returns the comment URL when a non-rate-limit bot comment exists after the since date', async () => {
+  describe('findCompletedReview', () => {
+    it('returns the review URL and ID when a completed CodeRabbit review with the actionable marker exists', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
-      const commentId = getUniqueInt();
-      const htmlUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-      const createdAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+      const reviewId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
 
-      issues.listComments.mockResolvedValue({
+      pulls.listReviews.mockResolvedValue({
         data: [
           {
-            id: commentId,
+            id: reviewId,
             html_url: htmlUrl,
-            created_at: createdAt,
-            body: '## Summary by CodeRabbit\n\nHere is your review.',
+            submitted_at: submittedAt,
+            body: '## Summary by CodeRabbit\n\n**Actionable comments posted: 1**\n\nHere is your review.',
             user: { login: 'coderabbitai[bot]' },
           },
         ],
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findReviewComment(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
 
-      expect(issues.listComments).toHaveBeenCalledWith({
+      expect(pulls.listReviews).toHaveBeenCalledWith({
         owner,
         repo,
-        issue_number: prNumber,
-        sort: 'created',
-        direction: 'desc',
+        pull_number: prNumber,
         per_page: 100,
+        page: 1,
       });
-      expect(result).toStrictEqual({ htmlUrl });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findReviewComment', owner, repo, pr: prNumber, commentId, htmlUrl }, 'Found review comment');
+      expect(result).toStrictEqual({ htmlUrl, reviewId });
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
     });
 
-    it('excludes comments containing the rate-limit marker', async () => {
+    it('matches the no-actionable completion signal', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
+      const reviewId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
 
-      issues.listComments.mockResolvedValue({
+      pulls.listReviews.mockResolvedValue({
         data: [
           {
-            id: getUniqueInt(),
-            html_url: 'https://example.com/rate-limit',
-            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
-            body: 'You have rate limited by coderabbit.ai ... please wait 30 minutes.',
+            id: reviewId,
+            html_url: htmlUrl,
+            submitted_at: submittedAt,
+            body: 'No actionable comments were generated in the recent review.',
             user: { login: 'coderabbitai[bot]' },
           },
         ],
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findReviewComment(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
 
-      expect(result).toBeUndefined();
+      expect(result).toStrictEqual({ htmlUrl, reviewId });
     });
 
-    it('excludes comments created before the since date', async () => {
+    it('excludes reviews submitted before the since date', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
-      issues.listComments.mockResolvedValue({
+      pulls.listReviews.mockResolvedValue({
         data: [
           {
             id: getUniqueInt(),
             html_url: 'https://example.com/old-review',
-            created_at: new Date(since.getTime() - MS_PER_HOUR * 24).toISOString(),
-            body: '## Summary by CodeRabbit',
+            submitted_at: new Date(since.getTime() - MS_PER_HOUR * 24).toISOString(),
+            body: '**Actionable comments posted: 2**',
             user: { login: 'coderabbitai[bot]' },
           },
         ],
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findReviewComment(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
     });
 
-    it('returns undefined when no bot comments exist', async () => {
+    it('returns undefined when no CodeRabbit reviews exist', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
-      issues.listComments.mockResolvedValue({
+      pulls.listReviews.mockResolvedValue({
         data: [
           {
             id: getUniqueInt(),
-            html_url: 'https://example.com/human',
-            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
+            html_url: 'https://example.com/human-review',
+            submitted_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
             body: 'Looks good to me!',
             user: { login: 'human-user' },
           },
@@ -511,21 +514,21 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findReviewComment(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
     });
 
-    it('returns undefined when comment body is empty', async () => {
+    it('returns undefined when review body is empty', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
-      issues.listComments.mockResolvedValue({
+      pulls.listReviews.mockResolvedValue({
         data: [
           {
             id: getUniqueInt(),
             html_url: 'https://example.com/empty',
-            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
+            submitted_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
             body: '',
             user: { login: 'coderabbitai[bot]' },
           },
@@ -533,38 +536,80 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findReviewComment(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
     });
 
-    it('returns undefined when the newest comment is our own retrigger comment', async () => {
+    it('paginates to the next page when the first page has no match and is full', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const reviewId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+
+      pulls.listReviews
+        .mockResolvedValueOnce({
+          data: Array.from({ length: REVIEWS_PER_PAGE }, () => ({
+            id: getUniqueInt(),
+            html_url: 'https://example.com/non-matching',
+            submitted_at: new Date(since.getTime() + MS_PER_HOUR).toISOString(),
+            body: 'Not a code review',
+            user: { login: 'some-other-bot' },
+          })),
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: reviewId,
+              html_url: htmlUrl,
+              submitted_at: submittedAt,
+              body: '**Actionable comments posted: 1**',
+              user: { login: 'coderabbitai[bot]' },
+            },
+          ],
+        });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+
+      expect(pulls.listReviews).toHaveBeenCalledWith({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: REVIEWS_PER_PAGE,
+        page: 1,
+      });
+      expect(pulls.listReviews).toHaveBeenCalledWith({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: REVIEWS_PER_PAGE,
+        page: 2,
+      });
+      expect(result).toStrictEqual({ htmlUrl, reviewId });
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
+    });
+
+    it('stops paginating when a page returns fewer than the per-page limit', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
-      issues.listComments.mockResolvedValue({
-        data: [
-          {
-            id: getUniqueInt(),
-            html_url: 'https://example.com/our-retrigger',
-            created_at: new Date(since.getTime() + MS_PER_HOUR * 48).toISOString(),
-            body: '<!-- rabbit-maximizer -->\n@coderabbitai full review\n\n🔧 rabbit-maximizer v0.1.0 run=abc',
-            user: { login: 'couimet' },
-          },
-          {
-            id: getUniqueInt(),
-            html_url: 'https://example.com/coderabbit-review',
-            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
-            body: '## Summary by CodeRabbit\n\nHere is your review.',
-            user: { login: 'coderabbitai[bot]' },
-          },
-        ],
+      pulls.listReviews.mockResolvedValue({
+        data: Array.from({ length: 50 }, () => ({
+          id: getUniqueInt(),
+          html_url: 'https://example.com/non-matching',
+          submitted_at: new Date(since.getTime() + MS_PER_HOUR).toISOString(),
+          body: 'Not a code review',
+          user: { login: 'some-other-bot' },
+        })),
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findReviewComment(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
+      expect(pulls.listReviews).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -1,16 +1,17 @@
 import { TYPES } from '../inversify-types.js';
-import { REVIEW_BOT_LOGIN } from '../types/coderabbit.js';
 import type { DetectedComment } from '../types/DetectedComment.js';
 import type { PRState } from '../types/PRState.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
 import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
 import type { TriggerSource } from '../types/TriggerSource.js';
 
+import type { CompletedReview, RetriggerComment } from './types/index.js';
 import { buildCommentBody } from './buildCommentBody.js';
 import { buildSearchQuery } from './buildSearchQuery.js';
 import { extractRepoFullName } from './extractRepoFullName.js';
 import { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './hasRateLimitMarker.js';
+import { isMatchingCompletedReview } from './isMatchingCompletedReview.js';
 import { splitRepo } from './splitRepo.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -26,11 +27,11 @@ export interface CoderabbitGitHubClient {
 
   fetchComment(owner: string, repo: string, commentId: number): Promise<string>;
 
-  postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<{ htmlUrl: string }>;
+  postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment>;
 
   getPRState(repo: string, pr: number): Promise<PRState>;
 
-  findReviewComment(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined>;
+  findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined>;
 
   findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
 }
@@ -109,7 +110,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return response.data.body ?? '';
   }
 
-  async postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<{ htmlUrl: string }> {
+  async postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment> {
     const { owner, repo: repoName } = splitRepo(repo);
     const body = buildCommentBody(sourceCommentUrl, runId, triggerSource);
 
@@ -139,30 +140,29 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return { state: response.data.state, merged_at: response.data.merged_at };
   }
 
-  async findReviewComment(owner: string, repo: string, pr: number, since: Date): Promise<{ htmlUrl: string } | undefined> {
-    this.log.debug({ fn: 'findReviewComment', owner, repo, pr }, 'Searching for review comment');
+  async findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined> {
+    this.log.debug({ fn: 'findCompletedReview', owner, repo, pr }, 'Searching for completed review');
 
-    const response = await this.octokit.rest.issues.listComments({
-      owner,
-      repo,
-      issue_number: pr,
-      sort: 'created',
-      direction: 'desc',
-      per_page: COMMENTS_FETCH_PER_PAGE,
-    });
+    for (let page = 1; ; page++) {
+      const response = await this.octokit.rest.pulls.listReviews({
+        owner,
+        repo,
+        pull_number: pr,
+        per_page: COMMENTS_FETCH_PER_PAGE,
+        page,
+      });
 
-    // If the newest comment is our own retrigger, CodeRabbit hasn't responded yet — nothing to complete
-    if (response.data.length > 0 && response.data[0].body && hasOwnRetriggerMarker(response.data[0].body)) {
-      return undefined;
-    }
+      const completedReview = response.data.find((r) => isMatchingCompletedReview(r, since));
 
-    const completedComment = response.data.find(
-      (c) => c.user?.login === REVIEW_BOT_LOGIN && c.body && !hasRateLimitMarker(c.body) && new Date(c.created_at) > since,
-    );
+      if (completedReview) {
+        this.log.info(
+          { fn: 'findCompletedReview', owner, repo, pr, reviewId: completedReview.id, htmlUrl: completedReview.html_url },
+          'Found completed review',
+        );
+        return { htmlUrl: completedReview.html_url, reviewId: completedReview.id };
+      }
 
-    if (completedComment) {
-      this.log.debug({ fn: 'findReviewComment', owner, repo, pr, commentId: completedComment.id, htmlUrl: completedComment.html_url }, 'Found review comment');
-      return { htmlUrl: completedComment.html_url };
+      if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
     }
 
     return undefined;
