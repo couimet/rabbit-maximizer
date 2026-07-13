@@ -40,10 +40,10 @@ describe('DetectedProbe', () => {
       logger,
     );
 
-    await probe.processStarted();
+    await probe.detected();
     expect(logger.debug).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr }, 'Review-limit comment detected');
 
-    const result = await probe.processCompleted(tx);
+    const result = await probe.enqueued(tx);
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -72,7 +72,7 @@ describe('DetectedProbe', () => {
     const tx = makeTx();
 
     const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, eventRepository, observation, logger);
-    await probe.processCompleted(tx);
+    await probe.enqueued(tx);
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -105,7 +105,7 @@ describe('DetectedProbe', () => {
 
     const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, eventRepository, observation, logger);
 
-    const result = await probe.processMerged(tx);
+    const result = await probe.prMerged(tx);
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -139,7 +139,7 @@ describe('DetectedProbe', () => {
 
     const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, eventRepository, observation, logger);
 
-    const result = await probe.processClosedWithoutMerge(tx);
+    const result = await probe.prClosedWithoutMerge(tx);
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -165,7 +165,7 @@ describe('DetectedProbe', () => {
 
     const probe = new DetectedProbe({ repo_full_name: repo, pr_number: pr }, {} as EventRepository, observation, logger);
 
-    probe.processAlreadyQueued();
+    probe.alreadyQueued();
 
     expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr }, 'Review-limit comment already queued; skipping');
   });

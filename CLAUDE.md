@@ -108,6 +108,22 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>A `DetailedError` carries code, message, functionName, and an arbitrary details object. Logging just the code drops everything else — the message explains what happened, functionName pinpoints the source, and details carries operation-specific context (notBefore, sourceComment, etc.). Passing the full error preserves all of it in structured log output.</rationale>
 </rule>
 
+<rule id="C011" priority="critical">
+  <title>Probes own all observability for a business process</title>
+  <do>Create exactly one probe per business process, at the top, via `ProbeFactory`</do>
+  <do>Name probe methods as past-tense domain verbs describing what happened: `retriggered()`, `failed()`, `backedOff()`, `queueItemNotFound()`</do>
+  <do>Put all event recording AND business-outcome logging inside the probe — even on branches that do not record an event</do>
+  <do>Pass a domain object (`QueueItem`, `uuid`) to the factory method, never an `ObservationContext`</do>
+  <do>Keep all entity mutations in the caller — the probe never touches the entity it observes. The caller updates state, then tells the probe what happened (see `MarkQueueItemReviewedProbe`)</do>
+  <never>Create two probes for the same business process — merge them</never>
+  <never>Prefix probe method names with `record` — the caller describes the outcome, not the mechanism</never>
+  <never>Duplicate a business-outcome log in both the caller and the probe</never>
+  <never>Pass `ObservationContext` into a factory method — the factory calls `this.observation.current()` internally</never>
+  <exception>When the SAME observation context instance must be shared between a probe and other code in the same flow (e.g. both the probe and `queue.enqueue()` receive `obs`), extract it once in the caller and pass to both. This is the only valid reason for a factory method to accept `ObservationContext`. See `EnqueueService.handle`: `obs` is shared with `createDetectedProbe(context, obs)` and `queue.enqueue(data, obs, tx)`.</exception>
+  <rationale>A probe represents one business process end-to-end. It owns every observable trace — events AND logs — so callers stay focused on control flow and their own entity. See `src/probes/README.md` for the full decision framework.</rationale>
+  <see>src/probes/README.md</see>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

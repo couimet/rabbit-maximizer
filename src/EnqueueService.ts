@@ -44,15 +44,15 @@ export class EnqueueService {
       },
       obs,
     );
-    await probe.processStarted();
+    await probe.detected();
 
     const prState = await this.fetcher.fetch(comment.repo_full_name, comment.pr_number, 'EnqueueService.handle');
 
     await this.prisma.$transaction(async (tx) => {
       if (prState !== undefined && isPRMerged(prState)) {
-        await probe.processMerged(tx);
+        await probe.prMerged(tx);
       } else if (prState !== undefined && isPRClosedWithoutMerge(prState)) {
-        await probe.processClosedWithoutMerge(tx);
+        await probe.prClosedWithoutMerge(tx);
       } else {
         const { id: pullRequestId } = await this.pullRequests.upsert(
           comment.repo_full_name,
@@ -75,9 +75,9 @@ export class EnqueueService {
           tx,
         );
         if (created) {
-          await probe.processCompleted(tx);
+          await probe.enqueued(tx);
         } else {
-          probe.processAlreadyQueued();
+          probe.alreadyQueued();
         }
       }
     });

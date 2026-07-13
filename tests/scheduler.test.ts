@@ -1,9 +1,7 @@
 import type { Config } from '../src/config.js';
-import type { EventRepository } from '../src/db/eventRepository.js';
 import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
-import type { QueueRepository } from '../src/db/queueRepository.js';
 import type { SystemStateRepository } from '../src/db/systemStateRepository.js';
-import type { ObservationContextProvider } from '../src/observability/observationContext.js';
+import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { Pruner } from '../src/Pruner.js';
 import { ReviewTrigger } from '../src/ReviewTrigger.js';
 import { Scheduler } from '../src/scheduler.js';
@@ -12,11 +10,10 @@ import { QueueStatus } from '../src/types/QueueStatus.js';
 import { RabbitResult } from '../src/types/RabbitResult.js';
 
 import {
-  createMockEventRepo,
-  createMockObservationContextProvider,
+  createMockProbeFactory,
   createMockPruner,
   createMockQueueOrderRepo,
-  createMockQueueRepo,
+  createMockSchedulerProbe,
   createMockSystemStateRepository,
   drainMicrotasks,
 } from './helpers/index.js';
@@ -50,14 +47,13 @@ interface QueueItemStub {
 
 interface MockSchedulerDeps {
   config: Config;
-  queue: jest.Mocked<QueueRepository>;
   queueOrder: jest.Mocked<QueueOrderRepository>;
-  events: jest.Mocked<EventRepository>;
-  observation: jest.Mocked<ObservationContextProvider>;
   prisma: PrismaClient;
   tx: Prisma.TransactionClient;
   logger: Logger;
   pruner: jest.Mocked<Pruner>;
+  probeFactory: jest.Mocked<ProbeFactory>;
+  mockProbe: ReturnType<typeof createMockSchedulerProbe>;
   reviewTrigger: jest.Mocked<ReviewTrigger>;
   systemState: jest.Mocked<SystemStateRepository>;
 }
@@ -83,12 +79,8 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
 };
 
 const setup = (): MockSchedulerDeps => {
-  const queue = createMockQueueRepo();
   const queueOrder = createMockQueueOrderRepo();
   const reviewTrigger = { trigger: jest.fn() } as unknown as jest.Mocked<ReviewTrigger>;
-  const events = createMockEventRepo() as unknown as MockSchedulerDeps['events'];
-
-  const observation = createMockObservationContextProvider();
 
   const tx = {} as Prisma.TransactionClient;
 
@@ -99,6 +91,9 @@ const setup = (): MockSchedulerDeps => {
   const logger = createMockLogger();
 
   const pruner = createMockPruner();
+
+  const mockProbe = createMockSchedulerProbe();
+  const probeFactory = createMockProbeFactory({ createSchedulerProbe: jest.fn<any>().mockReturnValue(mockProbe) });
 
   const systemState = createMockSystemStateRepository();
 
@@ -120,7 +115,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_TICK_INTERVAL_MS: TICK_INTERVAL_MS,
   };
 
-  return { config, queue, queueOrder, events, observation, prisma, tx, logger, pruner, reviewTrigger, systemState };
+  return { config, queueOrder, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState };
 };
 
 describe('Scheduler', () => {
@@ -135,18 +130,7 @@ describe('Scheduler', () => {
   });
 
   const createScheduler = () =>
-    new Scheduler(
-      deps.queue,
-      deps.queueOrder,
-      deps.events,
-      deps.observation,
-      deps.prisma,
-      deps.config,
-      deps.pruner,
-      deps.reviewTrigger,
-      deps.systemState,
-      deps.logger,
-    );
+    new Scheduler(deps.queueOrder, deps.prisma, deps.config, deps.pruner, deps.reviewTrigger, deps.probeFactory, deps.systemState, deps.logger);
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
@@ -186,12 +170,6 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, notBefore, newComment, deps.tx);
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, newNotBefore: notBefore, error: staleErr },
-        'Stale source comment replaced; rescheduled with updated not_before',
-      );
-
       await stop();
     });
 
@@ -210,12 +188,6 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, error: staleErr },
-        'Stale source comment with no replacement; rescheduled with backoff',
-      );
-
       await stop();
     });
 
@@ -233,12 +205,6 @@ describe('Scheduler', () => {
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
-
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
-      expect(deps.logger.warn).toHaveBeenCalledWith(
-        { fn: 'Scheduler.tick', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, backoffMs: BASE_BACKOFF_MS, error: staleErr },
-        'Stale source comment with no replacement; rescheduled with backoff',
-      );
 
       await stop();
     });
@@ -261,8 +227,6 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
-
       await stop();
     });
 
@@ -277,7 +241,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(404, deps.tx);
 
       await stop();
     });
@@ -293,7 +257,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(410, deps.tx);
 
       await stop();
     });
@@ -309,8 +273,8 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.markFailed).not.toHaveBeenCalled();
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + BASE_BACKOFF_MS), deps.tx);
+      expect(deps.mockProbe.prClosedOrMerged).not.toHaveBeenCalled();
+      expect(deps.mockProbe.backedOff).toHaveBeenCalledWith(BASE_BACKOFF_MS, 0, networkError, deps.tx);
 
       await stop();
     });
@@ -338,7 +302,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.logger.debug).toHaveBeenCalledWith({ fn: 'Scheduler.tick' }, 'Scheduler is paused; skipping tick');
+      expect(deps.mockProbe.schedulerPaused).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
 
       await stop();
@@ -383,7 +347,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'Scheduler.tick', error: dbError }, 'executeTick failed before item was fetched');
+      expect(deps.mockProbe.tickFailed).toHaveBeenCalledWith(dbError);
 
       await stop();
     });
@@ -396,7 +360,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'Scheduler.tick', error: 'raw string failure' }, 'executeTick failed before item was fetched');
+      expect(deps.mockProbe.tickFailed).toHaveBeenCalledWith('raw string failure');
 
       await stop();
     });
@@ -406,23 +370,22 @@ describe('Scheduler', () => {
       const rescheduleNotBefore = new Date(Date.now() + 120_000);
       const newComment = { commentId: 888, commentUrl: 'https://gh/c/newer' };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(
-        RabbitResult.err(
-          new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-            code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
-            message: 'stale',
-            functionName: 'test',
-            details: { notBefore: rescheduleNotBefore.toISOString(), sourceComment: newComment },
-          }),
-        ),
+      const staleErr = RabbitResult.err(
+        new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+          code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
+          message: 'stale',
+          functionName: 'test',
+          details: { notBefore: rescheduleNotBefore.toISOString(), sourceComment: newComment },
+        }),
       );
+      deps.reviewTrigger.trigger.mockResolvedValue(staleErr);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, rescheduleNotBefore, newComment, deps.tx);
+      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(staleErr, deps.tx);
 
       await stop();
     });

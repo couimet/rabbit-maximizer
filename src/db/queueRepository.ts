@@ -1,19 +1,9 @@
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import type { ProbeFactory } from '../probes/ProbeFactory.js';
-import {
-  type CommentDetails,
-  type EnqueueData,
-  type EnqueueResult,
-  EventType,
-  type PaginatedResult,
-  type QueueItem,
-  QueueStatus,
-  TriggerSource,
-} from '../types/index.js';
+import { type CommentDetails, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 
 import { BasePrismaRepository } from './BasePrismaRepository.js';
-import type { EventRepository } from './eventRepository.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
@@ -43,8 +33,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PrismaClient) prisma: PrismaClient,
-    // TODO [2026-07-15]: #123 — remove once enqueue() event recording moves to EnqueueProbe
-    @inject(TYPES.EventRepository) private readonly events: EventRepository,
     @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.Logger) log: Logger,
   ) {
@@ -54,6 +42,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
   async enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
     const { repo, pr, prTitle, notBefore, sourceCommentUrl, sourceCommentId, newWait } = data;
+    const probe = this.probeFactory.createEnqueueProbe(tx);
     const db = this.client(tx);
     const recentRetriggered = await db.reviewQueue.findFirst({
       where: {
@@ -64,7 +53,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       },
     });
     if (recentRetriggered) {
-      this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'PR was recently retriggered; skipping');
+      probe.recentlyRetriggered(repo, pr);
       return { item: this.toQueueItem(recentRetriggered), created: false };
     }
 
@@ -84,22 +73,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       await db.queueOrder.create({ data: { queue_item_id: row.id } });
 
-      // TODO [2026-07-15]: #123 — EnqueueProbe: encapsulate event recording so QueueRepositoryImpl only deals with reviewQueue rows
-      await this.events.record(
-        {
-          type: EventType.enqueued,
-          repo_full_name: repo,
-          pr_number: pr,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
-          payload: {
-            not_before: notBefore,
-            new_wait: newWait,
-          },
-        },
-        tx,
-      );
+      await probe.enqueued({ repo, pr, notBefore, newWait });
 
       this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
       return { item: this.toQueueItem(row), created: true };
@@ -115,13 +89,10 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         if (existing) {
           if (existing.not_before.getTime() !== notBefore.getTime()) {
             const updated = await db.reviewQueue.update({ where: { id: existing.id }, data: { not_before: notBefore } });
-            this.log.debug(
-              { fn: 'QueueRepositoryImpl.enqueue', repo, pr, oldNotBefore: existing.not_before, newNotBefore: notBefore },
-              'Updated not_before on re-detection',
-            );
+            probe.alreadyQueuedRescheduled(repo, pr, existing.not_before, notBefore);
             return { item: this.toQueueItem(updated), created: false };
           }
-          this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, status: existing.status }, 'Already queued; returning existing row');
+          probe.alreadyQueued(repo, pr, existing.status);
           return { item: this.toQueueItem(existing), created: false };
         }
       }

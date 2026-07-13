@@ -6,6 +6,8 @@ import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { DetectedComment } from '../src/types/DetectedComment.js';
 
+import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
+import { createMockDetectedProbe } from './helpers/createMockProbes.js';
 import { createMockPullRequestRepo } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
@@ -31,11 +33,11 @@ describe('EnqueueService', () => {
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
   let probe: {
-    processStarted: jest.Mock;
-    processCompleted: jest.Mock;
-    processMerged: jest.Mock;
-    processClosedWithoutMerge: jest.Mock;
-    processAlreadyQueued: jest.Mock;
+    detected: jest.Mock;
+    enqueued: jest.Mock;
+    prMerged: jest.Mock;
+    prClosedWithoutMerge: jest.Mock;
+    alreadyQueued: jest.Mock;
   };
   let fetcher: PRStateFetcher;
   let mockPullRequests: ReturnType<typeof createMockPullRequestRepo>;
@@ -59,14 +61,8 @@ describe('EnqueueService', () => {
       $transaction: jest.fn<(fn: (client: Prisma.TransactionClient) => unknown) => unknown>().mockImplementation((fn) => fn(tx)),
     } as unknown as PrismaClient;
 
-    probe = {
-      processStarted: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      processCompleted: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUuid() }),
-      processMerged: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUuid() }),
-      processClosedWithoutMerge: jest.fn<() => Promise<{ uuid: string }>>().mockResolvedValue({ uuid: getUuid() }),
-      processAlreadyQueued: jest.fn(),
-    };
-    probes = { createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) } as unknown as ProbeFactory;
+    probe = createMockDetectedProbe();
+    probes = createMockProbeFactory({ createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) });
 
     observation = {
       current: jest.fn().mockReturnValue({ correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' }),
@@ -87,11 +83,11 @@ describe('EnqueueService', () => {
 
       await svc.handle(comment, 330);
 
-      expect(probe.processStarted).toHaveBeenCalled();
+      expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(probe.processMerged).toHaveBeenCalledWith(tx);
+      expect(probe.prMerged).toHaveBeenCalledWith(tx);
       expect(queue.enqueue).not.toHaveBeenCalled();
-      expect(probe.processCompleted).not.toHaveBeenCalled();
+      expect(probe.enqueued).not.toHaveBeenCalled();
     });
 
     it('bypasses via probe when PR is closed without merge', async () => {
@@ -101,11 +97,11 @@ describe('EnqueueService', () => {
 
       await svc.handle(comment, 330);
 
-      expect(probe.processStarted).toHaveBeenCalled();
+      expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(probe.processClosedWithoutMerge).toHaveBeenCalledWith(tx);
+      expect(probe.prClosedWithoutMerge).toHaveBeenCalledWith(tx);
       expect(queue.enqueue).not.toHaveBeenCalled();
-      expect(probe.processCompleted).not.toHaveBeenCalled();
+      expect(probe.enqueued).not.toHaveBeenCalled();
     });
 
     it('creates probe, enqueues, and completes probe in a transaction when PR is open', async () => {
@@ -122,7 +118,7 @@ describe('EnqueueService', () => {
         { repo_full_name: comment.repo_full_name, pr_number: comment.pr_number, source_ts: new Date(comment.created_at), source_comment_url: comment.url },
         observation.current(),
       );
-      expect(probe.processStarted).toHaveBeenCalled();
+      expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(queue.enqueue).toHaveBeenCalledWith(
         {
@@ -138,8 +134,8 @@ describe('EnqueueService', () => {
         observation.current(),
         tx,
       );
-      expect(probe.processCompleted).toHaveBeenCalledWith(tx);
-      expect(probe.processMerged).not.toHaveBeenCalled();
+      expect(probe.enqueued).toHaveBeenCalledWith(tx);
+      expect(probe.prMerged).not.toHaveBeenCalled();
     });
 
     it('proceeds with enqueue when getPRState fails', async () => {
@@ -150,25 +146,25 @@ describe('EnqueueService', () => {
 
       await svc.handle(comment, waitSeconds);
 
-      expect(probe.processStarted).toHaveBeenCalled();
+      expect(probe.detected).toHaveBeenCalled();
       expect(queue.enqueue).toHaveBeenCalled();
-      expect(probe.processCompleted).toHaveBeenCalledWith(tx);
-      expect(probe.processMerged).not.toHaveBeenCalled();
+      expect(probe.enqueued).toHaveBeenCalledWith(tx);
+      expect(probe.prMerged).not.toHaveBeenCalled();
     });
 
-    it('skips processCompleted when enqueue returns created: false', async () => {
+    it('skips enqueued when enqueue returns created: false', async () => {
       (queue.enqueue as jest.Mock<any>).mockResolvedValue({ item: {}, created: false });
       const svc = createService();
       const comment = makeComment();
 
       await svc.handle(comment, 330);
 
-      expect(probe.processStarted).toHaveBeenCalled();
+      expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(queue.enqueue).toHaveBeenCalled();
-      expect(probe.processCompleted).not.toHaveBeenCalled();
-      expect(probe.processAlreadyQueued).toHaveBeenCalled();
-      expect(probe.processMerged).not.toHaveBeenCalled();
+      expect(probe.enqueued).not.toHaveBeenCalled();
+      expect(probe.alreadyQueued).toHaveBeenCalled();
+      expect(probe.prMerged).not.toHaveBeenCalled();
     });
 
     it('schedules the enqueue based on comment.updated_at and wait', async () => {

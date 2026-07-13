@@ -1,7 +1,8 @@
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
-import { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import { ReviewTrigger } from '../src/ReviewTrigger.js';
 import { QueueStatus, TriggerSource } from '../src/types/index.js';
+
+import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -37,7 +38,7 @@ const setup = () => {
     findLatestReviewLimitComment: jest.fn(),
     postRetrigger: jest.fn(),
   } as unknown as jest.Mocked<CoderabbitGitHubClient>;
-  const probeFactory = { createReviewRetriggerProbe: jest.fn() } as unknown as jest.Mocked<ProbeFactory>;
+  const probeFactory = createMockProbeFactory({ createReviewRetriggerProbe: jest.fn() });
   const queue = {} as any;
   const tx = {} as Prisma.TransactionClient;
   const prisma = { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)) } as unknown as PrismaClient;

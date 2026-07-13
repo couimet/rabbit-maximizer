@@ -8,8 +8,6 @@ import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
 
 export class ReviewRetriggerProbe {
-  private readonly loggingCtx;
-
   constructor(
     private readonly item: QueueItem,
     private readonly queue: QueueRepository,
@@ -17,20 +15,27 @@ export class ReviewRetriggerProbe {
     private readonly events: EventRepository,
     private readonly observation: ObservationContext,
     private readonly log: Logger,
-  ) {
-    this.loggingCtx = { fn: 'ReviewRetriggerProbe', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id };
+  ) {}
+
+  staleCommentSkipped(): void {
+    this.log.warn(
+      { fn: 'ReviewRetriggerProbe.staleCommentSkipped', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id },
+      'No replacement rate-limit comment found',
+    );
+  }
+
+  staleCommentReplacementDeleted(commentId: number): void {
+    this.log.warn(
+      { fn: 'ReviewRetriggerProbe.staleCommentReplacementDeleted', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, commentId },
+      'Replacement comment was deleted before fetch',
+    );
   }
 
   staleCommentRescheduled(notBefore: Date): void {
-    this.log.info({ ...this.loggingCtx, notBefore }, 'Stale source comment replaced; cannot retrigger');
-  }
-
-  staleCommentSkipped(): void {
-    this.log.info(this.loggingCtx, 'No replacement rate-limit comment found; cannot retrigger');
-  }
-
-  staleCommentReplacementDeleted(replacementCommentId: number): void {
-    this.log.info({ ...this.loggingCtx, replacementCommentId }, 'Replacement comment was deleted before fetch; cannot retrigger');
+    this.log.info(
+      { fn: 'ReviewRetriggerProbe.staleCommentRescheduled', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, notBefore },
+      'Stale source comment replaced; rescheduled with updated not_before',
+    );
   }
 
   async reviewRetriggered(retriggeredCommentUrl: string, cooldownUntil: Date, tx: Prisma.TransactionClient): Promise<void> {
@@ -44,13 +49,13 @@ export class ReviewRetriggerProbe {
         correlation_id: this.observation.correlationId,
         request_id: this.observation.requestId,
         version: this.observation.version,
-        payload: {
-          source_comment_url: this.item.source_comment_url!,
-          retriggered_comment_url: retriggeredCommentUrl,
-        },
+        payload: { source_comment_url: this.item.source_comment_url, retriggered_comment_url: retriggeredCommentUrl },
       },
       tx,
     );
-    this.log.info({ ...this.loggingCtx }, 'Retrigger retriggered');
+    this.log.info(
+      { fn: 'ReviewRetriggerProbe.reviewRetriggered', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id },
+      'Review retriggered',
+    );
   }
 }

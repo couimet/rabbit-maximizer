@@ -5,6 +5,8 @@ export * from './createMockObservationContextProvider.js';
 export * from './createMockOctokit.js';
 export * from './createMockOnDetectedCallback.js';
 export * from './createMockPrismaClient.js';
+export * from './createMockProbeFactory.js';
+export * from './createMockProbes.js';
 export * from './createMockPruner.js';
 export * from './createMockPullRequestRepo.js';
 export * from './createMockQueueOrderRepo.js';

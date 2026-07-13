@@ -7,6 +7,7 @@ import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
 import { parseWaitSeconds } from './github/parseWaitSeconds.js';
 import { splitRepo } from './github/splitRepo.js';
 import { ProbeFactory } from './probes/ProbeFactory.js';
+import type { ReviewRetriggerProbe } from './probes/ReviewRetriggerProbe.js';
 import { type QueueItem, TriggerSource } from './types/index.js';
 import { RabbitResult } from './types/RabbitResult.js';
 import { MS_PER_SECOND } from './utils/durations.js';
@@ -111,11 +112,7 @@ export class ReviewTrigger {
     );
   }
 
-  private async postAndRecord(
-    item: QueueItem,
-    probe: ReturnType<ProbeFactory['createReviewRetriggerProbe']>,
-    triggerSource: TriggerSource,
-  ): Promise<RabbitResult<TriggerDetails>> {
+  private async postAndRecord(item: QueueItem, probe: ReviewRetriggerProbe, triggerSource: TriggerSource): Promise<RabbitResult<TriggerDetails>> {
     const runId = randomUUID();
     this.log.info({ fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId }, 'Posting retrigger');
 

@@ -2,9 +2,10 @@ import { IntervalService } from '../src/IntervalService.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 const TICK_MS = 100;
+const TICK_ERROR = new Error('tick failure');
 
 class StubService extends IntervalService {
   executeTickCalls = 0;
@@ -16,6 +17,16 @@ class StubService extends IntervalService {
   protected executeTick(): Promise<void> {
     this.executeTickCalls++;
     return Promise.resolve();
+  }
+}
+
+class FailingService extends IntervalService {
+  constructor(log: Logger) {
+    super(log, TICK_MS);
+  }
+
+  protected executeTick(): Promise<void> {
+    return Promise.reject(TICK_ERROR);
   }
 }
 
@@ -44,5 +55,20 @@ describe('IntervalService', () => {
     const svc = new StubService(log);
     (svc as any).tickPromise = Promise.resolve();
     expect(svc['tickGuard']()).toBe(false);
+  });
+
+  it('logs a warning and continues when executeTick throws', async () => {
+    jest.useFakeTimers();
+    const log = createMockLogger();
+    const svc = new FailingService(log);
+
+    svc.start();
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(log.warn).toHaveBeenCalledWith({ fn: 'IntervalService.tick', error: TICK_ERROR }, 'executeTick threw; continuing');
+    expect(svc['stopped']).toBe(false);
+
+    await svc['stop']();
+    jest.useRealTimers();
   });
 });

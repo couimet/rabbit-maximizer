@@ -30,7 +30,7 @@ const makeItem = () => ({
   updated_at: getUniqueDate(),
 });
 
-const LOGGING_CTX = (item: ReturnType<typeof makeItem>) => ({ fn: 'ReviewRetriggerProbe', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id });
+const LOGGING_CTX = (item: ReturnType<typeof makeItem>) => (fn: string) => ({ fn, repo: item.repo_full_name, pr: item.pr_number, queueId: item.id });
 
 describe('ReviewRetriggerProbe', () => {
   let queue: jest.Mocked<QueueRepository>;
@@ -77,7 +77,7 @@ describe('ReviewRetriggerProbe', () => {
       },
       TX,
     );
-    expect(logger.info).toHaveBeenCalledWith(LOGGING_CTX(item), 'Retrigger retriggered');
+    expect(logger.info).toHaveBeenCalledWith(LOGGING_CTX(item)('ReviewRetriggerProbe.reviewRetriggered'), 'Review retriggered');
   });
 
   it('logs on staleCommentRescheduled', () => {
@@ -87,7 +87,10 @@ describe('ReviewRetriggerProbe', () => {
     const probe = createProbe(item);
     probe.staleCommentRescheduled(notBefore);
 
-    expect(logger.info).toHaveBeenCalledWith({ ...LOGGING_CTX(item), notBefore }, 'Stale source comment replaced; cannot retrigger');
+    expect(logger.info).toHaveBeenCalledWith(
+      { ...LOGGING_CTX(item)('ReviewRetriggerProbe.staleCommentRescheduled'), notBefore },
+      'Stale source comment replaced; rescheduled with updated not_before',
+    );
   });
 
   it('logs on staleCommentSkipped', () => {
@@ -96,7 +99,7 @@ describe('ReviewRetriggerProbe', () => {
     const probe = createProbe(item);
     probe.staleCommentSkipped();
 
-    expect(logger.info).toHaveBeenCalledWith(LOGGING_CTX(item), 'No replacement rate-limit comment found; cannot retrigger');
+    expect(logger.warn).toHaveBeenCalledWith(LOGGING_CTX(item)('ReviewRetriggerProbe.staleCommentSkipped'), 'No replacement rate-limit comment found');
   });
 
   it('logs on staleCommentReplacementDeleted', () => {
@@ -106,9 +109,9 @@ describe('ReviewRetriggerProbe', () => {
     const probe = createProbe(item);
     probe.staleCommentReplacementDeleted(REPLACEMENT_ID);
 
-    expect(logger.info).toHaveBeenCalledWith(
-      { ...LOGGING_CTX(item), replacementCommentId: REPLACEMENT_ID },
-      'Replacement comment was deleted before fetch; cannot retrigger',
+    expect(logger.warn).toHaveBeenCalledWith(
+      { ...LOGGING_CTX(item)('ReviewRetriggerProbe.staleCommentReplacementDeleted'), commentId: REPLACEMENT_ID },
+      'Replacement comment was deleted before fetch',
     );
   });
 });
