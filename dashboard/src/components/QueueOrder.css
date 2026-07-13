@@ -47,7 +47,8 @@
   white-space: nowrap;
 }
 
-.btn-arrow {
+.btn-arrow,
+.btn-retrigger {
   padding: 2px 8px;
   border: 1px solid #e3d6c3;
   background: #fff;
@@ -66,38 +67,14 @@
   margin-left: 4px;
 }
 
-.btn-arrow:hover:not(:disabled) {
-  background: #f4f0e7;
-  border-color: #f38222;
-  color: #f38222;
-}
-
-.btn-arrow:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.btn-retrigger {
-  padding: 2px 8px;
-  border: 1px solid #e3d6c3;
-  background: #fff;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: #8b7d6b;
-  line-height: 1;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
-}
-
+.btn-arrow:hover:not(:disabled),
 .btn-retrigger:hover:not(:disabled) {
   background: #f4f0e7;
   border-color: #f38222;
   color: #f38222;
 }
 
+.btn-arrow:disabled,
 .btn-retrigger:disabled {
   opacity: 0.3;
   cursor: default;
@@ -105,6 +82,14 @@
 
 .queue-order-carrots {
   letter-spacing: 2px;
+}
+
+.row-waiting td {
+  color: #b0a392;
+}
+
+.row-waiting a {
+  color: #b0a392;
 }
 
 .row-selected {

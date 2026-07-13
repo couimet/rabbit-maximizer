@@ -605,13 +605,3 @@ a:hover {
   text-overflow: ellipsis;
   margin-top: 2px;
 }
-
-/* Queue Order fragments (not component-scoped) */
-
-.row-waiting td {
-  color: #b0a392;
-}
-
-.row-waiting a {
-  color: #b0a392;
-}
