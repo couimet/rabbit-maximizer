@@ -1,5 +1,4 @@
 import type { EventRepository } from '../db/eventRepository.js';
-import type { CompletedReview } from '../github/types/CompletedReview.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import { EventType, type QueueItem } from '../types/index.js';
 
@@ -30,32 +29,35 @@ export class ReviewDetectorProbe {
     );
   }
 
-  async completed(completedReview: CompletedReview, tx: Prisma.TransactionClient): Promise<void> {
+  async reviewed(
+    eventType: EventType.coderabbit_review_approved | EventType.coderabbit_review_changes_requested,
+    commentUrl: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
     await this.events.record(
       {
-        type: EventType.completed,
+        type: eventType,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
         correlation_id: this.observation.correlationId,
         request_id: this.observation.requestId,
         version: this.observation.version,
         payload: {
-          retriggered_comment_url: completedReview.htmlUrl,
-          review_id: completedReview.reviewId,
+          coderabbit_comment_url: commentUrl,
         },
       },
       tx,
     );
     this.log.info(
       {
-        fn: 'ReviewDetectorProbe.completed',
+        fn: 'ReviewDetectorProbe.reviewed',
         repo: this.item!.repo_full_name,
         pr: this.item!.pr_number,
         queueId: this.item!.id,
-        reviewUrl: completedReview.htmlUrl,
-        reviewId: completedReview.reviewId,
+        eventType,
+        commentUrl,
       },
-      'Completed review detected',
+      'Review detected',
     );
   }
 

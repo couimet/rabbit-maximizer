@@ -352,13 +352,13 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(probeEvents.record).toHaveBeenCalledWith(
         {
-          type: 'completed',
+          type: 'coderabbit_review_approved',
           repo_full_name: row.repo_full_name,
           pr_number: row.pr_number,
           correlation_id: observationContext.correlationId,
           request_id: observationContext.requestId,
           version: observationContext.version,
-          payload: { retriggered_comment_url: COMMENT_URL },
+          payload: { coderabbit_comment_url: COMMENT_URL },
         },
         prisma,
       );
@@ -384,13 +384,13 @@ describe('QueueRepositoryImpl', () => {
 
       expect(probeEvents.record).toHaveBeenCalledWith(
         {
-          type: 'completed',
+          type: 'coderabbit_review_approved',
           repo_full_name: row.repo_full_name,
           pr_number: row.pr_number,
           correlation_id: observationContext.correlationId,
           request_id: observationContext.requestId,
           version: observationContext.version,
-          payload: { retriggered_comment_url: undefined },
+          payload: { coderabbit_comment_url: undefined },
         },
         prisma,
       );
@@ -430,13 +430,13 @@ describe('QueueRepositoryImpl', () => {
       expect(result).toStrictEqual(toExpectedItem(completedRow));
       expect(probeEvents.record).toHaveBeenCalledWith(
         {
-          type: 'completed',
+          type: 'coderabbit_review_approved',
           repo_full_name: row.repo_full_name,
           pr_number: row.pr_number,
           correlation_id: observationContext.correlationId,
           request_id: observationContext.requestId,
           version: observationContext.version,
-          payload: { retriggered_comment_url: row.retrigger_comment_url ?? undefined },
+          payload: { coderabbit_comment_url: row.retrigger_comment_url ?? undefined },
         },
         {
           reviewQueue,

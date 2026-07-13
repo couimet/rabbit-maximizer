@@ -16,12 +16,13 @@ describe('QueueStatus', () => {
 describe('EventType', () => {
   it('has the correct values', () => {
     expect(EventType).toStrictEqual({
+      bypassed: 'bypassed',
       detected: 'detected',
       enqueued: 'enqueued',
-      retriggered: 'retriggered',
-      bypassed: 'bypassed',
-      completed: 'completed',
       failed: 'failed',
+      retriggered: 'retriggered',
+      coderabbit_review_approved: 'coderabbit_review_approved',
+      coderabbit_review_changes_requested: 'coderabbit_review_changes_requested',
     });
   });
 });

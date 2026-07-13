@@ -250,7 +250,7 @@ export interface components {
       updated_at: string;
     };
     /** @enum {string} */
-    EventType: 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed';
+    EventType: 'bypassed' | 'detected' | 'enqueued' | 'failed' | 'retriggered' | 'coderabbit_review_approved' | 'coderabbit_review_changes_requested';
     EventEntry: {
       id: number;
       uuid: string;

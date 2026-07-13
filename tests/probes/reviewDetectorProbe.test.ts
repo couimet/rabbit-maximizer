@@ -1,8 +1,7 @@
 import type { EventRepository } from '../../src/db/eventRepository.js';
-import type { CompletedReview } from '../../src/github/types/CompletedReview.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
-import type { QueueItem } from '../../src/types/index.js';
+import { EventType, type QueueItem } from '../../src/types/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -50,33 +49,31 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
-  describe('completed', () => {
-    it('records completed event with full review payload and logs info', async () => {
+  describe('reviewed', () => {
+    it('records coderabbit_review_approved event with coderabbit_comment_url and logs info', async () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
-      const htmlUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
-      const reviewId = getUniqueInt();
-      const completedReview: CompletedReview = { htmlUrl, reviewId };
+      const commentUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
       const tx = makeTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.completed(completedReview, tx);
+      await probe.reviewed(EventType.coderabbit_review_approved, commentUrl, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
-          type: 'completed',
+          type: 'coderabbit_review_approved',
           repo_full_name: repo,
           pr_number: pr,
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
-          payload: { retriggered_comment_url: htmlUrl, review_id: reviewId },
+          payload: { coderabbit_comment_url: commentUrl },
         },
         tx,
       );
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'ReviewDetectorProbe.completed', repo, pr, queueId: item.id, reviewUrl: htmlUrl, reviewId },
-        'Completed review detected',
+        { fn: 'ReviewDetectorProbe.reviewed', repo, pr, queueId: item.id, eventType: 'coderabbit_review_approved', commentUrl },
+        'Review detected',
       );
     });
   });

@@ -191,9 +191,9 @@ describe('EventHistory', () => {
       renderEventHistory();
       await screen.findByText('detected');
 
-      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 100, page: 2, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'coderabbit_review_approved' })], total: 100, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
-      await screen.findByText('completed');
+      await screen.findByText('coderabbit_review_approved');
     });
 
     it('fetches previous page when Previous is clicked', async () => {
@@ -201,9 +201,9 @@ describe('EventHistory', () => {
       renderEventHistory();
       await screen.findByText('detected');
 
-      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'completed' })], total: 100, page: 2, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'coderabbit_review_approved' })], total: 100, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
-      await screen.findByText('completed');
+      await screen.findByText('coderabbit_review_approved');
 
       createMockFetch(200, { data: [makeEvent({ id: 88, type: 'retriggered' })], total: 100, page: 1, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Previous'));

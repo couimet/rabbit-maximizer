@@ -2,7 +2,9 @@ import type { QueueRepository } from './db/queueRepository.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import { splitRepo } from './github/splitRepo.js';
 import type { ProbeFactory } from './probes/ProbeFactory.js';
+import { EventType } from './types/index.js';
 import { MS_PER_SECOND } from './utils/durations.js';
+import { reviewStateToEventType } from './utils/reviewStateToEventType.js';
 import type { Config } from './config.js';
 import { IntervalService } from './IntervalService.js';
 import { TYPES } from './inversify-types.js';
@@ -45,14 +47,26 @@ export class ReviewDetector extends IntervalService {
       try {
         if (item.retriggered_at == null) continue;
         const { owner, repo } = splitRepo(item.repo_full_name);
-        const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, item.retriggered_at);
-        if (!completedReview) {
+
+        // Try Reviews API first for structured state, fall back to body-matched completed review
+        const review = await this.github.findLatestCoderabbitReview(owner, repo, item.pr_number, item.retriggered_at);
+        const completedReview = review === undefined ? await this.github.findCompletedReview(owner, repo, item.pr_number, item.retriggered_at) : undefined;
+
+        if (!review && !completedReview) {
           probe.noCompletedReviewFound();
           continue;
         }
+
+        const eventType = review
+          ? reviewStateToEventType(review.state)
+          : completedReview!.isApproval
+            ? EventType.coderabbit_review_approved
+            : EventType.coderabbit_review_changes_requested;
+        const commentUrl = review ? review.htmlUrl : completedReview!.htmlUrl;
+
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markReviewed(item.id, tx);
-          await probe.completed(completedReview, tx);
+          await probe.reviewed(eventType, commentUrl, tx);
         });
       } catch (err: unknown) {
         probe.caughtError(err);

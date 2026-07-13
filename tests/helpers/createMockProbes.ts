@@ -34,14 +34,14 @@ export interface MockReviewDetectorProbe {
   withItem: jest.Mock<any>;
   noRetriggeredItemFound: jest.Mock<any>;
   noCompletedReviewFound: jest.Mock<any>;
-  completed: jest.Mock<any>;
+  reviewed: jest.Mock<any>;
   caughtError: jest.Mock<any>;
 }
 export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   withItem: jest.fn<any>(),
   noRetriggeredItemFound: jest.fn<any>(),
   noCompletedReviewFound: jest.fn<any>(),
-  completed: jest.fn<any>(),
+  reviewed: jest.fn<any>(),
   caughtError: jest.fn<any>(),
 });
 

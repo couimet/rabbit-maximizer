@@ -116,18 +116,33 @@ describe('parseEventRow', () => {
     expect(result.payload).toStrictEqual({ reason: 'prMerged', detail });
   });
 
-  it('parses a completed event', () => {
-    const retriggeredCommentUrl = getUniqueString();
+  it('parses a coderabbit_review_approved event', () => {
+    const coderabbitCommentUrl = getUniqueString();
     const row = baseRow({
-      type: 'completed',
-      payload: JSON.stringify({ retriggered_comment_url: retriggeredCommentUrl }),
+      type: 'coderabbit_review_approved',
+      payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl }),
     });
 
     const result = parseEventRow(row);
 
-    expect(result.type).toBe('completed');
+    expect(result.type).toBe('coderabbit_review_approved');
     expect(result.payload).toStrictEqual({
-      retriggered_comment_url: retriggeredCommentUrl,
+      coderabbit_comment_url: coderabbitCommentUrl,
+    });
+  });
+
+  it('parses a coderabbit_review_changes_requested event', () => {
+    const coderabbitCommentUrl = getUniqueString();
+    const row = baseRow({
+      type: 'coderabbit_review_changes_requested',
+      payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_changes_requested');
+    expect(result.payload).toStrictEqual({
+      coderabbit_comment_url: coderabbitCommentUrl,
     });
   });
 
