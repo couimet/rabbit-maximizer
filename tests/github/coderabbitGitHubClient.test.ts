@@ -5,6 +5,7 @@ import { TriggerSource } from '../../src/types/index.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
 import type { MockIssuesRest, MockPullsRest, MockSearchRest } from '../helpers/index.js';
 import { createMockOctokit } from '../helpers/index.js';
+
 import { getRandomString, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -18,6 +19,7 @@ const REPO_URL = pkg.repository.url;
 const MS_PER_HOUR = 60 * 60 * 1000;
 const SEARCH_PER_PAGE = 100;
 const SEARCH_START_PAGE = 1;
+const REVIEWS_PER_PAGE = 100;
 
 describe('client', () => {
   let octokit: Octokit;
@@ -540,7 +542,7 @@ describe('client', () => {
     });
 
     it('paginates to the next page when the first page has no match and is full', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
       const reviewId = getUniqueInt();
       const htmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${reviewId}`;
@@ -548,7 +550,7 @@ describe('client', () => {
 
       pulls.listReviews
         .mockResolvedValueOnce({
-          data: Array.from({ length: 100 }, () => ({
+          data: Array.from({ length: REVIEWS_PER_PAGE }, () => ({
             id: getUniqueInt(),
             html_url: 'https://example.com/non-matching',
             submitted_at: new Date(since.getTime() + MS_PER_HOUR).toISOString(),
@@ -575,14 +577,14 @@ describe('client', () => {
         owner,
         repo,
         pull_number: prNumber,
-        per_page: 100,
+        per_page: REVIEWS_PER_PAGE,
         page: 1,
       });
       expect(pulls.listReviews).toHaveBeenCalledWith({
         owner,
         repo,
         pull_number: prNumber,
-        per_page: 100,
+        per_page: REVIEWS_PER_PAGE,
         page: 2,
       });
       expect(result).toStrictEqual({ htmlUrl, reviewId });
@@ -590,7 +592,7 @@ describe('client', () => {
     });
 
     it('stops paginating when a page returns fewer than the per-page limit', async () => {
-      const { owner, repo } = makeUniqueRepoName();
+      const { owner, repo } = getUniqueGitHubRepoRef();
       const since = getUniqueDate();
 
       pulls.listReviews.mockResolvedValue({
