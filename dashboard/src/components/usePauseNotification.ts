@@ -62,15 +62,15 @@ export const usePauseNotification = ({ paused }: UsePauseNotificationOptions): v
           return;
         }
 
-        const initialDelayMs = config.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE;
-        const repeatIntervalMs = config.pauseNotificationRepeatIntervalMinutes * MS_PER_MINUTE;
+        const initialDelayMs = config.pauseNotificationInitialDelaySec * MS_PER_MINUTE;
+        const repeatIntervalMs = config.pauseNotificationRepeatIntervalSec * MS_PER_MINUTE;
 
         diagLog(
           'pause-notif',
           'scheduling initial notification in',
-          config.pauseNotificationInitialDelayMinutes,
+          config.pauseNotificationInitialDelaySec,
           'min, repeat every',
-          config.pauseNotificationRepeatIntervalMinutes,
+          config.pauseNotificationRepeatIntervalSec,
           'min',
         );
 
