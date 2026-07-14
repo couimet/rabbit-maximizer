@@ -1,9 +1,17 @@
 import type { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { DetailedResult } from '../external-deps/couimet/detailed-result/DetailedResult.js';
 
-export type RabbitResult<T> = DetailedResult<T, RabbitMaximizerError>;
+import { DetailedResult } from '@couimet/detailed-result';
 
-export const RabbitResult = {
-  ok: <T>(value: T): RabbitResult<T> => DetailedResult.ok(value) as RabbitResult<T>,
-  err: (error: RabbitMaximizerError): RabbitResult<never> => DetailedResult.err(error) as RabbitResult<never>,
-};
+export class RabbitResult<T> extends DetailedResult<T, RabbitMaximizerError> {
+  private constructor(success: boolean, value: T | undefined, error: RabbitMaximizerError | undefined) {
+    super(success, value, error);
+  }
+
+  static ok<T>(value: T): RabbitResult<T> {
+    return new RabbitResult(true, value, undefined);
+  }
+
+  static err(error: RabbitMaximizerError): RabbitResult<never> {
+    return new RabbitResult<never>(false, undefined, error);
+  }
+}
