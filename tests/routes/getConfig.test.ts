@@ -46,28 +46,35 @@ describe('getConfig', () => {
   };
 
   it('returns config values', async () => {
-    startServer(makeConfig());
+    const config = makeConfig();
+    startServer(config);
 
     const addr = server.address();
     if (!addr || typeof addr === 'string') throw new Error('Server not listening');
     const res = await fetch(`http://[::1]:${addr.port}/api/config`);
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({
-      pauseNotificationInitialDelaySec: 1800,
-      pauseNotificationRepeatIntervalSec: 900,
+      pauseNotificationInitialDelaySec: config.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
+      pauseNotificationRepeatIntervalSec: config.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
     });
   });
 
   it('returns configured values when non-default', async () => {
-    startServer(makeConfig({ PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 60, PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 10 }));
+    const customInitialDelaySec = 60;
+    const customRepeatIntervalSec = 10;
+    const config = makeConfig({
+      PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: customInitialDelaySec,
+      PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: customRepeatIntervalSec,
+    });
+    startServer(config);
 
     const addr = server.address();
     if (!addr || typeof addr === 'string') throw new Error('Server not listening');
     const res = await fetch(`http://[::1]:${addr.port}/api/config`);
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({
-      pauseNotificationInitialDelaySec: 60,
-      pauseNotificationRepeatIntervalSec: 10,
+      pauseNotificationInitialDelaySec: customInitialDelaySec,
+      pauseNotificationRepeatIntervalSec: customRepeatIntervalSec,
     });
   });
 

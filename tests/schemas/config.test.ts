@@ -99,10 +99,11 @@ describe('ConfigSchema', () => {
   });
 
   it('coerces numeric POLL_INTERVAL_SEC from a string', () => {
-    const result = ConfigSchema.safeParse({ ...BASE, POLL_INTERVAL_SEC: '120' });
+    const customPollIntervalSec = 120;
+    const result = ConfigSchema.safeParse({ ...BASE, POLL_INTERVAL_SEC: String(customPollIntervalSec) });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.POLL_INTERVAL_SEC).toBe(120);
+      expect(result.data.POLL_INTERVAL_SEC).toBe(customPollIntervalSec);
     }
   });
 

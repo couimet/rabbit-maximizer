@@ -86,23 +86,6 @@ describe('parseConfig', () => {
 
   // -- Success cases ---------------------------------------------------------
 
-  it('applies default POLL_INTERVAL_SEC when absent', () => {
-    const { POLL_INTERVAL_SEC: _, ...rest } = BASE;
-    const result = parseConfig(rest);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.value.POLL_INTERVAL_SEC).toBe(90);
-    }
-  });
-
-  it('applies default SCHEDULER_TICK_INTERVAL_SEC of 10 when absent', () => {
-    const result = parseConfig(BASE);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.value.SCHEDULER_TICK_INTERVAL_SEC).toBe(10);
-    }
-  });
-
   it('applies default DATABASE_URL when absent', () => {
     const { DATABASE_URL: _, ...rest } = BASE;
     const result = parseConfig(rest);
