@@ -23,7 +23,7 @@ describe('setupExpress', () => {
 
   const start = (logger = createMockLogger()) => {
     const app = setupExpress({
-      config: { SCHEDULER_TICK_INTERVAL_MS: 10000 } as any,
+      config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),

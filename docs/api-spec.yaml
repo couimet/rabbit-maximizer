@@ -536,12 +536,14 @@ components:
 
     PublicConfig:
       type: object
-      required: [pauseNotificationInitialDelayMinutes, pauseNotificationRepeatIntervalMinutes]
+      required: [pauseNotificationInitialDelaySec, pauseNotificationRepeatIntervalSec]
       properties:
-        pauseNotificationInitialDelayMinutes:
+        pauseNotificationInitialDelaySec:
           type: integer
-        pauseNotificationRepeatIntervalMinutes:
+          description: Delay in seconds before showing the first "paused" notification
+        pauseNotificationRepeatIntervalSec:
           type: integer
+          description: Interval in seconds between repeat "paused" notifications
       additionalProperties: false
 
     Summary:

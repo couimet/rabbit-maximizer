@@ -45,7 +45,7 @@ const setup = () => {
   const tx = {} as Prisma.TransactionClient;
   const prisma = { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)) } as unknown as PrismaClient;
   const logger = createMockLogger();
-  const cfg = { SCHEDULER_POST_COOLDOWN: POST_COOLDOWN_SEC, REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: 3600, REVIEW_LIMIT_BUFFER_SECONDS: 60 } as any;
+  const cfg = { SCHEDULER_POST_COOLDOWN_SEC: POST_COOLDOWN_SEC, REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600, REVIEW_LIMIT_BUFFER_SEC: 60 } as any;
 
   const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, cfg, logger);
 

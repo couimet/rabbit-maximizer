@@ -44,9 +44,9 @@ export class ReviewTrigger {
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {
-    this.postCooldownMs = cfg.SCHEDULER_POST_COOLDOWN * MS_PER_SECOND;
-    this.fallbackWaitSeconds = cfg.REVIEW_LIMIT_FALLBACK_WAIT_SECONDS;
-    this.bufferSeconds = cfg.REVIEW_LIMIT_BUFFER_SECONDS;
+    this.postCooldownMs = cfg.SCHEDULER_POST_COOLDOWN_SEC * MS_PER_SECOND;
+    this.fallbackWaitSeconds = cfg.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
+    this.bufferSeconds = cfg.REVIEW_LIMIT_BUFFER_SEC;
   }
   /* c8 ignore stop */
 

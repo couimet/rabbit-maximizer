@@ -294,8 +294,10 @@ export interface components {
       paused: boolean;
     };
     PublicConfig: {
-      pauseNotificationInitialDelayMinutes: number;
-      pauseNotificationRepeatIntervalMinutes: number;
+      /** @description Delay in seconds before showing the first "paused" notification */
+      pauseNotificationInitialDelaySec: number;
+      /** @description Interval in seconds between repeat "paused" notifications */
+      pauseNotificationRepeatIntervalSec: number;
     };
     Summary: {
       queueCounts: components['schemas']['QueueCounts'];

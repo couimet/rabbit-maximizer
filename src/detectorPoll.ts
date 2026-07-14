@@ -15,7 +15,7 @@ import { TYPES } from './inversify-types.js';
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-const POLL_INTERVAL_MS = config.POLL_INTERVAL * MS_PER_SECOND;
+const POLL_INTERVAL_MS = config.POLL_INTERVAL_SEC * MS_PER_SECOND;
 
 @injectable()
 export class PollDetector extends IntervalService {
@@ -36,7 +36,7 @@ export class PollDetector extends IntervalService {
   /* c8 ignore stop */
 
   protected onStart(): void {
-    this.log.info({ fn: 'PollDetector.start', pollIntervalSec: config.POLL_INTERVAL, repoCount: config.REPO_FILTER.length }, 'Starting poll detector');
+    this.log.info({ fn: 'PollDetector.start', pollIntervalSec: config.POLL_INTERVAL_SEC, repoCount: config.REPO_FILTER.length }, 'Starting poll detector');
   }
 
   protected onStop(): void {
@@ -69,7 +69,7 @@ export class PollDetector extends IntervalService {
         }
 
         const waitSeconds = parseWaitSeconds(body);
-        const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SECONDS;
+        const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
         const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MS_PER_SECOND);
         if (!earliestNextReview || candidate < earliestNextReview) {
           earliestNextReview = candidate;

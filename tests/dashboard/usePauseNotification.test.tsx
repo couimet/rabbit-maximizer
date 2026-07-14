@@ -1,14 +1,14 @@
 /** @jest-environment jsdom */
 
 import { usePauseNotification } from '../../dashboard/src/components/usePauseNotification.js';
-import { MS_PER_MINUTE } from '../../src/utils/durations.js';
+import { MS_PER_SECOND } from '../../src/utils/durations.js';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
 
 const MOCK_CONFIG = {
-  pauseNotificationInitialDelayMinutes: 30,
-  pauseNotificationRepeatIntervalMinutes: 15,
+  pauseNotificationInitialDelaySec: 1800,
+  pauseNotificationRepeatIntervalSec: 900,
 };
 
 describe('usePauseNotification', () => {
@@ -76,7 +76,7 @@ describe('usePauseNotification', () => {
 
     // Advance time past the initial delay
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelaySec * MS_PER_SECOND);
     });
 
     expect(globalThis.Notification).toHaveBeenCalledTimes(1);
@@ -99,7 +99,7 @@ describe('usePauseNotification', () => {
       await jest.advanceTimersByTimeAsync(0);
     });
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelaySec * MS_PER_SECOND);
     });
 
     const notificationInstance = ((globalThis.Notification as unknown as jest.Mock).mock.results[0] as { value: { onclick: () => void; close: () => void } })
@@ -120,21 +120,21 @@ describe('usePauseNotification', () => {
     });
 
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelaySec * MS_PER_SECOND);
     });
 
     expect(globalThis.Notification).toHaveBeenCalledTimes(1);
 
     // Advance one repeat interval
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationRepeatIntervalMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationRepeatIntervalSec * MS_PER_SECOND);
     });
 
     expect(globalThis.Notification).toHaveBeenCalledTimes(2);
 
     // Advance another repeat interval
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationRepeatIntervalMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationRepeatIntervalSec * MS_PER_SECOND);
     });
 
     expect(globalThis.Notification).toHaveBeenCalledTimes(3);
@@ -153,7 +153,7 @@ describe('usePauseNotification', () => {
       await jest.advanceTimersByTimeAsync(0);
     });
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelaySec * MS_PER_SECOND);
     });
 
     expect(globalThis.Notification).toHaveBeenCalledTimes(1);
@@ -166,7 +166,7 @@ describe('usePauseNotification', () => {
 
     // Advance past the repeat interval — no more notifications
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationRepeatIntervalMinutes * MS_PER_MINUTE * 2);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationRepeatIntervalSec * MS_PER_SECOND * 2);
     });
 
     expect(globalThis.Notification).toHaveBeenCalledTimes(1);
@@ -181,7 +181,7 @@ describe('usePauseNotification', () => {
       await jest.advanceTimersByTimeAsync(0);
     });
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelaySec * MS_PER_SECOND);
     });
 
     // No crash — verify fetch was called
@@ -197,7 +197,7 @@ describe('usePauseNotification', () => {
       await jest.advanceTimersByTimeAsync(0);
     });
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelaySec * MS_PER_SECOND);
     });
 
     expect(globalThis.Notification).not.toHaveBeenCalled();
@@ -227,7 +227,7 @@ describe('usePauseNotification', () => {
 
     // Advance past the initial delay — no notification should fire
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelaySec * MS_PER_SECOND);
     });
 
     expect(globalThis.Notification).not.toHaveBeenCalled();
@@ -266,7 +266,7 @@ describe('usePauseNotification', () => {
 
     // Advance past the initial delay — no notification should have been scheduled
     await act(async () => {
-      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelayMinutes * MS_PER_MINUTE);
+      await jest.advanceTimersByTimeAsync(MOCK_CONFIG.pauseNotificationInitialDelaySec * MS_PER_SECOND);
     });
 
     expect(globalThis.Notification).not.toHaveBeenCalled();

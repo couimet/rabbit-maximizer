@@ -42,9 +42,9 @@ export class Scheduler extends IntervalService {
     private readonly systemState: SystemStateRepository,
     @inject(TYPES.Logger) log: Logger,
   ) {
-    super(log, cfg.SCHEDULER_TICK_INTERVAL_MS);
-    this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE * MS_PER_SECOND;
-    this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX * MS_PER_SECOND;
+    super(log, cfg.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND);
+    this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE_SEC * MS_PER_SECOND;
+    this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX_SEC * MS_PER_SECOND;
   }
   /* c8 ignore stop */
 
