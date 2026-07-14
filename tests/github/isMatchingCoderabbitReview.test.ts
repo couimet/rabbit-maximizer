@@ -2,7 +2,7 @@ import { type CoderabbitReviewCandidate, isMatchingCoderabbitReview } from '../.
 
 import { describe, expect, it } from '@jest/globals';
 
-const makeCandidate = (overrides: Partial<CoderabbitReviewCandidate> = {}): CoderabbitReviewCandidate => ({
+const makeCandidate = (overrides?: Partial<CoderabbitReviewCandidate>): CoderabbitReviewCandidate => ({
   user: { login: 'coderabbitai[bot]' },
   submitted_at: new Date().toISOString(),
   state: 'APPROVED',

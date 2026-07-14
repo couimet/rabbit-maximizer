@@ -176,19 +176,24 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
   async findLatestCoderabbitReview(owner: string, repo: string, pr: number, since: Date): Promise<CoderabbitReview | undefined> {
     this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr }, 'Searching for latest CodeRabbit review');
 
-    const response = await this.octokit.rest.pulls.listReviews({
-      owner,
-      repo,
-      pull_number: pr,
-      per_page: COMMENTS_FETCH_PER_PAGE,
-    });
+    for (let page = 1; ; page++) {
+      const response = await this.octokit.rest.pulls.listReviews({
+        owner,
+        repo,
+        pull_number: pr,
+        per_page: COMMENTS_FETCH_PER_PAGE,
+        page,
+      });
 
-    const review = response.data.find((r) => isMatchingCoderabbitReview(r, since));
+      const review = response.data.find((r) => isMatchingCoderabbitReview(r, since));
 
-    if (review) {
-      const state = toReviewState(review.state);
-      this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr, reviewId: review.id, state }, 'Found CodeRabbit review');
-      return { htmlUrl: review.html_url, state };
+      if (review) {
+        const state = toReviewState(review.state);
+        this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr, reviewId: review.id, state }, 'Found CodeRabbit review');
+        return { htmlUrl: review.html_url, state };
+      }
+
+      if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
     }
 
     return undefined;

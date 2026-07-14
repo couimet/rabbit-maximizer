@@ -12,6 +12,6 @@ describe('reviewStateToEventType', () => {
   });
 
   it('returns coderabbit_review_changes_requested for any unrecognized state (pessimistic default)', () => {
-    expect(reviewStateToEventType('dismissed')).toBe('coderabbit_review_changes_requested');
+    expect(reviewStateToEventType('dismissed' as any)).toBe('coderabbit_review_changes_requested');
   });
 });

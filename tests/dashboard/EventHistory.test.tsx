@@ -10,6 +10,9 @@ import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@c
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
 
+const TYPE_APPROVED = 'coderabbit_review_approved';
+const TYPE_DETECTED = 'detected';
+
 const renderEventHistory = () =>
   render(
     <TimezoneProvider>
@@ -180,30 +183,30 @@ describe('EventHistory', () => {
 
   describe('pagination', () => {
     it('disables Previous on first page', async () => {
-      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 1, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ type: TYPE_DETECTED })], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await screen.findByText('detected');
+      await screen.findByText(TYPE_DETECTED);
       expect(screen.getByText('Previous').closest('button')).toBeDisabled();
     });
 
     it('fetches next page when Next is clicked', async () => {
-      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 100, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ type: TYPE_DETECTED })], total: 100, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await screen.findByText('detected');
+      await screen.findByText(TYPE_DETECTED);
 
-      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'coderabbit_review_approved' })], total: 100, page: 2, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ id: 99, type: TYPE_APPROVED })], total: 100, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
-      await screen.findByText('coderabbit_review_approved');
+      await screen.findByText(TYPE_APPROVED);
     });
 
     it('fetches previous page when Previous is clicked', async () => {
-      createMockFetch(200, { data: [makeEvent({ type: 'detected' })], total: 100, page: 1, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ type: TYPE_DETECTED })], total: 100, page: 1, pageSize: PAGE_SIZE });
       renderEventHistory();
-      await screen.findByText('detected');
+      await screen.findByText(TYPE_DETECTED);
 
-      createMockFetch(200, { data: [makeEvent({ id: 99, type: 'coderabbit_review_approved' })], total: 100, page: 2, pageSize: PAGE_SIZE });
+      createMockFetch(200, { data: [makeEvent({ id: 99, type: TYPE_APPROVED })], total: 100, page: 2, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Next'));
-      await screen.findByText('coderabbit_review_approved');
+      await screen.findByText(TYPE_APPROVED);
 
       createMockFetch(200, { data: [makeEvent({ id: 88, type: 'retriggered' })], total: 100, page: 1, pageSize: PAGE_SIZE });
       fireEvent.click(screen.getByText('Previous'));

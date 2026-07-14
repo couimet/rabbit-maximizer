@@ -641,12 +641,62 @@ describe('client', () => {
         repo,
         pull_number: prNumber,
         per_page: 100,
+        page: 1,
       });
       expect(result).toStrictEqual({ htmlUrl, state: 'approved' });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'findLatestCoderabbitReview', owner, repo, pr: prNumber, reviewId, state: 'approved' },
         'Found CodeRabbit review',
       );
+    });
+
+    it('paginates to the next page when the first page has no match and is full', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const reviewId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+
+      pulls.listReviews
+        .mockResolvedValueOnce({
+          data: Array.from({ length: REVIEWS_PER_PAGE }, () => ({
+            id: getUniqueInt(),
+            html_url: 'https://example.com/non-matching',
+            submitted_at: new Date(since.getTime() + MS_PER_HOUR).toISOString(),
+            state: 'COMMENTED',
+            user: { login: 'some-other-bot' },
+          })),
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: reviewId,
+              html_url: htmlUrl,
+              submitted_at: submittedAt,
+              state: 'APPROVED',
+              user: { login: 'coderabbitai[bot]' },
+            },
+          ],
+        });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findLatestCoderabbitReview(owner, repo, prNumber, since);
+
+      expect(pulls.listReviews).toHaveBeenCalledWith({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: REVIEWS_PER_PAGE,
+        page: 1,
+      });
+      expect(pulls.listReviews).toHaveBeenCalledWith({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: REVIEWS_PER_PAGE,
+        page: 2,
+      });
+      expect(result).toStrictEqual({ htmlUrl, state: 'approved' });
     });
 
     it('returns CHANGES_REQUESTED when the review state is CHANGES_REQUESTED', async () => {

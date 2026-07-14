@@ -14,12 +14,12 @@ import { jest } from '@jest/globals';
 
 export const createMockProbeFactory = (overrides?: Partial<Record<keyof ProbeFactory, jest.Mock>>): jest.Mocked<ProbeFactory> =>
   ({
-    createDetectedProbe: jest.fn().mockReturnValue(createMockDetectedProbe()),
-    createMarkQueueItemReviewedProbe: jest.fn().mockReturnValue(createMockMarkQueueItemReviewedProbe()),
-    createEnqueueProbe: jest.fn().mockReturnValue(createMockEnqueueProbe()),
-    createSchedulerProbe: jest.fn().mockReturnValue(createMockSchedulerProbe()),
-    createPrunerProbe: jest.fn().mockReturnValue(createMockPrunerProbe()),
-    createReviewDetectorProbe: jest.fn().mockReturnValue(createMockReviewDetectorProbe()),
-    createReviewRetriggerProbe: jest.fn().mockReturnValue(createMockReviewRetriggerProbe()),
+    createDetectedProbe: jest.fn(() => createMockDetectedProbe()),
+    createMarkQueueItemReviewedProbe: jest.fn(() => createMockMarkQueueItemReviewedProbe()),
+    createEnqueueProbe: jest.fn(() => createMockEnqueueProbe()),
+    createSchedulerProbe: jest.fn(() => createMockSchedulerProbe()),
+    createPrunerProbe: jest.fn(() => createMockPrunerProbe()),
+    createReviewDetectorProbe: jest.fn(() => createMockReviewDetectorProbe()),
+    createReviewRetriggerProbe: jest.fn(() => createMockReviewRetriggerProbe()),
     ...overrides,
   }) as unknown as jest.Mocked<ProbeFactory>;

@@ -1,6 +1,7 @@
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
 import { EventType, type QueueItem } from '../../src/types/index.js';
+import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';

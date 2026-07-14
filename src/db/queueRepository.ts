@@ -141,7 +141,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       where: { id: row.id },
       data: { status: QueueStatus.reviewed, reviewed_at: new Date() },
     });
-    await probe.queueItemMarkedReviewed(updated, db);
+    await probe.queueItemMarkedReviewed(updated);
 
     return this.toQueueItem(updated);
   }
