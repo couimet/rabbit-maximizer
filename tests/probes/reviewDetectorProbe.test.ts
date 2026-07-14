@@ -1,10 +1,10 @@
-import type { EventRepository } from '../../src/db/eventRepository.js';
 import type { CompletedReview } from '../../src/github/types/CompletedReview.js';
-import type { ObservationContext } from '../../src/observability/observationContext.js';
+import { ObservationContext } from '../../src/observability/index.js';
 import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
+import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -15,14 +15,14 @@ const makeItem = (repo: string, pr: number): QueueItem =>
   ({ id: getUniqueInt(), repo_full_name: repo, pr_number: pr, source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }) }) as unknown as QueueItem;
 
 describe('ReviewDetectorProbe', () => {
-  let events: EventRepository;
+  let events: ReturnType<typeof createMockEventRepo>;
   let logger: Logger;
   let observation: ObservationContext;
 
   beforeEach(() => {
-    events = { record: jest.fn<any>() } as unknown as EventRepository;
+    events = createMockEventRepo();
     logger = createMockLogger();
-    observation = { correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' };
+    observation = createMockObservationContext();
   });
 
   const createProbe = () => new ReviewDetectorProbe(events, observation, logger);

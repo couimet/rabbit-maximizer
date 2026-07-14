@@ -156,8 +156,9 @@ describe('EnqueueService', () => {
       (queue.enqueue as jest.Mock<any>).mockResolvedValue({ item: {}, created: false });
       const svc = createService();
       const comment = makeComment();
+      const waitSeconds = 330;
 
-      await svc.handle(comment, 330);
+      await svc.handle(comment, waitSeconds);
 
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);

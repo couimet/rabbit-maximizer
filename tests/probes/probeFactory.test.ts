@@ -13,21 +13,24 @@ import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
 import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
 import { SchedulerProbe } from '../../src/probes/SchedulerProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
-import { createMockObservationContextProvider, createMockPrismaClient } from '../helpers/index.js';
+import { createMockEventRepo, createMockObservationContextProvider, createMockPrismaClient } from '../helpers/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
+
+const BASE_BACKOFF_MS = 60_000;
+const MAX_BACKOFF_MS = 3_600_000;
 
 describe('ProbeFactory', () => {
   let observationProvider: ReturnType<typeof createMockObservationContextProvider>;
   let observationContext: ReturnType<ReturnType<typeof createMockObservationContextProvider>['current']>;
 
   const makeMocks = () => {
-    const eventRepository = { record: jest.fn<any>(), listForPr: jest.fn<any>() } as unknown as EventRepository;
+    const eventRepository = createMockEventRepo();
     const logger = createMockLogger();
     return { eventRepository, logger };
   };
@@ -61,7 +64,7 @@ describe('ProbeFactory', () => {
   it('creates a SchedulerProbe', () => {
     const { eventRepository, logger } = makeMocks();
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
-    const probe = factory.createSchedulerProbe({ baseBackoff: 60000, maxBackoff: 3600000 });
+    const probe = factory.createSchedulerProbe({ baseBackoff: BASE_BACKOFF_MS, maxBackoff: MAX_BACKOFF_MS });
     expect(probe).toBeInstanceOf(SchedulerProbe);
   });
 

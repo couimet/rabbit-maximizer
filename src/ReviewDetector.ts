@@ -1,3 +1,4 @@
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import { splitRepo } from './github/splitRepo.js';
@@ -16,6 +17,7 @@ export class ReviewDetector extends IntervalService {
   /* c8 ignore start */
   constructor(
     @inject(TYPES.QueueRepository) private readonly queue: QueueRepository,
+    @inject(TYPES.PullRequestRepository) private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.CoderabbitGitHubClient) private readonly github: CoderabbitGitHubClient,
     @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
@@ -51,7 +53,8 @@ export class ReviewDetector extends IntervalService {
           continue;
         }
         await this.prisma.$transaction(async (tx) => {
-          await this.queue.markReviewed(item.id, tx);
+          const updated = await this.queue.markReviewed(item.id, tx);
+          await this.pullRequests.recordReview(updated.pull_request_id, tx);
           await probe.completed(completedReview, tx);
         });
       } catch (err: unknown) {

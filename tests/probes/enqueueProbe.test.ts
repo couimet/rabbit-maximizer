@@ -1,6 +1,6 @@
-import type { EventRepository } from '../../src/db/eventRepository.js';
-import type { ObservationContext } from '../../src/observability/observationContext.js';
+import { ObservationContext } from '../../src/observability/index.js';
 import { EnqueueProbe } from '../../src/probes/EnqueueProbe.js';
+import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -11,14 +11,14 @@ import type { Prisma } from '@prisma/client';
 const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
 
 describe('EnqueueProbe', () => {
-  let events: EventRepository;
+  let events: ReturnType<typeof createMockEventRepo>;
   let logger: Logger;
   let observation: ObservationContext;
 
   beforeEach(() => {
-    events = { record: jest.fn<any>() } as unknown as EventRepository;
+    events = createMockEventRepo();
     logger = createMockLogger();
-    observation = { correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' };
+    observation = createMockObservationContext();
   });
 
   const createProbe = (tx: Prisma.TransactionClient) => new EnqueueProbe(events, observation, tx, logger);

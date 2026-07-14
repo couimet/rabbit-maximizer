@@ -1,10 +1,10 @@
-import type { EventRepository } from '../../src/db/eventRepository.js';
 import { RabbitMaximizerError } from '../../src/errors/RabbitMaximizerError.js';
-import type { ObservationContext } from '../../src/observability/observationContext.js';
+import { ObservationContext } from '../../src/observability/index.js';
 import { SchedulerProbe } from '../../src/probes/SchedulerProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
+import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -24,14 +24,14 @@ const makeItem = (repo: string, pr: number): QueueItem =>
   }) as unknown as QueueItem;
 
 describe('SchedulerProbe', () => {
-  let events: EventRepository;
+  let events: ReturnType<typeof createMockEventRepo>;
   let logger: Logger;
   let observation: ObservationContext;
 
   beforeEach(() => {
-    events = { record: jest.fn<any>() } as unknown as EventRepository;
+    events = createMockEventRepo();
     logger = createMockLogger();
-    observation = { correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' };
+    observation = createMockObservationContext();
   });
 
   const createProbe = () => new SchedulerProbe(BASE_BACKOFF_MS, MAX_BACKOFF_MS, events, observation, logger);

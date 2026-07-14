@@ -14,12 +14,12 @@ import { jest } from '@jest/globals';
 
 export const createMockProbeFactory = (overrides?: Partial<Record<keyof ProbeFactory, jest.Mock>>): jest.Mocked<ProbeFactory> =>
   ({
-    createDetectedProbe: jest.fn().mockReturnValue(createMockDetectedProbe()),
-    createMarkQueueItemReviewedProbe: jest.fn().mockReturnValue(createMockMarkQueueItemReviewedProbe()),
-    createEnqueueProbe: jest.fn().mockReturnValue(createMockEnqueueProbe()),
-    createSchedulerProbe: jest.fn().mockReturnValue(createMockSchedulerProbe()),
-    createPrunerProbe: jest.fn().mockReturnValue(createMockPrunerProbe()),
-    createReviewDetectorProbe: jest.fn().mockReturnValue(createMockReviewDetectorProbe()),
-    createReviewRetriggerProbe: jest.fn().mockReturnValue(createMockReviewRetriggerProbe()),
+    createDetectedProbe: jest.fn().mockImplementation(() => createMockDetectedProbe()),
+    createMarkQueueItemReviewedProbe: jest.fn().mockImplementation(() => createMockMarkQueueItemReviewedProbe()),
+    createEnqueueProbe: jest.fn().mockImplementation(() => createMockEnqueueProbe()),
+    createSchedulerProbe: jest.fn().mockImplementation(() => createMockSchedulerProbe()),
+    createPrunerProbe: jest.fn().mockImplementation(() => createMockPrunerProbe()),
+    createReviewDetectorProbe: jest.fn().mockImplementation(() => createMockReviewDetectorProbe()),
+    createReviewRetriggerProbe: jest.fn().mockImplementation(() => createMockReviewRetriggerProbe()),
     ...overrides,
   }) as unknown as jest.Mocked<ProbeFactory>;

@@ -37,7 +37,7 @@ Each repository should deal with exactly one entity. `QueueRepositoryImpl` only 
 
 ### Construction and wiring
 
-`ProbeFactory` is the single entry point. It injects the repositories and providers each probe needs, so callers never assemble probes by hand. The factory owns the `ObservationContextProvider`; callers never extract the current context themselves and generally never pass an `ObservationContext` to a factory method. With one exception: `createDetectedProbe` accepts `ObservationContext` when the same instance must be shared with `queue.enqueue()` (see C011). For all other probes, callers pass only their domain object (a `QueueItem`, a `uuid`) to the factory.
+`ProbeFactory` is the single entry point. It injects the repositories and providers each probe needs, so callers never assemble probes by hand. The factory owns the `ObservationContextProvider`; callers never extract the current context themselves and generally never pass an `ObservationContext` to a factory method. With one exception: `createDetectedProbe` accepts `ObservationContext` when the same instance must be shared with `queue.enqueue()` (see C011). Callers pass whatever each probe needs: a domain object (`QueueItem`, `uuid`) for most probes, a transaction client for `createEnqueueProbe`, or scheduler parameters for `createSchedulerProbe`.
 
 ### What belongs in a probe
 

@@ -176,6 +176,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, notBefore, newComment, deps.tx);
 
       await stop();
     });
@@ -197,6 +198,8 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
+      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
 
       await stop();
     });
@@ -218,6 +221,8 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
+      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
 
       await stop();
     });
@@ -239,6 +244,8 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
+      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
 
       await stop();
     });
@@ -255,6 +262,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(404, deps.tx);
+      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
 
       await stop();
     });
@@ -271,6 +279,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(410, deps.tx);
+      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
 
       await stop();
     });

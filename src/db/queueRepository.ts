@@ -75,7 +75,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       await probe.enqueued({ repo, pr, notBefore, newWait });
 
-      this.log.debug({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
       return { item: this.toQueueItem(row), created: true };
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === UNIQUE_CONSTRAINT_VIOLATION) {

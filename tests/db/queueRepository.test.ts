@@ -131,7 +131,6 @@ describe('QueueRepositoryImpl', () => {
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: row.id } });
       expect(created).toBe(true);
       expect(result).toStrictEqual(toExpectedItem(row));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
     });
 
     it('returns the existing pending row when the PR is already queued (P2002)', async () => {
@@ -279,7 +278,6 @@ describe('QueueRepositoryImpl', () => {
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
       expect(created).toBe(true);
       expect(result).toStrictEqual(toExpectedItem(newRow));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
     });
   });
 

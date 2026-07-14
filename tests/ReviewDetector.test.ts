@@ -22,6 +22,7 @@ const drainMicrotasks = async (depth: number): Promise<void> => {
 
 interface MockReviewDetectorDeps {
   queue: { getRetriggeredQueue: jest.Mock<any>; markReviewed: jest.Mock<any> };
+  pullRequests: { recordReview: jest.Mock<any> };
   github: jest.Mocked<CoderabbitGitHubClient>;
   probeFactory: ReturnType<typeof createMockProbeFactory>;
   probe: ReturnType<typeof createMockReviewDetectorProbe>;
@@ -55,13 +56,14 @@ const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: numb
 
 const setup = (): MockReviewDetectorDeps => {
   const queue = createMockQueueRepo() as unknown as MockReviewDetectorDeps['queue'];
+  const pullRequests = { recordReview: jest.fn<any>() };
   const github = createMockCoderabbitGitHubClient();
   const probe = createMockReviewDetectorProbe();
   const probeFactory = createMockProbeFactory({ createReviewDetectorProbe: jest.fn<any>().mockReturnValue(probe) });
   const prisma = { $transaction: jest.fn<any>() };
   const logger = createMockLogger();
   const config = { POLL_INTERVAL: POLL_INTERVAL_SEC };
-  return { queue, github, probeFactory, probe, prisma, logger, config };
+  return { queue, pullRequests, github, probeFactory, probe, prisma, logger, config };
 };
 
 describe('ReviewDetector', () => {
@@ -71,7 +73,15 @@ describe('ReviewDetector', () => {
     jest.useFakeTimers();
   });
   const createDetector = () =>
-    new ReviewDetector(deps.queue as any, deps.github, deps.probeFactory as any, deps.prisma as unknown as PrismaClient, deps.config as any, deps.logger);
+    new ReviewDetector(
+      deps.queue as any,
+      deps.pullRequests as any,
+      deps.github,
+      deps.probeFactory as any,
+      deps.prisma as unknown as PrismaClient,
+      deps.config as any,
+      deps.logger,
+    );
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
@@ -105,6 +115,8 @@ describe('ReviewDetector', () => {
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.github.findCompletedReview.mockResolvedValue(completedReview);
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+      const markReviewedResult = { pull_request_id: item.pull_request_id, id: item.id };
+      (deps.queue.markReviewed as jest.Mock<any>).mockResolvedValue(markReviewedResult);
       const detector = createDetector();
       detector.start();
       await drainMicrotasks(TICK_DEPTH);
@@ -112,6 +124,7 @@ describe('ReviewDetector', () => {
       expect(deps.probeFactory.createReviewDetectorProbe).toHaveBeenCalledTimes(1);
       expect(deps.probe.withItem).toHaveBeenCalledWith(item);
       expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, {});
       expect(deps.probe.completed).toHaveBeenCalledWith(completedReview, {});
     });
 
