@@ -28,7 +28,7 @@ interface MockReviewDetectorDeps {
   probe: ReturnType<typeof createMockReviewDetectorProbe>;
   prisma: { $transaction: jest.Mock<any> };
   logger: Logger;
-  config: { POLL_INTERVAL: number };
+  config: { POLL_INTERVAL_SEC: number };
 }
 
 const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: number }): QueueItem => {
@@ -62,7 +62,7 @@ const setup = (): MockReviewDetectorDeps => {
   const probeFactory = createMockProbeFactory({ createReviewDetectorProbe: jest.fn<any>().mockReturnValue(probe) });
   const prisma = { $transaction: jest.fn<any>() };
   const logger = createMockLogger();
-  const config = { POLL_INTERVAL: POLL_INTERVAL_SEC };
+  const config = { POLL_INTERVAL_SEC: POLL_INTERVAL_SEC };
   return { queue, pullRequests, github, probeFactory, probe, prisma, logger, config };
 };
 

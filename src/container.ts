@@ -10,6 +10,7 @@ import { type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
 import { ProbeFactory } from './probes/ProbeFactory.js';
 import type { OnDetectedCallback } from './types/index.js';
+import { MS_PER_SECOND } from './utils/durations.js';
 import { type Config, config } from './config.js';
 import { PollDetector } from './detectorPoll.js';
 import { EnqueueService } from './EnqueueService.js';
@@ -32,7 +33,7 @@ container.bind<Config>(TYPES.Config).toConstantValue(config);
 
 container
   .bind<Octokit>(TYPES.Octokit)
-  .toDynamicValue(() => new Octokit({ auth: config.GITHUB_PAT, request: { timeout: config.GITHUB_API_TIMEOUT_MS } }))
+  .toDynamicValue(() => new Octokit({ auth: config.GITHUB_PAT, request: { timeout: config.GITHUB_API_TIMEOUT_SEC * MS_PER_SECOND } }))
   .inSingletonScope();
 
 container

@@ -246,6 +246,32 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <see>T003 — T009 takes precedence over T003 for test-internal plumbing values (mock props, fixture data). T003 governs assertions against production contract values (enums, user-facing text). Favor `getUniqueString()` or `getUniqueInt()` from `@couimet/dynamic-testing` over static literals for shared constants — dynamic values prove the value is passed through rather than matching a hardcoded default at the destination. Exception: UI component tests (React Testing Library) that look up elements by text content (`getByText`, `getByRole`) need static literal strings that match what the component renders.</see>
 </rule>
 
+<rule id="T010" priority="critical">
+  <title>Schema validation tests go in tests/schemas/ — do not duplicate in tests/config.test.ts</title>
+  <do>Test Zod schema behavior (field validation, `.default()` values, `.positive()` checks, `superRefine` rules) in `tests/schemas/config.test.ts` via `ConfigSchema.safeParse()`</do>
+  <do>Test only what `parseConfig()` adds on top in `tests/config.test.ts`: env-var preprocessing (`emptyToUndefined`), repo-filter parsing (`parseRepoFilter`), and error message formatting (path + message joining)</do>
+  <never>Duplicate schema-level validation tests in `tests/config.test.ts` — `parseConfig()` delegates to `ConfigSchema.safeParse()`, so schema behavior is already covered</never>
+  <rationale>Schema tests are the source of truth for validation behavior. Duplicating them in the config parser test file creates maintenance burden (two places to update for one rule change) and blurs the boundary between "what the schema enforces" and "what the parser transforms."</rationale>
+  <good-example>
+    ```typescript
+    // tests/schemas/config.test.ts — tests the schema directly
+    it('rejects SCHEDULER_RETRIGGER_SPACING_SEC lower than POLL_INTERVAL_SEC', () => {
+      const result = ConfigSchema.safeParse({ ...BASE, SCHEDULER_RETRIGGER_SPACING_SEC: 30, POLL_INTERVAL_SEC: 90 });
+      expect(result.success).toBe(false);
+    });
+    ```
+  </good-example>
+  <bad-example>
+    ```typescript
+    // tests/config.test.ts — DO NOT do this; it duplicates the schema test
+    it('fails when SCHEDULER_RETRIGGER_SPACING_SEC is lower than POLL_INTERVAL_SEC', () => {
+      const result = parseConfig(env(BASE, { SCHEDULER_RETRIGGER_SPACING_SEC: '30', POLL_INTERVAL_SEC: '90' }));
+      expect(result.success).toBe(false);
+    });
+    ```
+  </bad-example>
+</rule>
+
 <rule id="P001" priority="critical">
   <title>No magic numbers</title>
   <do>Define named constants for all numeric literals with semantic meaning</do>

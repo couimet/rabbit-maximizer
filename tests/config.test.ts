@@ -16,7 +16,7 @@ describe('parseConfig', () => {
     BASE = {
       DETECTION_MODE: 'poll',
       GITHUB_PAT: githubPat,
-      POLL_INTERVAL: '90',
+      POLL_INTERVAL_SEC: '90',
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
       REPO_FILTER: 'couimet/*',
     };
@@ -86,20 +86,20 @@ describe('parseConfig', () => {
 
   // -- Success cases ---------------------------------------------------------
 
-  it('applies default POLL_INTERVAL when absent', () => {
-    const { POLL_INTERVAL: _, ...rest } = BASE;
+  it('applies default POLL_INTERVAL_SEC when absent', () => {
+    const { POLL_INTERVAL_SEC: _, ...rest } = BASE;
     const result = parseConfig(rest);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.value.POLL_INTERVAL).toBe(90);
+      expect(result.value.POLL_INTERVAL_SEC).toBe(90);
     }
   });
 
-  it('applies default SCHEDULER_TICK_INTERVAL_MS of 10000 when absent', () => {
+  it('applies default SCHEDULER_TICK_INTERVAL_SEC of 10 when absent', () => {
     const result = parseConfig(BASE);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.value.SCHEDULER_TICK_INTERVAL_MS).toBe(10_000);
+      expect(result.value.SCHEDULER_TICK_INTERVAL_SEC).toBe(10);
     }
   });
 
