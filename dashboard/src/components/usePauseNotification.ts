@@ -1,4 +1,4 @@
-import { MS_PER_MINUTE } from '../../../src/utils/durations.js';
+import { MS_PER_SECOND } from '../../../src/utils/durations.js';
 import { fetchConfig } from '../api.js';
 import { diagLog } from '../utils/diagLog.js';
 
@@ -62,16 +62,16 @@ export const usePauseNotification = ({ paused }: UsePauseNotificationOptions): v
           return;
         }
 
-        const initialDelayMs = config.pauseNotificationInitialDelaySec * MS_PER_MINUTE;
-        const repeatIntervalMs = config.pauseNotificationRepeatIntervalSec * MS_PER_MINUTE;
+        const initialDelayMs = config.pauseNotificationInitialDelaySec * MS_PER_SECOND;
+        const repeatIntervalMs = config.pauseNotificationRepeatIntervalSec * MS_PER_SECOND;
 
         diagLog(
           'pause-notif',
           'scheduling initial notification in',
           config.pauseNotificationInitialDelaySec,
-          'min, repeat every',
+          'sec, repeat every',
           config.pauseNotificationRepeatIntervalSec,
-          'min',
+          'sec',
         );
 
         initialTimerRef.current = setTimeout(() => {
