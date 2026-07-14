@@ -1,16 +1,18 @@
 import { TYPES } from '../inversify-types.js';
+import { REVIEW_BOT_LOGIN } from '../types/coderabbit.js';
 import type { DetectedComment } from '../types/DetectedComment.js';
 import type { PRState } from '../types/PRState.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
 import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
 import type { TriggerSource } from '../types/TriggerSource.js';
 
-import type { CoderabbitReview, CompletedReview, RetriggerComment } from './types/index.js';
+import type { AcknowledgementResult, CoderabbitReview, CompletedReview, RetriggerComment } from './types/index.js';
 import { buildCommentBody } from './buildCommentBody.js';
 import { buildSearchQuery } from './buildSearchQuery.js';
 import { extractRepoFullName } from './extractRepoFullName.js';
 import { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './hasRateLimitMarker.js';
+import { isAcknowledgementComment } from './isAcknowledgementComment.js';
 import { isApprovalReviewSignal } from './isApprovalReviewSignal.js';
 import { isMatchingCoderabbitReview } from './isMatchingCoderabbitReview.js';
 import { isMatchingCompletedReview } from './isMatchingCompletedReview.js';
@@ -39,6 +41,8 @@ export interface CoderabbitGitHubClient {
   findLatestCoderabbitReview(owner: string, repo: string, pr: number, since: Date): Promise<CoderabbitReview | undefined>;
 
   findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
+
+  findAcknowledgement(owner: string, repo: string, pr: number, since: Date): Promise<AcknowledgementResult | undefined>;
 }
 
 @injectable()
@@ -221,6 +225,39 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         created_at: rateLimitComment.created_at,
         updated_at: rateLimitComment.updated_at,
       };
+    }
+
+    return undefined;
+  }
+
+  async findAcknowledgement(owner: string, repo: string, pr: number, since: Date): Promise<AcknowledgementResult | undefined> {
+    this.log.debug({ fn: 'findAcknowledgement', owner, repo, pr, since: since.toISOString() }, 'Searching for CodeRabbit acknowledgement');
+
+    const response = await this.octokit.rest.issues.listComments({
+      owner,
+      repo,
+      issue_number: pr,
+      sort: 'created',
+      direction: 'desc',
+      per_page: COMMENTS_FETCH_PER_PAGE,
+    });
+
+    const ackComment = response.data.find((c) => {
+      const createdAt = c.created_at ? new Date(c.created_at) : undefined;
+      return (
+        createdAt !== undefined &&
+        createdAt > since &&
+        c.body !== undefined &&
+        c.body !== null &&
+        c.user?.login === REVIEW_BOT_LOGIN &&
+        isAcknowledgementComment(c.body)
+      );
+    });
+
+    if (ackComment) {
+      const acknowledgedAt = new Date(ackComment.created_at!);
+      this.log.info({ fn: 'findAcknowledgement', owner, repo, pr, acknowledgedAt: acknowledgedAt.toISOString() }, 'Found CodeRabbit acknowledgement');
+      return { acknowledgedAt };
     }
 
     return undefined;

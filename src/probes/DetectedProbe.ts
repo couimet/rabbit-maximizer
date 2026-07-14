@@ -80,4 +80,8 @@ export class DetectedProbe {
   alreadyQueued(): void {
     this.log.info(this.loggingCtx, 'Review-limit comment already queued; skipping');
   }
+
+  alreadyProcessed(existingUuids: string[]): void {
+    this.log.info({ ...this.loggingCtx, existingUuids }, 'Review-limit comment already processed; skipping');
+  }
 }

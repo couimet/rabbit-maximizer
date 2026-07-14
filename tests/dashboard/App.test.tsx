@@ -48,14 +48,14 @@ describe('App', () => {
     render(<App />);
     expect(screen.getByAltText('Rabbit Maximizer')).toBeInTheDocument();
     expect(screen.getByText('Rabbit Maximizer')).toBeInTheDocument();
-    await screen.findByText('No pending items.');
+    await screen.findByText('No pending or retriggered items.');
   });
 
   it('renders two tab buttons', async () => {
     render(<App />);
     expect(screen.getByText('Summary')).toBeInTheDocument();
     expect(screen.getByText('Events')).toBeInTheDocument();
-    await screen.findByText('No pending items.');
+    await screen.findByText('No pending or retriggered items.');
   });
 
   it('renders the footer with GitHub link', async () => {
@@ -63,12 +63,12 @@ describe('App', () => {
     const link = screen.getByText('github.com/couimet/rabbit-maximizer');
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', 'https://github.com/couimet/rabbit-maximizer');
-    await screen.findByText('No pending items.');
+    await screen.findByText('No pending or retriggered items.');
   });
 
   it('shows Summary tab content by default', async () => {
     render(<App />);
-    await waitFor(() => expect(screen.getByText('No pending items.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No pending or retriggered items.')).toBeInTheDocument());
   });
 
   it('switches to Events tab and shows empty state', async () => {
@@ -83,7 +83,7 @@ describe('App', () => {
     await waitFor(() => expect(screen.getByText('No events.')).toBeInTheDocument());
 
     fireEvent.click(screen.getByText('Summary'));
-    await waitFor(() => expect(screen.getByText('No pending items.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No pending or retriggered items.')).toBeInTheDocument());
   });
 
   describe('timezone selector', () => {
@@ -92,7 +92,7 @@ describe('App', () => {
       expect(screen.getByText('Timezone:')).toBeInTheDocument();
       expect(screen.getByRole('combobox', { name: 'Timezone:' })).toBeInTheDocument();
       expect(screen.getByText('UTC')).toBeInTheDocument();
-      await screen.findByText('No pending items.');
+      await screen.findByText('No pending or retriggered items.');
     });
 
     it('shows Local option when browser timezone differs from UTC', async () => {
@@ -101,7 +101,7 @@ describe('App', () => {
       if (localTz !== 'UTC') {
         expect(screen.getByText(/^Local \(/)).toBeInTheDocument();
       }
-      await screen.findByText('No pending items.');
+      await screen.findByText('No pending or retriggered items.');
     });
 
     it('shows Local option when detectLocalTimezone returns non-UTC', async () => {
@@ -110,7 +110,7 @@ describe('App', () => {
       } as Intl.DateTimeFormat);
       render(<App />);
       expect(screen.getByText('Local (America/New_York)')).toBeInTheDocument();
-      await screen.findByText('No pending items.');
+      await screen.findByText('No pending or retriggered items.');
     });
 
     it('persists selection to localStorage', async () => {
@@ -120,7 +120,7 @@ describe('App', () => {
       const newValue = options.find((opt) => opt !== select.value) ?? options[0];
       fireEvent.change(select, { target: { value: newValue } });
       expect(localStorage.getItem('rm-timezone')).toBe(newValue);
-      await screen.findByText('No pending items.');
+      await screen.findByText('No pending or retriggered items.');
     });
   });
 });

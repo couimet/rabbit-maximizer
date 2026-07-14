@@ -16,6 +16,7 @@ interface RowOverrides {
   repo_full_name?: string;
   pr_number?: number;
   pr_title?: string;
+  author_login?: string;
   status?: string;
   not_before?: Date;
   attempts?: number;
@@ -37,6 +38,7 @@ const makeRow = (over: RowOverrides = {}) => {
     repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? 'Test PR title',
+    author_login: over.author_login ?? '<unknown>',
     status: over.status ?? 'pending',
     not_before: over.not_before ?? getUniqueDate(),
     attempts: over.attempts ?? 0,
@@ -59,6 +61,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
   repo_full_name: row.repo_full_name,
   pr_number: row.pr_number,
   pr_title: row.pr_title,
+  author_login: row.author_login,
   status: row.status as QueueStatus,
   not_before: row.not_before,
   attempts: row.attempts,
@@ -106,7 +109,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_url: sourceUrl });
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
-        reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(row) },
+        reviewQueue: { findFirst: createResolvedMock(null), findMany: createResolvedMock([]), create: createResolvedMock(row) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
@@ -143,6 +146,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(existing),
+          findMany: createResolvedMock([]),
           create: jest.fn<any>().mockRejectedValue(p2002),
         },
       });
@@ -166,7 +170,10 @@ describe('QueueRepositoryImpl', () => {
         prisma as unknown as Prisma.TransactionClient,
       );
 
-      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: repo, pr_number: pr, status: 'pending' } });
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
+        where: { repo_full_name: repo, pr_number: pr, status: 'pending' },
+      });
       expect(created).toBe(false);
       expect(result).toStrictEqual(toExpectedItem(existing));
     });
@@ -183,6 +190,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(existing),
+          findMany: createResolvedMock([]),
           create: jest.fn<any>().mockRejectedValue(p2002),
           update: jest.fn<any>().mockResolvedValue(updated),
         },
@@ -233,6 +241,7 @@ describe('QueueRepositoryImpl', () => {
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         where: { repo_full_name: repo, pr_number: pr, status: 'retriggered', not_before: { gt: frozenNow } },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
@@ -247,7 +256,7 @@ describe('QueueRepositoryImpl', () => {
       const notBefore = getUniqueDate();
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
-        reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(newRow) },
+        reviewQueue: { findFirst: createResolvedMock(null), findMany: createResolvedMock([]), create: createResolvedMock(newRow) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
@@ -262,6 +271,7 @@ describe('QueueRepositoryImpl', () => {
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         where: { repo_full_name: repo, pr_number: pr, status: 'retriggered', not_before: { gt: frozenNow } },
       });
       expect(reviewQueue.create).toHaveBeenCalledWith({
@@ -280,6 +290,77 @@ describe('QueueRepositoryImpl', () => {
       expect(created).toBe(true);
       expect(result).toStrictEqual(toExpectedItem(newRow));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr }, 'Enqueued review');
+    });
+
+    it('returns existing row with created=false when source_comment_id already exists (dedup)', async () => {
+      const { fullName: repo } = getUniqueGitHubRepoRef();
+      const pr = getUniqueInt();
+      const commentId = getUniqueInt();
+      const existing = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_id: commentId, status: QueueStatus.reviewed });
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: createResolvedMock(null),
+          findMany: createResolvedMock([existing]),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const notBefore = getUniqueDate();
+      const newWait = getUniqueInt();
+      const { item: result, created } = await sut.enqueue(
+        { repo, pr, prTitle: 'Test PR title', notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId: getUniqueInt() },
+        observationContext,
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
+        where: { source_comment_id: commentId },
+        orderBy: { created_at: 'asc' },
+      });
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(toExpectedItem(existing));
+    });
+
+    it('logs WARN and returns existing row with created=false when 2+ prior entries share source_comment_id (loop detection)', async () => {
+      const { fullName: repo } = getUniqueGitHubRepoRef();
+      const pr = getUniqueInt();
+      const commentId = getUniqueInt();
+      const first = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_id: commentId, status: QueueStatus.reviewed });
+      const second = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_id: commentId, status: QueueStatus.reviewed });
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: createResolvedMock(null),
+          findMany: createResolvedMock([first, second]),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const notBefore = getUniqueDate();
+      const newWait = getUniqueInt();
+      const { item: result, created } = await sut.enqueue(
+        { repo, pr, prTitle: 'Test PR title', notBefore, sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId: getUniqueInt() },
+        observationContext,
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
+        where: { source_comment_id: commentId },
+        orderBy: { created_at: 'asc' },
+      });
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.enqueue', repo, pr, sourceCommentId: commentId, priorUuids: [first.uuid, second.uuid] },
+        'Comment has 2+ prior queue entries; possible loop',
+      );
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(toExpectedItem(first));
     });
   });
 
@@ -345,9 +426,10 @@ describe('QueueRepositoryImpl', () => {
 
       const result = await sut.markReviewedByUuid(row.uuid, prisma as unknown as Prisma.TransactionClient);
 
-      expect(reviewQueue.findUnique).toHaveBeenCalledWith({ where: { uuid: row.uuid } });
+      expect(reviewQueue.findUnique).toHaveBeenCalledWith({ include: { pullRequest: { select: { author_login: true } } }, where: { uuid: row.uuid } });
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
+        include: { pullRequest: { select: { author_login: true } } },
         data: { status: 'reviewed', reviewed_at: frozenNow },
       });
       expect(probeEvents.record).toHaveBeenCalledWith(
@@ -498,6 +580,7 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
       const result = await sut.getPendingQueue();
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         where: { status: 'pending' },
         orderBy: { not_before: 'asc' },
       });
@@ -513,6 +596,7 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
       const result = await sut.getRetriggeredQueue();
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         where: { status: 'retriggered' },
         orderBy: { retriggered_at: 'asc' },
       });
@@ -528,6 +612,7 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
       const result = await sut.getOldestPending();
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         where: { status: 'pending' },
         orderBy: { not_before: 'asc' },
       });
@@ -550,7 +635,7 @@ describe('QueueRepositoryImpl', () => {
       const pr = getUniqueInt();
       const networkError = new Error('Connection lost');
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
-        reviewQueue: { findFirst: createResolvedMock(null), create: jest.fn<any>().mockRejectedValue(networkError) },
+        reviewQueue: { findFirst: createResolvedMock(null), findMany: createResolvedMock([]), create: jest.fn<any>().mockRejectedValue(networkError) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
@@ -574,7 +659,7 @@ describe('QueueRepositoryImpl', () => {
       const pr = getUniqueInt();
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
-        reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2002), findFirst: createResolvedMock(null) },
+        reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2002), findFirst: createResolvedMock(null), findMany: createResolvedMock([]) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
@@ -612,6 +697,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getAll(skip, take);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         orderBy: { not_before: 'asc' },
         skip,
         take,
@@ -665,6 +751,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getTriggered(since, 0, 50, false);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
         orderBy: { retriggered_at: 'desc' },
         skip: 0,
@@ -695,6 +782,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getTriggered(since, 0, 50, true);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'reviewed'] } },
         orderBy: { retriggered_at: 'desc' },
         skip: 0,
@@ -721,6 +809,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getTriggered(since, 1, 2, false);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
+        include: { pullRequest: { select: { author_login: true } } },
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
         orderBy: { retriggered_at: 'desc' },
         skip: 1,

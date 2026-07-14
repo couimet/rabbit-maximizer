@@ -14,7 +14,11 @@ const RELATIVE_TIME_REFRESH_MS = 60_000;
 
 const TRIGGERED_DEFAULT_DURATION = '2d';
 
-const RecentlyTriggered = () => {
+const RecentlyTriggered = ({
+  awaitingAcknowledgement,
+}: {
+  awaitingAcknowledgement?: { repo_full_name: string; pr_number: number; pr_title: string; requested_at: string } | null;
+}) => {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
@@ -109,6 +113,14 @@ const RecentlyTriggered = () => {
       </label>
 
       {error && <div className="error-banner">Failed to refresh: {error}</div>}
+
+      {awaitingAcknowledgement && (
+        <div className="awaiting-ack-row">
+          <span className="awaiting-ack-icon">⏳</span>
+          <span className="awaiting-ack-text">Awaiting CodeRabbit acknowledgement for {awaitingAcknowledgement.pr_title}</span>
+          <span className="awaiting-ack-time">{formatRelativeTime(awaitingAcknowledgement.requested_at)}</span>
+        </div>
+      )}
 
       {loading && items.length === 0 ? (
         <div className="loading">Loading triggered items…</div>

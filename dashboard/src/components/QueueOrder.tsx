@@ -1,7 +1,7 @@
 import { formatRelativeFuture } from '../../../src/utils/formatRelativeFuture.js';
 import type { QueueItem } from '../api.js';
 import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
-import { prUrl, repoUrl } from '../githubUrl.js';
+import { prUrl } from '../githubUrl.js';
 
 import ConfirmDialog from './ConfirmDialog.js';
 
@@ -155,7 +155,7 @@ const QueueOrder = ({
       {moveError && <div className="error">Move failed: {moveError}</div>}
       {toast && <div className={'toast toast-' + toast.variant}>{toast.message}</div>}
       {items.length === 0 ? (
-        <p>No pending items.</p>
+        <p>No pending or retriggered items.</p>
       ) : (
         <>
           <div className="queue-order-toolbar">
@@ -179,7 +179,7 @@ const QueueOrder = ({
                   />
                 </th>
                 <th className="col-position">#</th>
-                <th>Repo / PR</th>
+                <th>Pull Request</th>
                 <th>Not Before</th>
                 <th>Status</th>
                 <th className="col-actions"></th>
@@ -187,30 +187,37 @@ const QueueOrder = ({
             </thead>
             <tbody>
               {items.map((item, index) => {
+                const isRetriggered = item.status === 'retriggered';
                 const isSelected = selectedUuids.has(item.uuid);
                 return (
-                  <tr key={item.uuid} className={`${isSelected ? 'row-selected' : ''} ${index > 0 ? 'row-waiting' : ''}`}>
+                  <tr
+                    key={item.uuid}
+                    className={`${isSelected ? 'row-selected' : ''} ${isRetriggered ? 'row-retriggered' : ''} ${index > 0 ? 'row-waiting' : ''}`}
+                  >
                     <td className="col-select">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(item.uuid)}
                         disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
-                        aria-label={`Select ${item.repo_full_name} #${item.pr_number}`}
+                        aria-label={`Select ${item.pr_title}`}
                       />
                     </td>
                     <td className="col-position">{index + 1}</td>
                     <td>
-                      <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
-                        {item.repo_full_name}
-                      </a>{' '}
                       <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
-                        #{item.pr_number}
+                        {item.pr_title} (#{item.pr_number})
                       </a>
-                      <span className="pr-title">{item.pr_title}</span>
+                      {item.author_login !== '<unknown>' && <span className="pr-author"> by {item.author_login}</span>}
+                      <br />
+                      <span className="pr-repo-muted">{item.repo_full_name}</span>
                     </td>
                     <td>{formatRelativeFuture(item.not_before)}</td>
-                    {index === 0 ? (
+                    {isRetriggered ? (
+                      <td>
+                        <span className="status-pill retriggered">Awaiting review</span>
+                      </td>
+                    ) : index === 0 ? (
                       <td>
                         {new Date(item.not_before).getTime() <= Date.now() ? (
                           <span className="status-pill eligible">{formatRelativeFuture(item.not_before)}</span>
@@ -224,15 +231,17 @@ const QueueOrder = ({
                       </td>
                     )}
                     <td className="col-actions">
-                      <button
-                        className="btn-retrigger"
-                        onClick={() => handleRetriggerNow(item.uuid)}
-                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
-                        aria-label={'Retrigger now for ' + item.repo_full_name + ' #' + item.pr_number}
-                        title="Retrigger now"
-                      >
-                        ⚡
-                      </button>
+                      {!isRetriggered && (
+                        <button
+                          className="btn-retrigger"
+                          onClick={() => handleRetriggerNow(item.uuid)}
+                          disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
+                          aria-label={'Retrigger now for ' + item.pr_title}
+                          title="Retrigger now"
+                        >
+                          ⚡
+                        </button>
+                      )}
                       <button
                         className="btn-arrow"
                         onClick={() => handleMoveToTop(item.uuid)}

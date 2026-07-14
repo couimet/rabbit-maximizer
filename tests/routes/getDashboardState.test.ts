@@ -3,7 +3,7 @@ import { createGetDashboardStateHandler } from '../../src/routes/getDashboardSta
 import { QueueStatus } from '../../src/types/index.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository } from '../helpers/index.js';
+import { createMockEventRepo, createMockPullRequestRepo, createMockQueueOrderRepo, createMockSystemStateRepository } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -44,6 +44,7 @@ describe('getDashboardState', () => {
     queueOrderRepoOver: Record<string, unknown> = {},
     eventRepoOver: Record<string, unknown> = {},
     systemStateRepoOver: Record<string, unknown> = {},
+    pullRequestRepoOver: Record<string, unknown> = {},
   ) => {
     const app = createExpressApp({ logger });
     app.get(
@@ -52,6 +53,7 @@ describe('getDashboardState', () => {
         createMockQueueOrderRepo(queueOrderRepoOver as any),
         createMockEventRepo(eventRepoOver as any),
         createMockSystemStateRepository(systemStateRepoOver as any),
+        createMockPullRequestRepo(pullRequestRepoOver as any),
         logger,
       ),
     );
@@ -89,6 +91,7 @@ describe('getDashboardState', () => {
       pendingItems: items.map(toJson),
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
       paused: false,
+      awaitingAcknowledgement: null,
     });
   });
 
@@ -118,6 +121,7 @@ describe('getDashboardState', () => {
       pendingItems: items.map(toJson),
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
       paused: false,
+      awaitingAcknowledgement: null,
     });
   });
 
@@ -147,6 +151,7 @@ describe('getDashboardState', () => {
       pendingItems: items.map(toJson),
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
+      awaitingAcknowledgement: null,
     });
   });
 
@@ -160,6 +165,7 @@ describe('getDashboardState', () => {
       pendingItems: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
+      awaitingAcknowledgement: null,
     });
   });
 
@@ -187,6 +193,7 @@ describe('getDashboardState', () => {
       pendingItems: items.map(toJson),
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
+      awaitingAcknowledgement: null,
     });
   });
 
@@ -213,6 +220,7 @@ describe('getDashboardState', () => {
       pendingItems: [],
       eventCounts: { detected: 1, enqueued: 2, retriggered: 3, failed: 6 },
       paused: false,
+      awaitingAcknowledgement: null,
     });
   });
 
@@ -268,7 +276,60 @@ describe('getDashboardState', () => {
       pendingItems: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: true,
+      awaitingAcknowledgement: null,
     });
+  });
+
+  it('includes awaiting acknowledgement when a PR is pending acknowledgement', async () => {
+    logger = createMockLogger();
+    const requestedAt = new Date();
+    const pendingAck = {
+      id: 1,
+      repo_full_name: 'owner/repo',
+      pr_number: 42,
+      title: 'Test PR title',
+      last_review_requested_at: requestedAt,
+    };
+    startServer({}, {}, {}, { findPendingAcknowledgement: jest.fn<any>().mockResolvedValue([pendingAck]) });
+
+    const json = await getJson(server, '/api/dashboard-state');
+    expect(json).toStrictEqual({
+      nextReviewAvailableAt: new Date(requestedAt.getTime() + 180_000).toISOString(),
+      pendingItems: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
+      awaitingAcknowledgement: {
+        repo_full_name: 'owner/repo',
+        pr_number: 42,
+        pr_title: 'Test PR title',
+        requested_at: requestedAt.toISOString(),
+      },
+    });
+  });
+
+  it('adjusts nextReviewAvailableAt when awaiting acknowledgement extends the wait', async () => {
+    logger = createMockLogger();
+    const futureDate = new Date(Date.now() + 60_000); // 1 min from now
+    const requestedAt = new Date(Date.now() - 120_000); // 2 min ago
+    const spacingEnd = new Date(requestedAt.getTime() + 180_000); // 1 min from now
+    const items = [makeQueueItem({ id: 1, not_before: futureDate })];
+    const pendingAck = {
+      id: 1,
+      repo_full_name: 'owner/repo',
+      pr_number: 42,
+      title: 'Test PR',
+      last_review_requested_at: requestedAt,
+    };
+    startServer(
+      { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
+      { countByType: jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, failed: 0 }) },
+      {},
+      { findPendingAcknowledgement: jest.fn<any>().mockResolvedValue([pendingAck]) },
+    );
+
+    const json: any = await getJson(server, '/api/dashboard-state');
+    expect(json.awaitingAcknowledgement).not.toBeNull();
+    expect(json.nextReviewAvailableAt).toBe(spacingEnd.toISOString());
   });
 
   it('returns 500 and logs error on getEffectiveOrder failure', async () => {

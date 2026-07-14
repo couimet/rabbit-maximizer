@@ -15,6 +15,7 @@ interface MakeRowOverrides {
   repo_full_name?: string;
   pr_number?: number;
   pr_title?: string;
+  author_login?: string;
   status?: string;
   not_before?: Date;
   attempts?: number;
@@ -34,6 +35,7 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
     repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? 'Test PR title',
+    author_login: over.author_login ?? 'author-login',
     status: over.status ?? 'pending',
     not_before: over.not_before ?? new Date(Date.now() - 60_000),
     attempts: over.attempts ?? 0,
@@ -46,6 +48,7 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
     pull_request_id: getUniqueInt(),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
+    pullRequest: { author_login: over.author_login ?? 'author-login' },
     queueOrder: {
       id: qoOver.id ?? getUniqueInt(),
       queue_item_id: over.id ?? 0,
@@ -62,6 +65,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   repo_full_name: row.repo_full_name,
   pr_number: row.pr_number,
   pr_title: row.pr_title,
+  author_login: row.author_login!,
   status: row.status as QueueStatus,
   not_before: row.not_before,
   attempts: row.attempts,
@@ -100,8 +104,8 @@ describe('QueueOrderRepositoryImpl', () => {
       const result = await sut.getEffectiveOrder();
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: 'pending', not_before: { lte: frozenNow } },
-        include: { queueOrder: true },
+        where: { status: { in: ['pending'] }, not_before: { lte: frozenNow } },
+        include: { queueOrder: true, pullRequest: { select: { author_login: true } } },
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
@@ -155,8 +159,8 @@ describe('QueueOrderRepositoryImpl', () => {
       const result = await sut.getEffectiveOrder({ eligibleOnly: false });
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: 'pending' },
-        include: { queueOrder: true },
+        where: { status: { in: ['pending'] } },
+        include: { queueOrder: true, pullRequest: { select: { author_login: true } } },
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
@@ -520,7 +524,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
       await expect(sut.moveToTop(itemA.uuid)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_PENDING', {
-        message: `Queue item ${itemA.uuid} is not pending`,
+        message: `Queue item ${itemA.uuid} is not pending or retriggered`,
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
         details: { uuid: itemA.uuid, status: 'reviewed' },
       });

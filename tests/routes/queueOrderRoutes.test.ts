@@ -64,10 +64,12 @@ describe('queueOrderRoutes', () => {
 
     it('returns 200 with data array when items exist', async () => {
       const items = [makeItem(1), makeItem(2)];
-      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
+      const getEffectiveOrder = jest.fn<any>().mockResolvedValue(items);
+      startServer({ getEffectiveOrder });
 
       const json = await getJson(server, '/api/queue/order');
       expect(json).toStrictEqual({ data: items });
+      expect(getEffectiveOrder).toHaveBeenCalledWith({ eligibleOnly: false, includeRetriggered: true });
     });
 
     it('returns 200 with empty data when no items', async () => {
@@ -79,7 +81,8 @@ describe('queueOrderRoutes', () => {
 
     it('returns 500 and logs error on repository failure', async () => {
       const repoError = new Error('DB down');
-      startServer({ getEffectiveOrder: jest.fn<any>().mockRejectedValue(repoError) });
+      const getEffectiveOrder = jest.fn<any>().mockRejectedValue(repoError);
+      startServer({ getEffectiveOrder });
 
       const res = await fetchResponse(server, '/api/queue/order');
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);

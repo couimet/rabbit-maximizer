@@ -303,6 +303,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>Keeps the diff clean of formatting noise. Linter auto-fixes handle import sorting, whitespace, and other mechanical concerns.</rationale>
 </rule>
 
+<rule id="P006" priority="critical">
+  <title>Use scripts/db/data-dir.sh to locate the database</title>
+  <do>Resolve the DB path with `bash scripts/db/data-dir.sh` (or `pnpm db:path`), never hardcode it</do>
+  <do>Use `sqlite3 "$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db"` for ad-hoc queries</do>
+  <never>Hardcode paths like `data/rabbit-maximizer.db` or `/Users/*/rabbit-maximizer.db` — the data directory depends on `RABBIT_MAXIMIZER_DATA_DIR` env var and git worktree layout</never>
+  <rationale>The data directory is resolved relative to the main git repo (not worktree) root. The script centralizes this logic. Hardcoded paths break across worktrees and environments.</rationale>
+</rule>
+
 <rule id="P005" priority="critical">
   <title>Extract small functional utilities into standalone modules</title>
   <do>Extract pure functions (parsers, validators, extractors, formatters) into standalone utility modules under `src/utils/` with their own isolated unit tests</do>

@@ -9,41 +9,45 @@ generator client {
 // ---------------------------------------------------------------------------
 // PullRequest — canonical home for PR identity and system-observed history.
 //
-// Column notes:
-//   id                        Internal auto-increment PK.
-//   uuid                      External-facing stable identifier (UUID v4).
-//   title / author_login      Cached from GitHub at detection time.
-//   first_seen_at             Earliest created_at across all queue rows for this PR.
-//   first_review_limit_at     Earliest review-limit comment timestamp (NULL if none).
-//   last_review_limit_at      Latest review-limit comment timestamp (NULL if none).
-//   last_review_requested_at  Last time we posted a retrigger comment.
-//   last_coderabbit_review_at Last time CodeRabbit performed a review.
-//   retrigger_count           Total retrigger comments posted.
-//   review_count              Total reviews actually performed by CodeRabbit.
+// Column notes (see migration SQL for the full glossary):
+//   id                           Internal auto-increment PK.
+//   uuid                         External-facing stable identifier (UUID v4).
+//   title / author_login         Cached from GitHub at detection time.
+//   first_seen_at                Earliest created_at across all queue rows for this PR.
+//   first_review_limit_at        Earliest CodeRabbit rate-limit comment timestamp (NULL if none).
+//   last_review_limit_at         Latest CodeRabbit rate-limit comment timestamp.
+//   last_review_requested_at     Last time WE posted a retrigger comment asking for a review.
+//   last_coderabbit_acknowledged_at  Last time CodeRabbit acknowledged our retrigger ("Sure, I'll
+//                                    perform a full review"). NULL until first acknowledgement.
+//   last_coderabbit_review_at    Last time CodeRabbit completed a review (approved or changes-requested).
+//   retrigger_count              Total retrigger comments WE posted.
+//   review_count                 Total reviews CodeRabbit actually completed.
 // ---------------------------------------------------------------------------
 
 model PullRequest {
-  id                        Int       @id @default(autoincrement())
-  uuid                      String    @unique @default(uuid())
-  repo_full_name            String
-  pr_number                 Int
-  title                     String
-  author_login              String
-  first_seen_at             DateTime
-  first_review_limit_at     DateTime?
-  last_review_limit_at      DateTime?
-  last_review_requested_at  DateTime?
-  last_coderabbit_review_at DateTime?
-  retrigger_count           Int       @default(0)
-  review_count              Int       @default(0)
-  created_at                DateTime  @default(now())
-  updated_at                DateTime  @updatedAt
+  id                              Int       @id @default(autoincrement())
+  uuid                            String    @unique @default(uuid())
+  repo_full_name                  String
+  pr_number                       Int
+  title                           String
+  author_login                    String
+  first_seen_at                   DateTime
+  first_review_limit_at           DateTime?
+  last_review_limit_at            DateTime?
+  last_review_requested_at        DateTime?
+  last_coderabbit_acknowledged_at DateTime?
+  last_coderabbit_review_at       DateTime?
+  retrigger_count                 Int       @default(0)
+  review_count                    Int       @default(0)
+  created_at                      DateTime  @default(now())
+  updated_at                      DateTime  @updatedAt
 
   queueItems  ReviewQueue[]
   events      Event[]
 
   @@index([last_coderabbit_review_at])
   @@index([last_review_requested_at])
+  @@index([last_coderabbit_acknowledged_at])
   @@unique([repo_full_name, pr_number])
   @@map("pull_request")
 }
@@ -118,7 +122,7 @@ model Event {
   /// Max 36 (UUID v4).
   uuid           String   @unique @default(uuid())
   ts             DateTime @default(now())
-  /// Max 25; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed' (CHECK in the init + bypass migration).
+  /// Max 50; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed' | 'coderabbit_review_approved' | 'coderabbit_review_changes_requested' | 'title_changed' (CHECK in init + bypass + #160 migrations).
   type           String
   pull_request_id Int?
   /// Max 140: GitHub owner/org + "/" + repo. See review_queue / init migration for sources.

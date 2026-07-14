@@ -20,3 +20,6 @@ export const REVIEW_BOT_RETRIGGER_COMMAND = '@coderabbitai full review';
 
 /** Body text markers that identify a completed CodeRabbit review via the PR reviews API. Each entry is a substring match against the review body. */
 export const REVIEW_BOT_COMPLETION_SIGNALS: readonly string[] = ['Actionable comments posted:', 'No actionable comments were generated in the recent review.'];
+
+/** HTML comment that CodeRabbit includes in auto-generated reply comments. */
+export const REVIEW_BOT_ACKNOWLEDGEMENT_MARKER = '<!-- This is an auto-generated reply by CodeRabbit -->';

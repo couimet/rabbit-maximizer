@@ -26,7 +26,7 @@ const log = getLogger();
 
 log.info({ fn: 'main' }, `rabbit-maximizer starting — DETECTION_MODE=${config.DETECTION_MODE}`);
 log.info({ fn: 'main' }, `Watching repos: ${describeRepoFilter(config.REPO_FILTER)}`);
-log.info({ fn: 'main' }, `Poll interval: ${config.POLL_INTERVAL}s`);
+log.info({ fn: 'main' }, `Poll interval: ${config.POLL_INTERVAL_SEC}s`);
 
 const octokit = container.get<Octokit>(TYPES.Octokit);
 try {

@@ -80,6 +80,7 @@ const SummaryStats = () => {
       <ReviewCountdown
         target={data.nextReviewAvailableAt ? new Date(data.nextReviewAvailableAt) : null}
         paused={data.paused}
+        awaitingAck={data.awaitingAcknowledgement !== null && data.awaitingAcknowledgement !== undefined}
         onTogglePaused={handleTogglePaused}
         toggling={toggling}
       />
@@ -96,7 +97,7 @@ const SummaryStats = () => {
         />
       </div>
 
-      <RecentlyTriggered />
+      <RecentlyTriggered awaitingAcknowledgement={data.awaitingAcknowledgement} />
 
       <div className="section-card">
         <h3>

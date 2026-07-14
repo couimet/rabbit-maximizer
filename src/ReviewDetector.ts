@@ -24,7 +24,7 @@ export class ReviewDetector extends IntervalService {
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.Logger) log: Logger,
   ) {
-    super(log, cfg.POLL_INTERVAL * MS_PER_SECOND);
+    super(log, cfg.POLL_INTERVAL_SEC * MS_PER_SECOND);
   }
   /* c8 ignore stop */
 

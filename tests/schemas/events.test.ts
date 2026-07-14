@@ -159,6 +159,15 @@ describe('parseEventRow', () => {
     expect(result.payload).toStrictEqual({ reason });
   });
 
+  it('handles legacy completed events by mapping to coderabbit_review_approved', () => {
+    const row = baseRow({ type: 'completed', payload: '{}' });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_approved');
+    expect(result.payload).toStrictEqual({});
+  });
+
   it('throws on an unexpected event type', () => {
     const row = baseRow({ type: 'bogus', payload: '{}' });
     expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_CODE_PATH', {

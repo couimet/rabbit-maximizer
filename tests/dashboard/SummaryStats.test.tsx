@@ -4,7 +4,7 @@ import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
 import { TimezoneProvider } from '../../dashboard/src/timezone.js';
 
 import '@testing-library/jest-dom/jest-globals';
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
@@ -323,10 +323,12 @@ describe('SummaryStats', () => {
     it('re-fetches dashboard state when QueueOrder calls onMoveComplete', async () => {
       const repo = getUniqueGitHubRepoRef().fullName;
       const prNumber = getUniqueInt();
+      const prTitle = getUniqueString({ prefix: 'pr-' });
       const queueItem = {
         uuid: getUuid(),
         repo_full_name: repo,
         pr_number: prNumber,
+        pr_title: prTitle,
         status: 'pending',
         not_before: getUniqueDate().toISOString(),
         attempts: 0,
@@ -371,7 +373,7 @@ describe('SummaryStats', () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText('Queue Order — 1 pending item(s)')).toBeInTheDocument());
 
-      fireEvent.click(screen.getByLabelText(`Select ${repo} #${prNumber}`));
+      fireEvent.click(screen.getByLabelText(`Select ${prTitle}`));
       fireEvent.click(screen.getByText('Move Up'));
 
       await waitFor(() => expect(screen.getByText('2')).toBeInTheDocument());

@@ -377,6 +377,7 @@ components:
         - repo_full_name
         - pr_number
         - pr_title
+        - author_login
         - status
         - not_before
         - attempts
@@ -393,6 +394,8 @@ components:
         pr_number:
           type: integer
         pr_title:
+          type: string
+        author_login:
           type: string
         status:
           $ref: '#/components/schemas/QueueStatus'
@@ -516,6 +519,21 @@ components:
           $ref: '#/components/schemas/EventCounts'
         paused:
           type: boolean
+        awaitingAcknowledgement:
+          type: object
+          nullable: true
+          required: [repo_full_name, pr_number, pr_title, requested_at]
+          properties:
+            repo_full_name:
+              type: string
+            pr_number:
+              type: integer
+            pr_title:
+              type: string
+            requested_at:
+              type: string
+              format: date-time
+          additionalProperties: false
       additionalProperties: false
 
     PauseRequest:

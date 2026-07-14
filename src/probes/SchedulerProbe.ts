@@ -38,6 +38,10 @@ export class SchedulerProbe {
     this.log.debug({ fn: 'SchedulerProbe.noItemsDue' }, 'No items due for retrigger');
   }
 
+  awaitingAcknowledgement(spacingSec: number): void {
+    this.log.debug({ fn: 'SchedulerProbe.awaitingAcknowledgement', spacingSec }, 'Awaiting CodeRabbit acknowledgement before retriggering');
+  }
+
   tickFailed(error: unknown): void {
     this.log.warn({ fn: 'SchedulerProbe.tickFailed', error }, 'executeTick failed before item was fetched');
   }

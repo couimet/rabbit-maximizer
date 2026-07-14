@@ -34,7 +34,7 @@ export class EnqueueProbe {
   }
 
   alreadyQueued(repo: string, pr: number, status: string): void {
-    this.log.debug({ fn: 'EnqueueProbe.alreadyQueued', repo, pr, status }, 'Already queued; returning existing row');
+    this.log.info({ fn: 'EnqueueProbe.alreadyQueued', repo, pr, status }, 'Already queued; returning existing row');
   }
 
   alreadyQueuedRescheduled(repo: string, pr: number, oldNotBefore: Date, newNotBefore: Date): void {

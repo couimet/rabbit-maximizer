@@ -13,7 +13,7 @@ import { inject, injectable } from 'inversify';
 export type MoveDirection = 'up' | 'down';
 
 export interface QueueOrderRepository {
-  getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]>;
+  getEffectiveOrder(options?: { eligibleOnly?: boolean; includeRetriggered?: boolean }): Promise<QueueItem[]>;
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]>;
   moveToTop(uuid: string): Promise<QueueItem>;
 }
@@ -24,19 +24,20 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     super(prisma, log);
   }
 
-  getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]> {
-    return this.readEffectiveOrder(undefined, options?.eligibleOnly ?? true);
+  getEffectiveOrder(options?: { eligibleOnly?: boolean; includeRetriggered?: boolean }): Promise<QueueItem[]> {
+    return this.readEffectiveOrder(undefined, options?.eligibleOnly ?? true, options?.includeRetriggered ?? false);
   }
 
-  private async readEffectiveOrder(tx?: Prisma.TransactionClient, eligibleOnly = true): Promise<QueueItem[]> {
+  private async readEffectiveOrder(tx?: Prisma.TransactionClient, eligibleOnly = true, includeRetriggered = false): Promise<QueueItem[]> {
     const db = this.client(tx);
-    const where: Prisma.ReviewQueueWhereInput = { status: 'pending' };
+    const statuses = includeRetriggered ? ['pending', 'retriggered'] : ['pending'];
+    const where: Prisma.ReviewQueueWhereInput = { status: { in: statuses } };
     if (eligibleOnly) {
       where.not_before = { lte: new Date() };
     }
     const rows = await db.reviewQueue.findMany({
       where,
-      include: { queueOrder: true },
+      include: { queueOrder: true, pullRequest: { select: { author_login: true } } },
       orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
     });
     const validRows = rows.filter((row) => row.pull_request_id !== null);
@@ -52,7 +53,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]> {
     return this.transaction(async (tx) => {
-      const ordered = await this.readEffectiveOrder(tx, false);
+      const ordered = await this.readEffectiveOrder(tx, false, true);
       const orderedIds = ordered.map((item) => item.id);
       const selectedIds = resolveUuidsToIds(ordered, [...new Set(queueItemUuids)]);
 
@@ -76,7 +77,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemUuids, direction }, 'Moved items in queue order');
 
-      return this.readEffectiveOrder(tx, false);
+      return this.readEffectiveOrder(tx, false, true);
     });
   }
 
@@ -97,16 +98,17 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
         });
       }
 
-      if (rawItem.status !== QueueStatus.pending) {
+      const allowedStatuses: string[] = [QueueStatus.pending, QueueStatus.retriggered];
+      if (!allowedStatuses.includes(rawItem.status)) {
         throw new RabbitMaximizerError({
           code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
-          message: `Queue item ${uuid} is not pending`,
+          message: `Queue item ${uuid} is not pending or retriggered`,
           functionName: 'QueueOrderRepositoryImpl.moveToTop',
           details: { uuid, status: rawItem.status },
         });
       }
 
-      const ordered = await this.readEffectiveOrder(tx, false);
+      const ordered = await this.readEffectiveOrder(tx, false, true);
       const item = findByUuid(ordered, uuid);
 
       if (!item) {
@@ -132,12 +134,12 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
   }
 
   private async normalizePositionsToOrder(db: Prisma.TransactionClient, orderedIds: number[]): Promise<void> {
-    const pendingItems = await db.reviewQueue.findMany({
-      where: { status: 'pending' },
+    const items = await db.reviewQueue.findMany({
+      where: { status: { in: ['pending', 'retriggered'] } },
       include: { queueOrder: true },
     });
 
-    const qoIds = pendingItems.map((item) => item.queueOrder?.id).filter((id): id is number => id != null);
+    const qoIds = items.map((item) => item.queueOrder?.id).filter((id): id is number => id != null);
     if (qoIds.length > 0) {
       await db.queueOrder.updateMany({
         where: { id: { in: qoIds } },
@@ -146,7 +148,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     }
 
     // Assign new positions, creating queue_order rows for items that lack them (pre-migration backfill)
-    const itemById = new Map(pendingItems.map((item) => [item.id, item]));
+    const itemById = new Map(items.map((item) => [item.id, item]));
     for (let i = 0; i < orderedIds.length; i++) {
       const item = itemById.get(orderedIds[i]);
       /* c8 ignore next 2 — defensive: orderedIds are derived from readEffectiveOrder which returns pending items */
@@ -167,13 +169,14 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     this.log.debug({ fn: 'QueueOrderRepositoryImpl.normalizePositionsToOrder', count: orderedIds.length }, 'Normalized queue positions');
   }
 
-  private toQueueItem(row: ReviewQueue & { queueOrder: QueueOrder | null }): QueueItem {
+  private toQueueItem(row: ReviewQueue & { queueOrder: QueueOrder | null; pullRequest?: { author_login: string } | null }): QueueItem {
     return {
       id: row.id,
       uuid: row.uuid,
       repo_full_name: row.repo_full_name,
       pr_number: row.pr_number,
       pr_title: row.pr_title,
+      author_login: row.pullRequest?.author_login ?? '<unknown>',
       status: row.status as QueueStatus,
       not_before: row.not_before,
       attempts: row.attempts,

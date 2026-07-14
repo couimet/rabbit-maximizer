@@ -1,9 +1,16 @@
+import type { PullRequestRepository } from '../src/db/pullRequestRepository.js';
 import { PollDetector } from '../src/detectorPoll.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { DetectedComment } from '../src/types/DetectedComment.js';
 import type { OnDetectedCallback } from '../src/types/OnDetectedCallback.js';
 
-import { createMockCoderabbitGitHubClient, createMockOnDetectedCallback, createMockSystemStateRepository, drainMicrotasks } from './helpers/index.js';
+import {
+  createMockCoderabbitGitHubClient,
+  createMockOnDetectedCallback,
+  createMockPullRequestRepo,
+  createMockSystemStateRepository,
+  drainMicrotasks,
+} from './helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -21,6 +28,7 @@ const TICK_DEPTH = 20;
 interface MockDetectorDeps {
   github: jest.Mocked<CoderabbitGitHubClient>;
   onDetected: jest.Mocked<OnDetectedCallback>;
+  pullRequests: jest.Mocked<PullRequestRepository>;
   systemStateRepo: {
     getState: jest.Mock<any>;
     setState: jest.Mock<any>;
@@ -45,10 +53,11 @@ const setup = (): MockDetectorDeps => {
   const github = createMockCoderabbitGitHubClient();
 
   const onDetected = createMockOnDetectedCallback();
+  const pullRequests = createMockPullRequestRepo();
   const systemStateRepo = createMockSystemStateRepository() as unknown as MockDetectorDeps['systemStateRepo'];
   const logger = createMockLogger();
 
-  return { github, onDetected, systemStateRepo, logger };
+  return { github, onDetected, pullRequests, systemStateRepo, logger };
 };
 
 describe('PollDetector', () => {
@@ -59,7 +68,7 @@ describe('PollDetector', () => {
     jest.useFakeTimers();
   });
 
-  const createDetector = () => new PollDetector(deps.github, deps.onDetected, deps.systemStateRepo, deps.logger);
+  const createDetector = () => new PollDetector(deps.github, deps.onDetected, deps.systemStateRepo, deps.pullRequests, deps.logger);
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
@@ -67,6 +76,8 @@ describe('PollDetector', () => {
 
       const detector = createDetector();
       const { stop } = detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith(
@@ -165,6 +176,108 @@ describe('PollDetector', () => {
     });
   });
 
+  describe('acknowledgement detection', () => {
+    it('calls recordAcknowledgement when a pending PR has a matching acknowledgement', async () => {
+      const since = getUniqueDate();
+      const futureDate = new Date(since.getTime() + MS_PER_HOUR * 24);
+      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue([
+        { id: 42, repo_full_name: 'couimet/test-repo', pr_number: 123, title: getUniqueString({ prefix: 'pr-' }), last_review_requested_at: since },
+      ]);
+
+      const acknowledgedAt = new Date(futureDate.getTime() + MS_PER_HOUR);
+      deps.github.findAcknowledgement.mockResolvedValue({ acknowledgedAt });
+
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findAcknowledgement).toHaveBeenCalledWith('couimet', 'test-repo', 123, since);
+      expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(42);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'PollDetector.tick', owner: 'couimet', repo: 'test-repo', pr: 123, acknowledgedAt: acknowledgedAt.toISOString() },
+        'CodeRabbit acknowledgement detected',
+      );
+    });
+
+    it('does not call recordAcknowledgement when findAcknowledgement returns undefined', async () => {
+      const since = getUniqueDate();
+      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue([
+        { id: 99, repo_full_name: 'couimet/other-repo', pr_number: 456, title: 'PR Title', last_review_requested_at: since },
+      ]);
+
+      deps.github.findAcknowledgement.mockResolvedValue(undefined);
+
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findAcknowledgement).toHaveBeenCalledWith('couimet', 'other-repo', 456, since);
+      expect(deps.pullRequests.recordAcknowledgement).not.toHaveBeenCalled();
+    });
+
+    it('handles errors from findAcknowledgement gracefully and continues', async () => {
+      const since = getUniqueDate();
+      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue([
+        { id: 1, repo_full_name: 'couimet/repo-a', pr_number: 100, title: 'PR A', last_review_requested_at: since },
+        { id: 2, repo_full_name: 'couimet/repo-b', pr_number: 200, title: 'PR B', last_review_requested_at: since },
+      ]);
+
+      const networkError = new Error('Network error');
+      deps.github.findAcknowledgement.mockRejectedValueOnce(networkError).mockResolvedValueOnce({ acknowledgedAt: getUniqueDate() });
+
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findAcknowledgement).toHaveBeenCalledTimes(2);
+      expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledTimes(1);
+      expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(2);
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'PollDetector.tick', owner: 'couimet', repo: 'repo-a', pr: 100, error: networkError },
+        'Failed to check acknowledgement; will retry on next tick',
+      );
+    });
+
+    it('skips acknowledgement check when no pending PRs exist', async () => {
+      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue([]);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findAcknowledgement).not.toHaveBeenCalled();
+      expect(deps.pullRequests.recordAcknowledgement).not.toHaveBeenCalled();
+    });
+
+    it('still runs rate-limit search after acknowledgement check', async () => {
+      const since = getUniqueDate();
+      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue([
+        { id: 1, repo_full_name: 'couimet/repo', pr_number: 100, title: 'PR Title', last_review_requested_at: since },
+      ]);
+
+      deps.github.findAcknowledgement.mockResolvedValue({ acknowledgedAt: getUniqueDate() });
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('concurrency', () => {
     it('skips tick when another tick is already in-flight', async () => {
       let resolveSearch: (value: DetectedComment[]) => void;
@@ -232,7 +345,7 @@ describe('PollDetector', () => {
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
 
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
-      await Promise.resolve();
+      await drainMicrotasks(TICK_DEPTH);
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(2);
     });
 

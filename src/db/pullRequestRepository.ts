@@ -6,6 +6,14 @@ import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
+export interface PendingAcknowledgementPR {
+  id: number;
+  repo_full_name: string;
+  pr_number: number;
+  title: string;
+  last_review_requested_at: Date;
+}
+
 export interface PullRequestRepository {
   upsert(
     repoFullName: string,
@@ -16,7 +24,9 @@ export interface PullRequestRepository {
   findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<{ id: number } | null>;
   updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
   incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
+  recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void>;
   recordReview(id: number, tx: Prisma.TransactionClient): Promise<void>;
+  findPendingAcknowledgement(): Promise<PendingAcknowledgementPR[]>;
 }
 
 @injectable()
@@ -84,6 +94,32 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
   async updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void> {
     await this.client(tx).pullRequest.update({ where: { id }, data: { title } });
     this.log.debug({ fn: 'PullRequestRepositoryImpl.updateTitle', id }, 'Updated PullRequest title');
+  }
+
+  async recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.client(tx).pullRequest.update({
+      where: { id },
+      data: { last_coderabbit_acknowledged_at: new Date() },
+    });
+    this.log.debug({ fn: 'PullRequestRepositoryImpl.recordAcknowledgement', id }, 'Recorded CodeRabbit acknowledgement on PullRequest');
+  }
+
+  async findPendingAcknowledgement(): Promise<PendingAcknowledgementPR[]> {
+    const rows = await this.client().pullRequest.findMany({
+      where: { last_review_requested_at: { not: null } },
+      orderBy: { last_review_requested_at: 'desc' },
+      select: { id: true, repo_full_name: true, pr_number: true, title: true, last_review_requested_at: true, last_coderabbit_acknowledged_at: true },
+    });
+
+    return rows
+      .filter((r) => r.last_coderabbit_acknowledged_at === null || r.last_review_requested_at! > r.last_coderabbit_acknowledged_at)
+      .map((r) => ({
+        id: r.id,
+        repo_full_name: r.repo_full_name,
+        pr_number: r.pr_number,
+        title: r.title,
+        last_review_requested_at: r.last_review_requested_at!,
+      }));
   }
 
   async incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void> {

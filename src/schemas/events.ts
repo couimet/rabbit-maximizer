@@ -119,6 +119,15 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         type: EventType.failed,
         payload: FailedPayloadSchema.parse(payload),
       };
+    // Legacy type from before the completed→reviewed rename (PR #165).
+    // 196 historical rows in the DB. Mapped to review_approved with an
+    // empty payload since the old payloads were {}.
+    case 'completed':
+      return {
+        ...envelope,
+        type: EventType.coderabbit_review_approved,
+        payload: CoderabbitReviewApprovedPayloadSchema.parse(payload),
+      };
     default:
       throw RabbitMaximizerError.forUnexpectedSwitchDefault('event type', row.type, 'parseEventRow');
   }

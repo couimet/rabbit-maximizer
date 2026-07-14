@@ -32,7 +32,7 @@ container.bind<Config>(TYPES.Config).toConstantValue(config);
 
 container
   .bind<Octokit>(TYPES.Octokit)
-  .toDynamicValue(() => new Octokit({ auth: config.GITHUB_PAT, request: { timeout: config.GITHUB_API_TIMEOUT_MS } }))
+  .toDynamicValue(() => new Octokit({ auth: config.GITHUB_PAT, request: { timeout: config.GITHUB_API_TIMEOUT_SEC * 1000 } }))
   .inSingletonScope();
 
 container

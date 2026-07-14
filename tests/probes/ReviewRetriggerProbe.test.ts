@@ -21,6 +21,7 @@ const makeItem = () => ({
   not_before: getUniqueDate(),
   attempts: 0,
   pr_title: getUniqueString({ prefix: 'PR title ' }),
+  author_login: getUniqueString({ prefix: 'author-' }),
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   source_comment_id: getUniqueInt(),
   trigger_source: TriggerSource.scheduler,

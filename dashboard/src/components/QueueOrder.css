@@ -92,6 +92,15 @@
   color: #b0a392;
 }
 
+.row-retriggered td {
+  color: #8a7a6a;
+  font-style: italic;
+}
+
+.row-retriggered a {
+  color: #8a7a6a;
+}
+
 .row-selected {
   background: #fef7f0;
 }

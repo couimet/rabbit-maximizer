@@ -51,10 +51,26 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         status: QueueStatus.retriggered,
         not_before: { gt: new Date() },
       },
+      include: { pullRequest: { select: { author_login: true } } },
     });
     if (recentRetriggered) {
       probe.recentlyRetriggered(repo, pr);
       return { item: this.toQueueItem(recentRetriggered), created: false };
+    }
+
+    const priorByComment = await db.reviewQueue.findMany({
+      where: { source_comment_id: sourceCommentId },
+      orderBy: { created_at: 'asc' },
+      include: { pullRequest: { select: { author_login: true } } },
+    });
+    if (priorByComment.length >= 2) {
+      const priorUuids = priorByComment.map((row) => row.uuid);
+      this.log.warn({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, sourceCommentId, priorUuids }, 'Comment has 2+ prior queue entries; possible loop');
+    }
+    if (priorByComment.length >= 1) {
+      const detectedProbe = this.probeFactory.createDetectedProbe({ repo_full_name: repo, pr_number: pr, source_comment_url: sourceCommentUrl }, observation);
+      detectedProbe.alreadyProcessed(priorByComment.map((row) => row.uuid));
+      return { item: this.toQueueItem(priorByComment[0]), created: false };
     }
 
     try {
@@ -85,6 +101,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             pr_number: pr,
             status: QueueStatus.pending,
           },
+          include: { pullRequest: { select: { author_login: true } } },
         });
         if (existing) {
           if (existing.not_before.getTime() !== notBefore.getTime()) {
@@ -132,7 +149,10 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     const db = this.client(tx);
     const probe = this.probeFactory.createMarkQueueItemReviewedProbe(uuid);
 
-    const row = await db.reviewQueue.findUnique({ where: { uuid } });
+    const row = await db.reviewQueue.findUnique({
+      where: { uuid },
+      include: { pullRequest: { select: { author_login: true } } },
+    });
     if (!row) {
       probe.queueItemNotFound();
       return undefined;
@@ -141,6 +161,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     const updated = await db.reviewQueue.update({
       where: { id: row.id },
       data: { status: QueueStatus.reviewed, reviewed_at: new Date() },
+      include: { pullRequest: { select: { author_login: true } } },
     });
     await probe.queueItemMarkedReviewed(updated, db);
 
@@ -185,6 +206,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   async getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
     const rows = await this.client(tx).reviewQueue.findMany({
       where: { status: QueueStatus.pending },
+      include: { pullRequest: { select: { author_login: true } } },
       orderBy: { not_before: 'asc' },
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.getPendingQueue', count: rows.length }, 'Fetched pending queue');
@@ -194,6 +216,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   async getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
     const rows = await this.client(tx).reviewQueue.findMany({
       where: { status: QueueStatus.retriggered },
+      include: { pullRequest: { select: { author_login: true } } },
       orderBy: { retriggered_at: 'asc' },
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.getRetriggeredQueue', count: rows.length }, 'Fetched retriggered queue');
@@ -205,7 +228,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     const statuses = includeReviewed ? [QueueStatus.retriggered, QueueStatus.reviewed] : [QueueStatus.retriggered];
     const where = { retriggered_at: { gte: since }, status: { in: statuses } };
     const [rows, total] = await Promise.all([
-      db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' }, skip, take }),
+      db.reviewQueue.findMany({ where, include: { pullRequest: { select: { author_login: true } } }, orderBy: { retriggered_at: 'desc' }, skip, take }),
       db.reviewQueue.count({ where }),
     ]);
 
@@ -216,6 +239,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   async getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null> {
     const row = await this.client(tx).reviewQueue.findFirst({
       where: { status: QueueStatus.pending },
+      include: { pullRequest: { select: { author_login: true } } },
       orderBy: { not_before: 'asc' },
     });
     this.log.debug({ fn: 'QueueRepositoryImpl.getOldestPending', found: row !== null }, 'Fetched oldest pending item');
@@ -224,7 +248,10 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
   async getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
     const db = this.client(tx);
-    const [rows, total] = await Promise.all([db.reviewQueue.findMany({ orderBy: { not_before: 'asc' }, skip, take }), db.reviewQueue.count()]);
+    const [rows, total] = await Promise.all([
+      db.reviewQueue.findMany({ include: { pullRequest: { select: { author_login: true } } }, orderBy: { not_before: 'asc' }, skip, take }),
+      db.reviewQueue.count(),
+    ]);
     this.log.debug({ fn: 'QueueRepositoryImpl.getAll', count: rows.length, total }, 'Fetched all queue items');
     return { items: rows.map((row) => this.toQueueItem(row)), total };
   }
@@ -243,13 +270,14 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return counts;
   }
 
-  private toQueueItem(row: ReviewQueue): QueueItem {
+  private toQueueItem(row: ReviewQueue & { pullRequest?: { author_login: string } | null }): QueueItem {
     return {
       id: row.id,
       uuid: row.uuid,
       repo_full_name: row.repo_full_name,
       pr_number: row.pr_number,
       pr_title: row.pr_title,
+      author_login: row.pullRequest?.author_login ?? '<unknown>',
       status: row.status as QueueStatus,
       not_before: row.not_before,
       attempts: row.attempts,

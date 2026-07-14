@@ -16,7 +16,7 @@ import { StatusCodes } from 'http-status-codes';
 export const createGetQueueOrderHandler = (queueOrderRepo: QueueOrderRepository, logger: Logger) => {
   return async (_req: Request, res: Response): Promise<void> => {
     try {
-      const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
+      const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false, includeRetriggered: true });
       res.json({ data: items });
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.get', error }, 'Failed to get queue order');
@@ -44,7 +44,7 @@ export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository
         return;
       }
 
-      const currentOrder = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
+      const currentOrder = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false, includeRetriggered: true });
       const currentUuids = new Set(currentOrder.map((item) => item.uuid));
       const missingUuids = queueItemUuids.filter((uuid: string) => !currentUuids.has(uuid));
       if (missingUuids.length > 0) {

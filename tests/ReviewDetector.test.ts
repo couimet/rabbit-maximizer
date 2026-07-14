@@ -4,7 +4,7 @@ import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.j
 
 import { createMockCoderabbitGitHubClient, createMockProbeFactory, createMockQueueRepo, createMockReviewDetectorProbe } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -27,7 +27,7 @@ interface MockReviewDetectorDeps {
   probe: ReturnType<typeof createMockReviewDetectorProbe>;
   prisma: { $transaction: jest.Mock<any> };
   logger: Logger;
-  config: { POLL_INTERVAL: number };
+  config: { POLL_INTERVAL_SEC: number };
 }
 
 const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: number }): QueueItem => {
@@ -39,6 +39,7 @@ const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: numb
     repo_full_name: getUniqueGitHubRepoRef().fullName,
     pr_number: getUniqueInt(),
     pr_title: 'Test PR title',
+    author_login: getUniqueString({ prefix: 'author-' }),
     status: QueueStatus.retriggered,
     not_before: getUniqueDate(),
     attempts: 1,
@@ -60,7 +61,7 @@ const setup = (): MockReviewDetectorDeps => {
   const probeFactory = createMockProbeFactory({ createReviewDetectorProbe: jest.fn<any>().mockReturnValue(probe) });
   const prisma = { $transaction: jest.fn<any>() };
   const logger = createMockLogger();
-  const config = { POLL_INTERVAL: POLL_INTERVAL_SEC };
+  const config = { POLL_INTERVAL_SEC: POLL_INTERVAL_SEC };
   return { queue, github, probeFactory, probe, prisma, logger, config };
 };
 

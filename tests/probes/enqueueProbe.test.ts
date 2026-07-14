@@ -70,7 +70,7 @@ describe('EnqueueProbe', () => {
       const STATUS = getUniqueString({ prefix: 'status-' });
       const probe = createProbe(makeTx());
       probe.alreadyQueued(repo, pr, STATUS);
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.alreadyQueued', repo, pr, status: STATUS },
         'Already queued; returning existing row',
       );

@@ -25,6 +25,7 @@ const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   repo_full_name: `${getUniqueString({ prefix: 'owner' })}/${getUniqueString({ prefix: 'repo' })}`,
   pr_number: getUniqueInt(),
   pr_title: getUniqueString({ prefix: 'pr-' }),
+  author_login: getUniqueString({ prefix: 'author-' }),
   status: QueueStatus.pending,
   not_before: getUniqueDate().toISOString(),
   attempts: getUniqueInt(),
@@ -57,29 +58,31 @@ describe('QueueOrder', () => {
       item2 = makeQueueItem();
     });
 
-    it('renders queue order items with position numbers and details', () => {
+    it('renders queue order items with PR title, number, author, and repo', () => {
       renderQueueOrder([item1, item2]);
 
       expect(screen.getByText('1')).toBeInTheDocument();
       expect(screen.getByText('2')).toBeInTheDocument();
       expect(screen.getByText(item1.repo_full_name)).toBeInTheDocument();
       expect(screen.getByText(item2.repo_full_name)).toBeInTheDocument();
-      expect(screen.getByText(`#${item1.pr_number}`)).toBeInTheDocument();
-      expect(screen.getByText(`#${item2.pr_number}`)).toBeInTheDocument();
-      expect(screen.getByText(item1.pr_title)).toBeInTheDocument();
-      expect(screen.getByText(item2.pr_title)).toBeInTheDocument();
+      expect(screen.getByText(`(#${item1.pr_number})`, { exact: false })).toBeInTheDocument();
+      expect(screen.getByText(`(#${item2.pr_number})`, { exact: false })).toBeInTheDocument();
+      expect(screen.getByText(item1.pr_title, { exact: false })).toBeInTheDocument();
+      expect(screen.getByText(item2.pr_title, { exact: false })).toBeInTheDocument();
+      expect(screen.getByText(`by ${item1.author_login}`)).toBeInTheDocument();
+      expect(screen.getByText(`by ${item2.author_login}`)).toBeInTheDocument();
     });
 
-    it('renders repo links opening in new tabs', () => {
+    it('renders repo name as text (not a link)', () => {
       renderQueueOrder([item1, item2]);
-      const link = screen.getByText(item1.repo_full_name).closest('a');
-      expect(link).toHaveAttribute('href', `https://github.com/${item1.repo_full_name}`);
-      expect(link).toHaveAttribute('target', '_blank');
+      const el = screen.getByText(item1.repo_full_name);
+      expect(el.closest('a')).toBeNull();
+      expect(el.closest('.pr-repo-muted')).not.toBeNull();
     });
 
-    it('renders PR links opening in new tabs', () => {
+    it('renders PR link opening in new tabs with title and number', () => {
       renderQueueOrder([item1, item2]);
-      const link = screen.getByText(`#${item1.pr_number}`).closest('a');
+      const link = screen.getByText(new RegExp(`${item1.pr_title}.*#${item1.pr_number}`)).closest('a');
       expect(link).toHaveAttribute('href', `https://github.com/${item1.repo_full_name}/pull/${item1.pr_number}`);
       expect(link).toHaveAttribute('target', '_blank');
     });
@@ -101,7 +104,7 @@ describe('QueueOrder', () => {
   describe('empty', () => {
     it('shows empty message when items is empty', () => {
       renderQueueOrder([]);
-      expect(screen.getByText('No pending items.')).toBeInTheDocument();
+      expect(screen.getByText('No pending or retriggered items.')).toBeInTheDocument();
     });
   });
 

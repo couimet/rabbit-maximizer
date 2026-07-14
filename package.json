@@ -18,6 +18,7 @@
     "db:backup": "bash scripts/db/backup.sh",
     "db:migrate": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" prisma migrate deploy",
     "db:migrate:backup": "pnpm db:backup && pnpm db:migrate",
+    "db:path": "bash scripts/db/data-dir.sh",
     "db:restore": "bash scripts/db/restore.sh",
     "db:studio": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" prisma studio",
     "dev": "pnpm db:migrate:backup && pnpm local",

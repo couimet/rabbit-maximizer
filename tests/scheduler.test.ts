@@ -1,4 +1,5 @@
 import type { Config } from '../src/config.js';
+import type { PullRequestRepository } from '../src/db/pullRequestRepository.js';
 import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
 import type { SystemStateRepository } from '../src/db/systemStateRepository.js';
@@ -13,6 +14,7 @@ import { RabbitResult } from '../src/types/RabbitResult.js';
 import {
   createMockProbeFactory,
   createMockPruner,
+  createMockPullRequestRepo,
   createMockQueueOrderRepo,
   createMockQueueRepo,
   createMockSchedulerProbe,
@@ -26,7 +28,7 @@ import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
-const TICK_INTERVAL_MS = 10_000;
+const TICK_INTERVAL_SEC = 10;
 const SHORT_DRAIN = 5;
 const BASE_BACKOFF_MS = 60_000;
 
@@ -36,6 +38,7 @@ interface QueueItemStub {
   repo_full_name: string;
   pr_number: number;
   pr_title: string;
+  author_login: string;
   status: QueueStatus;
   not_before: Date;
   attempts: number;
@@ -49,6 +52,7 @@ interface QueueItemStub {
 
 interface MockSchedulerDeps {
   config: Config;
+  pullRequests: jest.Mocked<PullRequestRepository>;
   queueOrder: jest.Mocked<QueueOrderRepository>;
   queue: jest.Mocked<QueueRepository>;
   prisma: PrismaClient;
@@ -69,6 +73,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
     repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? getUniqueString({ prefix: 'pr-title-' }),
+    author_login: over.author_login ?? 'test-author',
     status: over.status ?? QueueStatus.pending,
     not_before: over.not_before ?? new Date(Date.now() - 60_000),
     attempts: over.attempts ?? 0,
@@ -82,6 +87,7 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
 };
 
 const setup = (): MockSchedulerDeps => {
+  const pullRequests = createMockPullRequestRepo();
   const queueOrder = createMockQueueOrderRepo();
   const queue = createMockQueueRepo();
   const reviewTrigger = { trigger: jest.fn() } as unknown as jest.Mocked<ReviewTrigger>;
@@ -103,23 +109,24 @@ const setup = (): MockSchedulerDeps => {
 
   const config: Config = {
     DETECTION_MODE: 'poll',
-    GITHUB_API_TIMEOUT_MS: 10_000,
+    GITHUB_API_TIMEOUT_SEC: 10,
     GITHUB_PAT: 'test-pat',
-    PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES: 30,
-    PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES: 15,
-    POLL_INTERVAL: 90,
+    PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 1800,
+    PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 900,
+    POLL_INTERVAL_SEC: 90,
     REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
     DATABASE_URL: 'file:./data/test.db',
     WEB_PORT: 3000,
-    SCHEDULER_POST_COOLDOWN: 3600,
-    SCHEDULER_RETRY_BACKOFF_BASE: 60,
-    SCHEDULER_RETRY_BACKOFF_MAX: 3600,
-    REVIEW_LIMIT_BUFFER_SECONDS: 60,
-    REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: 3600,
-    SCHEDULER_TICK_INTERVAL_MS: TICK_INTERVAL_MS,
+    SCHEDULER_POST_COOLDOWN_SEC: 3600,
+    SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
+    SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
+    REVIEW_LIMIT_BUFFER_SEC: 60,
+    REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
+    SCHEDULER_RETRIGGER_SPACING_SEC: 60,
+    SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_SEC,
   };
 
-  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState };
+  return { config, pullRequests, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState };
 };
 
 describe('Scheduler', () => {
@@ -134,7 +141,18 @@ describe('Scheduler', () => {
   });
 
   const createScheduler = () =>
-    new Scheduler(deps.queueOrder, deps.prisma, deps.config, deps.pruner, deps.reviewTrigger, deps.queue, deps.probeFactory, deps.systemState, deps.logger);
+    new Scheduler(
+      deps.pullRequests,
+      deps.queueOrder,
+      deps.prisma,
+      deps.config,
+      deps.pruner,
+      deps.reviewTrigger,
+      deps.queue,
+      deps.probeFactory,
+      deps.systemState,
+      deps.logger,
+    );
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
@@ -305,6 +323,24 @@ describe('Scheduler', () => {
       await stop();
     });
 
+    it('skips tick when a pending acknowledgement exists within the spacing window', async () => {
+      const item = makeItem();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue([
+        { id: 1, repo_full_name: item.repo_full_name, pr_number: item.pr_number, title: 'Test PR', last_review_requested_at: new Date(Date.now() - 30_000) },
+      ]);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.mockProbe.awaitingAcknowledgement).toHaveBeenCalledWith(60);
+      expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
     it('skips processing when scheduler is paused', async () => {
       const item = makeItem();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
@@ -407,7 +443,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
-      expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
+      expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_SEC * 1000 }, 'Starting scheduler');
 
       await stop();
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.stop' }, 'Scheduler stopped');

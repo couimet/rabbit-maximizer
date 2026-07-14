@@ -1,3 +1,4 @@
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { StateKey } from './db/systemStateRepository.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
@@ -15,7 +16,7 @@ import { TYPES } from './inversify-types.js';
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-const POLL_INTERVAL_MS = config.POLL_INTERVAL * MS_PER_SECOND;
+const POLL_INTERVAL_MS = config.POLL_INTERVAL_SEC * MS_PER_SECOND;
 
 @injectable()
 export class PollDetector extends IntervalService {
@@ -29,6 +30,8 @@ export class PollDetector extends IntervalService {
     private readonly onDetected: OnDetectedCallback,
     @inject(TYPES.SystemStateRepository)
     private readonly systemStateRepo: SystemStateRepository,
+    @inject(TYPES.PullRequestRepository)
+    private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(log, POLL_INTERVAL_MS);
@@ -36,7 +39,7 @@ export class PollDetector extends IntervalService {
   /* c8 ignore stop */
 
   protected onStart(): void {
-    this.log.info({ fn: 'PollDetector.start', pollIntervalSec: config.POLL_INTERVAL, repoCount: config.REPO_FILTER.length }, 'Starting poll detector');
+    this.log.info({ fn: 'PollDetector.start', pollIntervalSec: config.POLL_INTERVAL_SEC, repoCount: config.REPO_FILTER.length }, 'Starting poll detector');
   }
 
   protected onStop(): void {
@@ -51,6 +54,8 @@ export class PollDetector extends IntervalService {
     const logCtx: LoggingContext = { fn: 'PollDetector.tick' };
 
     try {
+      await this.checkPendingAcknowledgements(logCtx);
+
       const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;
 
@@ -69,7 +74,7 @@ export class PollDetector extends IntervalService {
         }
 
         const waitSeconds = parseWaitSeconds(body);
-        const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SECONDS;
+        const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
         const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MS_PER_SECOND);
         if (!earliestNextReview || candidate < earliestNextReview) {
           earliestNextReview = candidate;
@@ -99,6 +104,25 @@ export class PollDetector extends IntervalService {
       }
 
       this.log.warn({ ...logCtx, error: err }, 'Poll tick failed; will retry on next interval');
+    }
+  }
+
+  private async checkPendingAcknowledgements(logCtx: LoggingContext): Promise<void> {
+    const pendingPRs = await this.pullRequests.findPendingAcknowledgement();
+
+    for (const pr of pendingPRs) {
+      const { owner, repo } = splitRepo(pr.repo_full_name);
+
+      try {
+        const ack = await this.github.findAcknowledgement(owner, repo, pr.pr_number, pr.last_review_requested_at);
+
+        if (ack) {
+          await this.pullRequests.recordAcknowledgement(pr.id);
+          this.log.info({ ...logCtx, owner, repo, pr: pr.pr_number, acknowledgedAt: ack.acknowledgedAt.toISOString() }, 'CodeRabbit acknowledgement detected');
+        }
+      } catch (err: unknown) {
+        this.log.warn({ ...logCtx, owner, repo, pr: pr.pr_number, error: err }, 'Failed to check acknowledgement; will retry on next tick');
+      }
     }
   }
 }

@@ -25,6 +25,7 @@ const makeItem = () => ({
   not_before: getUniqueDate(),
   attempts: 0,
   pr_title: getUniqueString({ prefix: 'PR title ' }),
+  author_login: getUniqueString({ prefix: 'author-' }),
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   source_comment_id: STALE_COMMENT_ID,
   trigger_source: TriggerSource.scheduler,
@@ -45,7 +46,7 @@ const setup = () => {
   const tx = {} as Prisma.TransactionClient;
   const prisma = { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)) } as unknown as PrismaClient;
   const logger = createMockLogger();
-  const cfg = { SCHEDULER_POST_COOLDOWN: POST_COOLDOWN_SEC, REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: 3600, REVIEW_LIMIT_BUFFER_SECONDS: 60 } as any;
+  const cfg = { SCHEDULER_POST_COOLDOWN_SEC: POST_COOLDOWN_SEC, REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600, REVIEW_LIMIT_BUFFER_SEC: 60 } as any;
 
   const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, cfg, logger);
 

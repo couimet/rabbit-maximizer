@@ -6,7 +6,7 @@ import '@testing-library/jest-dom/jest-globals';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 
-const DEFAULT_PROPS = { onTogglePaused: jest.fn(), toggling: false };
+const DEFAULT_PROPS = { onTogglePaused: jest.fn(), toggling: false, awaitingAck: false };
 
 afterEach(() => {
   cleanup();
@@ -84,7 +84,7 @@ describe('ReviewCountdown', () => {
 
     it('calls onTogglePaused when toggle button is clicked', () => {
       const onTogglePaused = jest.fn();
-      const { getByText } = render(<ReviewCountdown target={null} paused={false} onTogglePaused={onTogglePaused} toggling={false} />);
+      const { getByText } = render(<ReviewCountdown target={null} paused={false} onTogglePaused={onTogglePaused} toggling={false} awaitingAck={false} />);
 
       fireEvent.click(getByText('Pause'));
 

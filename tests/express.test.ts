@@ -7,7 +7,8 @@ const viteMock = createMockVite();
 
 jest.unstable_mockModule('vite', () => viteMock);
 
-const { createMockEventRepo, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } = await import('./helpers/index.js');
+const { createMockEventRepo, createMockPullRequestRepo, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } =
+  await import('./helpers/index.js');
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
 const { setupExpress } = await import('../src/express.js');
@@ -23,11 +24,11 @@ describe('setupExpress', () => {
 
   const start = (logger = createMockLogger()) => {
     const app = setupExpress({
-      config: { SCHEDULER_TICK_INTERVAL_MS: 10000 } as any,
+      config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),
-      pullRequestRepo: {} as any,
+      pullRequestRepo: createMockPullRequestRepo(),
       prisma: {} as any,
       reviewTrigger: { trigger: jest.fn() } as any,
       systemStateRepo: createMockSystemStateRepository(),

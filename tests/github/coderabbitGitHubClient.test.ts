@@ -849,6 +849,118 @@ describe('client', () => {
     });
   });
 
+  describe('findAcknowledgement', () => {
+    it('returns AcknowledgementResult when a matching comment from coderabbitai[bot] with the marker exists after the since date', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const commentCreatedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            created_at: commentCreatedAt,
+            body: '<!-- This is an auto-generated reply by CodeRabbit --> I will perform a full review.',
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: prNumber,
+        sort: 'created',
+        direction: 'desc',
+        per_page: 100,
+      });
+      expect(result).toStrictEqual({ acknowledgedAt: new Date(commentCreatedAt) });
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'findAcknowledgement', owner, repo, pr: prNumber, acknowledgedAt: new Date(commentCreatedAt).toISOString() },
+        'Found CodeRabbit acknowledgement',
+      );
+    });
+
+    it('returns undefined when no comment contains the acknowledgement marker', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
+            body: 'This is a regular comment without the marker.',
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+      expect(logger.info).not.toHaveBeenCalled();
+    });
+
+    it('returns undefined when the matching comment is from a non-CodeRabbit user', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            created_at: new Date(since.getTime() + MS_PER_HOUR * 24).toISOString(),
+            body: '<!-- This is an auto-generated reply by CodeRabbit --> Something',
+            user: { login: 'human-user' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when the comment is before the since date', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            created_at: new Date(since.getTime() - MS_PER_HOUR * 24).toISOString(),
+            body: '<!-- This is an auto-generated reply by CodeRabbit --> I will perform a full review.',
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when no comments exist', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({ data: [] });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe('container binding', () => {
     it('resolves CoderabbitGitHubClient from the container with mock Octokit and Logger', () => {
       const container = new Container();

@@ -1,3 +1,4 @@
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
@@ -22,9 +23,12 @@ const TERMINAL_HTTP_STATUSES = [StatusCodes.NOT_FOUND, StatusCodes.GONE];
 export class Scheduler extends IntervalService {
   private readonly baseBackoff: number;
   private readonly maxBackoff: number;
+  private readonly spacingSec: number;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
+    @inject(TYPES.PullRequestRepository)
+    private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.QueueOrderRepository)
     private readonly queueOrder: QueueOrderRepository,
     @inject(TYPES.PrismaClient)
@@ -42,9 +46,10 @@ export class Scheduler extends IntervalService {
     private readonly systemState: SystemStateRepository,
     @inject(TYPES.Logger) log: Logger,
   ) {
-    super(log, cfg.SCHEDULER_TICK_INTERVAL_MS);
-    this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE * MS_PER_SECOND;
-    this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX * MS_PER_SECOND;
+    super(log, cfg.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND);
+    this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE_SEC * MS_PER_SECOND;
+    this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX_SEC * MS_PER_SECOND;
+    this.spacingSec = cfg.SCHEDULER_RETRIGGER_SPACING_SEC;
   }
   /* c8 ignore stop */
 
@@ -77,6 +82,15 @@ export class Scheduler extends IntervalService {
 
       const item_ = item;
       probe.withItem(item_);
+
+      const pendingAcks = await this.pullRequests.findPendingAcknowledgement();
+      if (pendingAcks.length > 0) {
+        const unreviewedAck = pendingAcks.find((a) => Date.now() - a.last_review_requested_at.getTime() < this.spacingSec * MS_PER_SECOND);
+        if (unreviewedAck) {
+          probe.awaitingAcknowledgement(this.spacingSec);
+          return;
+        }
+      }
 
       const result = await this.reviewTrigger.trigger(item_, TriggerSource.scheduler);
 

@@ -8,8 +8,8 @@ export const createGetConfigHandler = (config: Config, logger: Logger) => {
   return (_req: Request, res: Response): void => {
     try {
       res.json({
-        pauseNotificationInitialDelayMinutes: config.PAUSE_NOTIFICATION_INITIAL_DELAY_MINUTES,
-        pauseNotificationRepeatIntervalMinutes: config.PAUSE_NOTIFICATION_REPEAT_INTERVAL_MINUTES,
+        pauseNotificationInitialDelaySec: config.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
+        pauseNotificationRepeatIntervalSec: config.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
       });
     } catch (error) {
       logger.error({ fn: 'api.config', error }, 'Failed to get config');

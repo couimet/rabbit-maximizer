@@ -21,6 +21,7 @@ export interface MockDetectedProbe {
   prMerged: jest.Mock<() => Promise<unknown>>;
   prClosedWithoutMerge: jest.Mock<() => Promise<unknown>>;
   alreadyQueued: jest.Mock;
+  alreadyProcessed: jest.Mock;
 }
 export const createMockDetectedProbe = (): MockDetectedProbe => ({
   detected: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -28,6 +29,7 @@ export const createMockDetectedProbe = (): MockDetectedProbe => ({
   prMerged: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   prClosedWithoutMerge: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadyQueued: jest.fn(),
+  alreadyProcessed: jest.fn(),
 });
 
 export interface MockReviewDetectorProbe {
@@ -62,6 +64,7 @@ export interface MockSchedulerProbe {
   pruningCompleted: jest.Mock<any>;
   schedulerPaused: jest.Mock<any>;
   noItemsDue: jest.Mock<any>;
+  awaitingAcknowledgement: jest.Mock<any>;
   tickFailed: jest.Mock<any>;
   rescheduled: jest.Mock<any>;
   skipped: jest.Mock<any>;
@@ -75,6 +78,7 @@ export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
   pruningCompleted: jest.fn<any>(),
   schedulerPaused: jest.fn<any>(),
   noItemsDue: jest.fn<any>(),
+  awaitingAcknowledgement: jest.fn<any>(),
   tickFailed: jest.fn<any>(),
   rescheduled: jest.fn<any>(),
   skipped: jest.fn<any>(),

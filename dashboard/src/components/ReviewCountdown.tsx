@@ -13,11 +13,13 @@ const formatCountdown = (diffMs: number): { h: number; m: number; s: number } =>
 const ReviewCountdown = ({
   target,
   paused,
+  awaitingAck,
   onTogglePaused,
   toggling,
 }: {
   target: Date | null;
   paused: boolean;
+  awaitingAck: boolean;
   onTogglePaused: () => void;
   toggling: boolean;
 }) => {
@@ -36,10 +38,15 @@ const ReviewCountdown = ({
 
   const countdownText = available
     ? 'Available now'
-    : (() => {
-        const { h, m, s } = formatCountdown(diffMs);
-        return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
-      })();
+    : awaitingAck
+      ? (() => {
+          const { h, m, s } = formatCountdown(diffMs);
+          return `waiting for acknowledgement (timeout in ${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s)`;
+        })()
+      : (() => {
+          const { h, m, s } = formatCountdown(diffMs);
+          return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+        })();
 
   return (
     <div className={barClass}>

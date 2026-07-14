@@ -227,6 +227,7 @@ export interface components {
       repo_full_name: string;
       pr_number: number;
       pr_title: string;
+      author_login: string;
       status: components['schemas']['QueueStatus'];
       /**
        * Format: date-time
@@ -250,7 +251,7 @@ export interface components {
       updated_at: string;
     };
     /** @enum {string} */
-    EventType: 'bypassed' | 'detected' | 'enqueued' | 'failed' | 'retriggered' | 'coderabbit_review_approved' | 'coderabbit_review_changes_requested';
+    EventType: 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed';
     EventEntry: {
       id: number;
       uuid: string;
@@ -286,6 +287,13 @@ export interface components {
       pendingItems: components['schemas']['QueueItem'][];
       eventCounts: components['schemas']['EventCounts'];
       paused: boolean;
+      awaitingAcknowledgement?: {
+        repo_full_name: string;
+        pr_number: number;
+        pr_title: string;
+        /** Format: date-time */
+        requested_at: string;
+      } | null;
     };
     PauseRequest: {
       paused: boolean;
@@ -294,8 +302,8 @@ export interface components {
       paused: boolean;
     };
     PublicConfig: {
-      pauseNotificationInitialDelayMinutes: number;
-      pauseNotificationRepeatIntervalMinutes: number;
+      pauseNotificationInitialDelaySec: number;
+      pauseNotificationRepeatIntervalSec: number;
     };
     Summary: {
       queueCounts: components['schemas']['QueueCounts'];
