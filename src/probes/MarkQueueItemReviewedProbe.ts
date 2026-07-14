@@ -20,14 +20,14 @@ export class MarkQueueItemReviewedProbe {
   async queueItemMarkedReviewed(row: ReviewQueue, tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {
-        type: EventType.completed,
+        type: EventType.coderabbit_review_approved,
         repo_full_name: row.repo_full_name,
         pr_number: row.pr_number,
         correlation_id: this.observation.correlationId,
         request_id: this.observation.requestId,
         version: this.observation.version,
         payload: {
-          retriggered_comment_url: row.retrigger_comment_url ?? undefined,
+          coderabbit_comment_url: row.retrigger_comment_url ?? undefined,
         },
       },
       tx,

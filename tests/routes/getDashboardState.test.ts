@@ -70,7 +70,17 @@ describe('getDashboardState', () => {
     ];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
-      { countByType: jest.fn<any>().mockResolvedValue({ detected: 5, enqueued: 3, retriggered: 2, failed: 1, bypassed: 0, completed: 0 }) },
+      {
+        countByType: jest.fn<any>().mockResolvedValue({
+          detected: 5,
+          enqueued: 3,
+          retriggered: 2,
+          failed: 1,
+          bypassed: 0,
+          coderabbit_review_approved: 0,
+          coderabbit_review_changes_requested: 0,
+        }),
+      },
     );
 
     const json = await getJson(server, '/api/dashboard-state');
@@ -89,7 +99,17 @@ describe('getDashboardState', () => {
     const items = [makeQueueItem({ id: 1, not_before: futureDate2 }), makeQueueItem({ id: 2, not_before: futureDate1 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
-      { countByType: jest.fn<any>().mockResolvedValue({ detected: 5, enqueued: 3, retriggered: 2, failed: 1, bypassed: 0, completed: 0 }) },
+      {
+        countByType: jest.fn<any>().mockResolvedValue({
+          detected: 5,
+          enqueued: 3,
+          retriggered: 2,
+          failed: 1,
+          bypassed: 0,
+          coderabbit_review_approved: 0,
+          coderabbit_review_changes_requested: 0,
+        }),
+      },
     );
 
     const json = await getJson(server, '/api/dashboard-state');
@@ -108,7 +128,17 @@ describe('getDashboardState', () => {
     const items = [makeQueueItem({ id: 1, not_before: pastDate1 }), makeQueueItem({ id: 2, not_before: pastDate2 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
-      { countByType: jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 }) },
+      {
+        countByType: jest.fn<any>().mockResolvedValue({
+          detected: 0,
+          enqueued: 0,
+          retriggered: 0,
+          bypassed: 0,
+          coderabbit_review_approved: 0,
+          coderabbit_review_changes_requested: 0,
+          failed: 0,
+        }),
+      },
     );
 
     const json = await getJson(server, '/api/dashboard-state');
@@ -138,7 +168,17 @@ describe('getDashboardState', () => {
     const items = [makeQueueItem({ id: 1, not_before: new Date(0) }), makeQueueItem({ id: 2, repo_full_name: 'a/b', pr_number: 99, not_before: new Date(0) })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
-      { countByType: jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 }) },
+      {
+        countByType: jest.fn<any>().mockResolvedValue({
+          detected: 0,
+          enqueued: 0,
+          retriggered: 0,
+          bypassed: 0,
+          coderabbit_review_approved: 0,
+          coderabbit_review_changes_requested: 0,
+          failed: 0,
+        }),
+      },
     );
 
     const json = await getJson(server, '/api/dashboard-state');
@@ -150,9 +190,22 @@ describe('getDashboardState', () => {
     });
   });
 
-  it('eventCounts excludes bypassed and completed', async () => {
+  it('eventCounts excludes bypassed, coderabbit_review_approved, and coderabbit_review_changes_requested', async () => {
     logger = createMockLogger();
-    startServer({}, { countByType: jest.fn<any>().mockResolvedValue({ detected: 1, enqueued: 2, retriggered: 3, bypassed: 4, completed: 5, failed: 6 }) });
+    startServer(
+      {},
+      {
+        countByType: jest.fn<any>().mockResolvedValue({
+          detected: 1,
+          enqueued: 2,
+          retriggered: 3,
+          bypassed: 4,
+          coderabbit_review_approved: 3,
+          coderabbit_review_changes_requested: 2,
+          failed: 6,
+        }),
+      },
+    );
 
     const json = await getJson(server, '/api/dashboard-state');
     expect(json).toStrictEqual({
@@ -168,7 +221,15 @@ describe('getDashboardState', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
-    const countByType = jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 });
+    const countByType = jest.fn<any>().mockResolvedValue({
+      detected: 0,
+      enqueued: 0,
+      retriggered: 0,
+      bypassed: 0,
+      coderabbit_review_approved: 0,
+      coderabbit_review_changes_requested: 0,
+      failed: 0,
+    });
     startServer({}, { countByType });
 
     await getJson(server, '/api/dashboard-state?duration=2d');
@@ -181,7 +242,15 @@ describe('getDashboardState', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
-    const countByType = jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 });
+    const countByType = jest.fn<any>().mockResolvedValue({
+      detected: 0,
+      enqueued: 0,
+      retriggered: 0,
+      bypassed: 0,
+      coderabbit_review_approved: 0,
+      coderabbit_review_changes_requested: 0,
+      failed: 0,
+    });
     startServer({}, { countByType });
 
     await getJson(server, '/api/dashboard-state?duration=invalid');

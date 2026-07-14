@@ -6,7 +6,15 @@ export const createMockEventRepo = (overrides?: Partial<jest.Mocked<EventReposit
   ({
     record: jest.fn<any>(),
     listForPr: jest.fn<any>(),
-    countByType: jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 }),
+    countByType: jest.fn<any>().mockResolvedValue({
+      detected: 0,
+      enqueued: 0,
+      retriggered: 0,
+      bypassed: 0,
+      failed: 0,
+      coderabbit_review_approved: 0,
+      coderabbit_review_changes_requested: 0,
+    }),
     listRecent: jest.fn<any>().mockResolvedValue({ items: [], total: 0 }),
     ...overrides,
   }) as unknown as jest.Mocked<EventRepository>;

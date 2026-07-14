@@ -1,4 +1,13 @@
-import type { BypassedPayload, CompletedPayload, DetectedPayload, EnqueuedPayload, EventMetadata, FailedPayload, RetriggeredPayload } from './EventPayloads.js';
+import type {
+  BypassedPayload,
+  CoderabbitReviewApprovedPayload,
+  CoderabbitReviewChangesRequestedPayload,
+  DetectedPayload,
+  EnqueuedPayload,
+  EventMetadata,
+  FailedPayload,
+  RetriggeredPayload,
+} from './EventPayloads.js';
 import { EventType } from './EventType.js';
 
 /** Always-present columns shared by every event, regardless of type. */
@@ -21,10 +30,6 @@ export type EventLogEntry =
       readonly payload: BypassedPayload;
     })
   | (EventEnvelope & {
-      readonly type: EventType.completed;
-      readonly payload: CompletedPayload;
-    })
-  | (EventEnvelope & {
       readonly type: EventType.detected;
       readonly payload: DetectedPayload;
     })
@@ -39,4 +44,12 @@ export type EventLogEntry =
   | (EventEnvelope & {
       readonly type: EventType.retriggered;
       readonly payload: RetriggeredPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_review_approved;
+      readonly payload: CoderabbitReviewApprovedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_review_changes_requested;
+      readonly payload: CoderabbitReviewChangesRequestedPayload;
     });

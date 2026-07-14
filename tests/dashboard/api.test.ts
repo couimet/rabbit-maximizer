@@ -15,8 +15,8 @@ describe('api', () => {
   describe('fetchSummary', () => {
     it('returns parsed JSON on success', async () => {
       const data = {
-        queueCounts: { pending: 1, retriggered: 0, completed: 0, failed: 0 },
-        eventCounts: { detected: 1, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 },
+        queueCounts: { pending: 1, retriggered: 0, reviewed: 0, failed: 0 },
+        eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
         oldestPending: null,
       };
       globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;

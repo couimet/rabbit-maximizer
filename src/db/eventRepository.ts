@@ -2,7 +2,8 @@ import { TYPES } from '../inversify-types.js';
 import { parseEventRow } from '../schemas/events.js';
 import type {
   BypassedPayload,
-  CompletedPayload,
+  CoderabbitReviewApprovedPayload,
+  CoderabbitReviewChangesRequestedPayload,
   DetectedPayload,
   EnqueuedPayload,
   EventMetadata,
@@ -29,7 +30,8 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.enqueued; payload: EnqueuedPayload })
   | (NewEventBase & { type: EventType.retriggered; payload: RetriggeredPayload })
   | (NewEventBase & { type: EventType.bypassed; payload: BypassedPayload })
-  | (NewEventBase & { type: EventType.completed; payload: CompletedPayload })
+  | (NewEventBase & { type: EventType.coderabbit_review_approved; payload: CoderabbitReviewApprovedPayload })
+  | (NewEventBase & { type: EventType.coderabbit_review_changes_requested; payload: CoderabbitReviewChangesRequestedPayload })
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
 export interface EventRepository {
@@ -100,12 +102,13 @@ export class EventRepositoryImpl implements EventRepository {
     });
 
     const counts: Record<EventType, number> = {
+      bypassed: 0,
       detected: 0,
       enqueued: 0,
-      retriggered: 0,
-      bypassed: 0,
-      completed: 0,
       failed: 0,
+      retriggered: 0,
+      coderabbit_review_approved: 0,
+      coderabbit_review_changes_requested: 0,
     };
     for (const row of rows) {
       counts[row.type as EventType] = row._count.type;

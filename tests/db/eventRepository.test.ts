@@ -308,7 +308,8 @@ describe('EventRepositoryImpl', () => {
         { type: 'enqueued', _count: { type: 8 } },
         { type: 'retriggered', _count: { type: 5 } },
         { type: 'bypassed', _count: { type: 3 } },
-        { type: 'completed', _count: { type: 2 } },
+        { type: 'coderabbit_review_approved', _count: { type: 1 } },
+        { type: 'coderabbit_review_changes_requested', _count: { type: 1 } },
         { type: 'failed', _count: { type: 1 } },
       ];
 
@@ -326,17 +327,26 @@ describe('EventRepositoryImpl', () => {
         _count: { type: true },
       });
       expect(result).toStrictEqual({
+        bypassed: 3,
         detected: 11,
         enqueued: 8,
-        retriggered: 5,
-        bypassed: 3,
-        completed: 2,
         failed: 1,
+        retriggered: 5,
+        coderabbit_review_approved: 1,
+        coderabbit_review_changes_requested: 1,
       });
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'EventRepositoryImpl.countByType',
-          counts: { detected: 11, enqueued: 8, retriggered: 5, bypassed: 3, completed: 2, failed: 1 },
+          counts: {
+            bypassed: 3,
+            detected: 11,
+            enqueued: 8,
+            failed: 1,
+            retriggered: 5,
+            coderabbit_review_approved: 1,
+            coderabbit_review_changes_requested: 1,
+          },
         },
         'Counted events by type',
       );

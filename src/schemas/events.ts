@@ -8,9 +8,11 @@ import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from './lengths.js';
 import type { Event as PrismaEvent } from '@prisma/client';
 import { z } from 'zod';
 
+const COMMENT_URL_SCHEMA = z.string().max(COMMENT_URL_MAX_LENGTH);
+
 export const DetectedPayloadSchema = z.object({
   source_ts: z.coerce.date().optional(),
-  source_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH).optional(),
+  source_comment_url: COMMENT_URL_SCHEMA.optional(),
 });
 
 // TODO [2026-07-25]: #79 — remove once the schema squash eliminates old enqueued events with `scheduled_for`
@@ -30,8 +32,8 @@ export const EnqueuedPayloadSchema = z.object({
 });
 
 export const RetriggeredPayloadSchema = z.object({
-  source_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH),
-  retriggered_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH),
+  source_comment_url: COMMENT_URL_SCHEMA,
+  retriggered_comment_url: COMMENT_URL_SCHEMA,
 });
 
 export const BypassedPayloadSchema = z.object({
@@ -39,10 +41,12 @@ export const BypassedPayloadSchema = z.object({
   detail: z.string().max(REASON_MAX_LENGTH).optional(),
 });
 
-// TODO [2026-07-25]: #79 — drop .optional() on both fields once the schema squash removes historical completed events
-export const CompletedPayloadSchema = z.object({
-  retriggered_comment_url: z.string().max(COMMENT_URL_MAX_LENGTH).optional(),
-  review_id: z.number().int().positive().optional(),
+export const CoderabbitReviewApprovedPayloadSchema = z.object({
+  coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
+});
+
+export const CoderabbitReviewChangesRequestedPayloadSchema = z.object({
+  coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
 });
 
 export const FailedPayloadSchema = z.object({
@@ -97,11 +101,17 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         type: EventType.bypassed,
         payload: BypassedPayloadSchema.parse(payload),
       };
-    case EventType.completed:
+    case EventType.coderabbit_review_approved:
       return {
         ...envelope,
-        type: EventType.completed,
-        payload: CompletedPayloadSchema.parse(payload),
+        type: EventType.coderabbit_review_approved,
+        payload: CoderabbitReviewApprovedPayloadSchema.parse(payload),
+      };
+    case EventType.coderabbit_review_changes_requested:
+      return {
+        ...envelope,
+        type: EventType.coderabbit_review_changes_requested,
+        payload: CoderabbitReviewChangesRequestedPayloadSchema.parse(payload),
       };
     case EventType.failed:
       return {
