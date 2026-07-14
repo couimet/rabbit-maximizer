@@ -1,7 +1,9 @@
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
-import { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import { ReviewTrigger } from '../src/ReviewTrigger.js';
 import { QueueStatus, TriggerSource } from '../src/types/index.js';
+
+import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
+import { createMockPullRequestRepo, createMockQueueRepo } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -37,21 +39,22 @@ const setup = () => {
     findLatestReviewLimitComment: jest.fn(),
     postRetrigger: jest.fn(),
   } as unknown as jest.Mocked<CoderabbitGitHubClient>;
-  const probeFactory = { createReviewRetriggerProbe: jest.fn() } as unknown as jest.Mocked<ProbeFactory>;
-  const queue = {} as any;
+  const probeFactory = createMockProbeFactory({ createReviewRetriggerProbe: jest.fn() });
+  const queue = createMockQueueRepo();
+  const pullRequests = createMockPullRequestRepo();
   const tx = {} as Prisma.TransactionClient;
   const prisma = { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)) } as unknown as PrismaClient;
   const logger = createMockLogger();
   const cfg = { SCHEDULER_POST_COOLDOWN: POST_COOLDOWN_SEC, REVIEW_LIMIT_FALLBACK_WAIT_SECONDS: 3600, REVIEW_LIMIT_BUFFER_SECONDS: 60 } as any;
 
-  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, prisma, cfg, logger);
+  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, cfg, logger);
 
-  return { github, probeFactory, prisma, tx, logger, reviewTrigger };
+  return { github, probeFactory, prisma, tx, logger, reviewTrigger, queue, pullRequests };
 };
 
 describe('ReviewTrigger', () => {
   it('returns ok with retriggeredCommentUrl when source comment is valid', async () => {
-    const { github, probeFactory, logger, reviewTrigger } = setup();
+    const { github, probeFactory, logger, reviewTrigger, queue, pullRequests } = setup();
     const item = makeItem();
     github.fetchComment.mockResolvedValue('rate limited by coderabbit.ai');
     github.postRetrigger.mockResolvedValue({ htmlUrl: COMMENT_URL });
@@ -67,6 +70,8 @@ describe('ReviewTrigger', () => {
 
     expect(result.success).toBe(true);
     expect(result.value).toStrictEqual({ retriggeredCommentUrl: COMMENT_URL });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, expect.any(Date), COMMENT_URL, expect.anything());
+    expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, expect.anything());
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',

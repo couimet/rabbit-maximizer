@@ -2,7 +2,6 @@ import type { EventRepository } from '../db/eventRepository.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import { BypassReason, type EventLogEntry, EventType } from '../types/index.js';
 
-import { EventProbe } from './EventProbe.js';
 import { recordBypassEvent } from './recordBypassEvent.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -15,16 +14,15 @@ export interface DetectedProbeContext {
   readonly source_comment_url?: string;
 }
 
-export class DetectedProbe extends EventProbe {
+export class DetectedProbe {
   private readonly loggingCtx;
 
   constructor(
     private readonly context: DetectedProbeContext,
     private readonly eventRepository: EventRepository,
-    observation: ObservationContext,
-    log: Logger,
+    private readonly observation: ObservationContext,
+    private readonly log: Logger,
   ) {
-    super(observation, log);
     this.loggingCtx = {
       fn: 'DetectedProbe',
       repo: context.repo_full_name,
@@ -45,12 +43,12 @@ export class DetectedProbe extends EventProbe {
     return event;
   }
 
-  processStarted(): Promise<void> {
+  detected(): Promise<void> {
     this.log.debug(this.loggingCtx, 'Review-limit comment detected');
     return Promise.resolve();
   }
 
-  async processCompleted(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+  async enqueued(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
     const event = await this.eventRepository.record(
       {
         type: EventType.detected,
@@ -71,15 +69,15 @@ export class DetectedProbe extends EventProbe {
     return event;
   }
 
-  processMerged(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+  prMerged(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
     return this.recordBypass(tx, BypassReason.prMerged, 'Review-limit comment bypassed: PR already merged');
   }
 
-  processClosedWithoutMerge(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+  prClosedWithoutMerge(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
     return this.recordBypass(tx, BypassReason.prClosedWithoutMerge, 'Review-limit comment bypassed: PR closed without merge');
   }
 
-  processAlreadyQueued(): void {
+  alreadyQueued(): void {
     this.log.info(this.loggingCtx, 'Review-limit comment already queued; skipping');
   }
 }
