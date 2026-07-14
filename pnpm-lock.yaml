@@ -11,6 +11,9 @@ importers:
       '@couimet/detailed-error':
         specifier: ^0.2.0
         version: 0.2.0
+      '@couimet/detailed-result':
+        specifier: 0.1.1
+        version: 0.1.1(@couimet/detailed-error@0.2.0)
       '@couimet/logger-contract':
         specifier: ^1.0.0
         version: 1.0.0
@@ -353,6 +356,11 @@ packages:
 
   '@couimet/detailed-error@0.2.0':
     resolution: {integrity: sha512-YQctP5mVbA66c9MlhDizEoR6pbspA2Mz0wAlq4KHw0jo8sV+m5dqo/M1Y25q3SlRjF4Zft9FDlFWfimfjGbqEQ==}
+
+  '@couimet/detailed-result@0.1.1':
+    resolution: {integrity: sha512-opp8960EFhpy62PdxR/o9XYLw/glyRM2VF/8Anmq3zob9GHeAAtbF3VYJaVgwDWWnEpRYeffs1cSbEvwb6K0NQ==}
+    peerDependencies:
+      '@couimet/detailed-error': '>=1.0.0'
 
   '@couimet/dynamic-testing@0.3.0':
     resolution: {integrity: sha512-LK+zAuEMEmx3XU1LpiRxwLaBuUTO1rN+lSyrK40e2BLZkppYr46WfcRpWimSfOEQI/6AT6L1tbhrwSUpThOXWQ==}
@@ -4275,6 +4283,10 @@ snapshots:
       '@jest/expect': 30.4.1
 
   '@couimet/detailed-error@0.2.0': {}
+
+  '@couimet/detailed-result@0.1.1(@couimet/detailed-error@0.2.0)':
+    dependencies:
+      '@couimet/detailed-error': 0.2.0
 
   '@couimet/dynamic-testing@0.3.0(@couimet/detailed-error@0.2.0)(decimal.js@10.6.0)':
     dependencies:
