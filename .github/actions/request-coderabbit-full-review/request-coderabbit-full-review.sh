@@ -53,7 +53,7 @@ EOF
   comment_id="$(gh api \
     "repos/${owner}/${repo_name}/issues/${pr_number}/comments" \
     --method POST \
-    --field body="$comment_body" \
+    --raw-field body="$comment_body" \
     --jq '.id')"
 
   echo "comment-id=${comment_id}" >>"$GITHUB_OUTPUT"
