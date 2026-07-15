@@ -94,9 +94,10 @@ export const usePauseNotification = ({ paused }: UsePauseNotificationOptions): v
             if (typeof Notification === 'undefined') return;
             if (Notification.permission !== 'granted') return;
 
-            notificationRef.current?.close();
             const notification = new Notification('Rabbit Maximizer is paused', {
               body: 'The maximizer has been paused. Reviews are not being requested. Resume to continue.',
+              requireInteraction: true,
+              tag: 'rabbit-maximizer-paused',
             });
             notification.onclick = () => {
               window.focus();
