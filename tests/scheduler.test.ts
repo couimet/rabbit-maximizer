@@ -1,7 +1,6 @@
 import type { Config } from '../src/config.js';
 import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
 import type { QueueRepository } from '../src/db/queueRepository.js';
-import type { SystemStateRepository } from '../src/db/systemStateRepository.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { Pruner } from '../src/Pruner.js';
 import { ReviewTrigger } from '../src/ReviewTrigger.js';
@@ -13,6 +12,7 @@ import { RabbitResult } from '../src/types/RabbitResult.js';
 import {
   createMockProbeFactory,
   createMockPruner,
+  createMockPullRequestRepo,
   createMockQueueOrderRepo,
   createMockQueueRepo,
   createMockSchedulerProbe,
@@ -58,7 +58,8 @@ interface MockSchedulerDeps {
   probeFactory: jest.Mocked<ProbeFactory>;
   mockProbe: ReturnType<typeof createMockSchedulerProbe>;
   reviewTrigger: jest.Mocked<ReviewTrigger>;
-  systemState: jest.Mocked<SystemStateRepository>;
+  systemState: ReturnType<typeof createMockSystemStateRepository>;
+  pullRequests: ReturnType<typeof createMockPullRequestRepo>;
 }
 
 const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
@@ -101,6 +102,8 @@ const setup = (): MockSchedulerDeps => {
 
   const systemState = createMockSystemStateRepository();
 
+  const pullRequests = createMockPullRequestRepo();
+
   const config: Config = {
     DETECTION_MODE: 'poll',
     GITHUB_API_TIMEOUT_SEC: 10,
@@ -120,7 +123,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000,
   };
 
-  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState };
+  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState, pullRequests };
 };
 
 describe('Scheduler', () => {
@@ -135,7 +138,18 @@ describe('Scheduler', () => {
   });
 
   const createScheduler = () =>
-    new Scheduler(deps.queueOrder, deps.prisma, deps.config, deps.pruner, deps.reviewTrigger, deps.queue, deps.probeFactory, deps.systemState, deps.logger);
+    new Scheduler(
+      deps.queueOrder,
+      deps.prisma,
+      deps.config,
+      deps.pruner,
+      deps.reviewTrigger,
+      deps.queue,
+      deps.probeFactory,
+      deps.pullRequests,
+      deps.systemState,
+      deps.logger,
+    );
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
@@ -342,6 +356,20 @@ describe('Scheduler', () => {
       expect(deps.pruner.prune).toHaveBeenCalled();
       expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
 
+      await stop();
+    });
+
+    it('skips the tick when a PR is awaiting acknowledgement within the spacing window', async () => {
+      const ackId = getUniqueInt();
+      const ackRepo = getUniqueGitHubRepoRef().fullName;
+      const ackPr = getUniqueInt();
+      const pendingAck = { id: ackId, repo_full_name: ackRepo, pr_number: ackPr, last_review_requested_at: new Date(frozenNow.getTime() - 30_000) };
+      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+      await awaitTick(scheduler);
+      expect(deps.mockProbe.awaitingAcknowledgement).toHaveBeenCalled();
+      expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
       await stop();
     });
 

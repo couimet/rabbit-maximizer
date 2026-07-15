@@ -756,6 +756,8 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('getTriggered', () => {
+    const toTriggeredItem = (row: ReturnType<typeof makeRow>) => ({ ...toExpectedItem(row), last_coderabbit_acknowledged_at: undefined });
+
     it('returns retriggered items since date ordered by retriggered_at desc', async () => {
       const since = getUniqueDate();
       const row1 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 1000) });
@@ -772,6 +774,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+        include: { pullRequest: { select: { last_coderabbit_acknowledged_at: true } } },
         orderBy: { retriggered_at: 'desc' },
         skip: 0,
         take: 50,
@@ -779,7 +782,7 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.count).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
       });
-      expect(result).toStrictEqual({ items: [toExpectedItem(row2), toExpectedItem(row1)], total: 2 });
+      expect(result).toStrictEqual({ items: [toTriggeredItem(row2), toTriggeredItem(row1)], total: 2 });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeReviewed: false, count: 2, total: 2 },
         'Fetched triggered queue',
@@ -802,6 +805,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'reviewed'] } },
+        include: { pullRequest: { select: { last_coderabbit_acknowledged_at: true } } },
         orderBy: { retriggered_at: 'desc' },
         skip: 0,
         take: 50,
@@ -809,7 +813,7 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.count).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'reviewed'] } },
       });
-      expect(result.items).toStrictEqual([toExpectedItem(row), toExpectedItem(completedRow)]);
+      expect(result.items).toStrictEqual([toTriggeredItem(row), toTriggeredItem(completedRow)]);
     });
 
     it('respects skip and take for pagination', async () => {
@@ -828,6 +832,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+        include: { pullRequest: { select: { last_coderabbit_acknowledged_at: true } } },
         orderBy: { retriggered_at: 'desc' },
         skip: 1,
         take: 2,
@@ -835,7 +840,24 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.count).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
       });
-      expect(result).toStrictEqual({ items: [toExpectedItem(row1), toExpectedItem(row2)], total: 4 });
+      expect(result).toStrictEqual({ items: [toTriggeredItem(row1), toTriggeredItem(row2)], total: 4 });
+    });
+
+    it('includes last_coderabbit_acknowledged_at from pull_request when available', async () => {
+      const since = getUniqueDate();
+      const acknowledgedAt = getUniqueDate();
+      const row = {
+        ...makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 1000) }),
+        pullRequest: { last_coderabbit_acknowledged_at: acknowledgedAt },
+      };
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: { findMany: createResolvedMock([row]), count: createResolvedMock(1) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      const result = await sut.getTriggered(since, 0, 50, false);
+
+      expect(result.items[0].last_coderabbit_acknowledged_at).toStrictEqual(acknowledgedAt);
     });
   });
 

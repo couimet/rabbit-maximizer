@@ -1,3 +1,5 @@
+export * from './AcknowledgementResult.js';
+export * from './ActivityListItem.js';
 export * from './coderabbit.js';
 export * from './CommentDetails.js';
 export * from './DetectedComment.js';
@@ -9,6 +11,7 @@ export * from './EventPayloads.js';
 export * from './EventType.js';
 export * from './OnDetectedCallback.js';
 export * from './PaginatedResult.js';
+export * from './PendingAcknowledgement.js';
 export * from './PRState.js';
 export * from './PruneOutcome.js';
 export * from './QueueItem.js';

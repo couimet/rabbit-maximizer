@@ -36,6 +36,7 @@ export interface MockQueueOrderDelegate {
 export interface MockPullRequestDelegate {
   create: jest.Mock<any>;
   findUnique: jest.Mock<any>;
+  findMany: jest.Mock<any>;
   update: jest.Mock<any>;
 }
 
@@ -105,6 +106,7 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
   const pullRequest: MockPullRequestDelegate = {
     create: jest.fn<any>(),
     findUnique: jest.fn<any>(),
+    findMany: jest.fn<any>(),
     update: jest.fn<any>(),
     ...overrides.pullRequest,
   };

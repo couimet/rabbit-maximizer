@@ -3,6 +3,7 @@ import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import type { ProbeFactory } from '../probes/ProbeFactory.js';
+import type { ActivityListItem } from '../types/ActivityListItem.js';
 import { type CommentDetails, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -21,7 +22,7 @@ export interface QueueRepository {
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
+  getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<ActivityListItem>>;
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
@@ -228,17 +229,35 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
 
   // eslint-disable-next-line require-await
-  async getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+  async getTriggered(
+    since: Date,
+    skip: number,
+    take: number,
+    includeReviewed: boolean,
+    tx?: Prisma.TransactionClient,
+  ): Promise<PaginatedResult<ActivityListItem>> {
     return this.enforceTx(tx, async (db) => {
       const statuses = includeReviewed ? [QueueStatus.retriggered, QueueStatus.reviewed] : [QueueStatus.retriggered];
       const where = { retriggered_at: { gte: since }, status: { in: statuses } };
       const [rows, total] = await Promise.all([
-        db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' }, skip, take }),
+        db.reviewQueue.findMany({
+          where,
+          orderBy: { retriggered_at: 'desc' },
+          skip,
+          take,
+          include: { pullRequest: { select: { last_coderabbit_acknowledged_at: true } } },
+        }),
         db.reviewQueue.count({ where }),
       ]);
 
       this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeReviewed, count: rows.length, total }, 'Fetched triggered queue');
-      return { items: rows.map((row) => this.toQueueItem(row)), total };
+      return {
+        items: rows.map((row) => ({
+          ...this.toQueueItem(row),
+          last_coderabbit_acknowledged_at: row.pullRequest?.last_coderabbit_acknowledged_at ?? undefined,
+        })),
+        total,
+      };
     });
   }
 

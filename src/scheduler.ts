@@ -1,3 +1,4 @@
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
@@ -22,6 +23,7 @@ const TERMINAL_HTTP_STATUSES = [StatusCodes.NOT_FOUND, StatusCodes.GONE];
 export class Scheduler extends IntervalService {
   private readonly baseBackoff: number;
   private readonly maxBackoff: number;
+  private readonly retriggerSpacingMs: number;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
@@ -38,6 +40,8 @@ export class Scheduler extends IntervalService {
     private readonly queue: QueueRepository,
     @inject(TYPES.ProbeFactory)
     private readonly probeFactory: ProbeFactory,
+    @inject(TYPES.PullRequestRepository)
+    private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.SystemStateRepository)
     private readonly systemState: SystemStateRepository,
     @inject(TYPES.Logger) log: Logger,
@@ -45,6 +49,7 @@ export class Scheduler extends IntervalService {
     super(log, cfg.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND);
     this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE_SEC * MS_PER_SECOND;
     this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX_SEC * MS_PER_SECOND;
+    this.retriggerSpacingMs = cfg.SCHEDULER_RETRIGGER_SPACING_SEC * MS_PER_SECOND;
   }
   /* c8 ignore stop */
 
@@ -66,6 +71,15 @@ export class Scheduler extends IntervalService {
       if (await this.systemState.isSchedulerPaused()) {
         probe.schedulerPaused();
         return;
+      }
+
+      const pendingAck = await this.pullRequests.findPendingAcknowledgement();
+      if (pendingAck) {
+        const elapsed = Date.now() - pendingAck.last_review_requested_at.getTime();
+        if (elapsed < this.retriggerSpacingMs) {
+          probe.awaitingAcknowledgement();
+          return;
+        }
       }
 
       const eligible = await this.queueOrder.getEffectiveOrder();
