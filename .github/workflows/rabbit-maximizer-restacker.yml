@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   restack:
-    if: github.event.changes.base != null && github.event.changes.base.ref.to == 'main'
+    if: github.event.changes.base != null && github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -18,10 +18,8 @@ jobs:
           persist-credentials: false
 
       - name: Request CodeRabbit full review
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.event.repository.full_name }}
-          GITHUB_TOKEN: ${{ github.token }}
-          TRIGGER: base-changed-to-main
-          METADATA: '{"previous_base": "${{ github.event.changes.base.ref.from }}"}'
-        run: bash .github/actions/request-coderabbit-full-review/request-coderabbit-full-review.sh
+        uses: ./.github/actions/request-coderabbit-full-review
+        with:
+          pr-number: ${{ github.event.pull_request.number }}
+          trigger: base-changed-to-main
+          metadata: '{"previous_base": "${{ github.event.changes.base.ref.from }}"}'
