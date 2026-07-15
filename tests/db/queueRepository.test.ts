@@ -302,6 +302,57 @@ describe('QueueRepositoryImpl', () => {
         'Marked review retriggered',
       );
     });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const cooldownUntil = getUniqueDate();
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      await expect(sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+        'PRISMA_RECORD_NOT_FOUND_P2025',
+        {
+          message: "Record not found in table 'reviewQueue'",
+          functionName: 'QueueRepositoryImpl.markRetriggered',
+          details: { tableName: 'reviewQueue' },
+          cause: p2025,
+        },
+      );
+    });
+
+    it('wraps P2005 errors in PrismaFieldTypeMismatchError', async () => {
+      const cooldownUntil = getUniqueDate();
+      const p2005 = new Prisma.PrismaClientKnownRequestError('Field type mismatch', { code: 'P2005', clientVersion: '7.8.0' });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2005) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      await expect(sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+        'PRISMA_FIELD_TYPE_MISMATCH_P2005',
+        {
+          message: "Field type mismatch in table 'reviewQueue'",
+          functionName: 'QueueRepositoryImpl.markRetriggered',
+          details: { tableName: 'reviewQueue' },
+          cause: p2005,
+        },
+      );
+    });
+
+    it('rethrows unrecognized Prisma errors', async () => {
+      const cooldownUntil = getUniqueDate();
+      const unrecognizedError = new Prisma.PrismaClientKnownRequestError('Something unexpected', { code: 'P9999', clientVersion: '7.8.0' });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: jest.fn<any>().mockRejectedValue(unrecognizedError) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      await expect(sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow(
+        unrecognizedError,
+      );
+    });
   });
 
   describe('markFailed', () => {
@@ -313,6 +364,21 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'failed', failed_at: frozenNow } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markFailed', id: row.id }, 'Marked review failed');
+    });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      await expect(sut.markFailed(getUniqueInt(), prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'reviewQueue'",
+        functionName: 'QueueRepositoryImpl.markFailed',
+        details: { tableName: 'reviewQueue' },
+        cause: p2025,
+      });
     });
   });
 
@@ -326,6 +392,21 @@ describe('QueueRepositoryImpl', () => {
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markReviewed', id: row.id }, 'Marked review reviewed');
     });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      await expect(sut.markReviewed(getUniqueInt(), prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'reviewQueue'",
+        functionName: 'QueueRepositoryImpl.markReviewed',
+        details: { tableName: 'reviewQueue' },
+        cause: p2025,
+      });
+    });
   });
 
   describe('markReviewedByUuid', () => {
@@ -334,18 +415,14 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: COMMENT_URL });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma, reviewQueue } = createMockPrismaClient({
-        reviewQueue: {
-          findUnique: createResolvedMock(row),
-          update: createResolvedMock(completedRow),
-        },
+        reviewQueue: { update: createResolvedMock(completedRow) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
       const result = await sut.markReviewedByUuid(row.uuid, prisma as unknown as Prisma.TransactionClient);
 
-      expect(reviewQueue.findUnique).toHaveBeenCalledWith({ where: { uuid: row.uuid } });
       expect(reviewQueue.update).toHaveBeenCalledWith({
-        where: { id: row.id },
+        where: { uuid: row.uuid },
         data: { status: 'reviewed', reviewed_at: frozenNow },
       });
       expect(result).toStrictEqual(toExpectedItem(completedRow));
@@ -359,10 +436,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: null });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma } = createMockPrismaClient({
-        reviewQueue: {
-          findUnique: createResolvedMock(row),
-          update: createResolvedMock(completedRow),
-        },
+        reviewQueue: { update: createResolvedMock(completedRow) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
@@ -373,7 +447,9 @@ describe('QueueRepositoryImpl', () => {
 
     it('returns undefined when UUID is not found', async () => {
       const { prisma } = createMockPrismaClient({
-        reviewQueue: { findUnique: createResolvedMock(null) },
+        reviewQueue: {
+          update: jest.fn<any>().mockRejectedValue(new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' })),
+        },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
@@ -386,14 +462,21 @@ describe('QueueRepositoryImpl', () => {
       );
     });
 
+    it('rethrows non-PrismaRecordNotFoundError errors from the update', async () => {
+      const genericError = new Error('DB down');
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: { update: jest.fn<any>().mockRejectedValue(genericError) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      await expect(sut.markReviewedByUuid('some-uuid', prisma as unknown as Prisma.TransactionClient)).rejects.toThrow('DB down');
+    });
+
     it('wraps in a transaction when called without tx', async () => {
       const row = makeRow({ status: QueueStatus.retriggered });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma } = createMockPrismaClient({
-        reviewQueue: {
-          findUnique: createResolvedMock(row),
-          update: createResolvedMock(completedRow),
-        },
+        reviewQueue: { update: createResolvedMock(completedRow) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
@@ -429,6 +512,29 @@ describe('QueueRepositoryImpl', () => {
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
     });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const newDate = getUniqueDate();
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      await expect(
+        sut.reschedule(
+          getUniqueInt(),
+          newDate,
+          { commentId: getUniqueInt(), commentUrl: getUniqueString({ prefix: 'https://gh/c/' }) },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      ).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'reviewQueue'",
+        functionName: 'QueueRepositoryImpl.reschedule',
+        details: { tableName: 'reviewQueue' },
+        cause: p2025,
+      });
+    });
   });
 
   describe('backoff', () => {
@@ -441,6 +547,25 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { attempts: { increment: 1 }, not_before: newDate } });
       expect(result).toStrictEqual(toExpectedItem(row));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.backoff', id: row.id }, 'Backoff applied');
+    });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const newDate = getUniqueDate();
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      await expect(sut.backoff(getUniqueInt(), newDate, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+        'PRISMA_RECORD_NOT_FOUND_P2025',
+        {
+          message: "Record not found in table 'reviewQueue'",
+          functionName: 'QueueRepositoryImpl.backoff',
+          details: { tableName: 'reviewQueue' },
+          cause: p2025,
+        },
+      );
     });
   });
 

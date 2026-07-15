@@ -1,10 +1,10 @@
 import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
+import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
+import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
 import { TYPES } from '../inversify-types.js';
 import { type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 import { findByUuid, resolveUuidsToIds } from '../utils/uuidLookup.js';
-
-import { BasePrismaRepository } from './BasePrismaRepository.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type QueueOrder, type ReviewQueue } from '@prisma/client';
@@ -28,30 +28,31 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     return this.readEffectiveOrder(undefined, options?.eligibleOnly ?? true);
   }
 
-  private async readEffectiveOrder(tx?: Prisma.TransactionClient, eligibleOnly = true): Promise<QueueItem[]> {
-    const db = this.client(tx);
-    const where: Prisma.ReviewQueueWhereInput = { status: 'pending' };
-    if (eligibleOnly) {
-      where.not_before = { lte: new Date() };
-    }
-    const rows = await db.reviewQueue.findMany({
-      where,
-      include: { queueOrder: true },
-      orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
+  private readEffectiveOrder(tx?: Prisma.TransactionClient, eligibleOnly = true): Promise<QueueItem[]> {
+    return this.enforceTx(tx, async (db) => {
+      const where: Prisma.ReviewQueueWhereInput = { status: 'pending' };
+      if (eligibleOnly) {
+        where.not_before = { lte: new Date() };
+      }
+      const rows = await db.reviewQueue.findMany({
+        where,
+        include: { queueOrder: true },
+        orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
+      });
+      const validRows = rows.filter((row) => row.pull_request_id !== null);
+      if (validRows.length < rows.length) {
+        this.log.warn(
+          { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', total: rows.length, valid: validRows.length },
+          'Filtered out rows with null pull_request_id',
+        );
+      }
+      this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length, eligibleOnly }, 'Fetched effective order');
+      return validRows.map((row) => this.toQueueItem(row));
     });
-    const validRows = rows.filter((row) => row.pull_request_id !== null);
-    if (validRows.length < rows.length) {
-      this.log.warn(
-        { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', total: rows.length, valid: validRows.length },
-        'Filtered out rows with null pull_request_id',
-      );
-    }
-    this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length, eligibleOnly }, 'Fetched effective order');
-    return validRows.map((row) => this.toQueueItem(row));
   }
 
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]> {
-    return this.transaction(async (tx) => {
+    return this.enforceTx(undefined, async (tx) => {
       const ordered = await this.readEffectiveOrder(tx, false);
       const orderedIds = ordered.map((item) => item.id);
       const selectedIds = resolveUuidsToIds(ordered, [...new Set(queueItemUuids)]);
@@ -81,17 +82,15 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
   }
 
   moveToTop(uuid: string): Promise<QueueItem> {
-    return this.transaction(async (tx) => {
-      const db = this.client(tx);
-      const rawItem = await db.reviewQueue.findUnique({
+    return this.enforceTx(undefined, async (tx) => {
+      const rawItem = await tx.reviewQueue.findUnique({
         where: { uuid },
         select: { id: true, status: true },
       });
 
       if (!rawItem) {
-        throw new RabbitMaximizerError({
-          code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND,
-          message: `Queue item ${uuid} not found`,
+        throw new PrismaRecordNotFoundError({
+          tableName: 'reviewQueue',
           functionName: 'QueueOrderRepositoryImpl.moveToTop',
           details: { uuid },
         });
@@ -110,9 +109,8 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       const item = findByUuid(ordered, uuid);
 
       if (!item) {
-        throw new RabbitMaximizerError({
-          code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND,
-          message: `Queue item ${uuid} not found`,
+        throw new PrismaRecordNotFoundError({
+          tableName: 'reviewQueue',
           functionName: 'QueueOrderRepositoryImpl.moveToTop',
           details: { uuid },
         });
@@ -153,10 +151,15 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       if (!item) continue;
 
       if (item.queueOrder) {
-        await db.queueOrder.update({
-          where: { id: item.queueOrder.id },
-          data: { position: i + 1 },
-        });
+        await this.withPrismaErrorHandling(
+          'queueOrder',
+          () =>
+            db.queueOrder.update({
+              where: { id: item.queueOrder!.id },
+              data: { position: i + 1 },
+            }),
+          'QueueOrderRepositoryImpl.normalizePositionsToOrder',
+        );
       } else {
         await db.queueOrder.create({
           data: { queue_item_id: orderedIds[i], position: i + 1 },

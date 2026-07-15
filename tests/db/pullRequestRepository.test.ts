@@ -3,7 +3,8 @@ import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js'
 
 import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { beforeEach, describe, expect, it } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { Prisma } from '@prisma/client';
 
 describe('PullRequestRepositoryImpl', () => {
   let logger: ReturnType<typeof createMockLogger>;
@@ -150,6 +151,22 @@ describe('PullRequestRepositoryImpl', () => {
         data: { title: prTitle },
       });
     });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const existing = { id: getUniqueInt() };
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: jest.fn<any>().mockResolvedValue(existing), update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test' })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'pullRequest'",
+        functionName: 'PullRequestRepositoryImpl.upsert',
+        details: { tableName: 'pullRequest' },
+        cause: p2025,
+      });
+    });
   });
 
   describe('findByRepoAndPr', () => {
@@ -189,6 +206,21 @@ describe('PullRequestRepositoryImpl', () => {
       expect(pullRequest.update).toHaveBeenCalledWith({ where: { id }, data: { title } });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.updateTitle', id }, 'Updated PullRequest title');
     });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
+        pullRequest: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await expect(sut.updateTitle(getUniqueInt(), 'title', prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'pullRequest'",
+        functionName: 'PullRequestRepositoryImpl.updateTitle',
+        details: { tableName: 'pullRequest' },
+        cause: p2025,
+      });
+    });
   });
 
   describe('incrementRetriggerCount', () => {
@@ -208,6 +240,21 @@ describe('PullRequestRepositoryImpl', () => {
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
     });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
+        pullRequest: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await expect(sut.incrementRetriggerCount(getUniqueInt(), prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'pullRequest'",
+        functionName: 'PullRequestRepositoryImpl.incrementRetriggerCount',
+        details: { tableName: 'pullRequest' },
+        cause: p2025,
+      });
+    });
   });
 
   describe('recordReview', () => {
@@ -226,6 +273,21 @@ describe('PullRequestRepositoryImpl', () => {
         },
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+    });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
+        pullRequest: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await expect(sut.recordReview(getUniqueInt(), prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'pullRequest'",
+        functionName: 'PullRequestRepositoryImpl.recordReview',
+        details: { tableName: 'pullRequest' },
+        cause: p2025,
+      });
     });
   });
 });
