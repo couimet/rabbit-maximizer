@@ -6,6 +6,18 @@ import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
+/** Matches `@@map("pull_request")` in the Prisma schema. */
+const PULL_REQUEST_TABLE = 'pull_request';
+
+const FIND_PENDING_ACKNOWLEDGEMENT_SQL = `
+  SELECT id, repo_full_name, pr_number, last_review_requested_at
+  FROM ${PULL_REQUEST_TABLE}
+  WHERE last_review_requested_at IS NOT NULL
+    AND (last_coderabbit_acknowledged_at IS NULL OR last_coderabbit_acknowledged_at < last_review_requested_at)
+  ORDER BY last_review_requested_at ASC
+  LIMIT 1
+`;
+
 export interface PullRequestRepository {
   upsert(
     repoFullName: string,
@@ -121,23 +133,21 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
     this.log.debug({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
   }
 
-  // eslint-disable-next-line require-await
   async findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined> {
-    return this.enforceTx(tx, async (db) => {
-      const rows = await db.pullRequest.findMany({
-        where: { last_review_requested_at: { not: null } },
-        orderBy: { last_review_requested_at: 'asc' },
-        select: { id: true, repo_full_name: true, pr_number: true, last_review_requested_at: true, last_coderabbit_acknowledged_at: true },
-      });
-      for (const row of rows) {
-        // Without an acknowledgement, or when the acknowledgement is older than the
-        // most recent review request, CodeRabbit has not yet seen the latest retrigger.
-        if (!row.last_coderabbit_acknowledged_at || row.last_coderabbit_acknowledged_at < row.last_review_requested_at!) {
-          return { id: row.id, repo_full_name: row.repo_full_name, pr_number: row.pr_number, last_review_requested_at: row.last_review_requested_at! };
-        }
-      }
+    const db = this.client(tx);
+    const rows =
+      await db.$queryRawUnsafe<Array<{ id: number; repo_full_name: string; pr_number: number; last_review_requested_at: Date }>>(
+        FIND_PENDING_ACKNOWLEDGEMENT_SQL,
+      );
+    if (rows.length === 0) {
       return undefined;
-    });
+    }
+    return {
+      id: rows[0].id,
+      repo_full_name: rows[0].repo_full_name,
+      pr_number: rows[0].pr_number,
+      last_review_requested_at: rows[0].last_review_requested_at,
+    };
   }
 
   async recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void> {

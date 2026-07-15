@@ -19,7 +19,7 @@ export default {
   coverageProvider: 'v8',
 
   roots: ['<rootDir>/src', '<rootDir>/tests', '<rootDir>/dashboard'],
-  setupFilesAfterEnv: ['<rootDir>/tests/setup/matchers.ts'],
+  setupFilesAfterEnv: ['jest-extended/all', '<rootDir>/tests/setup/matchers.ts'],
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
   collectCoverageFrom: [
     'src/**/*.ts',

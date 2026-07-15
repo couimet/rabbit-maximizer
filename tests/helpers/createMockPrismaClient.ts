@@ -58,6 +58,8 @@ export interface MockPrismaOptions {
   systemState?: Partial<MockSystemStateDelegate>;
   $executeRawUnsafe?: jest.Mock<any>;
   $executeRaw?: jest.Mock<any>;
+  $queryRaw?: jest.Mock<any>;
+  $queryRawUnsafe?: jest.Mock<any>;
   $transaction?: jest.Mock<any>;
 }
 
@@ -122,8 +124,10 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
   };
   const $executeRawUnsafe: jest.Mock<any> = overrides.$executeRawUnsafe ?? jest.fn<any>();
   const $executeRaw: jest.Mock<any> = overrides.$executeRaw ?? jest.fn<any>();
+  const $queryRawUnsafe: jest.Mock<any> = overrides.$queryRawUnsafe ?? jest.fn<any>();
+  const $queryRaw: jest.Mock<any> = overrides.$queryRaw ?? jest.fn<any>();
 
-  const mockForTx = { reviewQueue, event, queueOrder, pullRequest, systemState, $executeRawUnsafe, $executeRaw };
+  const mockForTx = { reviewQueue, event, queueOrder, pullRequest, systemState, $executeRawUnsafe, $executeRaw, $queryRawUnsafe, $queryRaw };
   const $transaction: jest.Mock<any> = overrides.$transaction ?? jest.fn<any>().mockImplementation((fn: (tx: unknown) => unknown) => fn(mockForTx));
 
   return {

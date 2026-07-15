@@ -39,7 +39,7 @@ while IFS='|' read -r ID REPO PR_NUMBER REQUESTED_AT; do
   echo "--- PR #$PR_NUMBER ($REPO) ---"
 
   COMMENT_JSON=""
-  COMMENT_JSON=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments?since=${REQUESTED_AT}&per_page=100" --jq '.[] | select(.user.login == "coderabbitai[bot]") | {created_at, body, html_url}' 2>/dev/null || true)
+  COMMENT_JSON=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments?since=${REQUESTED_AT}&per_page=100" --paginate --jq '.[] | select(.user.login == "coderabbitai[bot]") | {created_at, body, html_url}' 2>/dev/null || true)
 
   if [ -z "$COMMENT_JSON" ]; then
     echo "  No CodeRabbit comments found since $REQUESTED_AT"

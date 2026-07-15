@@ -275,54 +275,51 @@ describe('PullRequestRepositoryImpl', () => {
 
   describe('findPendingAcknowledgement', () => {
     it('returns the PR with oldest review_requested_at when acknowledged_at is null', async () => {
+      const LAST_REVIEW_REQUESTED_AT = getUniqueDate();
       const pr = {
         id: getUniqueInt(),
-        repo_full_name: 'test/test',
+        repo_full_name: getUniqueGitHubRepoRef().fullName,
         pr_number: getUniqueInt(),
-        last_review_requested_at: new Date(),
-        last_coderabbit_acknowledged_at: null,
+        last_review_requested_at: LAST_REVIEW_REQUESTED_AT,
       };
-      const { prisma } = createMockPrismaClient({ pullRequest: { findMany: jest.fn<any>().mockResolvedValue([pr]) } });
+      const queryRawUnsafe = jest.fn<any>().mockResolvedValue([pr]);
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
       const result = await sut.findPendingAcknowledgement();
+      expect(queryRawUnsafe).toHaveBeenCalledTimes(1);
+      expect(queryRawUnsafe.mock.calls[0][0]).toEqualIgnoringWhitespace(
+        'SELECT id, repo_full_name, pr_number, last_review_requested_at FROM pull_request WHERE last_review_requested_at IS NOT NULL AND (last_coderabbit_acknowledged_at IS NULL OR last_coderabbit_acknowledged_at < last_review_requested_at) ORDER BY last_review_requested_at ASC LIMIT 1',
+      );
       expect(result).toStrictEqual({
         id: pr.id,
         repo_full_name: pr.repo_full_name,
         pr_number: pr.pr_number,
-        last_review_requested_at: pr.last_review_requested_at,
+        last_review_requested_at: LAST_REVIEW_REQUESTED_AT,
       });
     });
 
     it('returns the PR when acknowledged_at is older than reviewed_at', async () => {
       const pr = {
         id: getUniqueInt(),
-        repo_full_name: 'test/test',
+        repo_full_name: getUniqueGitHubRepoRef().fullName,
         pr_number: getUniqueInt(),
-        last_review_requested_at: new Date(Date.now()),
-        last_coderabbit_acknowledged_at: new Date(Date.now() - 3600_000),
+        last_review_requested_at: getUniqueDate(),
       };
-      const { prisma } = createMockPrismaClient({ pullRequest: { findMany: jest.fn<any>().mockResolvedValue([pr]) } });
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([pr]) });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
       const result = await sut.findPendingAcknowledgement();
       expect(result).not.toBeUndefined();
     });
 
     it('returns undefined when acknowledged_at is newer than reviewed_at', async () => {
-      const pr = {
-        id: getUniqueInt(),
-        repo_full_name: 'test/test',
-        pr_number: getUniqueInt(),
-        last_review_requested_at: new Date(Date.now() - 3600_000),
-        last_coderabbit_acknowledged_at: new Date(),
-      };
-      const { prisma } = createMockPrismaClient({ pullRequest: { findMany: jest.fn<any>().mockResolvedValue([pr]) } });
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
       const result = await sut.findPendingAcknowledgement();
       expect(result).toBeUndefined();
     });
 
     it('returns undefined when no PRs have review requested', async () => {
-      const { prisma } = createMockPrismaClient({ pullRequest: { findMany: jest.fn<any>().mockResolvedValue([]) } });
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
       const result = await sut.findPendingAcknowledgement();
       expect(result).toBeUndefined();
