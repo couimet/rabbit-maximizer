@@ -1,10 +1,10 @@
 ---
-name: finish-issue-hooks
+name: finish-issue-hook
 description: Additional verification for /finish-issue — build and check generated drift
 user-invocable: false
 ---
 
-# Finish-Issue Hooks
+# Finish-Issue Hook
 
 Consulted automatically by `/finish-issue`.
 
