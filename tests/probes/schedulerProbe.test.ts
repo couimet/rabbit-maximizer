@@ -1,5 +1,5 @@
 import { RabbitMaximizerError } from '../../src/errors/RabbitMaximizerError.js';
-import { ObservationContext } from '../../src/observability/index.js';
+import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { SchedulerProbe } from '../../src/probes/SchedulerProbe.js';
 import type { QueueItem } from '../../src/types/index.js';
 import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';

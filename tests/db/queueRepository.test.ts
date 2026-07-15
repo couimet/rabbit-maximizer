@@ -329,7 +329,7 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('markReviewedByUuid', () => {
-    it('finds by UUID, marks the row reviewed, and records a completed event', async () => {
+    it('finds by UUID, marks the row reviewed, and logs the event', async () => {
       const COMMENT_URL = 'https://gh/c/retriggered-123';
       const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: COMMENT_URL });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
@@ -348,18 +348,6 @@ describe('QueueRepositoryImpl', () => {
         where: { id: row.id },
         data: { status: 'reviewed', reviewed_at: frozenNow },
       });
-      expect(probeEvents.record).toHaveBeenCalledWith(
-        {
-          type: 'completed',
-          repo_full_name: row.repo_full_name,
-          pr_number: row.pr_number,
-          correlation_id: observationContext.correlationId,
-          request_id: observationContext.requestId,
-          version: observationContext.version,
-          payload: { retriggered_comment_url: COMMENT_URL },
-        },
-        prisma,
-      );
       expect(result).toStrictEqual(toExpectedItem(completedRow));
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'MarkQueueItemReviewedProbe.queueItemMarkedReviewed', uuid: row.uuid, id: row.id },
@@ -367,7 +355,7 @@ describe('QueueRepositoryImpl', () => {
       );
     });
 
-    it('records a completed event with undefined retriggered_comment_url when row has null', async () => {
+    it('handles null retrigger_comment_url', async () => {
       const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: null });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma } = createMockPrismaClient({
@@ -380,18 +368,6 @@ describe('QueueRepositoryImpl', () => {
 
       const result = await sut.markReviewedByUuid(row.uuid, prisma as unknown as Prisma.TransactionClient);
 
-      expect(probeEvents.record).toHaveBeenCalledWith(
-        {
-          type: 'completed',
-          repo_full_name: row.repo_full_name,
-          pr_number: row.pr_number,
-          correlation_id: observationContext.correlationId,
-          request_id: observationContext.requestId,
-          version: observationContext.version,
-          payload: { retriggered_comment_url: undefined },
-        },
-        prisma,
-      );
       expect(result).toStrictEqual(toExpectedItem(completedRow));
     });
 
@@ -404,7 +380,6 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.markReviewedByUuid('missing-uuid', prisma as unknown as Prisma.TransactionClient);
 
       expect(result).toBeUndefined();
-      expect(probeEvents.record).not.toHaveBeenCalled();
       expect(logger.warn).toHaveBeenCalledWith(
         { fn: 'MarkQueueItemReviewedProbe.queueItemNotFound', uuid: 'missing-uuid' },
         'Queue item not found for mark-reviewed',
@@ -414,7 +389,7 @@ describe('QueueRepositoryImpl', () => {
     it('wraps in a transaction when called without tx', async () => {
       const row = makeRow({ status: QueueStatus.retriggered });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
-      const { prisma, reviewQueue, event, pullRequest, queueOrder, systemState } = createMockPrismaClient({
+      const { prisma } = createMockPrismaClient({
         reviewQueue: {
           findUnique: createResolvedMock(row),
           update: createResolvedMock(completedRow),
@@ -426,26 +401,6 @@ describe('QueueRepositoryImpl', () => {
 
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(result).toStrictEqual(toExpectedItem(completedRow));
-      expect(probeEvents.record).toHaveBeenCalledWith(
-        {
-          type: 'completed',
-          repo_full_name: row.repo_full_name,
-          pr_number: row.pr_number,
-          correlation_id: observationContext.correlationId,
-          request_id: observationContext.requestId,
-          version: observationContext.version,
-          payload: { retriggered_comment_url: row.retrigger_comment_url ?? undefined },
-        },
-        {
-          reviewQueue,
-          event,
-          pullRequest,
-          queueOrder,
-          systemState,
-          $executeRawUnsafe: (prisma as any).$executeRawUnsafe,
-          $executeRaw: (prisma as any).$executeRaw,
-        },
-      );
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'MarkQueueItemReviewedProbe.queueItemMarkedReviewed', uuid: row.uuid, id: row.id },
         'Marked review reviewed by UUID',

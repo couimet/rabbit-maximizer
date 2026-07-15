@@ -5,14 +5,17 @@ import type { RepoFilter } from '../types/RepoFilter.js';
 import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
 import type { TriggerSource } from '../types/TriggerSource.js';
 
-import type { CompletedReview, RetriggerComment } from './types/index.js';
+import type { CoderabbitReview, CompletedReview, RetriggerComment } from './types/index.js';
 import { buildCommentBody } from './buildCommentBody.js';
 import { buildSearchQuery } from './buildSearchQuery.js';
 import { extractRepoFullName } from './extractRepoFullName.js';
 import { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './hasRateLimitMarker.js';
+import { isApprovalReviewSignal } from './isApprovalReviewSignal.js';
+import { isMatchingCoderabbitReview } from './isMatchingCoderabbitReview.js';
 import { isMatchingCompletedReview } from './isMatchingCompletedReview.js';
 import { splitRepo } from './splitRepo.js';
+import { toReviewState } from './toReviewState.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Octokit } from '@octokit/rest';
@@ -32,6 +35,8 @@ export interface CoderabbitGitHubClient {
   getPRState(repo: string, pr: number): Promise<PRState>;
 
   findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined>;
+
+  findLatestCoderabbitReview(owner: string, repo: string, pr: number, since: Date): Promise<CoderabbitReview | undefined>;
 
   findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
 }
@@ -159,7 +164,33 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
           { fn: 'findCompletedReview', owner, repo, pr, reviewId: completedReview.id, htmlUrl: completedReview.html_url },
           'Found completed review',
         );
-        return { htmlUrl: completedReview.html_url, reviewId: completedReview.id };
+        return { htmlUrl: completedReview.html_url, reviewId: completedReview.id, isApproval: isApprovalReviewSignal(completedReview.body!) };
+      }
+
+      if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
+    }
+
+    return undefined;
+  }
+
+  async findLatestCoderabbitReview(owner: string, repo: string, pr: number, since: Date): Promise<CoderabbitReview | undefined> {
+    this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr }, 'Searching for latest CodeRabbit review');
+
+    for (let page = 1; ; page++) {
+      const response = await this.octokit.rest.pulls.listReviews({
+        owner,
+        repo,
+        pull_number: pr,
+        per_page: COMMENTS_FETCH_PER_PAGE,
+        page,
+      });
+
+      const review = response.data.find((r) => isMatchingCoderabbitReview(r, since));
+
+      if (review) {
+        const state = toReviewState(review.state);
+        this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr, reviewId: review.id, state }, 'Found CodeRabbit review');
+        return { htmlUrl: review.html_url, state };
       }
 
       if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;

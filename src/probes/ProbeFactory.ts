@@ -36,7 +36,7 @@ export class ProbeFactory {
   }
 
   createMarkQueueItemReviewedProbe(uuid: string): MarkQueueItemReviewedProbe {
-    return new MarkQueueItemReviewedProbe(uuid, this.eventRepository, this.observation.current(), this.log);
+    return new MarkQueueItemReviewedProbe(uuid, this.log);
   }
 
   createEnqueueProbe(tx: Prisma.TransactionClient): EnqueueProbe {

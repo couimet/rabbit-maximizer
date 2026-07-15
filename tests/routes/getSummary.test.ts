@@ -36,7 +36,15 @@ describe('getSummary', () => {
         getOldestPending: jest.fn<any>().mockResolvedValue({ id, repo_full_name: repo, pr_number: pr, not_before: notBefore }),
       },
       {
-        countByType: jest.fn<any>().mockResolvedValue({ detected: 8, enqueued: 7, retriggered: 3, bypassed: 1, completed: 2, failed: 1 }),
+        countByType: jest.fn<any>().mockResolvedValue({
+          detected: 8,
+          enqueued: 7,
+          retriggered: 3,
+          bypassed: 1,
+          coderabbit_review_approved: 1,
+          coderabbit_review_changes_requested: 1,
+          failed: 1,
+        }),
       },
     );
 
@@ -69,12 +77,20 @@ describe('getSummary', () => {
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
   });
 
-  it('response omits "bypassed" and "completed" from eventCounts', async () => {
+  it('response omits bypassed, coderabbit_review_approved, and coderabbit_review_changes_requested from eventCounts', async () => {
     logger = createMockLogger();
     startServer(
       {},
       {
-        countByType: jest.fn<any>().mockResolvedValue({ detected: 1, enqueued: 2, retriggered: 3, bypassed: 4, completed: 5, failed: 6 }),
+        countByType: jest.fn<any>().mockResolvedValue({
+          detected: 1,
+          enqueued: 2,
+          retriggered: 3,
+          bypassed: 4,
+          coderabbit_review_approved: 3,
+          coderabbit_review_changes_requested: 2,
+          failed: 6,
+        }),
       },
     );
 
@@ -90,7 +106,15 @@ describe('getSummary', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
-    const countByType = jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 });
+    const countByType = jest.fn<any>().mockResolvedValue({
+      detected: 0,
+      enqueued: 0,
+      retriggered: 0,
+      bypassed: 0,
+      coderabbit_review_approved: 0,
+      coderabbit_review_changes_requested: 0,
+      failed: 0,
+    });
     startServer({}, { countByType });
 
     await getJson(server, '/api/summary?duration=2d');
@@ -103,7 +127,15 @@ describe('getSummary', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
-    const countByType = jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 });
+    const countByType = jest.fn<any>().mockResolvedValue({
+      detected: 0,
+      enqueued: 0,
+      retriggered: 0,
+      bypassed: 0,
+      coderabbit_review_approved: 0,
+      coderabbit_review_changes_requested: 0,
+      failed: 0,
+    });
     startServer({}, { countByType });
 
     await getJson(server, '/api/summary?duration=invalid');
@@ -116,7 +148,15 @@ describe('getSummary', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
-    const countByType = jest.fn<any>().mockResolvedValue({ detected: 0, enqueued: 0, retriggered: 0, bypassed: 0, completed: 0, failed: 0 });
+    const countByType = jest.fn<any>().mockResolvedValue({
+      detected: 0,
+      enqueued: 0,
+      retriggered: 0,
+      bypassed: 0,
+      coderabbit_review_approved: 0,
+      coderabbit_review_changes_requested: 0,
+      failed: 0,
+    });
     startServer({}, { countByType });
 
     await getJson(server, '/api/summary?duration=toString');
