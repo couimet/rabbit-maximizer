@@ -17,7 +17,7 @@ describe('RabbitResult', () => {
 
   const createError = (message: string): RabbitMaximizerError =>
     new RabbitMaximizerError({
-      code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND,
+      code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
       message,
       functionName: 'test',
     });

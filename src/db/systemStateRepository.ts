@@ -1,7 +1,6 @@
+import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
 import { TYPES } from '../inversify-types.js';
 import { SchedulerStatus } from '../types/SchedulerStatus.js';
-
-import { BasePrismaRepository } from './BasePrismaRepository.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -60,49 +59,58 @@ export interface SystemStateRepository {
 @injectable()
 export class SystemStateRepositoryImpl extends BasePrismaRepository implements SystemStateRepository {
   constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
-    super(prisma, log);
+    super(prisma, Prisma.ModelName.SystemState, log);
   }
 
+  // eslint-disable-next-line require-await
   async getState<K extends StateKey>(key: K, tx?: Prisma.TransactionClient): Promise<StateKeyToType[K] | undefined> {
-    const row = await this.client(tx).systemState.findUnique({
-      where: { state_key: key },
+    return this.enforceTx(tx, async (db) => {
+      const row = await db.systemState.findUnique({
+        where: { state_key: key },
+      });
+      if (!row) return undefined;
+
+      const config = STATE_KEY_CONFIG[key];
+      const rawValue = row[config.column];
+      if (rawValue === null || rawValue === undefined) return undefined;
+
+      if (config.column === 'value_datetime') {
+        return new Date(rawValue as string) as StateKeyToType[K];
+      }
+      return rawValue as StateKeyToType[K];
     });
-    if (!row) return undefined;
-
-    const config = STATE_KEY_CONFIG[key];
-    const rawValue = row[config.column];
-    if (rawValue === null || rawValue === undefined) return undefined;
-
-    if (config.column === 'value_datetime') {
-      return new Date(rawValue as string) as StateKeyToType[K];
-    }
-    return rawValue as StateKeyToType[K];
   }
 
+  // eslint-disable-next-line require-await
   async setState<K extends StateKey>(key: K, value: StateKeyToType[K], tx?: Prisma.TransactionClient): Promise<void> {
-    const db = this.client(tx);
-    const config = STATE_KEY_CONFIG[key];
-    const column = config.column;
-    const now = new Date().toISOString();
+    return this.enforceTx(tx, async (db) => {
+      const config = STATE_KEY_CONFIG[key];
+      const column = config.column;
+      const now = new Date().toISOString();
 
-    const base: SystemStateRow = {
-      state_key: key,
-      value_text: null,
-      value_integer: null,
-      value_float: null,
-      value_datetime: null,
-      updated_at: now,
-    };
+      const base: SystemStateRow = {
+        state_key: key,
+        value_text: null,
+        value_integer: null,
+        value_float: null,
+        value_datetime: null,
+        updated_at: now,
+      };
 
-    const data = VALUE_SETTER[column](base, value);
+      const data = VALUE_SETTER[column](base, value);
 
-    await db.systemState.upsert({
-      where: { state_key: key },
-      create: data as Prisma.SystemStateCreateInput,
-      update: data as Prisma.SystemStateUpdateInput,
+      await this.withPrismaErrorHandling(
+        () =>
+          db.systemState.upsert({
+            where: { state_key: key },
+            create: data as Prisma.SystemStateCreateInput,
+            update: data as Prisma.SystemStateUpdateInput,
+          }),
+        'SystemStateRepositoryImpl.setState',
+      );
+
+      this.log.debug({ fn: 'SystemStateRepositoryImpl.setState', key }, 'System state updated');
     });
-
-    this.log.debug({ fn: 'SystemStateRepositoryImpl.setState', key }, 'System state updated');
   }
 
   async isSchedulerPaused(tx?: Prisma.TransactionClient): Promise<boolean> {
