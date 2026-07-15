@@ -59,7 +59,7 @@ export interface SystemStateRepository {
 @injectable()
 export class SystemStateRepositoryImpl extends BasePrismaRepository implements SystemStateRepository {
   constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
-    super(prisma, log);
+    super(prisma, Prisma.ModelName.SystemState, log);
   }
 
   // eslint-disable-next-line require-await
@@ -100,7 +100,6 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
       const data = VALUE_SETTER[column](base, value);
 
       await this.withPrismaErrorHandling(
-        'systemState',
         () =>
           db.systemState.upsert({
             where: { state_key: key },

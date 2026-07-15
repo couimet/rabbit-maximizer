@@ -35,7 +35,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.Logger) log: Logger,
   ) {
-    super(prisma, log);
+    super(prisma, Prisma.ModelName.ReviewQueue, log);
   }
   /* c8 ignore stop */
 
@@ -101,7 +101,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
   async markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
-      'reviewQueue',
       () =>
         this.client(tx).reviewQueue.update({
           where: { id },
@@ -120,7 +119,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
   async markReviewed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
-      'reviewQueue',
       () =>
         this.client(tx).reviewQueue.update({
           where: { id },
@@ -139,7 +137,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       try {
         const updated = await this.withPrismaErrorHandling(
-          'reviewQueue',
           () =>
             db.reviewQueue.update({
               where: { uuid },
@@ -161,7 +158,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
   async reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
-      'reviewQueue',
       () =>
         this.client(tx).reviewQueue.update({
           where: { id },
@@ -180,7 +176,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
   async backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
-      'reviewQueue',
       () =>
         this.client(tx).reviewQueue.update({
           where: { id },
@@ -197,7 +192,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
   async markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
-      'reviewQueue',
       () =>
         this.client(tx).reviewQueue.update({
           where: { id },

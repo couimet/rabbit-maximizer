@@ -161,11 +161,15 @@ describe('PullRequestRepositoryImpl', () => {
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
       await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test' })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'pullRequest'",
+        message: "Record not found in table 'PullRequest'",
         functionName: 'PullRequestRepositoryImpl.upsert',
-        details: { tableName: 'pullRequest' },
+        details: { tableName: 'PullRequest' },
         cause: p2025,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.upsert', modelName: 'PullRequest', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
     });
   });
 
@@ -215,11 +219,15 @@ describe('PullRequestRepositoryImpl', () => {
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
       await expect(sut.updateTitle(getUniqueInt(), 'title', prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'pullRequest'",
+        message: "Record not found in table 'PullRequest'",
         functionName: 'PullRequestRepositoryImpl.updateTitle',
-        details: { tableName: 'pullRequest' },
+        details: { tableName: 'PullRequest' },
         cause: p2025,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.updateTitle', modelName: 'PullRequest', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
     });
   });
 
@@ -249,11 +257,15 @@ describe('PullRequestRepositoryImpl', () => {
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
       await expect(sut.incrementRetriggerCount(getUniqueInt(), prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'pullRequest'",
+        message: "Record not found in table 'PullRequest'",
         functionName: 'PullRequestRepositoryImpl.incrementRetriggerCount',
-        details: { tableName: 'pullRequest' },
+        details: { tableName: 'PullRequest' },
         cause: p2025,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', modelName: 'PullRequest', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
     });
   });
 
@@ -283,11 +295,15 @@ describe('PullRequestRepositoryImpl', () => {
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
       await expect(sut.recordReview(getUniqueInt(), prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'pullRequest'",
+        message: "Record not found in table 'PullRequest'",
         functionName: 'PullRequestRepositoryImpl.recordReview',
-        details: { tableName: 'pullRequest' },
+        details: { tableName: 'PullRequest' },
         cause: p2025,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.recordReview', modelName: 'PullRequest', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
     });
   });
 });

@@ -7,6 +7,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 export abstract class BasePrismaRepository {
   constructor(
     private readonly prisma: PrismaClient,
+    private readonly modelName: Prisma.ModelName,
     protected readonly log: Logger,
   ) {}
 
@@ -36,20 +37,23 @@ export abstract class BasePrismaRepository {
    * the transaction client. This preserves full Prisma type inference through
    * the generic `T` while centralizing the error mapping in one place.
    */
-  protected async withPrismaErrorHandling<T>(modelName: string, operation: () => Promise<T>, functionName: string): Promise<T> {
+  protected async withPrismaErrorHandling<T>(operation: () => Promise<T>, functionName: string): Promise<T> {
     try {
       return await operation();
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError) {
         switch (err.code) {
           case 'P2025':
-            this.log.debug({ fn: functionName, modelName, prismaCode: err.code }, 'Prisma record not found, throwing typed error');
-            throw new PrismaRecordNotFoundError({ tableName: modelName, functionName, cause: err });
+            this.log.debug({ fn: functionName, modelName: this.modelName, prismaCode: err.code }, 'Prisma record not found, throwing typed error');
+            throw new PrismaRecordNotFoundError({ tableName: this.modelName, functionName, cause: err });
           case 'P2005':
-            this.log.debug({ fn: functionName, modelName, prismaCode: err.code }, 'Prisma field type mismatch, throwing typed error');
-            throw new PrismaFieldTypeMismatchError({ tableName: modelName, functionName, cause: err });
+            this.log.debug({ fn: functionName, modelName: this.modelName, prismaCode: err.code }, 'Prisma field type mismatch, throwing typed error');
+            throw new PrismaFieldTypeMismatchError({ tableName: this.modelName, functionName, cause: err });
           default:
-            this.log.warn({ fn: functionName, modelName, prismaCode: err.code, error: err }, 'Unrecognized Prisma error code, rethrowing original');
+            this.log.warn(
+              { fn: functionName, modelName: this.modelName, prismaCode: err.code, error: err },
+              'Unrecognized Prisma error code, rethrowing original',
+            );
             throw err;
         }
       }

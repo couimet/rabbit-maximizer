@@ -22,7 +22,7 @@ export interface PullRequestRepository {
 export class PullRequestRepositoryImpl extends BasePrismaRepository implements PullRequestRepository {
   /* c8 ignore start — decorator emit branches */
   constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
-    super(prisma, log);
+    super(prisma, Prisma.ModelName.PullRequest, log);
   }
   /* c8 ignore stop */
 
@@ -51,11 +51,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
           updateData.title = data.prTitle;
         }
         if (Object.keys(updateData).length > 0) {
-          await this.withPrismaErrorHandling(
-            'pullRequest',
-            () => db.pullRequest.update({ where: { id: existing.id }, data: updateData }),
-            'PullRequestRepositoryImpl.upsert',
-          );
+          await this.withPrismaErrorHandling(() => db.pullRequest.update({ where: { id: existing.id }, data: updateData }), 'PullRequestRepositoryImpl.upsert');
         }
         this.log.debug({ fn: 'PullRequestRepositoryImpl.upsert', repoFullName, prNumber, id: existing.id }, 'PullRequest already exists');
         return { id: existing.id, created: false };
@@ -88,17 +84,12 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
   }
 
   async updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void> {
-    await this.withPrismaErrorHandling(
-      'pullRequest',
-      () => this.client(tx).pullRequest.update({ where: { id }, data: { title } }),
-      'PullRequestRepositoryImpl.updateTitle',
-    );
+    await this.withPrismaErrorHandling(() => this.client(tx).pullRequest.update({ where: { id }, data: { title } }), 'PullRequestRepositoryImpl.updateTitle');
     this.log.debug({ fn: 'PullRequestRepositoryImpl.updateTitle', id }, 'Updated PullRequest title');
   }
 
   async incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void> {
     await this.withPrismaErrorHandling(
-      'pullRequest',
       () =>
         this.client(tx).pullRequest.update({
           where: { id },
@@ -114,7 +105,6 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
 
   async recordReview(id: number, tx: Prisma.TransactionClient): Promise<void> {
     await this.withPrismaErrorHandling(
-      'pullRequest',
       () =>
         this.client(tx).pullRequest.update({
           where: { id },

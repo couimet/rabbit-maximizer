@@ -314,11 +314,15 @@ describe('QueueRepositoryImpl', () => {
       await expect(sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_RECORD_NOT_FOUND_P2025',
         {
-          message: "Record not found in table 'reviewQueue'",
+          message: "Record not found in table 'ReviewQueue'",
           functionName: 'QueueRepositoryImpl.markRetriggered',
-          details: { tableName: 'reviewQueue' },
+          details: { tableName: 'ReviewQueue' },
           cause: p2025,
         },
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.markRetriggered', modelName: 'ReviewQueue', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
       );
     });
 
@@ -333,11 +337,15 @@ describe('QueueRepositoryImpl', () => {
       await expect(sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_FIELD_TYPE_MISMATCH_P2005',
         {
-          message: "Field type mismatch in table 'reviewQueue'",
+          message: "Field type mismatch in table 'ReviewQueue'",
           functionName: 'QueueRepositoryImpl.markRetriggered',
-          details: { tableName: 'reviewQueue' },
+          details: { tableName: 'ReviewQueue' },
           cause: p2005,
         },
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.markRetriggered', modelName: 'ReviewQueue', prismaCode: 'P2005' },
+        'Prisma field type mismatch, throwing typed error',
       );
     });
 
@@ -351,6 +359,10 @@ describe('QueueRepositoryImpl', () => {
 
       await expect(sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow(
         unrecognizedError,
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.markRetriggered', modelName: 'ReviewQueue', prismaCode: 'P9999', error: unrecognizedError },
+        'Unrecognized Prisma error code, rethrowing original',
       );
     });
   });
@@ -374,11 +386,15 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
       await expect(sut.markFailed(getUniqueInt(), prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'reviewQueue'",
+        message: "Record not found in table 'ReviewQueue'",
         functionName: 'QueueRepositoryImpl.markFailed',
-        details: { tableName: 'reviewQueue' },
+        details: { tableName: 'ReviewQueue' },
         cause: p2025,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.markFailed', modelName: 'ReviewQueue', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
     });
   });
 
@@ -401,11 +417,15 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
 
       await expect(sut.markReviewed(getUniqueInt(), prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'reviewQueue'",
+        message: "Record not found in table 'ReviewQueue'",
         functionName: 'QueueRepositoryImpl.markReviewed',
-        details: { tableName: 'reviewQueue' },
+        details: { tableName: 'ReviewQueue' },
         cause: p2025,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.markReviewed', modelName: 'ReviewQueue', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
     });
   });
 
@@ -529,11 +549,15 @@ describe('QueueRepositoryImpl', () => {
           prisma as unknown as Prisma.TransactionClient,
         ),
       ).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'reviewQueue'",
+        message: "Record not found in table 'ReviewQueue'",
         functionName: 'QueueRepositoryImpl.reschedule',
-        details: { tableName: 'reviewQueue' },
+        details: { tableName: 'ReviewQueue' },
         cause: p2025,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.reschedule', modelName: 'ReviewQueue', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
     });
   });
 
@@ -560,11 +584,15 @@ describe('QueueRepositoryImpl', () => {
       await expect(sut.backoff(getUniqueInt(), newDate, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_RECORD_NOT_FOUND_P2025',
         {
-          message: "Record not found in table 'reviewQueue'",
+          message: "Record not found in table 'ReviewQueue'",
           functionName: 'QueueRepositoryImpl.backoff',
-          details: { tableName: 'reviewQueue' },
+          details: { tableName: 'ReviewQueue' },
           cause: p2025,
         },
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.backoff', modelName: 'ReviewQueue', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
       );
     });
   });

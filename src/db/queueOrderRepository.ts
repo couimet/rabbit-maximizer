@@ -21,14 +21,14 @@ export interface QueueOrderRepository {
 @injectable()
 export class QueueOrderRepositoryImpl extends BasePrismaRepository implements QueueOrderRepository {
   constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
-    super(prisma, log);
+    super(prisma, Prisma.ModelName.QueueOrder, log);
   }
 
   getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]> {
     return this.readEffectiveOrder(undefined, options?.eligibleOnly ?? true);
   }
 
-  private readEffectiveOrder(tx?: Prisma.TransactionClient, eligibleOnly = true): Promise<QueueItem[]> {
+  private readEffectiveOrder(tx: Prisma.TransactionClient | undefined, eligibleOnly: boolean): Promise<QueueItem[]> {
     return this.enforceTx(tx, async (db) => {
       const where: Prisma.ReviewQueueWhereInput = { status: 'pending' };
       if (eligibleOnly) {
@@ -152,7 +152,6 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       if (item.queueOrder) {
         await this.withPrismaErrorHandling(
-          'queueOrder',
           () =>
             db.queueOrder.update({
               where: { id: item.queueOrder!.id },

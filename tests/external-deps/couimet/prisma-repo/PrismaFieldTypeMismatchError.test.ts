@@ -1,4 +1,3 @@
-import { PrismaErrorCodes } from '../../../../src/external-deps/couimet/prisma-repo/PrismaErrorCodes.js';
 import { PrismaFieldTypeMismatchError } from '../../../../src/external-deps/couimet/prisma-repo/PrismaFieldTypeMismatchError.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
@@ -19,7 +18,7 @@ describe('PrismaFieldTypeMismatchError', () => {
   });
 
   it('has fixed code PRISMA_FIELD_TYPE_MISMATCH_P2005', () => {
-    expect(error.code).toBe(PrismaErrorCodes.PRISMA_FIELD_TYPE_MISMATCH_P2005);
+    expect(error.code).toBe('PRISMA_FIELD_TYPE_MISMATCH_P2005');
   });
 
   it('builds message from tableName', () => {

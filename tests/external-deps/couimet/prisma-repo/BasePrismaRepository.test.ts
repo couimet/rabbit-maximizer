@@ -11,14 +11,15 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 
 const MODEL_NAME = 'testModel';
 const FUNCTION_NAME = 'TestRepo.testMethod';
+const MOCK_RESULT = 'result';
 
 class TestRepo extends BasePrismaRepository {
   constructor(prisma: PrismaClient, log: Logger) {
-    super(prisma, log);
+    super(prisma, MODEL_NAME as unknown as Prisma.ModelName, log);
   }
 
   doUpdate<T>(operation: () => Promise<T>): Promise<T> {
-    return this.withPrismaErrorHandling(MODEL_NAME, operation, FUNCTION_NAME);
+    return this.withPrismaErrorHandling(operation, FUNCTION_NAME);
   }
 
   doEnforceTx<T>(tx: Prisma.TransactionClient | undefined, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
@@ -124,22 +125,22 @@ describe('BasePrismaRepository', () => {
   describe('enforceTx', () => {
     it('passes the provided tx through directly', async () => {
       const tx = {} as Prisma.TransactionClient;
-      const fn = jest.fn<any>().mockResolvedValue('result');
+      const fn = jest.fn<any>().mockResolvedValue(MOCK_RESULT);
 
       const result = await repo.doEnforceTx(tx, fn);
 
-      expect(result).toBe('result');
+      expect(result).toBe(MOCK_RESULT);
       expect(fn).toHaveBeenCalledWith(tx);
     });
 
     it('wraps in $transaction when tx is undefined', async () => {
       const { prisma } = createMockPrismaClient();
       const r = new TestRepo(prisma, logger);
-      const fn = jest.fn<any>().mockResolvedValue('result');
+      const fn = jest.fn<any>().mockResolvedValue(MOCK_RESULT);
 
       const result = await r.doEnforceTx(undefined, fn);
 
-      expect(result).toBe('result');
+      expect(result).toBe(MOCK_RESULT);
       expect(prisma.$transaction).toHaveBeenCalled();
     });
 
