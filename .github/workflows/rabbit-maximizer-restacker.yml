@@ -2,7 +2,7 @@ name: rabbit-maximizer-restacker
 
 on:
   pull_request_target:
-    types: [closed]
+    types: [edited]
 
 permissions:
   contents: read
@@ -10,28 +10,16 @@ permissions:
 
 jobs:
   restack:
-    if: github.event.pull_request.merged == true
+    if: github.event.changes.base != null && github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
 
-      - name: Request full reviews on stacked child PRs
-        id: restack
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO_FULL_NAME: ${{ github.event.repository.full_name }}
-          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: bash scripts/rabbit-maximizer-restacker.sh "$REPO_FULL_NAME" "$PR_HEAD_REF" "$PR_NUMBER"
-
-      - name: Post summary on merged PR
-        if: steps.restack.outputs.summary-file != ''
-        uses: couimet/github-actions/publish-pr-comment@main
+      - name: Request CodeRabbit full review
+        uses: ./.github/actions/request-coderabbit-full-review
         with:
-          comment-file: ${{ steps.restack.outputs.summary-file }}
-          github-token: ${{ github.token }}
-          header: rabbit-maximizer-restacker summary
           pr-number: ${{ github.event.pull_request.number }}
-          create-new: true
+          trigger: base-changed-to-main
+          metadata: '{"previous_base": "${{ github.event.changes.base.ref.from }}"}'
