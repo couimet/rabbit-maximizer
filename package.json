@@ -38,7 +38,7 @@
   },
   "prettier": "@couimet/eslint-config/prettier",
   "dependencies": {
-    "@couimet/detailed-error": "^0.2.0",
+    "@couimet/detailed-error": "^1.0.0",
     "@couimet/detailed-result": "^0.1.1",
     "@couimet/logger-contract": "^1.0.0",
     "@couimet/logger-contract-adapters": "^0.1.0",
@@ -64,9 +64,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@couimet/detailed-error-testing": "^0.1.1",
+    "@couimet/detailed-error-testing": "^0.1.4",
     "@couimet/dynamic-testing": "^0.3.0",
-    "@couimet/eslint-config": "^0.6.0",
+    "@couimet/eslint-config": "^0.6.2",
     "@couimet/logger-contract-testing": "^1.0.1",
     "@jest/expect": "^30.4.1",
     "@jest/globals": "^30.4.1",
