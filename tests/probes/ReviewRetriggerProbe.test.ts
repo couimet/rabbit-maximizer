@@ -4,7 +4,7 @@ import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
 import { EventType, QueueStatus, TriggerSource } from '../../src/types/index.js';
 import { createMockEventRepo } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getRandomEnumValue, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -17,13 +17,13 @@ const makeItem = () => ({
   uuid: getUuid(),
   repo_full_name: getUniqueGitHubRepoRef().fullName,
   pr_number: getUniqueInt(),
-  status: QueueStatus.pending,
+  status: getRandomEnumValue(QueueStatus),
   not_before: getUniqueDate(),
   attempts: 0,
   pr_title: getUniqueString({ prefix: 'PR title ' }),
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   source_comment_id: getUniqueInt(),
-  trigger_source: TriggerSource.scheduler,
+  trigger_source: getRandomEnumValue(TriggerSource),
   pull_request_id: getUniqueInt(),
   created_at: getUniqueDate(),
   updated_at: getUniqueDate(),

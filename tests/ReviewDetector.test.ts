@@ -4,7 +4,7 @@ import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.j
 
 import { createMockCoderabbitGitHubClient, createMockProbeFactory, createMockQueueRepo, createMockReviewDetectorProbe } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getRandomEnumValue, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -40,12 +40,12 @@ const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: numb
     repo_full_name: getUniqueGitHubRepoRef().fullName,
     pr_number: getUniqueInt(),
     pr_title: 'Test PR title',
-    status: QueueStatus.retriggered,
+    status: getRandomEnumValue(QueueStatus),
     not_before: getUniqueDate(),
     attempts: 1,
     source_comment_url: `https://github.com/org/repo/issues/1#issuecomment-${commentId}`,
     source_comment_id: commentId,
-    trigger_source: TriggerSource.scheduler,
+    trigger_source: getRandomEnumValue(TriggerSource),
     pull_request_id: getUniqueInt(),
     retriggered_at: getUniqueDate(),
     created_at: getUniqueDate(),

@@ -25,9 +25,9 @@ load test_helper
   [[ "$output" == *"rabbit-maximizer.db" ]]
 }
 
-@test "rotates old backups keeping last 10" {
+@test "rotates old backups keeping last 25" {
   create_test_db
-  for i in $(seq 1 12); do
+  for i in $(seq 1 30); do
     sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/backup-$i.sql.gz"
     # Ensure distinct timestamps so ls -t sorts reliably
     sleep 0.1
@@ -36,10 +36,10 @@ load test_helper
   [ "$status" -eq 0 ]
   local count
   count=$(ls "$BATS_TEST_TMPDIR/data/backups"/*.sql.gz | wc -l | tr -d ' ')
-  [ "$count" -eq 10 ]  # rotation keeps exactly 10 most recent
+  [ "$count" -eq 25 ]  # rotation keeps exactly 25 most recent
 }
 
-@test "rotation is no-op when fewer than 10 backups exist" {
+@test "rotation is no-op when fewer than 25 backups exist" {
   create_test_db
   for i in $(seq 1 3); do
     sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/backup-$i.sql.gz"
@@ -61,7 +61,7 @@ load test_helper
 
 @test "rotation handles filenames with spaces" {
   create_test_db
-  for i in $(seq 1 12); do
+  for i in $(seq 1 30); do
     sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/backup $i.sql.gz"
     sleep 0.1
   done
@@ -69,5 +69,5 @@ load test_helper
   [ "$status" -eq 0 ]
   local count
   count=$(find "$BATS_TEST_TMPDIR/data/backups" -maxdepth 1 -name '*.sql.gz' -type f | wc -l | tr -d ' ')
-  [ "$count" -eq 10 ]
+  [ "$count" -eq 25 ]
 }

@@ -1,9 +1,10 @@
+import { SoftDeleteConfig } from '../../../../src/external-deps/couimet/prisma-extension-soft-delete/src/SoftDeleteConfig.js';
 import { BasePrismaRepository } from '../../../../src/external-deps/couimet/prisma-repo/BasePrismaRepository.js';
 import { PrismaFieldTypeMismatchError } from '../../../../src/external-deps/couimet/prisma-repo/PrismaFieldTypeMismatchError.js';
 import { PrismaRecordNotFoundError } from '../../../../src/external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
 import { createMockPrismaClient } from '../../../helpers/index.js';
 
-import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -119,6 +120,60 @@ describe('BasePrismaRepository', () => {
       const genericError = new Error(getUniqueString());
 
       await expect(repo.doUpdate(() => Promise.reject(genericError))).rejects.toThrow(genericError);
+    });
+  });
+
+  describe('softDelete', () => {
+    class SoftDeleteRepo extends BasePrismaRepository {
+      constructor(prisma: PrismaClient, log: Logger, customConfig?: SoftDeleteConfig) {
+        super(prisma, Prisma.ModelName.CoderabbitComment, log, { softDelete: customConfig ?? true });
+      }
+
+      // eslint-disable-next-line require-await
+      async doSoftDeleteRow(where: Record<string, unknown>, tx?: Prisma.TransactionClient): Promise<void> {
+        return this.softDeleteRow(where, tx);
+      }
+    }
+
+    it('instantiates SoftDeleteConfig with defaults when softDelete: true', () => {
+      const { prisma } = createMockPrismaClient();
+      const repo = new SoftDeleteRepo(prisma, logger);
+      expect(repo['softDelete']).toBeInstanceOf(SoftDeleteConfig);
+    });
+
+    it('accepts a custom SoftDeleteConfig instance', () => {
+      const { prisma } = createMockPrismaClient();
+      const customConfig = new SoftDeleteConfig('archived', 'archived_at');
+      const repo = new SoftDeleteRepo(prisma, logger, customConfig);
+      expect(repo['softDelete']).toBe(customConfig);
+    });
+
+    it('throws SoftDeleteNotConfiguredError when softDeleteRow is called without config', async () => {
+      const { prisma } = createMockPrismaClient();
+      const repo = new TestRepo(prisma, logger);
+
+      await expect((repo as any).softDeleteRow({ id: 1 })).rejects.toBeDetailedError('SOFT_DELETE_NOT_CONFIGURED', {
+        message: `deactivate() called on '${MODEL_NAME}' but soft-delete is not configured`,
+        functionName: 'softDeleteRow',
+        details: { tableName: MODEL_NAME },
+      });
+    });
+
+    it('calls updateMany with the active filter and soft-delete marker', async () => {
+      const frozenNow = getUniqueDate();
+      jest.useFakeTimers();
+      jest.setSystemTime(frozenNow);
+      const { prisma, coderabbitComment } = createMockPrismaClient();
+      const repo = new SoftDeleteRepo(prisma, logger);
+      const ID = getUniqueInt();
+      const where = { id: ID };
+
+      await repo.doSoftDeleteRow(where);
+
+      expect(coderabbitComment.updateMany).toHaveBeenCalledWith({
+        where: { id: ID, is_deleted: false },
+        data: { is_deleted: true, deleted_at: frozenNow },
+      });
     });
   });
 

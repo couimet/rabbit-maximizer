@@ -1,15 +1,31 @@
+import { SoftDeleteConfig } from '../prisma-extension-soft-delete/src/SoftDeleteConfig.js';
+
 import { PrismaFieldTypeMismatchError } from './PrismaFieldTypeMismatchError.js';
 import { PrismaRecordNotFoundError } from './PrismaRecordNotFoundError.js';
+import { SoftDeleteNotConfiguredError } from './SoftDeleteNotConfiguredError.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
 
+export interface RepositoryOptions {
+  readonly softDelete?: SoftDeleteConfig | true;
+}
+
 export abstract class BasePrismaRepository {
+  protected readonly softDelete: SoftDeleteConfig | undefined;
+
   constructor(
     private readonly prisma: PrismaClient,
     private readonly modelName: Prisma.ModelName,
     protected readonly log: Logger,
-  ) {}
+    opts?: RepositoryOptions,
+  ) {
+    if (opts?.softDelete === true) {
+      this.softDelete = new SoftDeleteConfig();
+    } else if (opts?.softDelete instanceof SoftDeleteConfig) {
+      this.softDelete = opts.softDelete;
+    }
+  }
 
   protected client(tx?: Prisma.TransactionClient): Prisma.TransactionClient {
     return tx ?? this.prisma;
@@ -59,5 +75,28 @@ export abstract class BasePrismaRepository {
       }
       throw err;
     }
+  }
+
+  /**
+   * Soft-deletes an active row by setting the configured soft-delete columns.
+   *
+   * The {@link where} clause identifies the row (e.g. `{ comment_id: 42 }`).
+   * The base class merges it with the active-record filter before applying the
+   * soft-delete marker so only a non-deleted row is affected.
+   */
+
+  protected async softDeleteRow(where: Record<string, unknown>, tx?: Prisma.TransactionClient): Promise<void> {
+    if (!this.softDelete) {
+      throw new SoftDeleteNotConfiguredError({ tableName: this.modelName, functionName: 'softDeleteRow' });
+    }
+    const db = this.client(tx);
+    const delegateName = String(this.modelName).charAt(0).toLowerCase() + String(this.modelName).slice(1);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const delegate = (db as any)[delegateName];
+    await delegate.updateMany({
+      where: { ...where, ...this.softDelete.activeFilter },
+      data: this.softDelete.softDeleteMarker(),
+    });
+    this.log.debug({ fn: 'BasePrismaRepository.softDeleteRow', modelName: this.modelName }, 'Deactivated row');
   }
 }

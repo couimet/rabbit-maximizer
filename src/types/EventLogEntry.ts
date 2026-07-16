@@ -2,6 +2,7 @@ import type {
   BypassedPayload,
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesRequestedPayload,
+  CoderabbitReviewSkippedPayload,
   DetectedPayload,
   EnqueuedPayload,
   EventMetadata,
@@ -52,4 +53,8 @@ export type EventLogEntry =
   | (EventEnvelope & {
       readonly type: EventType.coderabbit_review_changes_requested;
       readonly payload: CoderabbitReviewChangesRequestedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_review_skipped;
+      readonly payload: CoderabbitReviewSkippedPayload;
     });

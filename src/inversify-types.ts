@@ -5,6 +5,7 @@
  * identifiers here as the service graph grows.
  */
 export const TYPES = {
+  CoderabbitCommentRepository: Symbol.for('CoderabbitCommentRepository'),
   Config: Symbol.for('Config'),
   CoderabbitGitHubClient: Symbol.for('CoderabbitGitHubClient'),
   EnqueueService: Symbol.for('EnqueueService'),

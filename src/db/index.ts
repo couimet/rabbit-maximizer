@@ -1,3 +1,4 @@
+export * from './coderabbitCommentRepository.js';
 export * from './eventRepository.js';
 export * from './prismaClientFactory.js';
 export * from './queueOrderRepository.js';

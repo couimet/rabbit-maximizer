@@ -1,9 +1,11 @@
+import { type CoderabbitCommentRepository, CoderabbitCommentRepositoryImpl } from './db/coderabbitCommentRepository.js';
 import { type EventRepository, EventRepositoryImpl } from './db/eventRepository.js';
 import { createPrismaClient } from './db/prismaClientFactory.js';
 import { type PullRequestRepository, PullRequestRepositoryImpl } from './db/pullRequestRepository.js';
 import { type QueueOrderRepository, QueueOrderRepositoryImpl } from './db/queueOrderRepository.js';
 import { type QueueRepository, QueueRepositoryImpl } from './db/queueRepository.js';
 import { type SystemStateRepository, SystemStateRepositoryImpl } from './db/systemStateRepository.js';
+import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/softDeleteExtension.js';
 import type { CoderabbitGitHubClient } from './github/index.js';
 import { CoderabbitGitHubClientImpl } from './github/index.js';
 import { type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
@@ -43,7 +45,7 @@ container
 
 container
   .bind<PrismaClient>(TYPES.PrismaClient)
-  .toDynamicValue(() => createPrismaClient())
+  .toDynamicValue(() => createPrismaClient().$extends(softDeleteExtension({ models: { CoderabbitComment: true } })) as unknown as PrismaClient)
   .inSingletonScope();
 
 container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClientImpl).inSingletonScope();
@@ -63,6 +65,8 @@ container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStat
 container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(UuidObservationContextProvider).inSingletonScope();
 
 container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory).inSingletonScope();
+
+container.bind<CoderabbitCommentRepository>(TYPES.CoderabbitCommentRepository).to(CoderabbitCommentRepositoryImpl).inSingletonScope();
 
 container.bind<PullRequestRepository>(TYPES.PullRequestRepository).to(PullRequestRepositoryImpl).inSingletonScope();
 

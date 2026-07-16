@@ -289,7 +289,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         by: ['status'],
         _count: { status: true },
       });
-      const counts: Record<QueueStatus, number> = { pending: 0, retriggered: 0, reviewed: 0, failed: 0 };
+      const counts: Record<QueueStatus, number> = { coderabbit_skipped: 0, failed: 0, pending: 0, retriggered: 0, reviewed: 0 };
       for (const row of rows) {
         counts[row.status as QueueStatus] = row._count.status;
       }

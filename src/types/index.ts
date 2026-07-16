@@ -2,6 +2,7 @@ export * from './AcknowledgementResult.js';
 export * from './ActivityListItem.js';
 export * from './coderabbit.js';
 export * from './CommentDetails.js';
+export * from './CommentType.js';
 export * from './DetectedComment.js';
 export * from './EnqueueData.js';
 export * from './EnqueueResult.js';
