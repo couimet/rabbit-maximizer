@@ -18,7 +18,6 @@ export * from './QueueItem.js';
 export * from './QueueStatus.js';
 export * from './RabbitResult.js';
 export * from './RepoFilter.js';
-export * from './Result.js';
 export * from './ReviewLimitComment.js';
 export * from './SchedulerStatus.js';
 export * from './TriggerSource.js';

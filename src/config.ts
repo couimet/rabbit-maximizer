@@ -1,6 +1,8 @@
+import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
+import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import { type Config, ConfigSchema } from './schemas/config.js';
+import { RabbitResult } from './types/RabbitResult.js';
 import { type RepoFilter } from './types/RepoFilter.js';
-import { Result } from './types/Result.js';
 
 import dotenv from 'dotenv';
 
@@ -56,7 +58,7 @@ const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
  * Parse and validate config from a raw env-like record.
  * Exported so tests can call it without triggering `process.exit`.
  */
-export const parseConfig = (raw: Record<string, string | undefined>): Result<Config, string[]> => {
+export const parseConfig = (raw: Record<string, string | undefined>): RabbitResult<Config> => {
   // Keep alphabetically sorted by key.
   const prepped = {
     DATABASE_URL: emptyToUndefined(raw.DATABASE_URL),
@@ -82,14 +84,22 @@ export const parseConfig = (raw: Record<string, string | undefined>): Result<Con
   const result = ConfigSchema.safeParse(prepped);
 
   if (!result.success) {
-    return Result.err(result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`));
+    return RabbitResult.err(
+      new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.CONFIG_VALIDATION_FAILED,
+        message: 'Config validation failed',
+        functionName: 'parseConfig',
+        details: { issues: result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`) },
+      }),
+    );
   }
 
-  return Result.ok(result.data);
+  return RabbitResult.ok(result.data);
 };
 
 /** @internal Exported for testing — logs every config issue and exits with code 1. */
-export const exitWithConfigErrors = (issues: string[]): never => {
+export const exitWithConfigErrors = (error: RabbitMaximizerError): never => {
+  const issues: string[] = (error.details?.issues as string[]) ?? [];
   const formatted = issues.map((i) => `  - ${i}`).join('\n');
   console.error(`[ERROR] Invalid config:\n${formatted}`);
   process.exit(1);
