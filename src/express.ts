@@ -6,6 +6,9 @@ import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import { createExpressApp } from './external-deps/couimet/express-tools/createExpressApp.js';
+import type { EventCountsMapper } from './mappers/index.js';
+import type { EventEntryMapper } from './mappers/index.js';
+import type { QueueItemMapper } from './mappers/index.js';
 import {
   createGetConfigHandler,
   createGetDashboardStateHandler,
@@ -36,9 +39,12 @@ const DASHBOARD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)),
 
 export interface ExpressDeps {
   config: Config;
+  eventCountsMapper: EventCountsMapper;
+  eventEntryMapper: EventEntryMapper;
   eventRepo: EventRepository;
   pullRequestRepo: PullRequestRepository;
   prisma: PrismaClient;
+  queueItemMapper: QueueItemMapper;
   queueOrderRepo: QueueOrderRepository;
   queueRepo: QueueRepository;
   reviewTrigger: ReviewTrigger;
@@ -53,23 +59,37 @@ export interface ExpressApp {
 }
 
 export const setupExpress = (deps: ExpressDeps): ExpressApp => {
-  const { config, queueRepo, queueOrderRepo, eventRepo, pullRequestRepo, prisma, reviewTrigger, systemStateRepo, logger, port } = deps;
+  const {
+    config,
+    eventCountsMapper,
+    eventEntryMapper,
+    eventRepo,
+    pullRequestRepo,
+    prisma,
+    queueItemMapper,
+    queueOrderRepo,
+    queueRepo,
+    reviewTrigger,
+    systemStateRepo,
+    logger,
+    port,
+  } = deps;
   const production = isProduction();
   const app = createExpressApp({ logger, helmet: production });
 
   app.use(express.json());
-  app.get('/api/summary', createGetSummaryHandler(queueRepo, eventRepo, logger));
-  app.get('/api/queue', createGetQueueHandler(queueRepo, logger));
+  app.get('/api/summary', createGetSummaryHandler(queueRepo, eventRepo, queueItemMapper, eventCountsMapper, logger));
+  app.get('/api/queue', createGetQueueHandler(queueRepo, queueItemMapper, logger));
   app.get('/api/config', createGetConfigHandler(config, logger));
-  app.get('/api/dashboard-state', createGetDashboardStateHandler(queueOrderRepo, eventRepo, systemStateRepo, logger));
-  app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, logger));
-  app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, logger));
+  app.get('/api/dashboard-state', createGetDashboardStateHandler(queueOrderRepo, eventRepo, systemStateRepo, queueItemMapper, eventCountsMapper, logger));
+  app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));
+  app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));
   app.post('/api/queue/order/move-to-top', createMoveToTopHandler(queueOrderRepo, logger));
   app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, reviewTrigger, logger));
   app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, pullRequestRepo, prisma, logger));
-  app.get('/api/queue/triggered', createGetTriggeredHandler(queueRepo, logger));
+  app.get('/api/queue/triggered', createGetTriggeredHandler(queueRepo, queueItemMapper, logger));
   app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));
-  app.get('/api/events', createGetEventsHandler(eventRepo, logger));
+  app.get('/api/events', createGetEventsHandler(eventRepo, eventEntryMapper, logger));
 
   app.get('/icon.png', (_req: Request, res: Response) => res.sendFile('assets/icon.png', { root: '.' }));
   app.get('/icon_256.png', (_req: Request, res: Response) => res.sendFile('assets/icon_256.png', { root: '.' }));

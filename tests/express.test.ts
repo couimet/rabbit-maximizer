@@ -24,6 +24,9 @@ describe('setupExpress', () => {
   const start = (logger = createMockLogger()) => {
     const app = setupExpress({
       config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
+      eventCountsMapper: { mapToResponse: jest.fn<any>() },
+      eventEntryMapper: { mapToEventEntryResponse: jest.fn<any>(), mapToEventEntryResponseList: jest.fn<any>() },
+      queueItemMapper: { mapToQueueItemResponse: jest.fn<any>(), mapToQueueItemResponseList: jest.fn<any>() },
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),

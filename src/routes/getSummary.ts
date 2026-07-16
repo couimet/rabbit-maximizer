@@ -1,22 +1,32 @@
 import type { EventRepository } from '../db/eventRepository.js';
 import type { QueueRepository } from '../db/queueRepository.js';
-import { filterActiveEventCounts } from '../utils/filterActiveEventCounts.js';
+import type { EventCountsMapper } from '../mappers/index.js';
+import type { QueueItemMapper } from '../mappers/index.js';
+import type { SummaryResponse } from '../types/api.js';
 import { resolveDurationSince } from '../utils/resolveDurationSince.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-export const createGetSummaryHandler = (queueRepo: QueueRepository, eventRepo: EventRepository, logger: Logger) => {
+export const createGetSummaryHandler = (
+  queueRepo: QueueRepository,
+  eventRepo: EventRepository,
+  queueItemMapper: QueueItemMapper,
+  eventCountsMapper: EventCountsMapper,
+  logger: Logger,
+) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const since = resolveDurationSince(req.query.duration);
 
       const [eventCounts, oldestPending] = await Promise.all([eventRepo.countByType(since), queueRepo.getOldestPending()]);
 
-      const activeEventCounts = filterActiveEventCounts(eventCounts);
+      const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
+      const mappedPending = oldestPending ? queueItemMapper.mapToQueueItemResponse(oldestPending) : null;
 
-      res.json({ eventCounts: activeEventCounts, oldestPending });
+      const response: SummaryResponse = { eventCounts: activeEventCounts, oldestPending: mappedPending };
+      res.json(response);
     } catch (error) {
       logger.error({ fn: 'api.getSummary', error }, 'Failed to get summary');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get summary' });

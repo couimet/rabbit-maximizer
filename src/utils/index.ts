@@ -1,7 +1,6 @@
 export * from './computeSchedulerBackoff.js';
 export * from './describeDatabaseUrl.js';
 export * from './durations.js';
-export * from './filterActiveEventCounts.js';
 export * from './formatDate.js';
 export * from './formatRelativeFuture.js';
 export * from './formatRelativeTime.js';

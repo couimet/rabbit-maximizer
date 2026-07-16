@@ -1,4 +1,5 @@
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
 import { createGetDashboardStateHandler } from '../../src/routes/getDashboardState.js';
 import { QueueStatus } from '../../src/types/index.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
@@ -20,6 +21,11 @@ describe('getDashboardState', () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
+  const createMockQueueItemMapper = () => ({
+    mapToQueueItemResponse: jest.fn<any>().mockImplementation((x: unknown) => x),
+    mapToQueueItemResponseList: jest.fn<any>().mockImplementation((xs: unknown[]) => xs),
+  });
+
   const makeQueueItem = (overrides: Record<string, unknown> = {}) => ({
     id: getUniqueInt(),
     uuid: getUuid(),
@@ -32,6 +38,8 @@ describe('getDashboardState', () => {
     updated_at: getUniqueDate(),
     ...overrides,
   });
+
+  const eventCountsMapper = new EventCountsMapper();
 
   const toJson = (item: Record<string, unknown>): Record<string, unknown> => ({
     ...item,
@@ -52,6 +60,8 @@ describe('getDashboardState', () => {
         createMockQueueOrderRepo(queueOrderRepoOver as any),
         createMockEventRepo(eventRepoOver as any),
         createMockSystemStateRepository(systemStateRepoOver as any),
+        createMockQueueItemMapper() as any,
+        eventCountsMapper,
         logger,
       ),
     );

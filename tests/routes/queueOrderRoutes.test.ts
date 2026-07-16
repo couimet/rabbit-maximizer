@@ -23,6 +23,11 @@ import express from 'express';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
+const createMockQueueItemMapper = () => ({
+  mapToQueueItemResponse: jest.fn<any>().mockImplementation((x: unknown) => x),
+  mapToQueueItemResponseList: jest.fn<any>().mockImplementation((xs: unknown[]) => xs),
+});
+
 interface QueueItemStub {
   id: number;
   uuid: string;
@@ -59,7 +64,7 @@ describe('queueOrderRoutes', () => {
   describe('GET /api/queue/order', () => {
     const startServer = (over = {}) => {
       const app = createExpressApp({ logger });
-      app.get('/api/queue/order', createGetQueueOrderHandler(createMockQueueOrderRepo(over), logger));
+      app.get('/api/queue/order', createGetQueueOrderHandler(createMockQueueOrderRepo(over), createMockQueueItemMapper() as any, logger));
       server = app.listen(0);
     };
 
@@ -93,7 +98,7 @@ describe('queueOrderRoutes', () => {
     const startServer = (over = {}) => {
       const app = createExpressApp({ logger });
       app.use(express.json());
-      app.post('/api/queue/order/move', createMoveQueueOrderHandler(createMockQueueOrderRepo(over), logger));
+      app.post('/api/queue/order/move', createMoveQueueOrderHandler(createMockQueueOrderRepo(over), createMockQueueItemMapper() as any, logger));
       server = app.listen(0);
     };
 

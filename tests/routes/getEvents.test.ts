@@ -11,6 +11,11 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
+const createMockEventEntryMapper = () => ({
+  mapToEventEntryResponse: jest.fn<any>().mockImplementation((x: unknown) => x),
+  mapToEventEntryResponseList: jest.fn<any>().mockImplementation((xs: unknown[]) => xs),
+});
+
 describe('getEvents', () => {
   let server: Server;
   let logger: Logger;
@@ -22,7 +27,7 @@ describe('getEvents', () => {
   const startServer = (over = {}) => {
     logger = createMockLogger();
     const app = createExpressApp({ logger });
-    app.get('/api/events', createGetEventsHandler(createMockEventRepo(over), logger));
+    app.get('/api/events', createGetEventsHandler(createMockEventRepo(over), createMockEventEntryMapper() as any, logger));
     server = app.listen(0);
   };
 

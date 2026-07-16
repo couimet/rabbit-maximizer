@@ -1,4 +1,5 @@
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
 import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
@@ -11,6 +12,13 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
+const createMockQueueItemMapper = () => ({
+  mapToQueueItemResponse: jest.fn<any>().mockImplementation((x: unknown) => x),
+  mapToQueueItemResponseList: jest.fn<any>().mockImplementation((xs: unknown[]) => xs),
+});
+
+const eventCountsMapper = new EventCountsMapper();
+
 describe('getSummary', () => {
   let logger: Logger;
   let server: Server;
@@ -21,7 +29,16 @@ describe('getSummary', () => {
 
   const startServer = (queueRepoOver = {}, eventRepoOver = {}) => {
     const app = createExpressApp({ logger });
-    app.get('/api/summary', createGetSummaryHandler(createMockQueueRepo(queueRepoOver), createMockEventRepo(eventRepoOver), logger));
+    app.get(
+      '/api/summary',
+      createGetSummaryHandler(
+        createMockQueueRepo(queueRepoOver),
+        createMockEventRepo(eventRepoOver),
+        createMockQueueItemMapper() as any,
+        eventCountsMapper,
+        logger,
+      ),
+    );
     server = app.listen(0);
   };
 

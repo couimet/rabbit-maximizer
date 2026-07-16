@@ -11,6 +11,11 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
+const createMockQueueItemMapper = () => ({
+  mapToQueueItemResponse: jest.fn<any>().mockImplementation((x: unknown) => x),
+  mapToQueueItemResponseList: jest.fn<any>().mockImplementation((xs: unknown[]) => xs),
+});
+
 describe('getQueue', () => {
   let server: Server;
   let logger: Logger;
@@ -22,7 +27,7 @@ describe('getQueue', () => {
   const startServer = (over = {}) => {
     logger = createMockLogger();
     const app = createExpressApp({ logger });
-    app.get('/api/queue', createGetQueueHandler(createMockQueueRepo(over), logger));
+    app.get('/api/queue', createGetQueueHandler(createMockQueueRepo(over), createMockQueueItemMapper() as any, logger));
     server = app.listen(0);
   };
 
