@@ -9,15 +9,13 @@ import {
   createMoveToTopHandler,
   createRetriggerNowHandler,
 } from '../../src/routes/queueOrderRoutes.js';
-import { QueueStatus } from '../../src/types/QueueStatus.js';
 import { RabbitResult } from '../../src/types/RabbitResult.js';
-import { TriggerSource } from '../../src/types/TriggerSource.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository, startTestServer } from '../helpers/index.js';
+import { apiJson, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository, makeQueueItem, startTestServer } from '../helpers/index.js';
 import { postJson } from '../helpers/postJson.js';
 
-import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueRepoRef, getUuid, type UniqueRepoRef } from '@couimet/dynamic-testing';
+import { getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
@@ -31,29 +29,6 @@ const UUID_A = getUuid();
 const UUID_B = getUuid();
 const UUID_C = getUuid();
 const UUID_D = getUuid();
-
-const makeItem = (overrides: Record<string, unknown> = {}) => {
-  const id = (overrides.id as number | undefined) ?? getUniqueInt();
-  const repoRef = (overrides.repo_ref as UniqueRepoRef | undefined) ?? getUniqueRepoRef();
-  const prNumber = (overrides.pr_number as number | undefined) ?? getUniqueInt();
-  const { id: _id, repo_ref: _repoRef, pr_number: _prNumber, ...rest } = overrides;
-  return {
-    id,
-    uuid: getUuid(),
-    repo_full_name: repoRef.fullName,
-    pr_number: prNumber,
-    pr_title: `Test PR ${id}`,
-    status: getRandomEnumValue(QueueStatus),
-    not_before: getUniqueDate(),
-    attempts: 0,
-    source_comment_url: `https://github.com/${repoRef.owner}/${repoRef.repo}/pull/${prNumber}#discussion_r${getUniqueInt()}`,
-    trigger_source: getRandomEnumValue(TriggerSource),
-    pull_request_id: getUniqueInt(),
-    created_at: getUniqueDate(),
-    updated_at: getUniqueDate(),
-    ...rest,
-  };
-};
 
 describe('queueOrderRoutes', () => {
   let server: Server;
@@ -78,7 +53,7 @@ describe('queueOrderRoutes', () => {
     };
 
     it('returns 200 with data array when items exist', async () => {
-      const items = [makeItem(), makeItem()];
+      const items = [makeQueueItem(), makeQueueItem()];
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
       const json = await getJson(port, '/api/queue/order');
@@ -114,8 +89,8 @@ describe('queueOrderRoutes', () => {
     };
 
     it('moves single item up and returns updated order', async () => {
-      const items = [makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_B }), makeItem({ uuid: UUID_C })];
-      const moved = [makeItem({ uuid: UUID_B }), makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_C })];
+      const items = [makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_B }), makeQueueItem({ uuid: UUID_C })];
+      const moved = [makeQueueItem({ uuid: UUID_B }), makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_C })];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
@@ -127,8 +102,8 @@ describe('queueOrderRoutes', () => {
     });
 
     it('moves single item down and returns updated order', async () => {
-      const items = [makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_B }), makeItem({ uuid: UUID_C })];
-      const moved = [makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_C }), makeItem({ uuid: UUID_B })];
+      const items = [makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_B }), makeQueueItem({ uuid: UUID_C })];
+      const moved = [makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_C }), makeQueueItem({ uuid: UUID_B })];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
@@ -140,7 +115,7 @@ describe('queueOrderRoutes', () => {
     });
 
     it('no-ops when moving item at top up', async () => {
-      const items = [makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_B })];
+      const items = [makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_B })];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(items),
@@ -152,7 +127,7 @@ describe('queueOrderRoutes', () => {
     });
 
     it('no-ops when moving item at bottom down', async () => {
-      const items = [makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_B })];
+      const items = [makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_B })];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(items),
@@ -164,8 +139,8 @@ describe('queueOrderRoutes', () => {
     });
 
     it('moves non-adjacent items up past their respective neighbors', async () => {
-      const items = [makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_B }), makeItem({ uuid: UUID_C }), makeItem({ uuid: UUID_D })];
-      const moved = [makeItem({ uuid: UUID_C }), makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_D }), makeItem({ uuid: UUID_B })];
+      const items = [makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_B }), makeQueueItem({ uuid: UUID_C }), makeQueueItem({ uuid: UUID_D })];
+      const moved = [makeQueueItem({ uuid: UUID_C }), makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_D }), makeQueueItem({ uuid: UUID_B })];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
@@ -177,8 +152,8 @@ describe('queueOrderRoutes', () => {
     });
 
     it('moves adjacent items as a block up', async () => {
-      const items = [makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_B }), makeItem({ uuid: UUID_C }), makeItem({ uuid: UUID_D })];
-      const moved = [makeItem({ uuid: UUID_B }), makeItem({ uuid: UUID_C }), makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_D })];
+      const items = [makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_B }), makeQueueItem({ uuid: UUID_C }), makeQueueItem({ uuid: UUID_D })];
+      const moved = [makeQueueItem({ uuid: UUID_B }), makeQueueItem({ uuid: UUID_C }), makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_D })];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
@@ -190,7 +165,7 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 400 when direction is invalid', async () => {
-      const items = [makeItem({ uuid: UUID_A })];
+      const items = [makeQueueItem({ uuid: UUID_A })];
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'left' });
@@ -222,7 +197,7 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 404 when a queueItemUuid does not exist', async () => {
-      const items = [makeItem({ uuid: UUID_A })];
+      const items = [makeQueueItem({ uuid: UUID_A })];
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: ['99999999-9999-9999-9999-999999999999'], direction: 'up' });
@@ -231,7 +206,7 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 500 and logs error on repository failure (transaction rolls back)', async () => {
-      const items = [makeItem({ uuid: UUID_A })];
+      const items = [makeQueueItem({ uuid: UUID_A })];
       const repoError = new Error('DB down');
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
@@ -277,7 +252,7 @@ describe('queueOrderRoutes', () => {
 
     it('allows retrigger when paused if overridePause=true is passed', async () => {
       startServer(
-        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem({ uuid: UUID_A }), status: 'pending' }]) },
+        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeQueueItem({ uuid: UUID_A }), status: 'pending' }]) },
         { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) },
       );
 
@@ -291,7 +266,7 @@ describe('queueOrderRoutes', () => {
 
     it('proceeds normally when schedulerStatus is running', async () => {
       startServer(
-        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem({ uuid: UUID_A }), status: 'pending' }]) },
+        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeQueueItem({ uuid: UUID_A }), status: 'pending' }]) },
         { isSchedulerPaused: jest.fn<any>().mockResolvedValue(false) },
       );
 
@@ -300,7 +275,7 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 204', async () => {
-      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem({ uuid: UUID_A }), status: 'pending' }]) });
+      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeQueueItem({ uuid: UUID_A }), status: 'pending' }]) });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NO_CONTENT);
@@ -314,7 +289,7 @@ describe('queueOrderRoutes', () => {
           functionName: 'ReviewTrigger.trigger',
         }),
       );
-      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem({ uuid: UUID_A }), status: 'pending' }]) }, {}, triggerErr);
+      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeQueueItem({ uuid: UUID_A }), status: 'pending' }]) }, {}, triggerErr);
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
@@ -332,7 +307,7 @@ describe('queueOrderRoutes', () => {
 
     it('returns 404 when item not found', async () => {
       startServer({
-        getEffectiveOrder: jest.fn<any>().mockResolvedValue([makeItem({ uuid: UUID_A }), makeItem({ uuid: UUID_B })]),
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([makeQueueItem({ uuid: UUID_A }), makeQueueItem({ uuid: UUID_B })]),
       });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/99999999-9999-9999-9999-999999999999/retrigger-now`, { method: 'POST' });
@@ -343,7 +318,7 @@ describe('queueOrderRoutes', () => {
 
     it('returns 409 when item is not pending', async () => {
       startServer({
-        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeItem({ uuid: UUID_A }), status: 'reviewed' }]),
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...makeQueueItem({ uuid: UUID_A }), status: 'reviewed' }]),
       });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
@@ -459,7 +434,7 @@ describe('queueOrderRoutes', () => {
     };
 
     it('returns 200 with { ok: true }', async () => {
-      const item = { ...makeItem({ uuid: UUID_A }), repo_full_name: 'c/r', pr_number: getUniqueInt() };
+      const item = makeQueueItem({ uuid: UUID_A });
       const markReviewedByUuid = jest.fn<any>().mockResolvedValue(item);
       const { pullRequests } = startServer({ markReviewedByUuid });
 

@@ -20,12 +20,16 @@ export const createGetSummaryHandler = (
     try {
       const since = resolveDurationSince(req.query.duration);
 
-      const [eventCounts, oldestPending] = await Promise.all([eventRepo.countByType(since), queueRepo.getOldestPending()]);
+      const [eventCounts, oldestPending, queueCounts] = await Promise.all([
+        eventRepo.countByType(since),
+        queueRepo.getOldestPending(),
+        queueRepo.getCountsByStatus(),
+      ]);
 
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
       const mappedPending = oldestPending ? queueItemMapper.mapToQueueItemResponse(oldestPending) : null;
 
-      const response: SummaryResponse = { eventCounts: activeEventCounts, oldestPending: mappedPending };
+      const response: SummaryResponse = { queueCounts, eventCounts: activeEventCounts, oldestPending: mappedPending };
       res.json(response);
     } catch (error) {
       logger.error({ fn: 'api.getSummary', error }, 'Failed to get summary');

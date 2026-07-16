@@ -5,6 +5,7 @@ import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
 import { apiJson, createMockEventRepo, createMockQueueRepo, makeQueueItem, startTestServer } from '../helpers/index.js';
 
+import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
@@ -37,26 +38,31 @@ describe('getSummary', () => {
   it('returns 200 with event counts and oldest pending', async () => {
     logger = createMockLogger();
     const item = makeQueueItem();
+    const detected = getUniqueInt();
+    const enqueued = getUniqueInt();
+    const retriggered = getUniqueInt();
+    const failed = getUniqueInt();
     startServer(
       {
         getOldestPending: jest.fn<any>().mockResolvedValue(item),
       },
       {
         countByType: jest.fn<any>().mockResolvedValue({
-          detected: 8,
-          enqueued: 7,
-          retriggered: 3,
-          bypassed: 1,
-          coderabbit_review_approved: 1,
-          coderabbit_review_changes_requested: 1,
-          failed: 1,
+          detected,
+          enqueued,
+          retriggered,
+          bypassed: getUniqueInt(),
+          coderabbit_review_approved: getUniqueInt(),
+          coderabbit_review_changes_requested: getUniqueInt(),
+          failed,
         }),
       },
     );
 
     const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
-      eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
+      queueCounts: { pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
+      eventCounts: { detected, enqueued, retriggered, failed },
       oldestPending: apiJson(queueItemMapper.mapToQueueItemResponse(item)),
     });
   });
@@ -67,6 +73,7 @@ describe('getSummary', () => {
 
     const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
+      queueCounts: { pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       oldestPending: null,
     });
@@ -85,24 +92,29 @@ describe('getSummary', () => {
 
   it('response omits bypassed, coderabbit_review_approved, and coderabbit_review_changes_requested from eventCounts', async () => {
     logger = createMockLogger();
+    const detected = getUniqueInt();
+    const enqueued = getUniqueInt();
+    const retriggered = getUniqueInt();
+    const failed = getUniqueInt();
     startServer(
       {},
       {
         countByType: jest.fn<any>().mockResolvedValue({
-          detected: 1,
-          enqueued: 2,
-          retriggered: 3,
-          bypassed: 4,
-          coderabbit_review_approved: 3,
-          coderabbit_review_changes_requested: 2,
-          failed: 6,
+          detected,
+          enqueued,
+          retriggered,
+          bypassed: getUniqueInt(),
+          coderabbit_review_approved: getUniqueInt(),
+          coderabbit_review_changes_requested: getUniqueInt(),
+          failed,
         }),
       },
     );
 
     const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
-      eventCounts: { detected: 1, enqueued: 2, retriggered: 3, failed: 6 },
+      queueCounts: { pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
+      eventCounts: { detected, enqueued, retriggered, failed },
       oldestPending: null,
     });
   });

@@ -3,7 +3,6 @@ import { EventEntryMapper } from '../src/mappers/EventEntryMapper.js';
 import { QueueItemMapper } from '../src/mappers/QueueItemMapper.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
 
 const { createMockVite } = await import('./helpers/index.js');
 
@@ -48,13 +47,11 @@ describe('setupExpress', () => {
 
   it('responds 200 on all API endpoints', async () => {
     start();
-    const server = { address: () => ({ port, family: 'IPv6' }) } as unknown as Server;
-
     const [summaryRes, queueRes, eventsRes, dashboardRes] = await Promise.all([
-      fetchResponse(server, '/api/summary'),
-      fetchResponse(server, '/api/queue'),
-      fetchResponse(server, '/api/events'),
-      fetchResponse(server, '/api/dashboard-state'),
+      fetchResponse(port, '/api/summary'),
+      fetchResponse(port, '/api/queue'),
+      fetchResponse(port, '/api/events'),
+      fetchResponse(port, '/api/dashboard-state'),
     ]);
 
     expect(summaryRes.status).toBe(200);
@@ -68,8 +65,7 @@ describe('setupExpress', () => {
     process.env.NODE_ENV = 'production';
     try {
       start();
-      const server = { address: () => ({ port, family: 'IPv6' }) } as unknown as Server;
-      const res = await fetchResponse(server, '/api/summary');
+      const res = await fetchResponse(port, '/api/summary');
       expect(res.status).toBe(200);
       expect(viteMock.createServer).not.toHaveBeenCalled();
     } finally {
@@ -87,9 +83,7 @@ describe('setupExpress', () => {
   it('logs API requests via morgan with http.request context', async () => {
     const logger = createMockLogger();
     start(logger);
-    const server = { address: () => ({ port, family: 'IPv6' }) } as unknown as Server;
-
-    await fetchResponse(server, '/api/summary');
+    await fetchResponse(port, '/api/summary');
 
     expect(logger.info).toHaveBeenCalledWith({ fn: 'http.request' }, expect.stringMatching(/^GET \/api\/summary 200 \d+\.\d+ ms$/));
   });
