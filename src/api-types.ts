@@ -242,6 +242,11 @@ export interface components {
       retriggered_at?: string | null;
       /** Format: date-time */
       failed_at?: string | null;
+      /**
+       * Format: date-time
+       * @description When CodeRabbit last acknowledged a retrigger request for this PR (from pull_request table)
+       */
+      last_coderabbit_acknowledged_at?: string | null;
       /** Format: date-time */
       reviewed_at?: string | null;
       /** Format: date-time */

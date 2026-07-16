@@ -1,18 +1,22 @@
 import { PullRequestRepositoryImpl } from '../../src/db/pullRequestRepository.js';
 import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 
 describe('PullRequestRepositoryImpl', () => {
+  let frozenNow: Date;
   let logger: ReturnType<typeof createMockLogger>;
   let repoFullName: string;
   let prNumber: number;
 
   beforeEach(() => {
+    frozenNow = getUniqueDate();
     logger = createMockLogger();
+    jest.useFakeTimers();
+    jest.setSystemTime(frozenNow);
     repoFullName = getUniqueGitHubRepoRef().fullName;
     prNumber = getUniqueInt();
   });
@@ -243,7 +247,7 @@ describe('PullRequestRepositoryImpl', () => {
         where: { id },
         data: {
           retrigger_count: { increment: 1 },
-          last_review_requested_at: expect.any(Date) as unknown as Date,
+          last_review_requested_at: frozenNow,
         },
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
@@ -269,6 +273,54 @@ describe('PullRequestRepositoryImpl', () => {
     });
   });
 
+  describe('findPendingAcknowledgement', () => {
+    it('returns the mapped PR when a pending acknowledgement exists', async () => {
+      const lastReviewRequestedAt = getUniqueDate();
+      const pr = {
+        id: getUniqueInt(),
+        repo_full_name: getUniqueGitHubRepoRef().fullName,
+        pr_number: getUniqueInt(),
+        last_review_requested_at: lastReviewRequestedAt.toISOString(),
+      };
+      const queryRawUnsafe = jest.fn<any>().mockResolvedValue([pr]);
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const result = await sut.findPendingAcknowledgement();
+      expect(queryRawUnsafe).toHaveBeenCalledWith(
+        expect.toEqualIgnoringWhitespace(
+          'SELECT id, repo_full_name, pr_number, last_review_requested_at FROM pull_request WHERE last_review_requested_at IS NOT NULL AND (last_coderabbit_acknowledged_at IS NULL OR last_coderabbit_acknowledged_at < last_review_requested_at) ORDER BY last_review_requested_at ASC LIMIT 1',
+        ),
+      );
+      expect(result).toStrictEqual({
+        id: pr.id,
+        repo_full_name: pr.repo_full_name,
+        pr_number: pr.pr_number,
+        last_review_requested_at: lastReviewRequestedAt,
+      });
+    });
+
+    it('returns undefined when no PRs have a pending acknowledgement', async () => {
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const result = await sut.findPendingAcknowledgement();
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('recordAcknowledgement', () => {
+    it('sets last_coderabbit_acknowledged_at on the pull_request row', async () => {
+      const id = getUniqueInt();
+      const { prisma, pullRequest: _pullRequest } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      await sut.recordAcknowledgement(id);
+      expect(_pullRequest.update).toHaveBeenCalledWith({ where: { id }, data: { last_coderabbit_acknowledged_at: frozenNow } });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.recordAcknowledgement', id },
+        'Recorded CodeRabbit acknowledgement on PullRequest',
+      );
+    });
+  });
+
   describe('recordReview', () => {
     it('increments review_count and sets last_coderabbit_review_at', async () => {
       const id = getUniqueInt();
@@ -281,7 +333,7 @@ describe('PullRequestRepositoryImpl', () => {
         where: { id },
         data: {
           review_count: { increment: 1 },
-          last_coderabbit_review_at: expect.any(Date) as unknown as Date,
+          last_coderabbit_review_at: frozenNow,
         },
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');

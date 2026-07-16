@@ -34,6 +34,9 @@ export class SchedulerProbe {
   schedulerPaused(): void {
     this.log.debug({ fn: 'SchedulerProbe.schedulerPaused' }, 'Scheduler is paused; skipping tick');
   }
+  tickSkippedAwaitingAcknowledgement(): void {
+    this.log.info({ fn: 'SchedulerProbe.tickSkippedAwaitingAcknowledgement' }, 'Awaiting CodeRabbit acknowledgement; skipping tick');
+  }
   noItemsDue(): void {
     this.log.debug({ fn: 'SchedulerProbe.noItemsDue' }, 'No items due for retrigger');
   }

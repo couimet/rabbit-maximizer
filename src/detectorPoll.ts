@@ -1,3 +1,4 @@
+import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { StateKey } from './db/systemStateRepository.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
@@ -27,6 +28,8 @@ export class PollDetector extends IntervalService {
     private readonly github: CoderabbitGitHubClient,
     @inject(TYPES.OnDetectedCallback)
     private readonly onDetected: OnDetectedCallback,
+    @inject(TYPES.PullRequestRepository)
+    private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.SystemStateRepository)
     private readonly systemStateRepo: SystemStateRepository,
     @inject(TYPES.Logger) log: Logger,
@@ -76,6 +79,19 @@ export class PollDetector extends IntervalService {
         }
 
         await this.onDetected(c, effectiveWait);
+      }
+
+      try {
+        const pendingAck = await this.pullRequests.findPendingAcknowledgement();
+        if (pendingAck) {
+          const { owner, repo } = splitRepo(pendingAck.repo_full_name);
+          const ack = await this.github.findAcknowledgement(owner, repo, pendingAck.pr_number, pendingAck.last_review_requested_at);
+          if (ack) {
+            await this.pullRequests.recordAcknowledgement(pendingAck.id);
+          }
+        }
+      } catch (err: unknown) {
+        this.log.warn({ ...logCtx, error: err }, 'Acknowledgement check failed; continuing');
       }
 
       if (earliestNextReview) {
