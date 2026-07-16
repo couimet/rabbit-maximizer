@@ -858,6 +858,10 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getTriggered(since, 0, 50, false);
 
       expect(result.items[0].last_coderabbit_acknowledged_at).toStrictEqual(acknowledgedAt);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeReviewed: false, count: 1, total: 1 },
+        'Fetched triggered queue',
+      );
     });
   });
 

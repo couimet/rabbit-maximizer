@@ -52,12 +52,12 @@ describe('SchedulerProbe', () => {
     });
   });
 
-  describe('awaitingAcknowledgement', () => {
+  describe('tickSkippedAwaitingAcknowledgement', () => {
     it('logs info', () => {
       const probe = createProbe();
-      probe.awaitingAcknowledgement();
+      probe.tickSkippedAwaitingAcknowledgement();
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.awaitingAcknowledgement' },
+        { fn: 'SchedulerProbe.tickSkippedAwaitingAcknowledgement' },
         'Awaiting CodeRabbit acknowledgement; skipping tick',
       );
     });

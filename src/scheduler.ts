@@ -77,7 +77,7 @@ export class Scheduler extends IntervalService {
       if (pendingAck) {
         const elapsed = Date.now() - pendingAck.last_review_requested_at.getTime();
         if (elapsed < this.retriggerSpacingMs) {
-          probe.awaitingAcknowledgement();
+          probe.tickSkippedAwaitingAcknowledgement();
           return;
         }
       }

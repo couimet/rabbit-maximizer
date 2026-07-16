@@ -146,7 +146,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       id: rows[0].id,
       repo_full_name: rows[0].repo_full_name,
       pr_number: rows[0].pr_number,
-      last_review_requested_at: rows[0].last_review_requested_at,
+      last_review_requested_at: new Date(rows[0].last_review_requested_at),
     };
   }
 

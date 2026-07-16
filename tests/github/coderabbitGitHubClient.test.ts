@@ -932,6 +932,7 @@ describe('client', () => {
         page: 1,
       });
       expect(result).toStrictEqual({ commentId: ackCommentId, commentUrl: ackCommentUrl });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findAcknowledgement', owner, repo, pr: prNumber }, 'Searching for acknowledgement comment');
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'findAcknowledgement', owner, repo, pr: prNumber, commentId: ackCommentId, commentUrl: ackCommentUrl },
         'Found acknowledgement comment',
@@ -988,6 +989,11 @@ describe('client', () => {
         page: 2,
       });
       expect(result).toStrictEqual({ commentId: ackCommentId, commentUrl: ackCommentUrl });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findAcknowledgement', owner, repo, pr: prNumber }, 'Searching for acknowledgement comment');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'findAcknowledgement', owner, repo, pr: prNumber, commentId: ackCommentId, commentUrl: ackCommentUrl },
+        'Found acknowledgement comment',
+      );
     });
 
     it('stops paginating when a page returns fewer than the per-page limit', async () => {
@@ -1008,6 +1014,7 @@ describe('client', () => {
 
       expect(result).toBeUndefined();
       expect(issues.listComments).toHaveBeenCalledTimes(1);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findAcknowledgement', owner, repo, pr: prNumber }, 'Searching for acknowledgement comment');
     });
 
     it('returns undefined when no matching comment is found', async () => {

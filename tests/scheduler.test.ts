@@ -368,7 +368,7 @@ describe('Scheduler', () => {
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
       await awaitTick(scheduler);
-      expect(deps.mockProbe.awaitingAcknowledgement).toHaveBeenCalled();
+      expect(deps.mockProbe.tickSkippedAwaitingAcknowledgement).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
       await stop();
     });
