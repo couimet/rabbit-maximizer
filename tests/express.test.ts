@@ -1,3 +1,7 @@
+import { EventCountsMapper } from '../src/mappers/EventCountsMapper.js';
+import { EventEntryMapper } from '../src/mappers/EventEntryMapper.js';
+import { QueueItemMapper } from '../src/mappers/QueueItemMapper.js';
+
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 
@@ -24,9 +28,9 @@ describe('setupExpress', () => {
   const start = (logger = createMockLogger()) => {
     const app = setupExpress({
       config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
-      eventCountsMapper: { mapToResponse: jest.fn<any>() },
-      eventEntryMapper: { mapToEventEntryResponse: jest.fn<any>(), mapToEventEntryResponseList: jest.fn<any>() },
-      queueItemMapper: { mapToQueueItemResponse: jest.fn<any>(), mapToQueueItemResponseList: jest.fn<any>() },
+      eventCountsMapper: new EventCountsMapper(),
+      eventEntryMapper: new EventEntryMapper(),
+      queueItemMapper: new QueueItemMapper(),
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),

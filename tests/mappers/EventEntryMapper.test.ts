@@ -122,6 +122,15 @@ describe('EventEntryMapper', () => {
       expect(result.metadata).toStrictEqual(metadata);
     });
 
+    it('passes undefined metadata and request_id through', () => {
+      const input = makeDetectedEntry();
+      const { metadata, request_id, ...entryWithoutOptionals } = input;
+      const result = mapper.mapToEventEntryResponse(entryWithoutOptionals as EventLogEntry);
+
+      expect(result.metadata).toBeUndefined();
+      expect(result.request_id).toBeUndefined();
+    });
+
     it('handles enqueued event type', () => {
       const input = makeEnqueuedEntry();
       const result = mapper.mapToEventEntryResponse(input);
