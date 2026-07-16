@@ -8,18 +8,19 @@
 export class SoftDeleteConfig {
   readonly activeFilter: Readonly<Record<string, boolean>>;
   readonly activeMarker: Readonly<Record<string, boolean>>;
-  private readonly isDeletedColumn: string;
+  private readonly isNotDeletedColumn: string;
   private readonly deletedAtColumn: string;
 
-  constructor(isDeletedColumn = 'is_deleted', deletedAtColumn = 'deleted_at') {
-    this.isDeletedColumn = isDeletedColumn;
+  constructor(opts?: { isNotDeletedColumn?: string; deletedAtColumn?: string }) {
+    const { isNotDeletedColumn = 'is_not_deleted', deletedAtColumn = 'deleted_at' } = opts ?? {};
+    this.isNotDeletedColumn = isNotDeletedColumn;
     this.deletedAtColumn = deletedAtColumn;
-    this.activeFilter = Object.freeze({ [isDeletedColumn]: false });
+    this.activeFilter = Object.freeze({ [isNotDeletedColumn]: true });
     this.activeMarker = this.activeFilter;
   }
 
-  /** Mutation data fragment: `{ is_deleted: true, deleted_at: <now> }`. */
-  softDeleteMarker(): Record<string, boolean | Date> {
-    return { [this.isDeletedColumn]: true, [this.deletedAtColumn]: new Date() };
+  /** Mutation data fragment: `{ is_not_deleted: null, deleted_at: <now> }`. */
+  softDeleteMarker(): Record<string, null | Date> {
+    return { [this.isNotDeletedColumn]: null, [this.deletedAtColumn]: new Date() };
   }
 }

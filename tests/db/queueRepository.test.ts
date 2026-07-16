@@ -1,5 +1,6 @@
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/queueRepository.js';
 import { getUniqueIntsNamed } from '../../src/external-deps/couimet/dynamic-testing/unique.js';
+import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueStatus, TriggerSource } from '../../src/types/index.js';
@@ -697,7 +698,10 @@ describe('QueueRepositoryImpl', () => {
         ),
       ).rejects.toThrow('Unique constraint');
 
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: p2002 }, 'Enqueue failed; rethrowing');
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: expect.any(PrismaUniqueConstraintViolationError) },
+        'Enqueue failed; rethrowing',
+      );
     });
   });
 

@@ -1,4 +1,5 @@
 import { CoderabbitCommentRepositoryImpl, type UpsertCommentData } from '../../src/db/coderabbitCommentRepository.js';
+import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { CommentType } from '../../src/types/CommentType.js';
 import { createMockPrismaClient } from '../helpers/index.js';
 
@@ -6,6 +7,8 @@ import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString } from
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
+
+const LAST_BODY_PREVIEW_MAX_LENGTH = 1024;
 
 describe('CoderabbitCommentRepositoryImpl', () => {
   let frozenNow: Date;
@@ -61,12 +64,12 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           pull_request_id: data.pull_request_id,
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body!.slice(0, 1024),
+          last_body_preview: data.body!.slice(0, LAST_BODY_PREVIEW_MAX_LENGTH),
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
           last_seen_at: frozenNow,
-          is_deleted: false,
+          is_not_deleted: true,
         },
       });
       expect(result.id).toBe(created.id);
@@ -92,7 +95,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         data: {
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body!.slice(0, 1024),
+          last_body_preview: data.body!.slice(0, LAST_BODY_PREVIEW_MAX_LENGTH),
           gh_updated_at: data.gh_updated_at,
           last_seen_at: frozenNow,
         },
@@ -113,7 +116,20 @@ describe('CoderabbitCommentRepositoryImpl', () => {
 
       await sut.upsert(data);
 
-      expect(coderabbitComment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ last_body_preview: null }) }));
+      expect(coderabbitComment.create).toHaveBeenCalledWith({
+        data: {
+          comment_id: data.comment_id,
+          pull_request_id: data.pull_request_id,
+          url: data.url,
+          comment_type: data.comment_type,
+          last_body_preview: null,
+          gh_created_at: data.gh_created_at,
+          gh_updated_at: data.gh_updated_at,
+          first_seen_at: frozenNow,
+          last_seen_at: frozenNow,
+          is_not_deleted: true,
+        },
+      });
     });
 
     it('sets last_body_preview to null when body is null', async () => {
@@ -125,7 +141,20 @@ describe('CoderabbitCommentRepositoryImpl', () => {
 
       await sut.upsert(data);
 
-      expect(coderabbitComment.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ last_body_preview: null }) }));
+      expect(coderabbitComment.create).toHaveBeenCalledWith({
+        data: {
+          comment_id: data.comment_id,
+          pull_request_id: data.pull_request_id,
+          url: data.url,
+          comment_type: data.comment_type,
+          last_body_preview: null,
+          gh_created_at: data.gh_created_at,
+          gh_updated_at: data.gh_updated_at,
+          first_seen_at: frozenNow,
+          last_seen_at: frozenNow,
+          is_not_deleted: true,
+        },
+      });
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError on update', async () => {
@@ -143,11 +172,69 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         details: { tableName: 'CoderabbitComment' },
         cause: p2025,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'CoderabbitCommentRepositoryImpl.upsert', modelName: 'CoderabbitComment', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
+    });
+
+    it('recovers from concurrent create by updating the winning row', async () => {
+      const data = makeData();
+      const p2002 = new PrismaUniqueConstraintViolationError({ tableName: 'CoderabbitComment' });
+      const winningRow = makeRow({ comment_id: data.comment_id, id: getUniqueInt() });
+      const updated = { ...winningRow, url: data.url };
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: {
+          findFirst: jest.fn<any>().mockResolvedValue(null),
+          create: jest.fn<any>().mockRejectedValue(p2002),
+          update: jest.fn<any>().mockResolvedValue(updated),
+        },
+      });
+      jest.spyOn(coderabbitComment, 'findFirst').mockResolvedValueOnce(null).mockResolvedValueOnce(winningRow);
+
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      const result = await sut.upsert(data);
+
+      expect(coderabbitComment.update).toHaveBeenCalledWith({
+        where: { id: winningRow.id },
+        data: {
+          url: data.url,
+          comment_type: data.comment_type,
+          last_body_preview: data.body!.slice(0, LAST_BODY_PREVIEW_MAX_LENGTH),
+          gh_updated_at: data.gh_updated_at,
+          last_seen_at: frozenNow,
+        },
+      });
+      expect(result.id).toBe(updated.id);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: winningRow.id },
+        'Updated CoderabbitComment (race recovery)',
+      );
+    });
+
+    it('rethrows PrismaUniqueConstraintViolationError when no winning row found', async () => {
+      const data = makeData();
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint violation', { code: 'P2002', clientVersion: '7.8.0' });
+      const { prisma } = createMockPrismaClient({
+        coderabbitComment: {
+          findFirst: jest.fn<any>().mockResolvedValue(null),
+          create: jest.fn<any>().mockRejectedValue(p2002),
+        },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      await expect(sut.upsert(data)).rejects.toBeDetailedError('PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002', {
+        message: "Unique constraint violation in table 'CoderabbitComment'",
+        functionName: 'CoderabbitCommentRepositoryImpl.upsert',
+        details: { tableName: 'CoderabbitComment' },
+        cause: p2002,
+      });
     });
   });
 
   describe('deactivate', () => {
-    it('sets is_deleted = true and deleted_at on the active row', async () => {
+    it('sets is_not_deleted = null and deleted_at on the active row', async () => {
       const commentId = getUniqueInt();
       const { prisma, coderabbitComment } = createMockPrismaClient();
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
@@ -155,8 +242,8 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       await sut.deactivate(commentId);
 
       expect(coderabbitComment.updateMany).toHaveBeenCalledWith({
-        where: { comment_id: commentId, is_deleted: false },
-        data: { is_deleted: true, deleted_at: frozenNow },
+        where: { comment_id: commentId, is_not_deleted: true },
+        data: { is_not_deleted: null, deleted_at: frozenNow },
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'BasePrismaRepository.softDeleteRow', modelName: 'CoderabbitComment' }, 'Deactivated row');
     });

@@ -1,7 +1,7 @@
 import { SoftDeleteConfig } from './SoftDeleteConfig.js';
 
 export interface ExtensionModelConfig {
-  isDeletedColumn?: string;
+  isNotDeletedColumn?: string;
   deletedAtColumn?: string;
 }
 
@@ -22,7 +22,7 @@ type QueryFn = (args: { where?: Record<string, unknown> }, query: (args: { where
  * ```
  *
  * After extension, `findFirst({ where: { comment_id: 42 } })` silently
- * becomes `findFirst({ where: { comment_id: 42, is_deleted: false } })`.
+ * becomes `findFirst({ where: { comment_id: 42, is_not_deleted: true } })`.
  * Mutations are not intercepted.
  */
 export const softDeleteExtension = (config: ExtensionConfig) => ({
@@ -30,10 +30,10 @@ export const softDeleteExtension = (config: ExtensionConfig) => ({
 
   query: Object.fromEntries(
     Object.entries(config.models).map(([model, modelConfig]) => {
-      const cfg = new SoftDeleteConfig(
-        modelConfig === true ? undefined : modelConfig.isDeletedColumn,
-        modelConfig === true ? undefined : modelConfig.deletedAtColumn,
-      );
+      const cfg =
+        modelConfig === true
+          ? new SoftDeleteConfig()
+          : new SoftDeleteConfig({ isNotDeletedColumn: modelConfig.isNotDeletedColumn, deletedAtColumn: modelConfig.deletedAtColumn });
       const filter = cfg.activeFilter;
       const merge: QueryFn = (args, query) => {
         args.where = { ...args.where, ...filter };

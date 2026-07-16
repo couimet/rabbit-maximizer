@@ -2,6 +2,7 @@ import { SoftDeleteConfig } from '../prisma-extension-soft-delete/src/SoftDelete
 
 import { PrismaFieldTypeMismatchError } from './PrismaFieldTypeMismatchError.js';
 import { PrismaRecordNotFoundError } from './PrismaRecordNotFoundError.js';
+import { PrismaUniqueConstraintViolationError } from './PrismaUniqueConstraintViolationError.js';
 import { SoftDeleteNotConfiguredError } from './SoftDeleteNotConfiguredError.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -62,6 +63,9 @@ export abstract class BasePrismaRepository {
           case 'P2025':
             this.log.debug({ fn: functionName, modelName: this.modelName, prismaCode: err.code }, 'Prisma record not found, throwing typed error');
             throw new PrismaRecordNotFoundError({ tableName: this.modelName, functionName, cause: err });
+          case 'P2002':
+            this.log.debug({ fn: functionName, modelName: this.modelName, prismaCode: err.code }, 'Unique constraint violation, throwing typed error');
+            throw new PrismaUniqueConstraintViolationError({ tableName: this.modelName, functionName, cause: err });
           case 'P2005':
             this.log.debug({ fn: functionName, modelName: this.modelName, prismaCode: err.code }, 'Prisma field type mismatch, throwing typed error');
             throw new PrismaFieldTypeMismatchError({ tableName: this.modelName, functionName, cause: err });

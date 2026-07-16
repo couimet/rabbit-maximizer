@@ -168,8 +168,8 @@ model QueueOrder {
 // ---------------------------------------------------------------------------
 // CoderabbitComment — lifecycle tracking for CodeRabbit bot comments.
 //
-// One row per unique GitHub comment (natural key: comment_id + is_deleted).
-// is_deleted is the indexing primitive; deleted_at carries the business timestamp.
+// One row per unique GitHub comment (natural key: comment_id + is_not_deleted).
+// is_not_deleted is the indexing primitive; deleted_at carries the business timestamp.
 // ---------------------------------------------------------------------------
 
 /// Tracks each unique CodeRabbit comment independently of queue items.
@@ -177,7 +177,7 @@ model CoderabbitComment {
   id              Int       @id @default(autoincrement())
   uuid            String    @unique @default(uuid())
   pull_request_id Int
-  /// GitHub comment ID. Combined with is_deleted in a composite unique so a
+  /// GitHub comment ID. Combined with is_not_deleted in a composite unique so a
   /// deleted row does not block re-creation from the same comment ID.
   comment_id      Int
   /// Max 512 (GitHub comment URL).
@@ -190,14 +190,14 @@ model CoderabbitComment {
   gh_updated_at   DateTime
   first_seen_at   DateTime
   last_seen_at    DateTime
-  is_deleted       Boolean  @default(false)
+  is_not_deleted   Boolean? @default(true)
   deleted_at       DateTime?
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
 
   pullRequest     PullRequest @relation(fields: [pull_request_id], references: [id])
 
-  @@unique([comment_id, is_deleted])
+  @@unique([comment_id, is_not_deleted])
   @@index([pull_request_id])
   @@index([comment_type])
   @@map("coderabbit_comment")

@@ -27,9 +27,10 @@ describe('getUniqueInts', () => {
 
 describe('getUniqueIntsNamed', () => {
   it('returns an object with the given keys mapped to unique integers', () => {
-    const result = getUniqueIntsNamed(['alpha', 'beta', 'gamma']);
+    const keys = ['alpha', 'beta', 'gamma'];
+    const result = getUniqueIntsNamed(keys);
 
-    expect(Object.keys(result)).toStrictEqual(['alpha', 'beta', 'gamma']);
+    expect(Object.keys(result)).toStrictEqual(keys);
   });
 
   it('each value is a unique integer', () => {
@@ -73,9 +74,10 @@ describe('getUniqueDates', () => {
 
 describe('getUniqueDatesNamed', () => {
   it('returns an object with the given keys mapped to unique dates', () => {
-    const result = getUniqueDatesNamed(['first', 'second']);
+    const keys = ['first', 'second'];
+    const result = getUniqueDatesNamed(keys);
 
-    expect(Object.keys(result)).toStrictEqual(['first', 'second']);
+    expect(Object.keys(result)).toStrictEqual(keys);
     for (const date of Object.values(result)) {
       expect(date).toBeInstanceOf(Date);
     }

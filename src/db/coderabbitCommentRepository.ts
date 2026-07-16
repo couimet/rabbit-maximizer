@@ -1,4 +1,4 @@
-import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
+import { BasePrismaRepository, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { TYPES } from '../inversify-types.js';
 import { CommentType } from '../types/CommentType.js';
 
@@ -77,26 +77,58 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
         return toRow(updated);
       }
 
-      const created = await this.withPrismaErrorHandling(
-        () =>
-          db.coderabbitComment.create({
-            data: {
-              comment_id: data.comment_id,
-              pull_request_id: data.pull_request_id,
-              url: data.url,
-              comment_type: data.comment_type,
-              last_body_preview: lastBodyPreview,
-              gh_created_at: data.gh_created_at,
-              gh_updated_at: data.gh_updated_at,
-              first_seen_at: now,
-              last_seen_at: now,
-              ...this.softDelete!.activeMarker,
-            },
-          }),
-        'CoderabbitCommentRepositoryImpl.upsert',
-      );
-      this.log.debug({ fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: created.id }, 'Created CoderabbitComment');
-      return toRow(created);
+      try {
+        const created = await this.withPrismaErrorHandling(
+          () =>
+            db.coderabbitComment.create({
+              data: {
+                comment_id: data.comment_id,
+                pull_request_id: data.pull_request_id,
+                url: data.url,
+                comment_type: data.comment_type,
+                last_body_preview: lastBodyPreview,
+                gh_created_at: data.gh_created_at,
+                gh_updated_at: data.gh_updated_at,
+                first_seen_at: now,
+                last_seen_at: now,
+                ...this.softDelete!.activeMarker,
+              },
+            }),
+          'CoderabbitCommentRepositoryImpl.upsert',
+        );
+        this.log.debug({ fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: created.id }, 'Created CoderabbitComment');
+        return toRow(created);
+      } catch (err) {
+        if (err instanceof PrismaUniqueConstraintViolationError) {
+          // Race: another request created this comment_id concurrently
+          const winner = await db.coderabbitComment.findFirst({
+            where: { comment_id: data.comment_id },
+            select: { id: true },
+          });
+          if (winner) {
+            const updated = await this.withPrismaErrorHandling(
+              () =>
+                db.coderabbitComment.update({
+                  where: { id: winner.id },
+                  data: {
+                    url: data.url,
+                    comment_type: data.comment_type,
+                    last_body_preview: lastBodyPreview,
+                    gh_updated_at: data.gh_updated_at,
+                    last_seen_at: now,
+                  },
+                }),
+              'CoderabbitCommentRepositoryImpl.upsert',
+            );
+            this.log.debug(
+              { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: updated.id },
+              'Updated CoderabbitComment (race recovery)',
+            );
+            return toRow(updated);
+          }
+        }
+        throw err;
+      }
     });
   }
 
