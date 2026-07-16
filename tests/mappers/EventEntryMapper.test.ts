@@ -124,7 +124,7 @@ describe('EventEntryMapper', () => {
 
     it('passes undefined metadata and request_id through', () => {
       const input = makeDetectedEntry();
-      const { metadata, request_id, ...entryWithoutOptionals } = input;
+      const { metadata: _metadata, request_id: _request_id, ...entryWithoutOptionals } = input;
       const result = mapper.mapToEventEntryResponse(entryWithoutOptionals as EventLogEntry);
 
       expect(result.metadata).toBeUndefined();

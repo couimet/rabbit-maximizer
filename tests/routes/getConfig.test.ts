@@ -1,6 +1,6 @@
 import type { Config } from '../../src/config.js';
-import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import { createGetConfigHandler } from '../../src/routes/getConfig.js';
+import { startTestServer } from '../helpers/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -33,6 +33,7 @@ const makeConfig = (overrides?: Partial<Config>): Config => ({
 describe('getConfig', () => {
   let logger: Logger;
   let server: Server;
+  let port: number;
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
@@ -40,18 +41,18 @@ describe('getConfig', () => {
 
   const startServer = (config: Config) => {
     logger = createMockLogger();
-    const app = createExpressApp({ logger });
-    app.get('/api/config', createGetConfigHandler(config, logger));
-    server = app.listen(0);
+    const result = startTestServer(logger, (app) => {
+      app.get('/api/config', createGetConfigHandler(config, logger));
+    });
+    server = result.server;
+    port = result.port;
   };
 
   it('returns config values', async () => {
     const config = makeConfig();
     startServer(config);
 
-    const addr = server.address();
-    if (!addr || typeof addr === 'string') throw new Error('Server not listening');
-    const res = await fetch(`http://[::1]:${addr.port}/api/config`);
+    const res = await fetch(`http://[::1]:${port}/api/config`);
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({
       pauseNotificationInitialDelaySec: config.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
@@ -68,9 +69,7 @@ describe('getConfig', () => {
     });
     startServer(config);
 
-    const addr = server.address();
-    if (!addr || typeof addr === 'string') throw new Error('Server not listening');
-    const res = await fetch(`http://[::1]:${addr.port}/api/config`);
+    const res = await fetch(`http://[::1]:${port}/api/config`);
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({
       pauseNotificationInitialDelaySec: customInitialDelaySec,
@@ -89,9 +88,7 @@ describe('getConfig', () => {
     });
     startServer(throwingConfig);
 
-    const addr = server.address();
-    if (!addr || typeof addr === 'string') throw new Error('Server not listening');
-    const res = await fetch(`http://[::1]:${addr.port}/api/config`);
+    const res = await fetch(`http://[::1]:${port}/api/config`);
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get config' });
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.config', error: expect.any(Error) }, 'Failed to get config');

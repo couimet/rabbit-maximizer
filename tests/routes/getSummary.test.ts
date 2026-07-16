@@ -1,56 +1,45 @@
-import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
 import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
+import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockQueueRepo } from '../helpers/index.js';
+import { apiJson, createMockEventRepo, createMockQueueRepo, makeQueueItem, startTestServer } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
-const createMockQueueItemMapper = () => ({
-  mapToQueueItemResponse: jest.fn<any>().mockImplementation((x: unknown) => x),
-  mapToQueueItemResponseList: jest.fn<any>().mockImplementation((xs: unknown[]) => xs),
-});
-
+const queueItemMapper = new QueueItemMapper();
 const eventCountsMapper = new EventCountsMapper();
 
 describe('getSummary', () => {
   let logger: Logger;
   let server: Server;
+  let port: number;
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
   const startServer = (queueRepoOver = {}, eventRepoOver = {}) => {
-    const app = createExpressApp({ logger });
-    app.get(
-      '/api/summary',
-      createGetSummaryHandler(
-        createMockQueueRepo(queueRepoOver),
-        createMockEventRepo(eventRepoOver),
-        createMockQueueItemMapper() as any,
-        eventCountsMapper,
-        logger,
-      ),
-    );
-    server = app.listen(0);
+    const result = startTestServer(logger, (app) => {
+      app.get(
+        '/api/summary',
+        createGetSummaryHandler(createMockQueueRepo(queueRepoOver), createMockEventRepo(eventRepoOver), queueItemMapper, eventCountsMapper, logger),
+      );
+    });
+    server = result.server;
+    port = result.port;
   };
 
   it('returns 200 with event counts and oldest pending', async () => {
     logger = createMockLogger();
-    const id = getUniqueInt();
-    const repo = getUniqueGitHubRepoRef().fullName;
-    const pr = getUniqueInt();
-    const notBefore = getUniqueDate().toISOString();
+    const item = makeQueueItem();
     startServer(
       {
-        getOldestPending: jest.fn<any>().mockResolvedValue({ id, repo_full_name: repo, pr_number: pr, not_before: notBefore }),
+        getOldestPending: jest.fn<any>().mockResolvedValue(item),
       },
       {
         countByType: jest.fn<any>().mockResolvedValue({
@@ -65,10 +54,10 @@ describe('getSummary', () => {
       },
     );
 
-    const json = await getJson(server, '/api/summary');
+    const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
       eventCounts: { detected: 8, enqueued: 7, retriggered: 3, failed: 1 },
-      oldestPending: { id, repo_full_name: repo, pr_number: pr, not_before: notBefore },
+      oldestPending: apiJson(queueItemMapper.mapToQueueItemResponse(item)),
     });
   });
 
@@ -76,7 +65,7 @@ describe('getSummary', () => {
     logger = createMockLogger();
     startServer();
 
-    const json = await getJson(server, '/api/summary');
+    const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       oldestPending: null,
@@ -88,7 +77,7 @@ describe('getSummary', () => {
     logger = createMockLogger();
     startServer({ getOldestPending: jest.fn<any>().mockRejectedValue(repoError) });
 
-    const res = await fetchResponse(server, '/api/summary');
+    const res = await fetchResponse(port, '/api/summary');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get summary' });
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
@@ -111,7 +100,7 @@ describe('getSummary', () => {
       },
     );
 
-    const json = await getJson(server, '/api/summary');
+    const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
       eventCounts: { detected: 1, enqueued: 2, retriggered: 3, failed: 6 },
       oldestPending: null,
@@ -134,7 +123,7 @@ describe('getSummary', () => {
     });
     startServer({}, { countByType });
 
-    await getJson(server, '/api/summary?duration=2d');
+    await getJson(port, '/api/summary?duration=2d');
 
     expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 172_800_000));
   });
@@ -155,7 +144,7 @@ describe('getSummary', () => {
     });
     startServer({}, { countByType });
 
-    await getJson(server, '/api/summary?duration=invalid');
+    await getJson(port, '/api/summary?duration=invalid');
 
     expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 86_400_000));
   });
@@ -176,7 +165,7 @@ describe('getSummary', () => {
     });
     startServer({}, { countByType });
 
-    await getJson(server, '/api/summary?duration=toString');
+    await getJson(port, '/api/summary?duration=toString');
 
     expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 86_400_000));
   });

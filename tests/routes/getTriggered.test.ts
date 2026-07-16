@@ -1,23 +1,19 @@
-import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetTriggeredHandler } from '../../src/routes/getTriggered.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockQueueRepo } from '../helpers/index.js';
+import { apiJson, createMockQueueRepo, makeQueueItem, startTestServer } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
-const createMockQueueItemMapper = () => ({
-  mapToQueueItemResponse: jest.fn<any>().mockImplementation((x: unknown) => x),
-  mapToQueueItemResponseList: jest.fn<any>().mockImplementation((xs: unknown[]) => xs),
-});
-
 describe('getTriggered', () => {
   let server: Server;
+  let port: number;
   let logger: Logger;
   let since: string;
 
@@ -25,48 +21,52 @@ describe('getTriggered', () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
+  const queueItemMapper = new QueueItemMapper();
+
   beforeEach(() => {
     since = getUniqueDate().toISOString();
   });
 
   const startServer = (over = {}) => {
     logger = createMockLogger();
-    const app = createExpressApp({ logger });
-    app.get('/api/queue/triggered', createGetTriggeredHandler(createMockQueueRepo(over), createMockQueueItemMapper() as any, logger));
-    server = app.listen(0);
+    const result = startTestServer(logger, (app) => {
+      app.get('/api/queue/triggered', createGetTriggeredHandler(createMockQueueRepo(over), queueItemMapper, logger));
+    });
+    server = result.server;
+    port = result.port;
   };
 
   it('returns 200 with paginated triggered items', async () => {
-    const items = [{ id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() }];
-    startServer({ getTriggered: jest.fn<any>().mockResolvedValue({ items, total: 1 }) });
+    const queueItems = [makeQueueItem(), makeQueueItem()];
+    startServer({ getTriggered: jest.fn<any>().mockResolvedValue({ items: queueItems, total: 2 }) });
 
-    const json = await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
-    expect(json).toStrictEqual({ data: items, total: 1, page: 1, pageSize: 50 });
+    const json = await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
+    expect(json).toStrictEqual(apiJson({ data: queueItemMapper.mapToQueueItemResponseList(queueItems), total: 2, page: 1, pageSize: 50 }));
   });
 
   it('returns empty data when no items exist', async () => {
     startServer();
-    const json = await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
+    const json = await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
     expect(json).toStrictEqual({ data: [], total: 0, page: 1, pageSize: 50 });
   });
 
   it('returns 400 when since is missing', async () => {
     startServer();
-    const res = await fetchResponse(server, '/api/queue/triggered');
+    const res = await fetchResponse(port, '/api/queue/triggered');
     expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     expect(await res.json()).toStrictEqual({ error: 'since must be a valid ISO 8601 datetime' });
   });
 
   it('returns 400 when since is empty', async () => {
     startServer();
-    const res = await fetchResponse(server, '/api/queue/triggered?since=');
+    const res = await fetchResponse(port, '/api/queue/triggered?since=');
     expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     expect(await res.json()).toStrictEqual({ error: 'since must be a valid ISO 8601 datetime' });
   });
 
   it('returns 400 when since is not a valid date', async () => {
     startServer();
-    const res = await fetchResponse(server, '/api/queue/triggered?since=not-a-date');
+    const res = await fetchResponse(port, '/api/queue/triggered?since=not-a-date');
     expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     expect(await res.json()).toStrictEqual({ error: 'since must be a valid ISO 8601 datetime' });
   });
@@ -74,27 +74,27 @@ describe('getTriggered', () => {
   it('passes include_reviewed=true to the repository', async () => {
     const getTriggered = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
     startServer({ getTriggered });
-    await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}&include_reviewed=true`);
+    await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}&include_reviewed=true`);
     expect(getTriggered).toHaveBeenCalledWith(expect.any(Date), 0, 50, true);
   });
 
   it('defaults include_reviewed to false', async () => {
     const getTriggered = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
     startServer({ getTriggered });
-    await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
+    await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
     expect(getTriggered).toHaveBeenCalledWith(expect.any(Date), 0, 50, false);
   });
 
   it('clamps pageSize to MAX_PAGE_SIZE when exceeding limit', async () => {
     startServer();
-    const json = await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}&pageSize=200`);
+    const json = await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}&pageSize=200`);
     expect(json).toStrictEqual({ data: [], total: 0, page: 1, pageSize: 100 });
   });
 
   it('parses page and pageSize from query string', async () => {
     const getTriggered = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
     startServer({ getTriggered });
-    await getJson(server, `/api/queue/triggered?since=${encodeURIComponent(since)}&page=3&pageSize=10`);
+    await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}&page=3&pageSize=10`);
     expect(getTriggered).toHaveBeenCalledWith(expect.any(Date), 20, 10, false);
   });
 
@@ -102,7 +102,7 @@ describe('getTriggered', () => {
     const repoError = new Error('DB down');
     startServer({ getTriggered: jest.fn<any>().mockRejectedValue(repoError) });
 
-    const res = await fetchResponse(server, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
+    const res = await fetchResponse(port, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get triggered items' });
     expect(logger.error).toHaveBeenCalledWith({ fn: 'api.getTriggered', error: repoError }, 'Failed to get triggered items');
