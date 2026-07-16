@@ -9,8 +9,8 @@ export const REVIEW_BOT_SELF_MARKER_PREFIX = '<!-- rabbit-maximizer';
 /** Hidden HTML marker that identifies a CodeRabbit rate-limit comment. Used by hasRateLimitMarker() for precise verification against the full comment body (which includes HTML comments via the REST API). */
 export const REVIEW_BOT_RATE_LIMIT_MARKER = 'rate limited by coderabbit.ai';
 
-/** Visible text variants from CodeRabbit rate-limit comments used as search query keys. HTML comments are not indexed by GitHub search, so we match against the plain-text assertion in the comment body. The leading "you've" is dropped because the apostrophe breaks GitHub's exact-phrase search parser when wrapped in double quotes. Stored as an array so both past and current CodeRabbit wordings are covered. */
-export const REVIEW_BOT_RATE_LIMIT_SEARCH_TEXTS: readonly string[] = ['reached your PR review rate limit', 'reached your PR review limit'];
+/** Two-word search phrases that survive GitHub's exact-phrase matching with `state:open`. Longer phrases containing "reached" (e.g. "reached your PR review limit") return zero results when combined with `state:open` on the Search API. Short two-word phrases avoid the tokenization gap. Both variants are kept to cover past and current CodeRabbit wordings. */
+export const REVIEW_BOT_RATE_LIMIT_SEARCH_TEXTS: readonly string[] = ['review limit', 'rate limit'];
 
 /** GitHub login of the CodeRabbit bot. */
 export const REVIEW_BOT_LOGIN = 'coderabbitai[bot]';
