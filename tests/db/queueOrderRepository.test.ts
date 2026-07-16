@@ -502,10 +502,10 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999')).rejects.toBeDetailedError('QUEUE_ITEM_NOT_FOUND', {
-        message: 'Queue item 00000000-0000-0000-0000-000000000999 not found',
+      await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999')).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'reviewQueue'",
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
-        details: { uuid: '00000000-0000-0000-0000-000000000999' },
+        details: { tableName: 'reviewQueue', uuid: '00000000-0000-0000-0000-000000000999' },
       });
     });
 
@@ -538,10 +538,10 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      await expect(sut.moveToTop(UUID)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_FOUND', {
-        message: `Queue item ${UUID} not found`,
+      await expect(sut.moveToTop(UUID)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'reviewQueue'",
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
-        details: { uuid: UUID },
+        details: { tableName: 'reviewQueue', uuid: UUID },
       });
     });
   });

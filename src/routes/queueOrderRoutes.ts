@@ -4,6 +4,7 @@ import type { QueueRepository } from '../db/queueRepository.js';
 import type { SystemStateRepository } from '../db/systemStateRepository.js';
 import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
+import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
 import { ReviewTrigger } from '../ReviewTrigger.js';
 import { QueueStatus, TriggerSource } from '../types/index.js';
 import { isValidUuid } from '../utils/uuidLookup.js';
@@ -127,11 +128,11 @@ export const createMoveToTopHandler = (queueOrderRepo: QueueOrderRepository, log
 
       res.status(StatusCodes.NO_CONTENT).end();
     } catch (error) {
+      if (error instanceof PrismaRecordNotFoundError) {
+        res.status(StatusCodes.NOT_FOUND).json({ error: error.message });
+        return;
+      }
       if (error instanceof RabbitMaximizerError) {
-        if (error.code === RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND) {
-          res.status(StatusCodes.NOT_FOUND).json({ error: error.message });
-          return;
-        }
         if (error.code === RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING) {
           res.status(StatusCodes.CONFLICT).json({ error: error.message });
           return;

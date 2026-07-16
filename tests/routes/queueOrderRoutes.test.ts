@@ -1,6 +1,7 @@
 import { RabbitMaximizerError } from '../../src/errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from '../../src/errors/RabbitMaximizerErrorCodes.js';
 import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { PrismaRecordNotFoundError } from '../../src/external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
 import {
   createGetQueueOrderHandler,
   createMarkReviewedHandler,
@@ -412,16 +413,15 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 404 when queueItemUuid does not exist', async () => {
-      const notFoundError = new RabbitMaximizerError({
-        code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_FOUND,
-        message: 'Queue item 99999999-9999-9999-9999-999999999999 not found',
+      const notFoundError = new PrismaRecordNotFoundError({
+        tableName: 'reviewQueue',
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
       });
       startServer({ moveToTop: jest.fn<any>().mockRejectedValue(notFoundError) });
 
       const res = await postJson(server, '/api/queue/order/move-to-top', { queueItemUuid: '99999999-9999-9999-9999-999999999999' });
       expect(res.status).toBe(StatusCodes.NOT_FOUND);
-      expect(await res.json()).toStrictEqual({ error: 'Queue item 99999999-9999-9999-9999-999999999999 not found' });
+      expect(await res.json()).toStrictEqual({ error: "Record not found in table 'reviewQueue'" });
     });
 
     it('returns 409 when item is not pending', async () => {

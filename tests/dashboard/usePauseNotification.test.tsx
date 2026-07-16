@@ -82,6 +82,8 @@ describe('usePauseNotification', () => {
     expect(globalThis.Notification).toHaveBeenCalledTimes(1);
     expect(globalThis.Notification).toHaveBeenCalledWith('Rabbit Maximizer is paused', {
       body: 'The maximizer has been paused. Reviews are not being requested. Resume to continue.',
+      requireInteraction: true,
+      tag: 'rabbit-maximizer-paused',
     });
   });
 

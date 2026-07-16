@@ -5,7 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -13,7 +13,6 @@ permissions:
 
 jobs:
   ci:
-    if: github.event.action != 'edited' || github.event.changes.base != null
     uses: couimet/github-actions/.github/workflows/typescript-ci-checks.yml@main
     permissions:
       contents: read
@@ -32,7 +31,6 @@ jobs:
       - uses: couimet/github-actions/markdownlint@main
 
   shellcheck:
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -41,7 +39,6 @@ jobs:
       - uses: couimet/github-actions/shellcheck@main
 
   check-generated-drift:
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -56,7 +53,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   bats-test:
-    if: github.event.action != 'edited' || github.event.changes.base != null
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
