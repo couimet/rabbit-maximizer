@@ -1,10 +1,10 @@
-import { CommentType } from '../../src/types/CommentType.js';
+import { CodeRabbitCommentType } from '../../src/types/CodeRabbitCommentType.js';
 
 import { describe, expect, it } from '@jest/globals';
 
-describe('CommentType', () => {
+describe('CodeRabbitCommentType', () => {
   it('has the correct values', () => {
-    expect(CommentType).toStrictEqual({
+    expect(CodeRabbitCommentType).toStrictEqual({
       review_limited: 'review_limited',
       review_skipped: 'review_skipped',
       review_approved: 'review_approved',
