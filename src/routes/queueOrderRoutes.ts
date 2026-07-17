@@ -5,6 +5,7 @@ import type { SystemStateRepository } from '../db/systemStateRepository.js';
 import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
 import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
 import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
+import type { QueueItemMapper } from '../mappers/index.js';
 import { ReviewTrigger } from '../ReviewTrigger.js';
 import { QueueStatus, TriggerSource } from '../types/index.js';
 import { isValidUuid } from '../utils/uuidLookup.js';
@@ -14,11 +15,12 @@ import type { PrismaClient } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-export const createGetQueueOrderHandler = (queueOrderRepo: QueueOrderRepository, logger: Logger) => {
+export const createGetQueueOrderHandler = (queueOrderRepo: QueueOrderRepository, queueItemMapper: QueueItemMapper, logger: Logger) => {
   return async (_req: Request, res: Response): Promise<void> => {
     try {
       const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
-      res.json({ data: items });
+      const data = queueItemMapper.mapToQueueItemResponseList(items);
+      res.json({ data });
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.get', error }, 'Failed to get queue order');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get queue order' });
@@ -26,7 +28,7 @@ export const createGetQueueOrderHandler = (queueOrderRepo: QueueOrderRepository,
   };
 };
 
-export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository, logger: Logger) => {
+export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository, queueItemMapper: QueueItemMapper, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const { queueItemUuids, direction } = req.body ?? {};
@@ -54,8 +56,9 @@ export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository
       }
 
       const updatedOrder = await queueOrderRepo.moveItems(queueItemUuids, direction);
+      const data = queueItemMapper.mapToQueueItemResponseList(updatedOrder);
 
-      res.json({ data: updatedOrder });
+      res.json({ data });
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.move', error }, 'Failed to move queue items');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to move queue items' });

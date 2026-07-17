@@ -1,13 +1,6 @@
-import type { components } from '../../src/api-types.js';
+import type { DashboardStateResponse, EventEntryResponse, PublicConfigResponse, QueueItemResponse, SummaryResponse } from '../../src/types/api.js';
 
 import { buildQueryString } from './queryParams.js';
-
-export type EventCounts = components['schemas']['EventCounts'];
-export type QueueItem = components['schemas']['QueueItem'];
-export type EventEntry = components['schemas']['EventEntry'];
-export type SummaryResponse = components['schemas']['Summary'];
-export type DashboardStateResponse = components['schemas']['DashboardState'];
-export type PublicConfig = components['schemas']['PublicConfig'];
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -33,26 +26,28 @@ export const fetchSummary = (duration?: string): Promise<SummaryResponse> => {
   return fetchJson<SummaryResponse>(`${API_BASE}/summary${params}`);
 };
 
-export const fetchConfig = (): Promise<PublicConfig> => fetchJson<PublicConfig>(`${API_BASE}/config`);
+export const fetchConfig = (): Promise<PublicConfigResponse> => fetchJson<PublicConfigResponse>(`${API_BASE}/config`);
 
 export const fetchDashboardState = (duration?: string): Promise<DashboardStateResponse> => {
   const params = buildQueryString({ duration });
   return fetchJson<DashboardStateResponse>(`${API_BASE}/dashboard-state${params}`);
 };
 
-export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedResponse<QueueItem>> =>
-  fetchJson<PaginatedResponse<QueueItem>>(`${API_BASE}/queue${buildQueryString({ page, pageSize })}`);
+export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedResponse<QueueItemResponse>> =>
+  fetchJson<PaginatedResponse<QueueItemResponse>>(`${API_BASE}/queue${buildQueryString({ page, pageSize })}`);
 
-export const fetchTriggered = (since: Date, page: number, pageSize: number, includeReviewed: boolean): Promise<PaginatedResponse<QueueItem>> =>
-  fetchJson<PaginatedResponse<QueueItem>>(`${API_BASE}/queue/triggered${buildQueryString({ since, page, pageSize, include_reviewed: includeReviewed })}`);
+export const fetchTriggered = (since: Date, page: number, pageSize: number, includeReviewed: boolean): Promise<PaginatedResponse<QueueItemResponse>> =>
+  fetchJson<PaginatedResponse<QueueItemResponse>>(
+    `${API_BASE}/queue/triggered${buildQueryString({ since, page, pageSize, include_reviewed: includeReviewed })}`,
+  );
 
-export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedResponse<EventEntry>> =>
-  fetchJson<PaginatedResponse<EventEntry>>(`${API_BASE}/events${buildQueryString({ page, pageSize })}`);
+export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedResponse<EventEntryResponse>> =>
+  fetchJson<PaginatedResponse<EventEntryResponse>>(`${API_BASE}/events${buildQueryString({ page, pageSize })}`);
 
-export const fetchQueueOrder = (): Promise<{ data: QueueItem[] }> => fetchJson<{ data: QueueItem[] }>(`${API_BASE}/queue/order`);
+export const fetchQueueOrder = (): Promise<{ data: QueueItemResponse[] }> => fetchJson<{ data: QueueItemResponse[] }>(`${API_BASE}/queue/order`);
 
-export const moveQueueItems = (queueItemUuids: string[], direction: 'up' | 'down'): Promise<{ data: QueueItem[] }> =>
-  fetchJson<{ data: QueueItem[] }>(`${API_BASE}/queue/order/move`, {
+export const moveQueueItems = (queueItemUuids: string[], direction: 'up' | 'down'): Promise<{ data: QueueItemResponse[] }> =>
+  fetchJson<{ data: QueueItemResponse[] }>(`${API_BASE}/queue/order/move`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ queueItemUuids, direction }),

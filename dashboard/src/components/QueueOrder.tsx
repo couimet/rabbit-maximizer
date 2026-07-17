@@ -1,5 +1,5 @@
+import type { QueueItemResponse } from '../../../src/types/api.js';
 import { formatRelativeFuture } from '../../../src/utils/formatRelativeFuture.js';
-import type { QueueItem } from '../api.js';
 import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
@@ -19,7 +19,7 @@ const QueueOrder = ({
   pendingCount,
   paused,
 }: {
-  items: QueueItem[] | null;
+  items: QueueItemResponse[] | null;
   error: string | null;
   onMoveComplete: () => void;
   headingLevel: 'h2' | 'h3';
