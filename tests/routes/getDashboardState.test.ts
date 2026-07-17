@@ -1,11 +1,11 @@
-import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
+import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
+import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetDashboardStateHandler } from '../../src/routes/getDashboardState.js';
-import { QueueStatus } from '../../src/types/index.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository } from '../helpers/index.js';
+import { apiJson, createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository, makeQueueItem } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
@@ -15,47 +15,35 @@ import { StatusCodes } from 'http-status-codes';
 describe('getDashboardState', () => {
   let logger: Logger;
   let server: Server;
+  let port: number;
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
-  const makeQueueItem = (overrides: Record<string, unknown> = {}) => ({
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    repo_full_name: getUniqueGitHubRepoRef().fullName,
-    pr_number: getUniqueInt(),
-    status: QueueStatus.pending,
-    not_before: getUniqueDate(),
-    attempts: 0,
-    created_at: getUniqueDate(),
-    updated_at: getUniqueDate(),
-    ...overrides,
-  });
-
-  const toJson = (item: Record<string, unknown>): Record<string, unknown> => ({
-    ...item,
-    not_before: (item.not_before as Date).toISOString(),
-    created_at: (item.created_at as Date).toISOString(),
-    updated_at: (item.updated_at as Date).toISOString(),
-  });
+  const queueItemMapper = new QueueItemMapper();
+  const eventCountsMapper = new EventCountsMapper();
 
   const startServer = (
     queueOrderRepoOver: Record<string, unknown> = {},
     eventRepoOver: Record<string, unknown> = {},
     systemStateRepoOver: Record<string, unknown> = {},
   ) => {
-    const app = createExpressApp({ logger });
-    app.get(
-      '/api/dashboard-state',
-      createGetDashboardStateHandler(
-        createMockQueueOrderRepo(queueOrderRepoOver as any),
-        createMockEventRepo(eventRepoOver as any),
-        createMockSystemStateRepository(systemStateRepoOver as any),
-        logger,
-      ),
-    );
-    server = app.listen(0);
+    const result = startTestServer(logger, (app) => {
+      app.get(
+        '/api/dashboard-state',
+        createGetDashboardStateHandler(
+          createMockQueueOrderRepo(queueOrderRepoOver as any),
+          createMockEventRepo(eventRepoOver as any),
+          createMockSystemStateRepository(systemStateRepoOver as any),
+          queueItemMapper,
+          eventCountsMapper,
+          logger,
+        ),
+      );
+    });
+    server = result.server;
+    port = result.port;
   };
 
   it('returns null for nextReviewAvailableAt when at least one pending item is eligible now', async () => {
@@ -83,10 +71,10 @@ describe('getDashboardState', () => {
       },
     );
 
-    const json = await getJson(server, '/api/dashboard-state');
+    const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: null,
-      pendingItems: items.map(toJson),
+      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
       paused: false,
     });
@@ -112,10 +100,10 @@ describe('getDashboardState', () => {
       },
     );
 
-    const json = await getJson(server, '/api/dashboard-state');
+    const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: futureDate1.toISOString(),
-      pendingItems: items.map(toJson),
+      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
       paused: false,
     });
@@ -141,10 +129,10 @@ describe('getDashboardState', () => {
       },
     );
 
-    const json = await getJson(server, '/api/dashboard-state');
+    const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: null,
-      pendingItems: items.map(toJson),
+      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -154,7 +142,7 @@ describe('getDashboardState', () => {
     logger = createMockLogger();
     startServer();
 
-    const json = await getJson(server, '/api/dashboard-state');
+    const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
@@ -181,10 +169,10 @@ describe('getDashboardState', () => {
       },
     );
 
-    const json = await getJson(server, '/api/dashboard-state');
+    const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: null,
-      pendingItems: items.map(toJson),
+      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -207,7 +195,7 @@ describe('getDashboardState', () => {
       },
     );
 
-    const json = await getJson(server, '/api/dashboard-state');
+    const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
@@ -232,7 +220,7 @@ describe('getDashboardState', () => {
     });
     startServer({}, { countByType });
 
-    await getJson(server, '/api/dashboard-state?duration=2d');
+    await getJson(port, '/api/dashboard-state?duration=2d');
 
     expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 172_800_000));
   });
@@ -253,7 +241,7 @@ describe('getDashboardState', () => {
     });
     startServer({}, { countByType });
 
-    await getJson(server, '/api/dashboard-state?duration=invalid');
+    await getJson(port, '/api/dashboard-state?duration=invalid');
 
     expect(countByType).toHaveBeenCalledWith(new Date(fixedNow - 86_400_000));
   });
@@ -262,7 +250,7 @@ describe('getDashboardState', () => {
     logger = createMockLogger();
     startServer({}, {}, { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) });
 
-    const json = await getJson(server, '/api/dashboard-state');
+    const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
@@ -276,7 +264,7 @@ describe('getDashboardState', () => {
     logger = createMockLogger();
     startServer({ getEffectiveOrder: jest.fn<any>().mockRejectedValue(repoError) });
 
-    const res = await fetchResponse(server, '/api/dashboard-state');
+    const res = await fetchResponse(port, '/api/dashboard-state');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get dashboard state' });
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: repoError }, 'Failed to get dashboard state');
@@ -287,7 +275,7 @@ describe('getDashboardState', () => {
     logger = createMockLogger();
     startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([makeQueueItem()]) }, { countByType: jest.fn<any>().mockRejectedValue(eventError) });
 
-    const res = await fetchResponse(server, '/api/dashboard-state');
+    const res = await fetchResponse(port, '/api/dashboard-state');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get dashboard state' });
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: eventError }, 'Failed to get dashboard state');

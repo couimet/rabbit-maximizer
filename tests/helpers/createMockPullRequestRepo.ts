@@ -9,5 +9,7 @@ export const createMockPullRequestRepo = (overrides?: Partial<jest.Mocked<PullRe
     updateTitle: jest.fn<any>(),
     incrementRetriggerCount: jest.fn<any>(),
     recordReview: jest.fn<any>(),
+    findPendingAcknowledgement: jest.fn<any>().mockResolvedValue(undefined),
+    recordAcknowledgement: jest.fn<any>().mockResolvedValue(undefined),
     ...overrides,
   }) as unknown as jest.Mocked<PullRequestRepository>;

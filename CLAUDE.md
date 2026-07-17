@@ -272,6 +272,32 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </bad-example>
 </rule>
 
+<rule id="T011" priority="critical">
+  <title>Local variables use camelCase, not SCREAMING_SNAKE_CASE</title>
+  <do>Use camelCase for `const` variables local to a test function (`const commentId = getUniqueInt()`)</do>
+  <do>Reserve SCREAMING_SNAKE_CASE for module-level constants and values shared between `beforeEach`/setup blocks and assertions (see T009)</do>
+  <never>Use SCREAMING_SNAKE_CASE for `const` variables declared inside `it()` blocks — they are regular local variables, not contract constants</never>
+  <rationale>SCREAMING_SNAKE_CASE signals "this value is a frozen contract" (per T003, T009). Local test variables are plumbing, not contracts. Using the wrong case misleads the reader about the variable's role.</rationale>
+  <bad-example>
+    ```typescript
+    it('returns the correct value', () => {
+      const COMMENT_ID = getUniqueInt();
+      const REPO_NAME = getUniqueGitHubRepoRef().fullName;
+      // ...
+    });
+    ```
+  </bad-example>
+  <good-example>
+    ```typescript
+    it('returns the correct value', () => {
+      const commentId = getUniqueInt();
+      const repoName = getUniqueGitHubRepoRef().fullName;
+      // ...
+    });
+    ```
+  </good-example>
+</rule>
+
 <rule id="P001" priority="critical">
   <title>No magic numbers</title>
   <do>Define named constants for all numeric literals with semantic meaning</do>

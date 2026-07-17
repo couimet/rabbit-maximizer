@@ -1,9 +1,16 @@
+import { StateKey } from '../src/db/systemStateRepository.js';
 import { PollDetector } from '../src/detectorPoll.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { DetectedComment } from '../src/types/DetectedComment.js';
 import type { OnDetectedCallback } from '../src/types/OnDetectedCallback.js';
 
-import { createMockCoderabbitGitHubClient, createMockOnDetectedCallback, createMockSystemStateRepository, drainMicrotasks } from './helpers/index.js';
+import {
+  createMockCoderabbitGitHubClient,
+  createMockOnDetectedCallback,
+  createMockPullRequestRepo,
+  createMockSystemStateRepository,
+  drainMicrotasks,
+} from './helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -21,13 +28,8 @@ const TICK_DEPTH = 20;
 interface MockDetectorDeps {
   github: jest.Mocked<CoderabbitGitHubClient>;
   onDetected: jest.Mocked<OnDetectedCallback>;
-  systemStateRepo: {
-    getState: jest.Mock<any>;
-    setState: jest.Mock<any>;
-    isSchedulerPaused: jest.Mock<any>;
-    pauseScheduler: jest.Mock<any>;
-    resumeScheduler: jest.Mock<any>;
-  };
+  pullRequests: ReturnType<typeof createMockPullRequestRepo>;
+  systemStateRepo: ReturnType<typeof createMockSystemStateRepository>;
   logger: Logger;
 }
 
@@ -45,10 +47,11 @@ const setup = (): MockDetectorDeps => {
   const github = createMockCoderabbitGitHubClient();
 
   const onDetected = createMockOnDetectedCallback();
-  const systemStateRepo = createMockSystemStateRepository() as unknown as MockDetectorDeps['systemStateRepo'];
+  const pullRequests = createMockPullRequestRepo();
+  const systemStateRepo = createMockSystemStateRepository();
   const logger = createMockLogger();
 
-  return { github, onDetected, systemStateRepo, logger };
+  return { github, onDetected, pullRequests, systemStateRepo, logger };
 };
 
 describe('PollDetector', () => {
@@ -59,7 +62,7 @@ describe('PollDetector', () => {
     jest.useFakeTimers();
   });
 
-  const createDetector = () => new PollDetector(deps.github, deps.onDetected, deps.systemStateRepo, deps.logger);
+  const createDetector = () => new PollDetector(deps.github, deps.onDetected, deps.pullRequests, deps.systemStateRepo, deps.logger);
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
@@ -162,6 +165,37 @@ describe('PollDetector', () => {
         { fn: 'PollDetector.tick', owner, repo, commentId: comment.comment_id },
         'Skipping comment without rate-limit marker',
       );
+    });
+  });
+
+  describe('acknowledgement check', () => {
+    it('checks for pending acknowledgements and records them when found', async () => {
+      const ackId = getUniqueInt();
+      const ackRepo = getUniqueGitHubRepoRef().fullName;
+      const ackPr = getUniqueInt();
+      const ackCommentId = getUniqueInt();
+      const ackCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+      const [ackOwner, ackRepoName] = ackRepo.split('/');
+      const pendingAck = { id: ackId, repo_full_name: ackRepo, pr_number: ackPr, last_review_requested_at: getUniqueDate() };
+      const ackResult = { commentId: ackCommentId, commentUrl: ackCommentUrl };
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
+      deps.github.findAcknowledgement.mockResolvedValue(ackResult);
+      const detector = createDetector();
+      detector.start();
+      await drainMicrotasks(TICK_DEPTH);
+      expect(deps.github.findAcknowledgement).toHaveBeenCalledWith(ackOwner, ackRepoName, ackPr, pendingAck.last_review_requested_at);
+      expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(ackId);
+    });
+
+    it('logs a warning and continues when acknowledgement check fails', async () => {
+      const ackError = new Error('DB connection lost');
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+      deps.pullRequests.findPendingAcknowledgement.mockRejectedValue(ackError);
+      const detector = createDetector();
+      detector.start();
+      await drainMicrotasks(TICK_DEPTH);
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: ackError }, 'Acknowledgement check failed; continuing');
     });
   });
 
@@ -284,7 +318,7 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at', expectedDate);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
       expect(deps.onDetected).toHaveBeenCalledWith(comment, expectedWaitSeconds);
     });
 
@@ -306,7 +340,7 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at', expectedDate);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
     });
 
     it('skips update when new comment has a later available time than existing state', async () => {
@@ -348,8 +382,8 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.systemStateRepo.setState).toHaveBeenCalledTimes(1);
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at', expectedDate);
-      expect(deps.systemStateRepo.getState).toHaveBeenCalledWith('next_review_available_at');
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
+      expect(deps.systemStateRepo.getState).toHaveBeenCalledWith('next_review_available_at' as StateKey);
     });
 
     it('picks the earliest candidate across multiple comments', async () => {
@@ -372,7 +406,7 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.systemStateRepo.setState).toHaveBeenCalledTimes(1);
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at', expectedDate);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
       expect(deps.onDetected).toHaveBeenCalledTimes(2);
     });
   });

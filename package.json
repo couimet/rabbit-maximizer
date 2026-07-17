@@ -25,6 +25,7 @@
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "postinstall": "prisma generate",
+    "jest": "NODE_OPTIONS='--experimental-vm-modules' jest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "local": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" tsx src/main.ts",
@@ -32,13 +33,13 @@
     "test:bats": "bats -r bats-tests",
     "test:bats:db": "bats bats-tests/db/",
     "test:shellcheck": "find . \\( -name '*.sh' -o -name '*.bash' \\) -not -path './node_modules/*' -exec shellcheck {} +",
-    "test:ts:unit": "pnpm clean && tsc --noEmit && NODE_OPTIONS='--experimental-vm-modules' jest",
-    "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch"
+    "test:ts:unit": "pnpm clean && tsc --noEmit && pnpm jest",
+    "test:watch": "pnpm jest --watch"
   },
   "prettier": "@couimet/eslint-config/prettier",
   "dependencies": {
     "@couimet/detailed-error": "^0.2.0",
-    "@couimet/detailed-result": "0.1.1",
+    "@couimet/detailed-result": "^0.1.1",
     "@couimet/logger-contract": "^1.0.0",
     "@couimet/logger-contract-adapters": "^0.1.0",
     "@octokit/auth-token": "^6.0.0",
@@ -85,6 +86,7 @@
     "eslint-plugin-unicorn": "^70.0.0",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
+    "jest-extended": "^7.0.0",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.5.3",
     "ts-jest": "^29.4.0",

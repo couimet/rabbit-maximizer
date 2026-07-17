@@ -3,6 +3,9 @@ import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
+import type { EventCountsMapper } from './mappers/index.js';
+import type { EventEntryMapper } from './mappers/index.js';
+import type { QueueItemMapper } from './mappers/index.js';
 import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
@@ -59,15 +62,21 @@ const eventRepo = container.get<EventRepository>(TYPES.EventRepository);
 const pullRequestRepo = container.get<PullRequestRepository>(TYPES.PullRequestRepository);
 const systemStateRepo = container.get<SystemStateRepository>(TYPES.SystemStateRepository);
 const reviewTrigger = container.get<ReviewTrigger>(TYPES.ReviewTrigger);
+const eventCountsMapper = container.get<EventCountsMapper>(TYPES.EventCountsMapper);
+const eventEntryMapper = container.get<EventEntryMapper>(TYPES.EventEntryMapper);
+const queueItemMapper = container.get<QueueItemMapper>(TYPES.QueueItemMapper);
 const appLogger = container.get<Logger>(TYPES.Logger);
 
 const { stop: stopServer } = setupExpress({
   config,
-  queueRepo,
-  queueOrderRepo,
+  eventCountsMapper,
+  eventEntryMapper,
   eventRepo,
   pullRequestRepo,
   prisma,
+  queueItemMapper,
+  queueOrderRepo,
+  queueRepo,
   reviewTrigger,
   systemStateRepo,
   logger: appLogger,
