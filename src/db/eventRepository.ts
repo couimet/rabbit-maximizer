@@ -3,7 +3,7 @@ import { parseEventRow } from '../schemas/events.js';
 import type {
   BypassedPayload,
   CoderabbitReviewApprovedPayload,
-  CoderabbitReviewChangesRequestedPayload,
+  CoderabbitReviewChangesSuggestedPayload,
   DetectedPayload,
   EnqueuedPayload,
   EventMetadata,
@@ -31,7 +31,7 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.retriggered; payload: RetriggeredPayload })
   | (NewEventBase & { type: EventType.bypassed; payload: BypassedPayload })
   | (NewEventBase & { type: EventType.coderabbit_review_approved; payload: CoderabbitReviewApprovedPayload })
-  | (NewEventBase & { type: EventType.coderabbit_review_changes_requested; payload: CoderabbitReviewChangesRequestedPayload })
+  | (NewEventBase & { type: EventType.coderabbit_review_changes_suggested; payload: CoderabbitReviewChangesSuggestedPayload })
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
 export interface EventRepository {
@@ -104,7 +104,7 @@ export class EventRepositoryImpl implements EventRepository {
     const counts: Record<EventType, number> = {
       bypassed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
       coderabbit_review_skipped: 0,
       detected: 0,
       enqueued: 0,

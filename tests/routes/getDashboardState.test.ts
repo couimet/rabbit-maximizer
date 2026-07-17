@@ -66,7 +66,7 @@ describe('getDashboardState', () => {
           failed: 1,
           bypassed: 0,
           coderabbit_review_approved: 0,
-          coderabbit_review_changes_requested: 0,
+          coderabbit_review_changes_suggested: 0,
         }),
       },
     );
@@ -95,7 +95,7 @@ describe('getDashboardState', () => {
           failed: 1,
           bypassed: 0,
           coderabbit_review_approved: 0,
-          coderabbit_review_changes_requested: 0,
+          coderabbit_review_changes_suggested: 0,
         }),
       },
     );
@@ -123,7 +123,7 @@ describe('getDashboardState', () => {
           retriggered: 0,
           bypassed: 0,
           coderabbit_review_approved: 0,
-          coderabbit_review_changes_requested: 0,
+          coderabbit_review_changes_suggested: 0,
           failed: 0,
         }),
       },
@@ -163,7 +163,7 @@ describe('getDashboardState', () => {
           retriggered: 0,
           bypassed: 0,
           coderabbit_review_approved: 0,
-          coderabbit_review_changes_requested: 0,
+          coderabbit_review_changes_suggested: 0,
           failed: 0,
         }),
       },
@@ -178,7 +178,7 @@ describe('getDashboardState', () => {
     });
   });
 
-  it('eventCounts excludes bypassed, coderabbit_review_approved, and coderabbit_review_changes_requested', async () => {
+  it('eventCounts excludes bypassed, coderabbit_review_approved, and coderabbit_review_changes_suggested', async () => {
     logger = createMockLogger();
     startServer(
       {},
@@ -189,7 +189,7 @@ describe('getDashboardState', () => {
           retriggered: 3,
           bypassed: 4,
           coderabbit_review_approved: 3,
-          coderabbit_review_changes_requested: 2,
+          coderabbit_review_changes_suggested: 2,
           failed: 6,
         }),
       },
@@ -215,7 +215,7 @@ describe('getDashboardState', () => {
       retriggered: 0,
       bypassed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
       failed: 0,
     });
     startServer({}, { countByType });
@@ -236,7 +236,7 @@ describe('getDashboardState', () => {
       retriggered: 0,
       bypassed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
       failed: 0,
     });
     startServer({}, { countByType });

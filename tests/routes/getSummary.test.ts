@@ -54,7 +54,7 @@ describe('getSummary', () => {
           retriggered,
           bypassed: getUniqueInt(),
           coderabbit_review_approved: getUniqueInt(),
-          coderabbit_review_changes_requested: getUniqueInt(),
+          coderabbit_review_changes_suggested: getUniqueInt(),
           failed,
         }),
       },
@@ -91,7 +91,7 @@ describe('getSummary', () => {
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
   });
 
-  it('response omits bypassed, coderabbit_review_approved, and coderabbit_review_changes_requested from eventCounts', async () => {
+  it('response omits bypassed, coderabbit_review_approved, and coderabbit_review_changes_suggested from eventCounts', async () => {
     logger = createMockLogger();
     const detected = getUniqueInt();
     const enqueued = getUniqueInt();
@@ -106,7 +106,7 @@ describe('getSummary', () => {
           retriggered,
           bypassed: getUniqueInt(),
           coderabbit_review_approved: getUniqueInt(),
-          coderabbit_review_changes_requested: getUniqueInt(),
+          coderabbit_review_changes_suggested: getUniqueInt(),
           failed,
         }),
       },
@@ -131,7 +131,7 @@ describe('getSummary', () => {
       retriggered: 0,
       bypassed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
       failed: 0,
     });
     startServer({}, { countByType });
@@ -152,7 +152,7 @@ describe('getSummary', () => {
       retriggered: 0,
       bypassed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
       failed: 0,
     });
     startServer({}, { countByType });
@@ -173,7 +173,7 @@ describe('getSummary', () => {
       retriggered: 0,
       bypassed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
       failed: 0,
     });
     startServer({}, { countByType });

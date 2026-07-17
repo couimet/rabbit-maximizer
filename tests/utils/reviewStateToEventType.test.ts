@@ -7,11 +7,11 @@ describe('reviewStateToEventType', () => {
     expect(reviewStateToEventType('approved')).toBe('coderabbit_review_approved');
   });
 
-  it('returns coderabbit_review_changes_requested when state is changes_requested', () => {
-    expect(reviewStateToEventType('changes_requested')).toBe('coderabbit_review_changes_requested');
+  it('returns coderabbit_review_changes_suggested when state is changes_requested', () => {
+    expect(reviewStateToEventType('changes_requested')).toBe('coderabbit_review_changes_suggested');
   });
 
-  it('returns coderabbit_review_changes_requested for any unrecognized state (pessimistic default)', () => {
-    expect(reviewStateToEventType('dismissed' as any)).toBe('coderabbit_review_changes_requested');
+  it('returns coderabbit_review_changes_suggested for any unrecognized state (pessimistic default)', () => {
+    expect(reviewStateToEventType('dismissed' as any)).toBe('coderabbit_review_changes_suggested');
   });
 });

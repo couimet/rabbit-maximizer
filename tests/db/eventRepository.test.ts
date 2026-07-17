@@ -319,7 +319,7 @@ describe('EventRepositoryImpl', () => {
         { type: 'retriggered', _count: { type: retriggeredCnt } },
         { type: 'bypassed', _count: { type: bypassedCnt } },
         { type: 'coderabbit_review_approved', _count: { type: approvedCnt } },
-        { type: 'coderabbit_review_changes_requested', _count: { type: changesReqCnt } },
+        { type: 'coderabbit_review_changes_suggested', _count: { type: changesReqCnt } },
         { type: 'coderabbit_review_skipped', _count: { type: skippedCnt } },
         { type: 'failed', _count: { type: failedCnt } },
       ];
@@ -340,7 +340,7 @@ describe('EventRepositoryImpl', () => {
       expect(result).toStrictEqual({
         bypassed: bypassedCnt,
         coderabbit_review_approved: approvedCnt,
-        coderabbit_review_changes_requested: changesReqCnt,
+        coderabbit_review_changes_suggested: changesReqCnt,
         coderabbit_review_skipped: skippedCnt,
         detected: detectedCnt,
         enqueued: enqueuedCnt,
@@ -353,7 +353,7 @@ describe('EventRepositoryImpl', () => {
           counts: {
             bypassed: bypassedCnt,
             coderabbit_review_approved: approvedCnt,
-            coderabbit_review_changes_requested: changesReqCnt,
+            coderabbit_review_changes_suggested: changesReqCnt,
             coderabbit_review_skipped: skippedCnt,
             detected: detectedCnt,
             enqueued: enqueuedCnt,

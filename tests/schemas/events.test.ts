@@ -148,16 +148,16 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses a coderabbit_review_changes_requested event', () => {
+  it('parses a coderabbit_review_changes_suggested event', () => {
     const coderabbitCommentUrl = getUniqueString();
     const row = baseRow({
-      type: 'coderabbit_review_changes_requested',
+      type: 'coderabbit_review_changes_suggested',
       payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl }),
     });
 
     const result = parseEventRow(row);
 
-    expect(result.type).toBe('coderabbit_review_changes_requested');
+    expect(result.type).toBe('coderabbit_review_changes_suggested');
     expect(result.payload).toStrictEqual({
       coderabbit_comment_url: coderabbitCommentUrl,
     });
