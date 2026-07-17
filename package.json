@@ -69,7 +69,7 @@
   },
   "devDependencies": {
     "@couimet/detailed-error-testing": "^0.1.1",
-    "@couimet/dynamic-testing": "^0.3.0",
+    "@couimet/dynamic-testing": "^0.4.0",
     "@couimet/eslint-config": "^0.6.0",
     "@couimet/logger-contract-testing": "^1.0.1",
     "@jest/expect": "^30.4.1",
