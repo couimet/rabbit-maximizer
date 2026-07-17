@@ -1,10 +1,9 @@
 import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/eventRepository.js';
-import { getUniqueIntsNamed } from '../../src/external-deps/couimet/dynamic-testing/unique.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { EventType } from '../../src/types/index.js';
 import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it } from '@jest/globals';
