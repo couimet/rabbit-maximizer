@@ -363,3 +363,11 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <never>Define utility functions inline inside repository classes or service files — these are harder to discover, test in isolation, and reuse</never>
   <rationale>Small functional utilities are the most reusable and testable units of code. Extracting them eliminates duplication, makes tests focused and fast (no DI/mocking needed), and signals intent clearly through the filename. This is the single most impactful habit for keeping the codebase composable.</rationale>
 </rule>
+
+<rule id="P006" priority="critical">
+  <title>Resolve the database path via scripts/db/data-dir.sh, never guess it</title>
+  <do>Use `bash scripts/db/data-dir.sh` to get the data directory before running any `sqlite3`, `prisma`, or other database command</do>
+  <do>Construct the database path as `$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db`</do>
+  <never>Assume the database is at `data/rabbit-maximizer.db` relative to the current working directory — the repo uses git worktrees, and all worktrees share a single database in the main repository's `data/` directory</never>
+  <rationale>The `local` script in `package.json` overrides `DATABASE_URL` at startup with `file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db`, which resolves to the main repo's data directory (not the worktree's). The `.env` file's `DATABASE_URL=file:./data/rabbit-maximizer.db` is a relative fallback that may point to the wrong location when working from a worktree. Querying the wrong database leads to false conclusions — an empty database looks like a broken app when the real database is healthy.</rationale>
+</rule>
