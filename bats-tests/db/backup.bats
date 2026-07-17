@@ -25,21 +25,31 @@ load test_helper
   [[ "$output" == *"rabbit-maximizer.db" ]]
 }
 
-@test "rotates old backups keeping last 10" {
+@test "rotates old backups keeping last 25" {
   create_test_db
-  for i in $(seq 1 12); do
-    sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/backup-$i.sql.gz"
-    # Ensure distinct timestamps so ls -t sorts reliably
-    sleep 0.1
+  for i in $(seq -w 1 29); do
+    sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/2020-01-01T00:00:${i}Z.sql.gz"
   done
   run bash "$SCRIPT_DIR/backup.sh"
   [ "$status" -eq 0 ]
+  # Oldest 5 fixtures should be removed by rotation
+  for i in 01 02 03 04 05; do
+    [ ! -f "$BATS_TEST_TMPDIR/data/backups/2020-01-01T00:00:${i}Z.sql.gz" ]
+  done
+  # Newest 24 fixtures should survive
+  for i in $(seq -w 6 29); do
+    [ -f "$BATS_TEST_TMPDIR/data/backups/2020-01-01T00:00:${i}Z.sql.gz" ]
+  done
+  # New backup was created with ISO timestamp pattern
+  [[ "$output" =~ data/backups/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+Z\.sql\.gz ]]
+  [ -f "$output" ]
+  # Total: 24 kept fixtures + 1 new backup
   local count
   count=$(ls "$BATS_TEST_TMPDIR/data/backups"/*.sql.gz | wc -l | tr -d ' ')
-  [ "$count" -eq 10 ]  # rotation keeps exactly 10 most recent
+  [ "$count" -eq 25 ]
 }
 
-@test "rotation is no-op when fewer than 10 backups exist" {
+@test "rotation is no-op when fewer than 25 backups exist" {
   create_test_db
   for i in $(seq 1 3); do
     sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/backup-$i.sql.gz"
@@ -61,13 +71,24 @@ load test_helper
 
 @test "rotation handles filenames with spaces" {
   create_test_db
-  for i in $(seq 1 12); do
-    sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/backup $i.sql.gz"
-    sleep 0.1
+  for i in $(seq -w 1 29); do
+    sqlite3 "$BATS_TEST_TMPDIR/data/rabbit-maximizer.db" .dump | gzip > "$BATS_TEST_TMPDIR/data/backups/2020-01-01T00:00:${i}Z backup.sql.gz"
   done
   run bash "$SCRIPT_DIR/backup.sh"
   [ "$status" -eq 0 ]
+  # Oldest 5 fixtures should be removed by rotation
+  for i in 01 02 03 04 05; do
+    [ ! -f "$BATS_TEST_TMPDIR/data/backups/2020-01-01T00:00:${i}Z backup.sql.gz" ]
+  done
+  # Newest 24 fixtures should survive
+  for i in $(seq -w 6 29); do
+    [ -f "$BATS_TEST_TMPDIR/data/backups/2020-01-01T00:00:${i}Z backup.sql.gz" ]
+  done
+  # New backup was created with ISO timestamp pattern
+  [[ "$output" =~ data/backups/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+Z\.sql\.gz ]]
+  [ -f "$output" ]
+  # Total: 24 kept fixtures + 1 new backup (find handles spaces in filenames)
   local count
   count=$(find "$BATS_TEST_TMPDIR/data/backups" -maxdepth 1 -name '*.sql.gz' -type f | wc -l | tr -d ' ')
-  [ "$count" -eq 10 ]
+  [ "$count" -eq 25 ]
 }

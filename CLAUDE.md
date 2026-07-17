@@ -108,6 +108,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>A `DetailedError` carries code, message, functionName, and an arbitrary details object. Logging just the code drops everything else — the message explains what happened, functionName pinpoints the source, and details carries operation-specific context (notBefore, sourceComment, etc.). Passing the full error preserves all of it in structured log output.</rationale>
 </rule>
 
+<rule id="C010" priority="critical">
+  <title>Migrations must carry forward all indexes and constraints on table rebuilds</title>
+  <do>When a migration copies a table via `CREATE TABLE ..._new ... INSERT INTO ..._new SELECT ... FROM ... DROP TABLE ... ALTER TABLE ..._new RENAME TO ...`, recreate every index, unique constraint, and CHECK constraint that existed on the original table (unless the business rules intentionally changed)</do>
+  <do>Audit the original table's indexes and constraints before writing the rebuild block. Compare the `CREATE INDEX` / constraint statements after the rename against the original schema's DDL or a prior migration that created the table</do>
+  <never>Recreate only a subset of indexes after a table rebuild — missing constraints silently allow invalid data (duplicate UUIDs, duplicate pending PRs) that the application assumes cannot exist</never>
+  <rationale>SQLite requires full table rebuilds for schema changes (CHECK constraint modifications, column additions). It is easy to recreate the explicitly-changed constraint and forget the unchanged ones. A missing `review_queue_pending_unique` partial unique index allowed duplicate pending entries for the same PR, silently breaking the scheduler's assumption of at most one pending item per PR. This has happened multiple times (20260716, 20260707).</rationale>
+</rule>
+
 <rule id="C011" priority="critical">
   <title>Probes own all observability for a business process</title>
   <do>Create exactly one probe per business process, at the top, via `ProbeFactory`</do>

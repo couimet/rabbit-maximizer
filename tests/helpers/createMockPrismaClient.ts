@@ -33,6 +33,14 @@ export interface MockQueueOrderDelegate {
   aggregate: jest.Mock<any>;
 }
 
+export interface MockCoderabbitCommentDelegate {
+  create: jest.Mock<any>;
+  findFirst: jest.Mock<any>;
+  findMany: jest.Mock<any>;
+  update: jest.Mock<any>;
+  updateMany: jest.Mock<any>;
+}
+
 export interface MockPullRequestDelegate {
   create: jest.Mock<any>;
   findUnique: jest.Mock<any>;
@@ -51,6 +59,7 @@ export interface MockSystemStateDelegate {
 }
 
 export interface MockPrismaOptions {
+  coderabbitComment?: Partial<MockCoderabbitCommentDelegate>;
   reviewQueue?: Partial<MockReviewQueueDelegate>;
   event?: Partial<MockEventDelegate>;
   queueOrder?: Partial<MockQueueOrderDelegate>;
@@ -65,6 +74,7 @@ export interface MockPrismaOptions {
 
 export interface MockPrismaResult {
   prisma: PrismaClient;
+  coderabbitComment: MockCoderabbitCommentDelegate;
   reviewQueue: MockReviewQueueDelegate;
   event: MockEventDelegate;
   queueOrder: MockQueueOrderDelegate;
@@ -73,6 +83,14 @@ export interface MockPrismaResult {
 }
 
 export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockPrismaResult => {
+  const coderabbitComment: MockCoderabbitCommentDelegate = {
+    create: jest.fn<any>(),
+    findFirst: jest.fn<any>(),
+    findMany: jest.fn<any>(),
+    update: jest.fn<any>(),
+    updateMany: jest.fn<any>(),
+    ...overrides.coderabbitComment,
+  };
   const reviewQueue: MockReviewQueueDelegate = {
     create: jest.fn<any>(),
     findFirst: jest.fn<any>(),
@@ -127,11 +145,12 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
   const $queryRawUnsafe: jest.Mock<any> = overrides.$queryRawUnsafe ?? jest.fn<any>();
   const $queryRaw: jest.Mock<any> = overrides.$queryRaw ?? jest.fn<any>();
 
-  const mockForTx = { reviewQueue, event, queueOrder, pullRequest, systemState, $executeRawUnsafe, $executeRaw, $queryRawUnsafe, $queryRaw };
+  const mockForTx = { coderabbitComment, reviewQueue, event, queueOrder, pullRequest, systemState, $executeRawUnsafe, $executeRaw, $queryRawUnsafe, $queryRaw };
   const $transaction: jest.Mock<any> = overrides.$transaction ?? jest.fn<any>().mockImplementation((fn: (tx: unknown) => unknown) => fn(mockForTx));
 
   return {
     prisma: { ...mockForTx, $transaction } as unknown as PrismaClient,
+    coderabbitComment,
     reviewQueue,
     event,
     pullRequest,
