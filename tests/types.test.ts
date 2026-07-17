@@ -9,6 +9,7 @@ describe('QueueStatus', () => {
       retriggered: 'retriggered',
       reviewed: 'reviewed',
       failed: 'failed',
+      coderabbit_skipped: 'coderabbit_skipped',
     });
   });
 });
@@ -23,6 +24,7 @@ describe('EventType', () => {
       retriggered: 'retriggered',
       coderabbit_review_approved: 'coderabbit_review_approved',
       coderabbit_review_changes_requested: 'coderabbit_review_changes_requested',
+      coderabbit_review_skipped: 'coderabbit_review_skipped',
     });
   });
 });

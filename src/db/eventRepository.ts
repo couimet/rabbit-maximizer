@@ -103,12 +103,13 @@ export class EventRepositoryImpl implements EventRepository {
 
     const counts: Record<EventType, number> = {
       bypassed: 0,
+      coderabbit_review_approved: 0,
+      coderabbit_review_changes_requested: 0,
+      coderabbit_review_skipped: 0,
       detected: 0,
       enqueued: 0,
       failed: 0,
       retriggered: 0,
-      coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
     };
     for (const row of rows) {
       counts[row.type as EventType] = row._count.type;

@@ -220,7 +220,7 @@ export interface components {
       error: string;
     };
     /** @enum {string} */
-    QueueStatus: 'pending' | 'retriggered' | 'reviewed' | 'failed';
+    QueueStatus: 'pending' | 'retriggered' | 'reviewed' | 'failed' | 'coderabbit_skipped';
     QueueItem: {
       id: number;
       uuid: string;
@@ -242,6 +242,11 @@ export interface components {
       retriggered_at?: string | null;
       /** Format: date-time */
       failed_at?: string | null;
+      /**
+       * Format: date-time
+       * @description When CodeRabbit last acknowledged a retrigger request for this PR (from pull_request table)
+       */
+      last_coderabbit_acknowledged_at?: string | null;
       /** Format: date-time */
       reviewed_at?: string | null;
       /** Format: date-time */
@@ -250,7 +255,15 @@ export interface components {
       updated_at: string;
     };
     /** @enum {string} */
-    EventType: 'bypassed' | 'coderabbit_review_approved' | 'coderabbit_review_changes_requested' | 'detected' | 'enqueued' | 'failed' | 'retriggered';
+    EventType:
+      | 'bypassed'
+      | 'coderabbit_review_approved'
+      | 'coderabbit_review_changes_requested'
+      | 'coderabbit_review_skipped'
+      | 'detected'
+      | 'enqueued'
+      | 'failed'
+      | 'retriggered';
     EventEntry: {
       id: number;
       uuid: string;

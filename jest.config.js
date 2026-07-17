@@ -19,7 +19,7 @@ export default {
   coverageProvider: 'v8',
 
   roots: ['<rootDir>/src', '<rootDir>/tests', '<rootDir>/dashboard'],
-  setupFilesAfterEnv: ['<rootDir>/tests/setup/matchers.ts'],
+  setupFilesAfterEnv: ['jest-extended/all', '<rootDir>/tests/setup/matchers.ts'],
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
   collectCoverageFrom: [
     'src/**/*.ts',
@@ -27,6 +27,7 @@ export default {
     'dashboard/src/**/*.tsx',
     '!src/**/*.test.ts',
     '!src/api-types.ts',
+    '!src/external-deps/couimet/dynamic-testing/**/*.ts',
     '!src/main.ts',
     '!src/container.ts',
     '!src/**/*.d.ts',

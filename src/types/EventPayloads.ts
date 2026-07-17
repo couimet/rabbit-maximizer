@@ -27,6 +27,11 @@ export interface CoderabbitReviewChangesRequestedPayload {
   readonly coderabbit_comment_url?: string;
 }
 
+export interface CoderabbitReviewSkippedPayload {
+  readonly comment_url: string;
+  readonly skip_reason: string;
+}
+
 export interface FailedPayload {
   readonly reason: string;
 }

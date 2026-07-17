@@ -1,5 +1,5 @@
 import type { SystemStateRepository } from '../../src/db/systemStateRepository.js';
-import { createExpressApp } from '../../src/external-deps/couimet/express-tools/createExpressApp.js';
+import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { createSetPausedHandler } from '../../src/routes/setPaused.js';
 import { createMockSystemStateRepository } from '../helpers/index.js';
 import { postJson } from '../helpers/postJson.js';
@@ -14,6 +14,7 @@ import { StatusCodes } from 'http-status-codes';
 describe('setPaused', () => {
   let logger: Logger;
   let server: Server;
+  let port: number;
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
@@ -21,17 +22,19 @@ describe('setPaused', () => {
 
   const startServer = (systemStateRepoOver: Partial<jest.Mocked<SystemStateRepository>> = {}) => {
     logger = createMockLogger();
-    const app = createExpressApp({ logger });
-    app.use(express.json());
-    app.post('/api/pause', createSetPausedHandler(createMockSystemStateRepository(systemStateRepoOver), logger));
-    server = app.listen(0);
+    const result = startTestServer(logger, (app) => {
+      app.use(express.json());
+      app.post('/api/pause', createSetPausedHandler(createMockSystemStateRepository(systemStateRepoOver), logger));
+    });
+    server = result.server;
+    port = result.port;
   };
 
   it('sets paused to true', async () => {
     const pauseScheduler = jest.fn<any>();
     startServer({ pauseScheduler });
 
-    const res = await postJson(server, '/api/pause', { paused: true });
+    const res = await postJson(port, '/api/pause', { paused: true });
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({ paused: true });
     expect(pauseScheduler).toHaveBeenCalledWith();
@@ -42,7 +45,7 @@ describe('setPaused', () => {
     const resumeScheduler = jest.fn<any>();
     startServer({ resumeScheduler });
 
-    const res = await postJson(server, '/api/pause', { paused: false });
+    const res = await postJson(port, '/api/pause', { paused: false });
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({ paused: false });
     expect(resumeScheduler).toHaveBeenCalledWith();
@@ -52,7 +55,7 @@ describe('setPaused', () => {
   it('returns 400 for non-boolean paused (string)', async () => {
     startServer();
 
-    const res = await postJson(server, '/api/pause', { paused: 'yes' });
+    const res = await postJson(port, '/api/pause', { paused: 'yes' });
     expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     expect(await res.json()).toStrictEqual({ error: 'paused must be a boolean' });
   });
@@ -60,7 +63,7 @@ describe('setPaused', () => {
   it('returns 400 for non-boolean paused (number)', async () => {
     startServer();
 
-    const res = await postJson(server, '/api/pause', { paused: 1 });
+    const res = await postJson(port, '/api/pause', { paused: 1 });
     expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     expect(await res.json()).toStrictEqual({ error: 'paused must be a boolean' });
   });
@@ -68,7 +71,7 @@ describe('setPaused', () => {
   it('returns 400 for missing paused', async () => {
     startServer();
 
-    const res = await postJson(server, '/api/pause', {});
+    const res = await postJson(port, '/api/pause', {});
     expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     expect(await res.json()).toStrictEqual({ error: 'paused must be a boolean' });
   });
@@ -76,7 +79,7 @@ describe('setPaused', () => {
   it('returns 400 for null paused', async () => {
     startServer();
 
-    const res = await postJson(server, '/api/pause', { paused: null });
+    const res = await postJson(port, '/api/pause', { paused: null });
     expect(res.status).toBe(StatusCodes.BAD_REQUEST);
     expect(await res.json()).toStrictEqual({ error: 'paused must be a boolean' });
   });
@@ -86,7 +89,7 @@ describe('setPaused', () => {
     const pauseScheduler = jest.fn<any>().mockRejectedValue(repoError);
     startServer({ pauseScheduler });
 
-    const res = await postJson(server, '/api/pause', { paused: true });
+    const res = await postJson(port, '/api/pause', { paused: true });
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to set pause state' });
     expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.pause', error: repoError }, 'Failed to set pause state');

@@ -5,9 +5,12 @@
  * identifiers here as the service graph grows.
  */
 export const TYPES = {
+  CoderabbitCommentRepository: Symbol.for('CoderabbitCommentRepository'),
   Config: Symbol.for('Config'),
   CoderabbitGitHubClient: Symbol.for('CoderabbitGitHubClient'),
   EnqueueService: Symbol.for('EnqueueService'),
+  EventCountsMapper: Symbol.for('EventCountsMapper'),
+  EventEntryMapper: Symbol.for('EventEntryMapper'),
   EventRepository: Symbol.for('EventRepository'),
   Logger: Symbol.for('Logger'),
   ObservationContextProvider: Symbol.for('ObservationContextProvider'),
@@ -20,6 +23,7 @@ export const TYPES = {
   PruneEvaluator: Symbol.for('PruneEvaluator'),
   Pruner: Symbol.for('Pruner'),
   PullRequestRepository: Symbol.for('PullRequestRepository'),
+  QueueItemMapper: Symbol.for('QueueItemMapper'),
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
   ReviewDetector: Symbol.for('ReviewDetector'),

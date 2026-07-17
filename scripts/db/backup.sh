@@ -19,5 +19,5 @@ sqlite3 "$DB_FILE" .dump | gzip > "$BACKUP_FILE"
 
 echo "$BACKUP_FILE"
 
-# Rotate: keep only the 10 most recent backups (filenames are ISO timestamps, so lexical sort = chronological)
-find "$BACKUP_DIR" -maxdepth 1 -name '*.sql.gz' -type f -print 2>/dev/null | sort -r | tail -n +11 | while IFS= read -r f; do rm -f "$f" 2>/dev/null; done || true
+# Rotate: keep the 25 most recent backups (filenames are ISO timestamps, so lexical sort = chronological)
+find "$BACKUP_DIR" -maxdepth 1 -name '*.sql.gz' -type f -print 2>/dev/null | sort -r | tail -n +26 | while IFS= read -r f; do rm -f "$f" 2>/dev/null; done || true

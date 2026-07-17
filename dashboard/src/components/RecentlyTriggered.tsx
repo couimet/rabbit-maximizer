@@ -1,6 +1,6 @@
+import type { QueueItemResponse } from '../../../src/types/api.js';
 import { formatRelativeTime } from '../../../src/utils/formatRelativeTime.js';
 import { type Duration, resolveDurationSince } from '../../../src/utils/resolveDurationSince.js';
-import type { QueueItem } from '../api.js';
 import { fetchTriggered, markReviewed } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
@@ -15,7 +15,7 @@ const RELATIVE_TIME_REFRESH_MS = 60_000;
 const TRIGGERED_DEFAULT_DURATION = '2d';
 
 const RecentlyTriggered = () => {
-  const [items, setItems] = useState<QueueItem[]>([]);
+  const [items, setItems] = useState<QueueItemResponse[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);

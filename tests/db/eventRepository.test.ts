@@ -3,7 +3,7 @@ import { TYPES } from '../../src/inversify-types.js';
 import { EventType } from '../../src/types/index.js';
 import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it } from '@jest/globals';
@@ -303,14 +303,25 @@ describe('EventRepositoryImpl', () => {
   describe('countByType', () => {
     it('returns counts keyed by EventType for events since the given date', async () => {
       const since = getUniqueDate();
+      const { detectedCnt, enqueuedCnt, retriggeredCnt, bypassedCnt, approvedCnt, changesReqCnt, skippedCnt, failedCnt } = getUniqueIntsNamed([
+        'detectedCnt',
+        'enqueuedCnt',
+        'retriggeredCnt',
+        'bypassedCnt',
+        'approvedCnt',
+        'changesReqCnt',
+        'skippedCnt',
+        'failedCnt',
+      ]);
       const rows = [
-        { type: 'detected', _count: { type: 11 } },
-        { type: 'enqueued', _count: { type: 8 } },
-        { type: 'retriggered', _count: { type: 5 } },
-        { type: 'bypassed', _count: { type: 3 } },
-        { type: 'coderabbit_review_approved', _count: { type: 1 } },
-        { type: 'coderabbit_review_changes_requested', _count: { type: 1 } },
-        { type: 'failed', _count: { type: 1 } },
+        { type: 'detected', _count: { type: detectedCnt } },
+        { type: 'enqueued', _count: { type: enqueuedCnt } },
+        { type: 'retriggered', _count: { type: retriggeredCnt } },
+        { type: 'bypassed', _count: { type: bypassedCnt } },
+        { type: 'coderabbit_review_approved', _count: { type: approvedCnt } },
+        { type: 'coderabbit_review_changes_requested', _count: { type: changesReqCnt } },
+        { type: 'coderabbit_review_skipped', _count: { type: skippedCnt } },
+        { type: 'failed', _count: { type: failedCnt } },
       ];
 
       const { prisma, event } = createMockPrismaClient({
@@ -327,25 +338,27 @@ describe('EventRepositoryImpl', () => {
         _count: { type: true },
       });
       expect(result).toStrictEqual({
-        bypassed: 3,
-        detected: 11,
-        enqueued: 8,
-        failed: 1,
-        retriggered: 5,
-        coderabbit_review_approved: 1,
-        coderabbit_review_changes_requested: 1,
+        bypassed: bypassedCnt,
+        coderabbit_review_approved: approvedCnt,
+        coderabbit_review_changes_requested: changesReqCnt,
+        coderabbit_review_skipped: skippedCnt,
+        detected: detectedCnt,
+        enqueued: enqueuedCnt,
+        failed: failedCnt,
+        retriggered: retriggeredCnt,
       });
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'EventRepositoryImpl.countByType',
           counts: {
-            bypassed: 3,
-            detected: 11,
-            enqueued: 8,
-            failed: 1,
-            retriggered: 5,
-            coderabbit_review_approved: 1,
-            coderabbit_review_changes_requested: 1,
+            bypassed: bypassedCnt,
+            coderabbit_review_approved: approvedCnt,
+            coderabbit_review_changes_requested: changesReqCnt,
+            coderabbit_review_skipped: skippedCnt,
+            detected: detectedCnt,
+            enqueued: enqueuedCnt,
+            failed: failedCnt,
+            retriggered: retriggeredCnt,
           },
         },
         'Counted events by type',

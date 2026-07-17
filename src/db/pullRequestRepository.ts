@@ -1,9 +1,22 @@
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
 import { TYPES } from '../inversify-types.js';
+import type { PendingAcknowledgement } from '../types/PendingAcknowledgement.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
+
+/** Matches `@@map("pull_request")` in the Prisma schema. */
+const PULL_REQUEST_TABLE = 'pull_request';
+
+const FIND_PENDING_ACKNOWLEDGEMENT_SQL = `
+  SELECT id, repo_full_name, pr_number, last_review_requested_at
+  FROM ${PULL_REQUEST_TABLE}
+  WHERE last_review_requested_at IS NOT NULL
+    AND (last_coderabbit_acknowledged_at IS NULL OR last_coderabbit_acknowledged_at < last_review_requested_at)
+  ORDER BY last_review_requested_at ASC
+  LIMIT 1
+`;
 
 export interface PullRequestRepository {
   upsert(
@@ -16,6 +29,8 @@ export interface PullRequestRepository {
   updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
   incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
   recordReview(id: number, tx: Prisma.TransactionClient): Promise<void>;
+  findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
+  recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void>;
 }
 
 @injectable()
@@ -116,5 +131,32 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       'PullRequestRepositoryImpl.recordReview',
     );
     this.log.debug({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+  }
+
+  async findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined> {
+    const db = this.client(tx);
+    const rows =
+      await db.$queryRawUnsafe<Array<{ id: number; repo_full_name: string; pr_number: number; last_review_requested_at: Date }>>(
+        FIND_PENDING_ACKNOWLEDGEMENT_SQL,
+      );
+    if (rows.length === 0) {
+      return undefined;
+    }
+    return {
+      id: rows[0].id,
+      repo_full_name: rows[0].repo_full_name,
+      pr_number: rows[0].pr_number,
+      last_review_requested_at: new Date(rows[0].last_review_requested_at),
+    };
+  }
+
+  async recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.enforceTx(tx, async (db) => {
+      await this.withPrismaErrorHandling(
+        () => db.pullRequest.update({ where: { id }, data: { last_coderabbit_acknowledged_at: new Date() } }),
+        'PullRequestRepositoryImpl.recordAcknowledgement',
+      );
+      this.log.debug({ fn: 'PullRequestRepositoryImpl.recordAcknowledgement', id }, 'Recorded CodeRabbit acknowledgement on PullRequest');
+    });
   }
 }

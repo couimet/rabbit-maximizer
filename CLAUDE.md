@@ -108,6 +108,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>A `DetailedError` carries code, message, functionName, and an arbitrary details object. Logging just the code drops everything else — the message explains what happened, functionName pinpoints the source, and details carries operation-specific context (notBefore, sourceComment, etc.). Passing the full error preserves all of it in structured log output.</rationale>
 </rule>
 
+<rule id="C010" priority="critical">
+  <title>Migrations must carry forward all indexes and constraints on table rebuilds</title>
+  <do>When a migration copies a table via `CREATE TABLE ..._new ... INSERT INTO ..._new SELECT ... FROM ... DROP TABLE ... ALTER TABLE ..._new RENAME TO ...`, recreate every index, unique constraint, and CHECK constraint that existed on the original table (unless the business rules intentionally changed)</do>
+  <do>Audit the original table's indexes and constraints before writing the rebuild block. Compare the `CREATE INDEX` / constraint statements after the rename against the original schema's DDL or a prior migration that created the table</do>
+  <never>Recreate only a subset of indexes after a table rebuild — missing constraints silently allow invalid data (duplicate UUIDs, duplicate pending PRs) that the application assumes cannot exist</never>
+  <rationale>SQLite requires full table rebuilds for schema changes (CHECK constraint modifications, column additions). It is easy to recreate the explicitly-changed constraint and forget the unchanged ones. A missing `review_queue_pending_unique` partial unique index allowed duplicate pending entries for the same PR, silently breaking the scheduler's assumption of at most one pending item per PR. This has happened multiple times (20260716, 20260707).</rationale>
+</rule>
+
 <rule id="C011" priority="critical">
   <title>Probes own all observability for a business process</title>
   <do>Create exactly one probe per business process, at the top, via `ProbeFactory`</do>
@@ -272,6 +280,32 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </bad-example>
 </rule>
 
+<rule id="T011" priority="critical">
+  <title>Local variables use camelCase, not SCREAMING_SNAKE_CASE</title>
+  <do>Use camelCase for `const` variables local to a test function (`const commentId = getUniqueInt()`)</do>
+  <do>Reserve SCREAMING_SNAKE_CASE for module-level constants and values shared between `beforeEach`/setup blocks and assertions (see T009)</do>
+  <never>Use SCREAMING_SNAKE_CASE for `const` variables declared inside `it()` blocks — they are regular local variables, not contract constants</never>
+  <rationale>SCREAMING_SNAKE_CASE signals "this value is a frozen contract" (per T003, T009). Local test variables are plumbing, not contracts. Using the wrong case misleads the reader about the variable's role.</rationale>
+  <bad-example>
+    ```typescript
+    it('returns the correct value', () => {
+      const COMMENT_ID = getUniqueInt();
+      const REPO_NAME = getUniqueGitHubRepoRef().fullName;
+      // ...
+    });
+    ```
+  </bad-example>
+  <good-example>
+    ```typescript
+    it('returns the correct value', () => {
+      const commentId = getUniqueInt();
+      const repoName = getUniqueGitHubRepoRef().fullName;
+      // ...
+    });
+    ```
+  </good-example>
+</rule>
+
 <rule id="P001" priority="critical">
   <title>No magic numbers</title>
   <do>Define named constants for all numeric literals with semantic meaning</do>
@@ -336,4 +370,12 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Export from `src/utils/index.ts` barrel file</do>
   <never>Define utility functions inline inside repository classes or service files — these are harder to discover, test in isolation, and reuse</never>
   <rationale>Small functional utilities are the most reusable and testable units of code. Extracting them eliminates duplication, makes tests focused and fast (no DI/mocking needed), and signals intent clearly through the filename. This is the single most impactful habit for keeping the codebase composable.</rationale>
+</rule>
+
+<rule id="P006" priority="critical">
+  <title>Resolve the database path via scripts/db/data-dir.sh, never guess it</title>
+  <do>Use `bash scripts/db/data-dir.sh` to get the data directory before running any `sqlite3`, `prisma`, or other database command</do>
+  <do>Construct the database path as `$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db`</do>
+  <never>Assume the database is at `data/rabbit-maximizer.db` relative to the current working directory — the repo uses git worktrees, and all worktrees share a single database in the main repository's `data/` directory</never>
+  <rationale>The `local` script in `package.json` overrides `DATABASE_URL` at startup with `file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db`, which resolves to the main repo's data directory (not the worktree's). The `.env` file's `DATABASE_URL=file:./data/rabbit-maximizer.db` is a relative fallback that may point to the wrong location when working from a worktree. Querying the wrong database leads to false conclusions — an empty database looks like a broken app when the real database is healthy.</rationale>
 </rule>

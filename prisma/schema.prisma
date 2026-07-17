@@ -33,7 +33,8 @@ model PullRequest {
   first_review_limit_at     DateTime?
   last_review_limit_at      DateTime?
   last_review_requested_at  DateTime?
-  last_coderabbit_review_at DateTime?
+  last_coderabbit_review_at       DateTime?
+  last_coderabbit_acknowledged_at DateTime?
   retrigger_count           Int       @default(0)
   review_count              Int       @default(0)
   created_at                DateTime  @default(now())
@@ -41,7 +42,9 @@ model PullRequest {
 
   queueItems  ReviewQueue[]
   events      Event[]
+  comments    CoderabbitComment[]
 
+  @@index([last_coderabbit_acknowledged_at])
   @@index([last_coderabbit_review_at])
   @@index([last_review_requested_at])
   @@unique([repo_full_name, pr_number])
@@ -160,6 +163,44 @@ model QueueOrder {
   queueItem ReviewQueue @relation(fields: [queue_item_id], references: [id], onDelete: Cascade)
 
   @@map("queue_order")
+}
+
+// ---------------------------------------------------------------------------
+// CoderabbitComment — lifecycle tracking for CodeRabbit bot comments.
+//
+// One row per unique GitHub comment (natural key: comment_id + is_not_deleted).
+// is_not_deleted is the indexing primitive; deleted_at carries the business timestamp.
+// ---------------------------------------------------------------------------
+
+/// Tracks each unique CodeRabbit comment independently of queue items.
+model CoderabbitComment {
+  id              Int       @id @default(autoincrement())
+  uuid            String    @unique @default(uuid())
+  pull_request_id Int
+  /// GitHub comment ID. Combined with is_not_deleted in a composite unique so a
+  /// deleted row does not block re-creation from the same comment ID.
+  comment_id      Int
+  /// Max 512 (GitHub comment URL).
+  url             String
+  /// One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' (CHECK in migration).
+  comment_type    String
+  /// Max 1024. First N chars of the comment body, truncated by the repository on upsert.
+  last_body_preview String?
+  gh_created_at   DateTime
+  gh_updated_at   DateTime
+  first_seen_at   DateTime
+  last_seen_at    DateTime
+  is_not_deleted   Boolean? @default(true)
+  deleted_at       DateTime?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  pullRequest     PullRequest @relation(fields: [pull_request_id], references: [id])
+
+  @@unique([comment_id, is_not_deleted])
+  @@index([pull_request_id])
+  @@index([comment_type])
+  @@map("coderabbit_comment")
 }
 
 // ---------------------------------------------------------------------------

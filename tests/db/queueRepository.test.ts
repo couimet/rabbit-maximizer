@@ -1,10 +1,11 @@
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/queueRepository.js';
+import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueStatus, TriggerSource } from '../../src/types/index.js';
 import { createMockObservationContextProvider, createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -696,7 +697,10 @@ describe('QueueRepositoryImpl', () => {
         ),
       ).rejects.toThrow('Unique constraint');
 
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: p2002 }, 'Enqueue failed; rethrowing');
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: expect.any(PrismaUniqueConstraintViolationError) },
+        'Enqueue failed; rethrowing',
+      );
     });
   });
 
@@ -730,10 +734,19 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getCountsByStatus', () => {
     it('returns counts keyed by QueueStatus, initializing missing statuses to 0', async () => {
+      const { pendingCnt, retriggeredCnt, reviewedCnt, skippedCnt, failedCnt } = getUniqueIntsNamed([
+        'pendingCnt',
+        'retriggeredCnt',
+        'reviewedCnt',
+        'skippedCnt',
+        'failedCnt',
+      ]);
       const rows = [
-        { status: QueueStatus.pending, _count: { status: 7 } },
-        { status: QueueStatus.retriggered, _count: { status: 3 } },
-        { status: QueueStatus.reviewed, _count: { status: 1 } },
+        { status: QueueStatus.pending, _count: { status: pendingCnt } },
+        { status: QueueStatus.retriggered, _count: { status: retriggeredCnt } },
+        { status: QueueStatus.reviewed, _count: { status: reviewedCnt } },
+        { status: QueueStatus.coderabbit_skipped, _count: { status: skippedCnt } },
+        { status: QueueStatus.failed, _count: { status: failedCnt } },
       ];
 
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -747,15 +760,32 @@ describe('QueueRepositoryImpl', () => {
         by: ['status'],
         _count: { status: true },
       });
-      expect(result).toStrictEqual({ pending: 7, retriggered: 3, reviewed: 1, failed: 0 });
+      expect(result).toStrictEqual({
+        coderabbit_skipped: skippedCnt,
+        failed: failedCnt,
+        pending: pendingCnt,
+        retriggered: retriggeredCnt,
+        reviewed: reviewedCnt,
+      });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.getCountsByStatus', counts: { pending: 7, retriggered: 3, reviewed: 1, failed: 0 } },
+        {
+          fn: 'QueueRepositoryImpl.getCountsByStatus',
+          counts: {
+            coderabbit_skipped: skippedCnt,
+            failed: failedCnt,
+            pending: pendingCnt,
+            retriggered: retriggeredCnt,
+            reviewed: reviewedCnt,
+          },
+        },
         'Fetched queue counts by status',
       );
     });
   });
 
   describe('getTriggered', () => {
+    const toTriggeredItem = (row: ReturnType<typeof makeRow>) => ({ ...toExpectedItem(row), last_coderabbit_acknowledged_at: undefined });
+
     it('returns retriggered items since date ordered by retriggered_at desc', async () => {
       const since = getUniqueDate();
       const row1 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 1000) });
@@ -772,6 +802,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+        include: { pullRequest: { select: { last_coderabbit_acknowledged_at: true } } },
         orderBy: { retriggered_at: 'desc' },
         skip: 0,
         take: 50,
@@ -779,7 +810,7 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.count).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
       });
-      expect(result).toStrictEqual({ items: [toExpectedItem(row2), toExpectedItem(row1)], total: 2 });
+      expect(result).toStrictEqual({ items: [toTriggeredItem(row2), toTriggeredItem(row1)], total: 2 });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeReviewed: false, count: 2, total: 2 },
         'Fetched triggered queue',
@@ -802,6 +833,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'reviewed'] } },
+        include: { pullRequest: { select: { last_coderabbit_acknowledged_at: true } } },
         orderBy: { retriggered_at: 'desc' },
         skip: 0,
         take: 50,
@@ -809,7 +841,7 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.count).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'reviewed'] } },
       });
-      expect(result.items).toStrictEqual([toExpectedItem(row), toExpectedItem(completedRow)]);
+      expect(result.items).toStrictEqual([toTriggeredItem(row), toTriggeredItem(completedRow)]);
     });
 
     it('respects skip and take for pagination', async () => {
@@ -828,6 +860,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+        include: { pullRequest: { select: { last_coderabbit_acknowledged_at: true } } },
         orderBy: { retriggered_at: 'desc' },
         skip: 1,
         take: 2,
@@ -835,7 +868,28 @@ describe('QueueRepositoryImpl', () => {
       expect(reviewQueue.count).toHaveBeenCalledWith({
         where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
       });
-      expect(result).toStrictEqual({ items: [toExpectedItem(row1), toExpectedItem(row2)], total: 4 });
+      expect(result).toStrictEqual({ items: [toTriggeredItem(row1), toTriggeredItem(row2)], total: 4 });
+    });
+
+    it('includes last_coderabbit_acknowledged_at from pull_request when available', async () => {
+      const since = getUniqueDate();
+      const acknowledgedAt = getUniqueDate();
+      const row = {
+        ...makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 1000) }),
+        pullRequest: { last_coderabbit_acknowledged_at: acknowledgedAt },
+      };
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: { findMany: createResolvedMock([row]), count: createResolvedMock(1) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      const result = await sut.getTriggered(since, 0, 50, false);
+
+      expect(result.items[0].last_coderabbit_acknowledged_at).toStrictEqual(acknowledgedAt);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeReviewed: false, count: 1, total: 1 },
+        'Fetched triggered queue',
+      );
     });
   });
 

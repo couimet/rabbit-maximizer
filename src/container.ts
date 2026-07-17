@@ -1,12 +1,15 @@
+import { type CoderabbitCommentRepository, CoderabbitCommentRepositoryImpl } from './db/coderabbitCommentRepository.js';
 import { type EventRepository, EventRepositoryImpl } from './db/eventRepository.js';
 import { createPrismaClient } from './db/prismaClientFactory.js';
 import { type PullRequestRepository, PullRequestRepositoryImpl } from './db/pullRequestRepository.js';
 import { type QueueOrderRepository, QueueOrderRepositoryImpl } from './db/queueOrderRepository.js';
 import { type QueueRepository, QueueRepositoryImpl } from './db/queueRepository.js';
 import { type SystemStateRepository, SystemStateRepositoryImpl } from './db/systemStateRepository.js';
+import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/softDeleteExtension.js';
 import type { CoderabbitGitHubClient } from './github/index.js';
 import { CoderabbitGitHubClientImpl } from './github/index.js';
 import { type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
+import { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
 import { ProbeFactory } from './probes/ProbeFactory.js';
 import type { OnDetectedCallback } from './types/index.js';
@@ -43,7 +46,7 @@ container
 
 container
   .bind<PrismaClient>(TYPES.PrismaClient)
-  .toDynamicValue(() => createPrismaClient())
+  .toDynamicValue(() => createPrismaClient().$extends(softDeleteExtension({ models: { CoderabbitComment: true } })) as unknown as PrismaClient)
   .inSingletonScope();
 
 container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClientImpl).inSingletonScope();
@@ -64,6 +67,8 @@ container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(
 
 container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory).inSingletonScope();
 
+container.bind<CoderabbitCommentRepository>(TYPES.CoderabbitCommentRepository).to(CoderabbitCommentRepositoryImpl).inSingletonScope();
+
 container.bind<PullRequestRepository>(TYPES.PullRequestRepository).to(PullRequestRepositoryImpl).inSingletonScope();
 
 container.bind<PruneEvaluator>(TYPES.PruneEvaluator).to(PruneEvaluatorImpl).inSingletonScope();
@@ -81,5 +86,9 @@ container.bind<PollDetector>(TYPES.PollDetector).to(PollDetector).inSingletonSco
 
 container.bind<ReviewTrigger>(TYPES.ReviewTrigger).to(ReviewTrigger).inSingletonScope();
 container.bind<Scheduler>(TYPES.Scheduler).to(Scheduler).inSingletonScope();
+
+container.bind<EventCountsMapper>(TYPES.EventCountsMapper).to(EventCountsMapper).inSingletonScope();
+container.bind<EventEntryMapper>(TYPES.EventEntryMapper).to(EventEntryMapper).inSingletonScope();
+container.bind<QueueItemMapper>(TYPES.QueueItemMapper).to(QueueItemMapper).inSingletonScope();
 
 export { container };

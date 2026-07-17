@@ -899,6 +899,147 @@ describe('client', () => {
     });
   });
 
+  describe('findAcknowledgement', () => {
+    it('paginates issue comments and returns the first acknowledgement from coderabbitai[bot]', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const ackCommentId = getUniqueInt();
+      const ackCommentUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${ackCommentId}`;
+      const ackBody = 'auto-generated reply by CodeRabbit';
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: ackCommentId,
+            html_url: ackCommentUrl,
+            body: ackBody,
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: prNumber,
+        since: since.toISOString(),
+        sort: 'created',
+        direction: 'desc',
+        per_page: 100,
+        page: 1,
+      });
+      expect(result).toStrictEqual({ commentId: ackCommentId, commentUrl: ackCommentUrl });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findAcknowledgement', owner, repo, pr: prNumber }, 'Searching for acknowledgement comment');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'findAcknowledgement', owner, repo, pr: prNumber, commentId: ackCommentId, commentUrl: ackCommentUrl },
+        'Found acknowledgement comment',
+      );
+    });
+
+    it('paginates to the next page when the first page has no match and is full', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const ackCommentId = getUniqueInt();
+      const ackCommentUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${ackCommentId}`;
+
+      issues.listComments
+        .mockResolvedValueOnce({
+          data: Array.from({ length: 100 }, () => ({
+            id: getUniqueInt(),
+            html_url: 'https://example.com/non-matching',
+            body: 'Just a normal comment',
+            user: { login: 'someone-else' },
+          })),
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: ackCommentId,
+              html_url: ackCommentUrl,
+              body: 'auto-generated reply by CodeRabbit',
+              user: { login: 'coderabbitai[bot]' },
+            },
+          ],
+        });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: prNumber,
+        since: since.toISOString(),
+        sort: 'created',
+        direction: 'desc',
+        per_page: 100,
+        page: 1,
+      });
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: prNumber,
+        since: since.toISOString(),
+        sort: 'created',
+        direction: 'desc',
+        per_page: 100,
+        page: 2,
+      });
+      expect(result).toStrictEqual({ commentId: ackCommentId, commentUrl: ackCommentUrl });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findAcknowledgement', owner, repo, pr: prNumber }, 'Searching for acknowledgement comment');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'findAcknowledgement', owner, repo, pr: prNumber, commentId: ackCommentId, commentUrl: ackCommentUrl },
+        'Found acknowledgement comment',
+      );
+    });
+
+    it('stops paginating when a page returns fewer than the per-page limit', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({
+        data: Array.from({ length: 50 }, () => ({
+          id: getUniqueInt(),
+          html_url: 'https://example.com/non-matching',
+          body: 'Just a normal comment',
+          user: { login: 'someone-else' },
+        })),
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+      expect(issues.listComments).toHaveBeenCalledTimes(1);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findAcknowledgement', owner, repo, pr: prNumber }, 'Searching for acknowledgement comment');
+    });
+
+    it('returns undefined when no matching comment is found', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/normal',
+            body: 'Just a normal comment.',
+            user: { login: 'someone-else' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findAcknowledgement(owner, repo, prNumber, since);
+
+      expect(result).toBeUndefined();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findAcknowledgement', owner, repo, pr: prNumber }, 'Searching for acknowledgement comment');
+    });
+  });
+
   describe('container binding', () => {
     it('resolves CoderabbitGitHubClient from the container with mock Octokit and Logger', () => {
       const container = new Container();

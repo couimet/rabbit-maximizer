@@ -20,3 +20,12 @@ export const REVIEW_BOT_RETRIGGER_COMMAND = '@coderabbitai full review';
 
 /** Body text markers that identify a completed CodeRabbit review via the PR reviews API. Each entry is a substring match against the review body. */
 export const REVIEW_BOT_COMPLETION_SIGNALS: readonly string[] = ['Actionable comments posted:', 'No actionable comments were generated in the recent review.'];
+
+/** Hidden HTML marker that identifies a CodeRabbit acknowledgement reply (the bot's "I'll review this" response to a retrigger). */
+export const REVIEW_BOT_ACKNOWLEDGEMENT_MARKER = 'auto-generated reply by CodeRabbit';
+
+/** Hidden HTML marker that identifies a CodeRabbit review-skipped comment. */
+export const REVIEW_BOT_SKIP_MARKER = 'skip review by coderabbit.ai';
+
+/** Hidden HTML marker that identifies a CodeRabbit review stack entry start (review completion). */
+export const REVIEW_STACK_MARKER = 'review_stack_entry_start';

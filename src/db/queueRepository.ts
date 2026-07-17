@@ -1,15 +1,14 @@
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
-import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
+import { PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import type { ProbeFactory } from '../probes/ProbeFactory.js';
+import type { ActivityListItem } from '../types/ActivityListItem.js';
 import { type CommentDetails, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
 import { inject, injectable } from 'inversify';
-
-const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -21,7 +20,7 @@ export interface QueueRepository {
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
+  getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<ActivityListItem>>;
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
@@ -57,18 +56,22 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     }
 
     try {
-      const row = await db.reviewQueue.create({
-        data: {
-          pull_request_id: data.pullRequestId,
-          repo_full_name: repo,
-          pr_number: pr,
-          pr_title: prTitle,
-          not_before: notBefore,
-          source_comment_url: sourceCommentUrl,
-          source_comment_id: sourceCommentId,
-          trigger_source: TriggerSource.scheduler,
-        },
-      });
+      const row = await this.withPrismaErrorHandling(
+        () =>
+          db.reviewQueue.create({
+            data: {
+              pull_request_id: data.pullRequestId,
+              repo_full_name: repo,
+              pr_number: pr,
+              pr_title: prTitle,
+              not_before: notBefore,
+              source_comment_url: sourceCommentUrl,
+              source_comment_id: sourceCommentId,
+              trigger_source: TriggerSource.scheduler,
+            },
+          }),
+        'QueueRepositoryImpl.enqueue',
+      );
 
       await db.queueOrder.create({ data: { queue_item_id: row.id } });
 
@@ -76,7 +79,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       return { item: this.toQueueItem(row), created: true };
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === UNIQUE_CONSTRAINT_VIOLATION) {
+      if (err instanceof PrismaUniqueConstraintViolationError) {
         const existing = await db.reviewQueue.findFirst({
           where: {
             repo_full_name: repo,
@@ -228,17 +231,35 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
 
   // eslint-disable-next-line require-await
-  async getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+  async getTriggered(
+    since: Date,
+    skip: number,
+    take: number,
+    includeReviewed: boolean,
+    tx?: Prisma.TransactionClient,
+  ): Promise<PaginatedResult<ActivityListItem>> {
     return this.enforceTx(tx, async (db) => {
       const statuses = includeReviewed ? [QueueStatus.retriggered, QueueStatus.reviewed] : [QueueStatus.retriggered];
       const where = { retriggered_at: { gte: since }, status: { in: statuses } };
       const [rows, total] = await Promise.all([
-        db.reviewQueue.findMany({ where, orderBy: { retriggered_at: 'desc' }, skip, take }),
+        db.reviewQueue.findMany({
+          where,
+          orderBy: { retriggered_at: 'desc' },
+          skip,
+          take,
+          include: { pullRequest: { select: { last_coderabbit_acknowledged_at: true } } },
+        }),
         db.reviewQueue.count({ where }),
       ]);
 
       this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeReviewed, count: rows.length, total }, 'Fetched triggered queue');
-      return { items: rows.map((row) => this.toQueueItem(row)), total };
+      return {
+        items: rows.map((row) => ({
+          ...this.toQueueItem(row),
+          last_coderabbit_acknowledged_at: row.pullRequest?.last_coderabbit_acknowledged_at ?? undefined,
+        })),
+        total,
+      };
     });
   }
 
@@ -270,7 +291,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         by: ['status'],
         _count: { status: true },
       });
-      const counts: Record<QueueStatus, number> = { pending: 0, retriggered: 0, reviewed: 0, failed: 0 };
+      const counts: Record<QueueStatus, number> = { coderabbit_skipped: 0, failed: 0, pending: 0, retriggered: 0, reviewed: 0 };
       for (const row of rows) {
         counts[row.status as QueueStatus] = row._count.status;
       }
