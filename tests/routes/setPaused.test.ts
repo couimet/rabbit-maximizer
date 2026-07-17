@@ -1,6 +1,7 @@
 import type { SystemStateRepository } from '../../src/db/systemStateRepository.js';
+import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { createSetPausedHandler } from '../../src/routes/setPaused.js';
-import { createMockSystemStateRepository, startTestServer } from '../helpers/index.js';
+import { createMockSystemStateRepository } from '../helpers/index.js';
 import { postJson } from '../helpers/postJson.js';
 
 import type { Logger } from '@couimet/logger-contract';

@@ -20,4 +20,3 @@ export * from './drainMicrotasks.js';
 export * from './makeEventEntry.js';
 export * from './makeQueueItem.js';
 export * from './postJson.js';
-export * from './startTestServer.js';

@@ -1,6 +1,6 @@
 import type { Config } from '../../src/config.js';
+import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { createGetConfigHandler } from '../../src/routes/getConfig.js';
-import { startTestServer } from '../helpers/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';

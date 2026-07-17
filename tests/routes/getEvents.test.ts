@@ -1,8 +1,9 @@
+import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { EventEntryMapper } from '../../src/mappers/EventEntryMapper.js';
 import { createGetEventsHandler } from '../../src/routes/getEvents.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, makeEventEntry, startTestServer } from '../helpers/index.js';
+import { apiJson, createMockEventRepo, makeEventEntry } from '../helpers/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';

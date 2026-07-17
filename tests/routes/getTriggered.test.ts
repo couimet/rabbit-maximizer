@@ -1,8 +1,9 @@
+import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetTriggeredHandler } from '../../src/routes/getTriggered.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockQueueRepo, makeQueueItem, startTestServer } from '../helpers/index.js';
+import { apiJson, createMockQueueRepo, makeQueueItem } from '../helpers/index.js';
 
 import { getUniqueDate } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';

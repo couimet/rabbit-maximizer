@@ -1,9 +1,10 @@
+import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
 import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, createMockQueueRepo, makeQueueItem, startTestServer } from '../helpers/index.js';
+import { apiJson, createMockEventRepo, createMockQueueRepo, makeQueueItem } from '../helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
