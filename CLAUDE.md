@@ -132,6 +132,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <see>src/probes/README.md</see>
 </rule>
 
+<rule id="C012" priority="critical">
+  <title>Every module imports from the source of truth, never through a re-export</title>
+  <do>Import symbols directly from the file that defines them</do>
+  <never>Re-export a symbol from one module through another module's barrel file (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
+  <never>Use a barrel file to forward symbols that originate in a different directory or package</never>
+  <rationale>Re-exports create invisible coupling between modules, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Each module's barrel exports only what that module defines.</rationale>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>
