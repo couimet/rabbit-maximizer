@@ -43,6 +43,17 @@ jobs:
           command: 'pnpm ci:check-generated-drift'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: couimet/github-actions/setup-node-pnpm@main
+      - run: cp .env.ci .env
+      - uses: couimet/github-actions/install-deps@main
+      - run: pnpm ci:test:integration
+
   bats-test:
     runs-on: ubuntu-latest
     steps:
