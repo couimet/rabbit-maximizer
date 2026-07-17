@@ -23,7 +23,7 @@ export interface CoderabbitReviewApprovedPayload {
   readonly coderabbit_comment_url?: string;
 }
 
-export interface CoderabbitReviewChangesRequestedPayload {
+export interface CoderabbitReviewChangesSuggestedPayload {
   readonly coderabbit_comment_url?: string;
 }
 

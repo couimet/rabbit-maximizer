@@ -258,7 +258,7 @@ export interface components {
     EventType:
       | 'bypassed'
       | 'coderabbit_review_approved'
-      | 'coderabbit_review_changes_requested'
+      | 'coderabbit_review_changes_suggested'
       | 'coderabbit_review_skipped'
       | 'detected'
       | 'enqueued'

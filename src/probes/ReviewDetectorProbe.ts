@@ -30,7 +30,7 @@ export class ReviewDetectorProbe {
   }
 
   async reviewed(
-    eventType: EventType.coderabbit_review_approved | EventType.coderabbit_review_changes_requested,
+    eventType: EventType.coderabbit_review_approved | EventType.coderabbit_review_changes_suggested,
     commentUrl: string,
     tx: Prisma.TransactionClient,
   ): Promise<void> {

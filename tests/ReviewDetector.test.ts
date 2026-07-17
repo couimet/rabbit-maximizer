@@ -129,7 +129,7 @@ describe('ReviewDetector', () => {
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
-    it('records coderabbit_review_changes_requested when Reviews API returns CHANGES_REQUESTED', async () => {
+    it('records coderabbit_review_changes_suggested when Reviews API returns CHANGES_REQUESTED', async () => {
       const retriggeredAt = getUniqueDate();
       const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
       const prNumber = getUniqueInt();
@@ -147,7 +147,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.findLatestCoderabbitReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_requested', reviewUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', reviewUrl, {});
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
@@ -175,7 +175,7 @@ describe('ReviewDetector', () => {
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', completedCommentUrl, {});
     });
 
-    it('records coderabbit_review_changes_requested when fallback completed review is not an approval', async () => {
+    it('records coderabbit_review_changes_suggested when fallback completed review is not an approval', async () => {
       const retriggeredAt = getUniqueDate();
       const { fullName: repoFullName } = getUniqueGitHubRepoRef();
       const prNumber = getUniqueInt();
@@ -194,7 +194,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_requested', completedCommentUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', completedCommentUrl, {});
     });
 
     it('skips item when no review is found via either API', async () => {

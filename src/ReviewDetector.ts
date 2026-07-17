@@ -63,7 +63,7 @@ export class ReviewDetector extends IntervalService {
           ? reviewStateToEventType(review.state)
           : completedReview!.isApproval
             ? EventType.coderabbit_review_approved
-            : EventType.coderabbit_review_changes_requested;
+            : EventType.coderabbit_review_changes_suggested;
         const commentUrl = review ? review.htmlUrl : completedReview!.htmlUrl;
 
         await this.prisma.$transaction(async (tx) => {

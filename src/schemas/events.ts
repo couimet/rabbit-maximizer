@@ -45,7 +45,7 @@ export const CoderabbitReviewApprovedPayloadSchema = z.object({
   coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
 });
 
-export const CoderabbitReviewChangesRequestedPayloadSchema = z.object({
+export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
   coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
 });
 
@@ -112,11 +112,11 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         type: EventType.coderabbit_review_approved,
         payload: CoderabbitReviewApprovedPayloadSchema.parse(payload),
       };
-    case EventType.coderabbit_review_changes_requested:
+    case EventType.coderabbit_review_changes_suggested:
       return {
         ...envelope,
-        type: EventType.coderabbit_review_changes_requested,
-        payload: CoderabbitReviewChangesRequestedPayloadSchema.parse(payload),
+        type: EventType.coderabbit_review_changes_suggested,
+        payload: CoderabbitReviewChangesSuggestedPayloadSchema.parse(payload),
       };
     case EventType.coderabbit_review_skipped:
       return {

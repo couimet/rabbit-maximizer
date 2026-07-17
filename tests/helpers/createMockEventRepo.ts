@@ -13,7 +13,7 @@ export const createMockEventRepo = (overrides?: Partial<jest.Mocked<EventReposit
       bypassed: 0,
       failed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
     }),
     listRecent: jest.fn<any>().mockResolvedValue({ items: [], total: 0 }),
     ...overrides,
