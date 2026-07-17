@@ -2,6 +2,8 @@
 
 Prisma client extension for soft-delete support. Provides a configurable way to mark rows as deleted without removing them from the database.
 
+A similar package exists on npm: [`prisma-extension-soft-delete`](https://www.npmjs.com/package/prisma-extension-soft-delete) by olivierwilkinson. That package offers nested operation support and delete→update conversion via `withNestedOperations`. This module takes a simpler approach (zero dependencies, top-level `$allOperations` hook) and additionally filters single `update` calls, which the npm package passes through unfiltered.
+
 ## How it works
 
 Uses a **reverse boolean** naming pattern: `is_not_deleted` (nullable `Boolean`, defaults to `true`).
@@ -16,7 +18,9 @@ Uses a **reverse boolean** naming pattern: `is_not_deleted` (nullable `Boolean`,
 const prisma = new PrismaClient().$extends(softDeleteExtension({ models: { CoderabbitComment: true } }));
 ```
 
-After extension, read queries (`findFirst`, `findMany`, `count`, etc.) on configured models automatically inject `is_not_deleted: true` into their `WHERE` clause, so only active rows are returned.
+After extension, read queries (`findFirst`, `findMany`, `count`, etc.) and write queries (`update`, `updateMany`) on configured models automatically inject `is_not_deleted: true` into their `WHERE` clause. Read queries only return active rows; write queries only modify active rows — attempting to update a soft-deleted row produces a "Record not found" error.
+
+Uses Prisma's `$allOperations` hook, which receives the model name as a runtime string. Only configured models are affected; all other models pass through unchanged.
 
 ## SoftDeleteConfig
 

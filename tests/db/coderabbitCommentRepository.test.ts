@@ -109,8 +109,9 @@ describe('CoderabbitCommentRepositoryImpl', () => {
 
     it('sets last_body_preview to null when body is empty', async () => {
       const data = makeData({ body: '' });
+      const createdRow = makeRow();
       const { prisma, coderabbitComment } = createMockPrismaClient({
-        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(makeRow()) },
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(createdRow) },
       });
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
 
@@ -130,12 +131,17 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           is_not_deleted: true,
         },
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: createdRow.id },
+        'Created CoderabbitComment',
+      );
     });
 
     it('sets last_body_preview to null when body is null', async () => {
       const data = makeData({ body: null });
+      const createdRow = makeRow();
       const { prisma, coderabbitComment } = createMockPrismaClient({
-        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(makeRow()) },
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(createdRow) },
       });
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
 
@@ -155,6 +161,10 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           is_not_deleted: true,
         },
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: createdRow.id },
+        'Created CoderabbitComment',
+      );
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError on update', async () => {
@@ -230,6 +240,10 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         details: { tableName: 'CoderabbitComment' },
         cause: p2002,
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'CoderabbitCommentRepositoryImpl.upsert', modelName: 'CoderabbitComment', prismaCode: 'P2002' },
+        'Unique constraint violation, throwing typed error',
+      );
     });
   });
 
@@ -296,7 +310,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         orderBy: { gh_created_at: 'desc' },
       });
       expect(result).not.toBeUndefined();
-      expect(result!.comment_type).toBe(commentType);
+      expect(result!.comment_type).toBe('review_skipped');
     });
 
     it('returns undefined when no matching comment exists', async () => {
