@@ -15,7 +15,6 @@ describe('api', () => {
   describe('fetchSummary', () => {
     it('returns parsed JSON on success', async () => {
       const data = {
-        queueCounts: { pending: 1, retriggered: 0, reviewed: 0, failed: 0 },
         eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
         oldestPending: null,
       };
@@ -37,7 +36,6 @@ describe('api', () => {
 
     it('appends duration query param when provided', async () => {
       const data = {
-        queueCounts: { pending: 0, retriggered: 0, failed: 0 },
         eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
         oldestPending: null,
       };
