@@ -1,4 +1,5 @@
 import type { QueueRepository } from '../db/queueRepository.js';
+import type { QueueItemMapper } from '../mappers/index.js';
 
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from './pagination.js';
 
@@ -6,7 +7,7 @@ import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-export const createGetQueueHandler = (queueRepo: QueueRepository, logger: Logger) => {
+export const createGetQueueHandler = (queueRepo: QueueRepository, queueItemMapper: QueueItemMapper, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const page = Math.max(DEFAULT_PAGE, parseInt(String(req.query.page)) || DEFAULT_PAGE);
@@ -14,8 +15,9 @@ export const createGetQueueHandler = (queueRepo: QueueRepository, logger: Logger
       const skip = (page - 1) * pageSize;
 
       const { items, total } = await queueRepo.getAll(skip, pageSize);
+      const data = queueItemMapper.mapToQueueItemResponseList(items);
 
-      res.json({ data: items, total, page, pageSize });
+      res.json({ data, total, page, pageSize });
     } catch (error) {
       logger.error({ fn: 'api.getQueue', error }, 'Failed to get queue');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get queue' });

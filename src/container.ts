@@ -9,6 +9,7 @@ import { softDeleteExtension } from './external-deps/couimet/prisma-extension-so
 import type { CoderabbitGitHubClient } from './github/index.js';
 import { CoderabbitGitHubClientImpl } from './github/index.js';
 import { type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
+import { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
 import { ProbeFactory } from './probes/ProbeFactory.js';
 import type { OnDetectedCallback } from './types/index.js';
@@ -85,5 +86,9 @@ container.bind<PollDetector>(TYPES.PollDetector).to(PollDetector).inSingletonSco
 
 container.bind<ReviewTrigger>(TYPES.ReviewTrigger).to(ReviewTrigger).inSingletonScope();
 container.bind<Scheduler>(TYPES.Scheduler).to(Scheduler).inSingletonScope();
+
+container.bind<EventCountsMapper>(TYPES.EventCountsMapper).to(EventCountsMapper).inSingletonScope();
+container.bind<EventEntryMapper>(TYPES.EventEntryMapper).to(EventEntryMapper).inSingletonScope();
+container.bind<QueueItemMapper>(TYPES.QueueItemMapper).to(QueueItemMapper).inSingletonScope();
 
 export { container };

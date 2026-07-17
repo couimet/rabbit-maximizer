@@ -1,5 +1,6 @@
+import type { EventEntryResponse } from '../../../src/types/api.js';
 import { formatDate } from '../../../src/utils/formatDate.js';
-import type { EventEntry, PaginatedResponse } from '../api.js';
+import type { PaginatedResponse } from '../api.js';
 import { fetchEvents } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 import { useTimezone, useTimezoneSuffix } from '../timezone.js';
@@ -11,7 +12,7 @@ import { useEffect, useState } from 'react';
 const PAGE_SIZE = 50;
 
 /** Build a summary string from an event's payload or fall back to correlation_id. */
-const eventDetail = (event: EventEntry): string => {
+const eventDetail = (event: EventEntryResponse): string => {
   if (event.payload && typeof event.payload === 'object' && Object.keys(event.payload).length > 0) {
     return JSON.stringify(event.payload);
   }
@@ -19,7 +20,7 @@ const eventDetail = (event: EventEntry): string => {
 };
 
 const EventHistory = () => {
-  const [data, setData] = useState<PaginatedResponse<EventEntry> | null>(null);
+  const [data, setData] = useState<PaginatedResponse<EventEntryResponse> | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const { timezone } = useTimezone();
