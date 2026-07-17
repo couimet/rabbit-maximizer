@@ -32,6 +32,11 @@ export type Event = $Result.DefaultSelection<Prisma.$EventPayload>;
  */
 export type QueueOrder = $Result.DefaultSelection<Prisma.$QueueOrderPayload>;
 /**
+ * Model CoderabbitComment
+ * Tracks each unique CodeRabbit comment independently of queue items.
+ */
+export type CoderabbitComment = $Result.DefaultSelection<Prisma.$CoderabbitCommentPayload>;
+/**
  * Model SystemState
  * Operational state values (poll health, scheduler status, countdown).
  */
@@ -214,6 +219,16 @@ export class PrismaClient<
    * ```
    */
   get queueOrder(): Prisma.QueueOrderDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.coderabbitComment`: Exposes CRUD operations for the **CoderabbitComment** model.
+   * Example usage:
+   * ```ts
+   * // Fetch zero or more CoderabbitComments
+   * const coderabbitComments = await prisma.coderabbitComment.findMany()
+   * ```
+   */
+  get coderabbitComment(): Prisma.CoderabbitCommentDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.systemState`: Exposes CRUD operations for the **SystemState** model.
@@ -618,6 +633,7 @@ export namespace Prisma {
     ReviewQueue: 'ReviewQueue';
     Event: 'Event';
     QueueOrder: 'QueueOrder';
+    CoderabbitComment: 'CoderabbitComment';
     SystemState: 'SystemState';
   };
 
@@ -632,7 +648,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions;
     };
     meta: {
-      modelProps: 'pullRequest' | 'reviewQueue' | 'event' | 'queueOrder' | 'systemState';
+      modelProps: 'pullRequest' | 'reviewQueue' | 'event' | 'queueOrder' | 'coderabbitComment' | 'systemState';
       txIsolationLevel: Prisma.TransactionIsolationLevel;
     };
     model: {
@@ -932,6 +948,80 @@ export namespace Prisma {
           };
         };
       };
+      CoderabbitComment: {
+        payload: Prisma.$CoderabbitCommentPayload<ExtArgs>;
+        fields: Prisma.CoderabbitCommentFieldRefs;
+        operations: {
+          findUnique: {
+            args: Prisma.CoderabbitCommentFindUniqueArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload> | null;
+          };
+          findUniqueOrThrow: {
+            args: Prisma.CoderabbitCommentFindUniqueOrThrowArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>;
+          };
+          findFirst: {
+            args: Prisma.CoderabbitCommentFindFirstArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload> | null;
+          };
+          findFirstOrThrow: {
+            args: Prisma.CoderabbitCommentFindFirstOrThrowArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>;
+          };
+          findMany: {
+            args: Prisma.CoderabbitCommentFindManyArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>[];
+          };
+          create: {
+            args: Prisma.CoderabbitCommentCreateArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>;
+          };
+          createMany: {
+            args: Prisma.CoderabbitCommentCreateManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          createManyAndReturn: {
+            args: Prisma.CoderabbitCommentCreateManyAndReturnArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>[];
+          };
+          delete: {
+            args: Prisma.CoderabbitCommentDeleteArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>;
+          };
+          update: {
+            args: Prisma.CoderabbitCommentUpdateArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>;
+          };
+          deleteMany: {
+            args: Prisma.CoderabbitCommentDeleteManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          updateMany: {
+            args: Prisma.CoderabbitCommentUpdateManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          updateManyAndReturn: {
+            args: Prisma.CoderabbitCommentUpdateManyAndReturnArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>[];
+          };
+          upsert: {
+            args: Prisma.CoderabbitCommentUpsertArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$CoderabbitCommentPayload>;
+          };
+          aggregate: {
+            args: Prisma.CoderabbitCommentAggregateArgs<ExtArgs>;
+            result: $Utils.Optional<AggregateCoderabbitComment>;
+          };
+          groupBy: {
+            args: Prisma.CoderabbitCommentGroupByArgs<ExtArgs>;
+            result: $Utils.Optional<CoderabbitCommentGroupByOutputType>[];
+          };
+          count: {
+            args: Prisma.CoderabbitCommentCountArgs<ExtArgs>;
+            result: $Utils.Optional<CoderabbitCommentCountAggregateOutputType> | number;
+          };
+        };
+      };
       SystemState: {
         payload: Prisma.$SystemStatePayload<ExtArgs>;
         fields: Prisma.SystemStateFieldRefs;
@@ -1118,6 +1208,7 @@ export namespace Prisma {
     reviewQueue?: ReviewQueueOmit;
     event?: EventOmit;
     queueOrder?: QueueOrderOmit;
+    coderabbitComment?: CoderabbitCommentOmit;
     systemState?: SystemStateOmit;
   };
 
@@ -1195,11 +1286,13 @@ export namespace Prisma {
   export type PullRequestCountOutputType = {
     queueItems: number;
     events: number;
+    comments: number;
   };
 
   export type PullRequestCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     queueItems?: boolean | PullRequestCountOutputTypeCountQueueItemsArgs;
     events?: boolean | PullRequestCountOutputTypeCountEventsArgs;
+    comments?: boolean | PullRequestCountOutputTypeCountCommentsArgs;
   };
 
   // Custom InputTypes
@@ -1225,6 +1318,13 @@ export namespace Prisma {
    */
   export type PullRequestCountOutputTypeCountEventsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: EventWhereInput;
+  };
+
+  /**
+   * PullRequestCountOutputType without action
+   */
+  export type PullRequestCountOutputTypeCountCommentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: CoderabbitCommentWhereInput;
   };
 
   /**
@@ -1526,6 +1626,7 @@ export namespace Prisma {
       updated_at?: boolean;
       queueItems?: boolean | PullRequest$queueItemsArgs<ExtArgs>;
       events?: boolean | PullRequest$eventsArgs<ExtArgs>;
+      comments?: boolean | PullRequest$commentsArgs<ExtArgs>;
       _count?: boolean | PullRequestCountOutputTypeDefaultArgs<ExtArgs>;
     },
     ExtArgs['result']['pullRequest']
@@ -1616,6 +1717,7 @@ export namespace Prisma {
   export type PullRequestInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     queueItems?: boolean | PullRequest$queueItemsArgs<ExtArgs>;
     events?: boolean | PullRequest$eventsArgs<ExtArgs>;
+    comments?: boolean | PullRequest$commentsArgs<ExtArgs>;
     _count?: boolean | PullRequestCountOutputTypeDefaultArgs<ExtArgs>;
   };
   export type PullRequestIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {};
@@ -1626,6 +1728,7 @@ export namespace Prisma {
     objects: {
       queueItems: Prisma.$ReviewQueuePayload<ExtArgs>[];
       events: Prisma.$EventPayload<ExtArgs>[];
+      comments: Prisma.$CoderabbitCommentPayload<ExtArgs>[];
     };
     scalars: $Extensions.GetPayloadResult<
       {
@@ -2077,6 +2180,9 @@ export namespace Prisma {
     events<T extends PullRequest$eventsArgs<ExtArgs> = {}>(
       args?: Subset<T, PullRequest$eventsArgs<ExtArgs>>,
     ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$EventPayload<ExtArgs>, T, 'findMany', GlobalOmitOptions> | Null>;
+    comments<T extends PullRequest$commentsArgs<ExtArgs> = {}>(
+      args?: Subset<T, PullRequest$commentsArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'findMany', GlobalOmitOptions> | Null>;
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2557,6 +2663,30 @@ export namespace Prisma {
     take?: number;
     skip?: number;
     distinct?: EventScalarFieldEnum | EventScalarFieldEnum[];
+  };
+
+  /**
+   * PullRequest.comments
+   */
+  export type PullRequest$commentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    where?: CoderabbitCommentWhereInput;
+    orderBy?: CoderabbitCommentOrderByWithRelationInput | CoderabbitCommentOrderByWithRelationInput[];
+    cursor?: CoderabbitCommentWhereUniqueInput;
+    take?: number;
+    skip?: number;
+    distinct?: CoderabbitCommentScalarFieldEnum | CoderabbitCommentScalarFieldEnum[];
   };
 
   /**
@@ -6400,6 +6530,1341 @@ export namespace Prisma {
   };
 
   /**
+   * Model CoderabbitComment
+   */
+
+  export type AggregateCoderabbitComment = {
+    _count: CoderabbitCommentCountAggregateOutputType | null;
+    _avg: CoderabbitCommentAvgAggregateOutputType | null;
+    _sum: CoderabbitCommentSumAggregateOutputType | null;
+    _min: CoderabbitCommentMinAggregateOutputType | null;
+    _max: CoderabbitCommentMaxAggregateOutputType | null;
+  };
+
+  export type CoderabbitCommentAvgAggregateOutputType = {
+    id: number | null;
+    pull_request_id: number | null;
+    comment_id: number | null;
+  };
+
+  export type CoderabbitCommentSumAggregateOutputType = {
+    id: number | null;
+    pull_request_id: number | null;
+    comment_id: number | null;
+  };
+
+  export type CoderabbitCommentMinAggregateOutputType = {
+    id: number | null;
+    uuid: string | null;
+    pull_request_id: number | null;
+    comment_id: number | null;
+    url: string | null;
+    comment_type: string | null;
+    last_body_preview: string | null;
+    gh_created_at: Date | null;
+    gh_updated_at: Date | null;
+    first_seen_at: Date | null;
+    last_seen_at: Date | null;
+    is_not_deleted: boolean | null;
+    deleted_at: Date | null;
+    created_at: Date | null;
+    updated_at: Date | null;
+  };
+
+  export type CoderabbitCommentMaxAggregateOutputType = {
+    id: number | null;
+    uuid: string | null;
+    pull_request_id: number | null;
+    comment_id: number | null;
+    url: string | null;
+    comment_type: string | null;
+    last_body_preview: string | null;
+    gh_created_at: Date | null;
+    gh_updated_at: Date | null;
+    first_seen_at: Date | null;
+    last_seen_at: Date | null;
+    is_not_deleted: boolean | null;
+    deleted_at: Date | null;
+    created_at: Date | null;
+    updated_at: Date | null;
+  };
+
+  export type CoderabbitCommentCountAggregateOutputType = {
+    id: number;
+    uuid: number;
+    pull_request_id: number;
+    comment_id: number;
+    url: number;
+    comment_type: number;
+    last_body_preview: number;
+    gh_created_at: number;
+    gh_updated_at: number;
+    first_seen_at: number;
+    last_seen_at: number;
+    is_not_deleted: number;
+    deleted_at: number;
+    created_at: number;
+    updated_at: number;
+    _all: number;
+  };
+
+  export type CoderabbitCommentAvgAggregateInputType = {
+    id?: true;
+    pull_request_id?: true;
+    comment_id?: true;
+  };
+
+  export type CoderabbitCommentSumAggregateInputType = {
+    id?: true;
+    pull_request_id?: true;
+    comment_id?: true;
+  };
+
+  export type CoderabbitCommentMinAggregateInputType = {
+    id?: true;
+    uuid?: true;
+    pull_request_id?: true;
+    comment_id?: true;
+    url?: true;
+    comment_type?: true;
+    last_body_preview?: true;
+    gh_created_at?: true;
+    gh_updated_at?: true;
+    first_seen_at?: true;
+    last_seen_at?: true;
+    is_not_deleted?: true;
+    deleted_at?: true;
+    created_at?: true;
+    updated_at?: true;
+  };
+
+  export type CoderabbitCommentMaxAggregateInputType = {
+    id?: true;
+    uuid?: true;
+    pull_request_id?: true;
+    comment_id?: true;
+    url?: true;
+    comment_type?: true;
+    last_body_preview?: true;
+    gh_created_at?: true;
+    gh_updated_at?: true;
+    first_seen_at?: true;
+    last_seen_at?: true;
+    is_not_deleted?: true;
+    deleted_at?: true;
+    created_at?: true;
+    updated_at?: true;
+  };
+
+  export type CoderabbitCommentCountAggregateInputType = {
+    id?: true;
+    uuid?: true;
+    pull_request_id?: true;
+    comment_id?: true;
+    url?: true;
+    comment_type?: true;
+    last_body_preview?: true;
+    gh_created_at?: true;
+    gh_updated_at?: true;
+    first_seen_at?: true;
+    last_seen_at?: true;
+    is_not_deleted?: true;
+    deleted_at?: true;
+    created_at?: true;
+    updated_at?: true;
+    _all?: true;
+  };
+
+  export type CoderabbitCommentAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which CoderabbitComment to aggregate.
+     */
+    where?: CoderabbitCommentWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of CoderabbitComments to fetch.
+     */
+    orderBy?: CoderabbitCommentOrderByWithRelationInput | CoderabbitCommentOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the start position
+     */
+    cursor?: CoderabbitCommentWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` CoderabbitComments from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` CoderabbitComments.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Count returned CoderabbitComments
+     **/
+    _count?: true | CoderabbitCommentCountAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to average
+     **/
+    _avg?: CoderabbitCommentAvgAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to sum
+     **/
+    _sum?: CoderabbitCommentSumAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to find the minimum value
+     **/
+    _min?: CoderabbitCommentMinAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to find the maximum value
+     **/
+    _max?: CoderabbitCommentMaxAggregateInputType;
+  };
+
+  export type GetCoderabbitCommentAggregateType<T extends CoderabbitCommentAggregateArgs> = {
+    [P in keyof T & keyof AggregateCoderabbitComment]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateCoderabbitComment[P]>
+      : GetScalarType<T[P], AggregateCoderabbitComment[P]>;
+  };
+
+  export type CoderabbitCommentGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: CoderabbitCommentWhereInput;
+    orderBy?: CoderabbitCommentOrderByWithAggregationInput | CoderabbitCommentOrderByWithAggregationInput[];
+    by: CoderabbitCommentScalarFieldEnum[] | CoderabbitCommentScalarFieldEnum;
+    having?: CoderabbitCommentScalarWhereWithAggregatesInput;
+    take?: number;
+    skip?: number;
+    _count?: CoderabbitCommentCountAggregateInputType | true;
+    _avg?: CoderabbitCommentAvgAggregateInputType;
+    _sum?: CoderabbitCommentSumAggregateInputType;
+    _min?: CoderabbitCommentMinAggregateInputType;
+    _max?: CoderabbitCommentMaxAggregateInputType;
+  };
+
+  export type CoderabbitCommentGroupByOutputType = {
+    id: number;
+    uuid: string;
+    pull_request_id: number;
+    comment_id: number;
+    url: string;
+    comment_type: string;
+    last_body_preview: string | null;
+    gh_created_at: Date;
+    gh_updated_at: Date;
+    first_seen_at: Date;
+    last_seen_at: Date;
+    is_not_deleted: boolean | null;
+    deleted_at: Date | null;
+    created_at: Date;
+    updated_at: Date;
+    _count: CoderabbitCommentCountAggregateOutputType | null;
+    _avg: CoderabbitCommentAvgAggregateOutputType | null;
+    _sum: CoderabbitCommentSumAggregateOutputType | null;
+    _min: CoderabbitCommentMinAggregateOutputType | null;
+    _max: CoderabbitCommentMaxAggregateOutputType | null;
+  };
+
+  type GetCoderabbitCommentGroupByPayload<T extends CoderabbitCommentGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<CoderabbitCommentGroupByOutputType, T['by']> & {
+        [P in keyof T & keyof CoderabbitCommentGroupByOutputType]: P extends '_count'
+          ? T[P] extends boolean
+            ? number
+            : GetScalarType<T[P], CoderabbitCommentGroupByOutputType[P]>
+          : GetScalarType<T[P], CoderabbitCommentGroupByOutputType[P]>;
+      }
+    >
+  >;
+
+  export type CoderabbitCommentSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      uuid?: boolean;
+      pull_request_id?: boolean;
+      comment_id?: boolean;
+      url?: boolean;
+      comment_type?: boolean;
+      last_body_preview?: boolean;
+      gh_created_at?: boolean;
+      gh_updated_at?: boolean;
+      first_seen_at?: boolean;
+      last_seen_at?: boolean;
+      is_not_deleted?: boolean;
+      deleted_at?: boolean;
+      created_at?: boolean;
+      updated_at?: boolean;
+      pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+    },
+    ExtArgs['result']['coderabbitComment']
+  >;
+
+  export type CoderabbitCommentSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      uuid?: boolean;
+      pull_request_id?: boolean;
+      comment_id?: boolean;
+      url?: boolean;
+      comment_type?: boolean;
+      last_body_preview?: boolean;
+      gh_created_at?: boolean;
+      gh_updated_at?: boolean;
+      first_seen_at?: boolean;
+      last_seen_at?: boolean;
+      is_not_deleted?: boolean;
+      deleted_at?: boolean;
+      created_at?: boolean;
+      updated_at?: boolean;
+      pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+    },
+    ExtArgs['result']['coderabbitComment']
+  >;
+
+  export type CoderabbitCommentSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      uuid?: boolean;
+      pull_request_id?: boolean;
+      comment_id?: boolean;
+      url?: boolean;
+      comment_type?: boolean;
+      last_body_preview?: boolean;
+      gh_created_at?: boolean;
+      gh_updated_at?: boolean;
+      first_seen_at?: boolean;
+      last_seen_at?: boolean;
+      is_not_deleted?: boolean;
+      deleted_at?: boolean;
+      created_at?: boolean;
+      updated_at?: boolean;
+      pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+    },
+    ExtArgs['result']['coderabbitComment']
+  >;
+
+  export type CoderabbitCommentSelectScalar = {
+    id?: boolean;
+    uuid?: boolean;
+    pull_request_id?: boolean;
+    comment_id?: boolean;
+    url?: boolean;
+    comment_type?: boolean;
+    last_body_preview?: boolean;
+    gh_created_at?: boolean;
+    gh_updated_at?: boolean;
+    first_seen_at?: boolean;
+    last_seen_at?: boolean;
+    is_not_deleted?: boolean;
+    deleted_at?: boolean;
+    created_at?: boolean;
+    updated_at?: boolean;
+  };
+
+  export type CoderabbitCommentOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<
+    | 'id'
+    | 'uuid'
+    | 'pull_request_id'
+    | 'comment_id'
+    | 'url'
+    | 'comment_type'
+    | 'last_body_preview'
+    | 'gh_created_at'
+    | 'gh_updated_at'
+    | 'first_seen_at'
+    | 'last_seen_at'
+    | 'is_not_deleted'
+    | 'deleted_at'
+    | 'created_at'
+    | 'updated_at',
+    ExtArgs['result']['coderabbitComment']
+  >;
+  export type CoderabbitCommentInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+  };
+  export type CoderabbitCommentIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+  };
+  export type CoderabbitCommentIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+  };
+
+  export type $CoderabbitCommentPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: 'CoderabbitComment';
+    objects: {
+      pullRequest: Prisma.$PullRequestPayload<ExtArgs>;
+    };
+    scalars: $Extensions.GetPayloadResult<
+      {
+        id: number;
+        uuid: string;
+        pull_request_id: number;
+        /**
+         * GitHub comment ID. Combined with is_not_deleted in a composite unique so a
+         * deleted row does not block re-creation from the same comment ID.
+         */
+        comment_id: number;
+        /**
+         * Max 512 (GitHub comment URL).
+         */
+        url: string;
+        /**
+         * One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' (CHECK in migration).
+         */
+        comment_type: string;
+        /**
+         * Max 1024. First N chars of the comment body, truncated by the repository on upsert.
+         */
+        last_body_preview: string | null;
+        gh_created_at: Date;
+        gh_updated_at: Date;
+        first_seen_at: Date;
+        last_seen_at: Date;
+        is_not_deleted: boolean | null;
+        deleted_at: Date | null;
+        created_at: Date;
+        updated_at: Date;
+      },
+      ExtArgs['result']['coderabbitComment']
+    >;
+    composites: {};
+  };
+
+  type CoderabbitCommentGetPayload<S extends boolean | null | undefined | CoderabbitCommentDefaultArgs> = $Result.GetResult<
+    Prisma.$CoderabbitCommentPayload,
+    S
+  >;
+
+  type CoderabbitCommentCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = Omit<
+    CoderabbitCommentFindManyArgs,
+    'select' | 'include' | 'distinct' | 'omit'
+  > & {
+    select?: CoderabbitCommentCountAggregateInputType | true;
+  };
+
+  export interface CoderabbitCommentDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['CoderabbitComment']; meta: { name: 'CoderabbitComment' } };
+    /**
+     * Find zero or one CoderabbitComment that matches the filter.
+     * @param {CoderabbitCommentFindUniqueArgs} args - Arguments to find a CoderabbitComment
+     * @example
+     * // Get one CoderabbitComment
+     * const coderabbitComment = await prisma.coderabbitComment.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends CoderabbitCommentFindUniqueArgs>(
+      args: SelectSubset<T, CoderabbitCommentFindUniqueArgs<ExtArgs>>,
+    ): Prisma__CoderabbitCommentClient<
+      $Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'findUnique', GlobalOmitOptions> | null,
+      null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find one CoderabbitComment that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {CoderabbitCommentFindUniqueOrThrowArgs} args - Arguments to find a CoderabbitComment
+     * @example
+     * // Get one CoderabbitComment
+     * const coderabbitComment = await prisma.coderabbitComment.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends CoderabbitCommentFindUniqueOrThrowArgs>(
+      args: SelectSubset<T, CoderabbitCommentFindUniqueOrThrowArgs<ExtArgs>>,
+    ): Prisma__CoderabbitCommentClient<
+      $Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'findUniqueOrThrow', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find the first CoderabbitComment that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CoderabbitCommentFindFirstArgs} args - Arguments to find a CoderabbitComment
+     * @example
+     * // Get one CoderabbitComment
+     * const coderabbitComment = await prisma.coderabbitComment.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends CoderabbitCommentFindFirstArgs>(
+      args?: SelectSubset<T, CoderabbitCommentFindFirstArgs<ExtArgs>>,
+    ): Prisma__CoderabbitCommentClient<
+      $Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'findFirst', GlobalOmitOptions> | null,
+      null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find the first CoderabbitComment that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CoderabbitCommentFindFirstOrThrowArgs} args - Arguments to find a CoderabbitComment
+     * @example
+     * // Get one CoderabbitComment
+     * const coderabbitComment = await prisma.coderabbitComment.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends CoderabbitCommentFindFirstOrThrowArgs>(
+      args?: SelectSubset<T, CoderabbitCommentFindFirstOrThrowArgs<ExtArgs>>,
+    ): Prisma__CoderabbitCommentClient<
+      $Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'findFirstOrThrow', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find zero or more CoderabbitComments that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CoderabbitCommentFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all CoderabbitComments
+     * const coderabbitComments = await prisma.coderabbitComment.findMany()
+     *
+     * // Get first 10 CoderabbitComments
+     * const coderabbitComments = await prisma.coderabbitComment.findMany({ take: 10 })
+     *
+     * // Only select the `id`
+     * const coderabbitCommentWithIdOnly = await prisma.coderabbitComment.findMany({ select: { id: true } })
+     *
+     */
+    findMany<T extends CoderabbitCommentFindManyArgs>(
+      args?: SelectSubset<T, CoderabbitCommentFindManyArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'findMany', GlobalOmitOptions>>;
+
+    /**
+     * Create a CoderabbitComment.
+     * @param {CoderabbitCommentCreateArgs} args - Arguments to create a CoderabbitComment.
+     * @example
+     * // Create one CoderabbitComment
+     * const CoderabbitComment = await prisma.coderabbitComment.create({
+     *   data: {
+     *     // ... data to create a CoderabbitComment
+     *   }
+     * })
+     *
+     */
+    create<T extends CoderabbitCommentCreateArgs>(
+      args: SelectSubset<T, CoderabbitCommentCreateArgs<ExtArgs>>,
+    ): Prisma__CoderabbitCommentClient<
+      $Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'create', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Create many CoderabbitComments.
+     * @param {CoderabbitCommentCreateManyArgs} args - Arguments to create many CoderabbitComments.
+     * @example
+     * // Create many CoderabbitComments
+     * const coderabbitComment = await prisma.coderabbitComment.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     */
+    createMany<T extends CoderabbitCommentCreateManyArgs>(args?: SelectSubset<T, CoderabbitCommentCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Create many CoderabbitComments and returns the data saved in the database.
+     * @param {CoderabbitCommentCreateManyAndReturnArgs} args - Arguments to create many CoderabbitComments.
+     * @example
+     * // Create many CoderabbitComments
+     * const coderabbitComment = await prisma.coderabbitComment.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     * // Create many CoderabbitComments and only return the `id`
+     * const coderabbitCommentWithIdOnly = await prisma.coderabbitComment.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     *
+     */
+    createManyAndReturn<T extends CoderabbitCommentCreateManyAndReturnArgs>(
+      args?: SelectSubset<T, CoderabbitCommentCreateManyAndReturnArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'createManyAndReturn', GlobalOmitOptions>>;
+
+    /**
+     * Delete a CoderabbitComment.
+     * @param {CoderabbitCommentDeleteArgs} args - Arguments to delete one CoderabbitComment.
+     * @example
+     * // Delete one CoderabbitComment
+     * const CoderabbitComment = await prisma.coderabbitComment.delete({
+     *   where: {
+     *     // ... filter to delete one CoderabbitComment
+     *   }
+     * })
+     *
+     */
+    delete<T extends CoderabbitCommentDeleteArgs>(
+      args: SelectSubset<T, CoderabbitCommentDeleteArgs<ExtArgs>>,
+    ): Prisma__CoderabbitCommentClient<
+      $Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'delete', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Update one CoderabbitComment.
+     * @param {CoderabbitCommentUpdateArgs} args - Arguments to update one CoderabbitComment.
+     * @example
+     * // Update one CoderabbitComment
+     * const coderabbitComment = await prisma.coderabbitComment.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     *
+     */
+    update<T extends CoderabbitCommentUpdateArgs>(
+      args: SelectSubset<T, CoderabbitCommentUpdateArgs<ExtArgs>>,
+    ): Prisma__CoderabbitCommentClient<
+      $Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'update', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Delete zero or more CoderabbitComments.
+     * @param {CoderabbitCommentDeleteManyArgs} args - Arguments to filter CoderabbitComments to delete.
+     * @example
+     * // Delete a few CoderabbitComments
+     * const { count } = await prisma.coderabbitComment.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     *
+     */
+    deleteMany<T extends CoderabbitCommentDeleteManyArgs>(args?: SelectSubset<T, CoderabbitCommentDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Update zero or more CoderabbitComments.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CoderabbitCommentUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many CoderabbitComments
+     * const coderabbitComment = await prisma.coderabbitComment.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     *
+     */
+    updateMany<T extends CoderabbitCommentUpdateManyArgs>(args: SelectSubset<T, CoderabbitCommentUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Update zero or more CoderabbitComments and returns the data updated in the database.
+     * @param {CoderabbitCommentUpdateManyAndReturnArgs} args - Arguments to update many CoderabbitComments.
+     * @example
+     * // Update many CoderabbitComments
+     * const coderabbitComment = await prisma.coderabbitComment.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     * // Update zero or more CoderabbitComments and only return the `id`
+     * const coderabbitCommentWithIdOnly = await prisma.coderabbitComment.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     *
+     */
+    updateManyAndReturn<T extends CoderabbitCommentUpdateManyAndReturnArgs>(
+      args: SelectSubset<T, CoderabbitCommentUpdateManyAndReturnArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'updateManyAndReturn', GlobalOmitOptions>>;
+
+    /**
+     * Create or update one CoderabbitComment.
+     * @param {CoderabbitCommentUpsertArgs} args - Arguments to update or create a CoderabbitComment.
+     * @example
+     * // Update or create a CoderabbitComment
+     * const coderabbitComment = await prisma.coderabbitComment.upsert({
+     *   create: {
+     *     // ... data to create a CoderabbitComment
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the CoderabbitComment we want to update
+     *   }
+     * })
+     */
+    upsert<T extends CoderabbitCommentUpsertArgs>(
+      args: SelectSubset<T, CoderabbitCommentUpsertArgs<ExtArgs>>,
+    ): Prisma__CoderabbitCommentClient<
+      $Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'upsert', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Count the number of CoderabbitComments.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CoderabbitCommentCountArgs} args - Arguments to filter CoderabbitComments to count.
+     * @example
+     * // Count the number of CoderabbitComments
+     * const count = await prisma.coderabbitComment.count({
+     *   where: {
+     *     // ... the filter for the CoderabbitComments we want to count
+     *   }
+     * })
+     **/
+    count<T extends CoderabbitCommentCountArgs>(
+      args?: Subset<T, CoderabbitCommentCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], CoderabbitCommentCountAggregateOutputType>
+        : number
+    >;
+
+    /**
+     * Allows you to perform aggregations operations on a CoderabbitComment.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CoderabbitCommentAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+     **/
+    aggregate<T extends CoderabbitCommentAggregateArgs>(
+      args: Subset<T, CoderabbitCommentAggregateArgs>,
+    ): Prisma.PrismaPromise<GetCoderabbitCommentAggregateType<T>>;
+
+    /**
+     * Group by CoderabbitComment.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {CoderabbitCommentGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     *
+     **/
+    groupBy<
+      T extends CoderabbitCommentGroupByArgs,
+      HasSelectOrTake extends Or<Extends<'skip', Keys<T>>, Extends<'take', Keys<T>>>,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: CoderabbitCommentGroupByArgs['orderBy'] }
+        : { orderBy?: CoderabbitCommentGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+        ? `Error: "by" must not be empty.`
+        : HavingValid extends False
+          ? {
+              [P in HavingFields]: P extends ByFields
+                ? never
+                : P extends string
+                  ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+                  : [Error, 'Field ', P, ` in "having" needs to be provided in "by"`];
+            }[HavingFields]
+          : 'take' extends Keys<T>
+            ? 'orderBy' extends Keys<T>
+              ? ByValid extends True
+                ? {}
+                : {
+                    [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                  }[OrderFields]
+              : 'Error: If you provide "take", you also need to provide "orderBy"'
+            : 'skip' extends Keys<T>
+              ? 'orderBy' extends Keys<T>
+                ? ByValid extends True
+                  ? {}
+                  : {
+                      [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                    }[OrderFields]
+                : 'Error: If you provide "skip", you also need to provide "orderBy"'
+              : ByValid extends True
+                ? {}
+                : {
+                    [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                  }[OrderFields],
+    >(
+      args: SubsetIntersection<T, CoderabbitCommentGroupByArgs, OrderByArg> & InputErrors,
+    ): {} extends InputErrors ? GetCoderabbitCommentGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>;
+    /**
+     * Fields of the CoderabbitComment model
+     */
+    readonly fields: CoderabbitCommentFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for CoderabbitComment.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__CoderabbitCommentClient<
+    T,
+    Null = never,
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+    GlobalOmitOptions = {},
+  > extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: 'PrismaPromise';
+    pullRequest<T extends PullRequestDefaultArgs<ExtArgs> = {}>(
+      args?: Subset<T, PullRequestDefaultArgs<ExtArgs>>,
+    ): Prisma__PullRequestClient<
+      $Result.GetResult<Prisma.$PullRequestPayload<ExtArgs>, T, 'findUniqueOrThrow', GlobalOmitOptions> | Null,
+      Null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(
+      onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+      onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null,
+    ): $Utils.JsPromise<TResult1 | TResult2>;
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>;
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>;
+  }
+
+  /**
+   * Fields of the CoderabbitComment model
+   */
+  interface CoderabbitCommentFieldRefs {
+    readonly id: FieldRef<'CoderabbitComment', 'Int'>;
+    readonly uuid: FieldRef<'CoderabbitComment', 'String'>;
+    readonly pull_request_id: FieldRef<'CoderabbitComment', 'Int'>;
+    readonly comment_id: FieldRef<'CoderabbitComment', 'Int'>;
+    readonly url: FieldRef<'CoderabbitComment', 'String'>;
+    readonly comment_type: FieldRef<'CoderabbitComment', 'String'>;
+    readonly last_body_preview: FieldRef<'CoderabbitComment', 'String'>;
+    readonly gh_created_at: FieldRef<'CoderabbitComment', 'DateTime'>;
+    readonly gh_updated_at: FieldRef<'CoderabbitComment', 'DateTime'>;
+    readonly first_seen_at: FieldRef<'CoderabbitComment', 'DateTime'>;
+    readonly last_seen_at: FieldRef<'CoderabbitComment', 'DateTime'>;
+    readonly is_not_deleted: FieldRef<'CoderabbitComment', 'Boolean'>;
+    readonly deleted_at: FieldRef<'CoderabbitComment', 'DateTime'>;
+    readonly created_at: FieldRef<'CoderabbitComment', 'DateTime'>;
+    readonly updated_at: FieldRef<'CoderabbitComment', 'DateTime'>;
+  }
+
+  // Custom InputTypes
+  /**
+   * CoderabbitComment findUnique
+   */
+  export type CoderabbitCommentFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * Filter, which CoderabbitComment to fetch.
+     */
+    where: CoderabbitCommentWhereUniqueInput;
+  };
+
+  /**
+   * CoderabbitComment findUniqueOrThrow
+   */
+  export type CoderabbitCommentFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * Filter, which CoderabbitComment to fetch.
+     */
+    where: CoderabbitCommentWhereUniqueInput;
+  };
+
+  /**
+   * CoderabbitComment findFirst
+   */
+  export type CoderabbitCommentFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * Filter, which CoderabbitComment to fetch.
+     */
+    where?: CoderabbitCommentWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of CoderabbitComments to fetch.
+     */
+    orderBy?: CoderabbitCommentOrderByWithRelationInput | CoderabbitCommentOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for searching for CoderabbitComments.
+     */
+    cursor?: CoderabbitCommentWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` CoderabbitComments from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` CoderabbitComments.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of CoderabbitComments.
+     */
+    distinct?: CoderabbitCommentScalarFieldEnum | CoderabbitCommentScalarFieldEnum[];
+  };
+
+  /**
+   * CoderabbitComment findFirstOrThrow
+   */
+  export type CoderabbitCommentFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * Filter, which CoderabbitComment to fetch.
+     */
+    where?: CoderabbitCommentWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of CoderabbitComments to fetch.
+     */
+    orderBy?: CoderabbitCommentOrderByWithRelationInput | CoderabbitCommentOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for searching for CoderabbitComments.
+     */
+    cursor?: CoderabbitCommentWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` CoderabbitComments from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` CoderabbitComments.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of CoderabbitComments.
+     */
+    distinct?: CoderabbitCommentScalarFieldEnum | CoderabbitCommentScalarFieldEnum[];
+  };
+
+  /**
+   * CoderabbitComment findMany
+   */
+  export type CoderabbitCommentFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * Filter, which CoderabbitComments to fetch.
+     */
+    where?: CoderabbitCommentWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of CoderabbitComments to fetch.
+     */
+    orderBy?: CoderabbitCommentOrderByWithRelationInput | CoderabbitCommentOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for listing CoderabbitComments.
+     */
+    cursor?: CoderabbitCommentWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` CoderabbitComments from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` CoderabbitComments.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of CoderabbitComments.
+     */
+    distinct?: CoderabbitCommentScalarFieldEnum | CoderabbitCommentScalarFieldEnum[];
+  };
+
+  /**
+   * CoderabbitComment create
+   */
+  export type CoderabbitCommentCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * The data needed to create a CoderabbitComment.
+     */
+    data: XOR<CoderabbitCommentCreateInput, CoderabbitCommentUncheckedCreateInput>;
+  };
+
+  /**
+   * CoderabbitComment createMany
+   */
+  export type CoderabbitCommentCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many CoderabbitComments.
+     */
+    data: CoderabbitCommentCreateManyInput | CoderabbitCommentCreateManyInput[];
+  };
+
+  /**
+   * CoderabbitComment createManyAndReturn
+   */
+  export type CoderabbitCommentCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelectCreateManyAndReturn<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * The data used to create many CoderabbitComments.
+     */
+    data: CoderabbitCommentCreateManyInput | CoderabbitCommentCreateManyInput[];
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentIncludeCreateManyAndReturn<ExtArgs> | null;
+  };
+
+  /**
+   * CoderabbitComment update
+   */
+  export type CoderabbitCommentUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * The data needed to update a CoderabbitComment.
+     */
+    data: XOR<CoderabbitCommentUpdateInput, CoderabbitCommentUncheckedUpdateInput>;
+    /**
+     * Choose, which CoderabbitComment to update.
+     */
+    where: CoderabbitCommentWhereUniqueInput;
+  };
+
+  /**
+   * CoderabbitComment updateMany
+   */
+  export type CoderabbitCommentUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update CoderabbitComments.
+     */
+    data: XOR<CoderabbitCommentUpdateManyMutationInput, CoderabbitCommentUncheckedUpdateManyInput>;
+    /**
+     * Filter which CoderabbitComments to update
+     */
+    where?: CoderabbitCommentWhereInput;
+    /**
+     * Limit how many CoderabbitComments to update.
+     */
+    limit?: number;
+  };
+
+  /**
+   * CoderabbitComment updateManyAndReturn
+   */
+  export type CoderabbitCommentUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelectUpdateManyAndReturn<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * The data used to update CoderabbitComments.
+     */
+    data: XOR<CoderabbitCommentUpdateManyMutationInput, CoderabbitCommentUncheckedUpdateManyInput>;
+    /**
+     * Filter which CoderabbitComments to update
+     */
+    where?: CoderabbitCommentWhereInput;
+    /**
+     * Limit how many CoderabbitComments to update.
+     */
+    limit?: number;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentIncludeUpdateManyAndReturn<ExtArgs> | null;
+  };
+
+  /**
+   * CoderabbitComment upsert
+   */
+  export type CoderabbitCommentUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * The filter to search for the CoderabbitComment to update in case it exists.
+     */
+    where: CoderabbitCommentWhereUniqueInput;
+    /**
+     * In case the CoderabbitComment found by the `where` argument doesn't exist, create a new CoderabbitComment with this data.
+     */
+    create: XOR<CoderabbitCommentCreateInput, CoderabbitCommentUncheckedCreateInput>;
+    /**
+     * In case the CoderabbitComment was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<CoderabbitCommentUpdateInput, CoderabbitCommentUncheckedUpdateInput>;
+  };
+
+  /**
+   * CoderabbitComment delete
+   */
+  export type CoderabbitCommentDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+    /**
+     * Filter which CoderabbitComment to delete.
+     */
+    where: CoderabbitCommentWhereUniqueInput;
+  };
+
+  /**
+   * CoderabbitComment deleteMany
+   */
+  export type CoderabbitCommentDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which CoderabbitComments to delete
+     */
+    where?: CoderabbitCommentWhereInput;
+    /**
+     * Limit how many CoderabbitComments to delete.
+     */
+    limit?: number;
+  };
+
+  /**
+   * CoderabbitComment without action
+   */
+  export type CoderabbitCommentDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the CoderabbitComment
+     */
+    select?: CoderabbitCommentSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the CoderabbitComment
+     */
+    omit?: CoderabbitCommentOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: CoderabbitCommentInclude<ExtArgs> | null;
+  };
+
+  /**
    * Model SystemState
    */
 
@@ -7566,6 +9031,26 @@ export namespace Prisma {
 
   export type QueueOrderScalarFieldEnum = (typeof QueueOrderScalarFieldEnum)[keyof typeof QueueOrderScalarFieldEnum];
 
+  export const CoderabbitCommentScalarFieldEnum: {
+    id: 'id';
+    uuid: 'uuid';
+    pull_request_id: 'pull_request_id';
+    comment_id: 'comment_id';
+    url: 'url';
+    comment_type: 'comment_type';
+    last_body_preview: 'last_body_preview';
+    gh_created_at: 'gh_created_at';
+    gh_updated_at: 'gh_updated_at';
+    first_seen_at: 'first_seen_at';
+    last_seen_at: 'last_seen_at';
+    is_not_deleted: 'is_not_deleted';
+    deleted_at: 'deleted_at';
+    created_at: 'created_at';
+    updated_at: 'updated_at';
+  };
+
+  export type CoderabbitCommentScalarFieldEnum = (typeof CoderabbitCommentScalarFieldEnum)[keyof typeof CoderabbitCommentScalarFieldEnum];
+
   export const SystemStateScalarFieldEnum: {
     state_key: 'state_key';
     value_text: 'value_text';
@@ -7611,6 +9096,11 @@ export namespace Prisma {
   export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime'>;
 
   /**
+   * Reference to a field of type 'Boolean'
+   */
+  export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>;
+
+  /**
    * Reference to a field of type 'Float'
    */
   export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>;
@@ -7641,6 +9131,7 @@ export namespace Prisma {
     updated_at?: DateTimeFilter<'PullRequest'> | Date | string;
     queueItems?: ReviewQueueListRelationFilter;
     events?: EventListRelationFilter;
+    comments?: CoderabbitCommentListRelationFilter;
   };
 
   export type PullRequestOrderByWithRelationInput = {
@@ -7662,6 +9153,7 @@ export namespace Prisma {
     updated_at?: SortOrder;
     queueItems?: ReviewQueueOrderByRelationAggregateInput;
     events?: EventOrderByRelationAggregateInput;
+    comments?: CoderabbitCommentOrderByRelationAggregateInput;
   };
 
   export type PullRequestWhereUniqueInput = Prisma.AtLeast<
@@ -7688,6 +9180,7 @@ export namespace Prisma {
       updated_at?: DateTimeFilter<'PullRequest'> | Date | string;
       queueItems?: ReviewQueueListRelationFilter;
       events?: EventListRelationFilter;
+      comments?: CoderabbitCommentListRelationFilter;
     },
     'id' | 'uuid' | 'repo_full_name_pr_number'
   >;
@@ -8021,6 +9514,117 @@ export namespace Prisma {
     updated_at?: DateTimeWithAggregatesFilter<'QueueOrder'> | Date | string;
   };
 
+  export type CoderabbitCommentWhereInput = {
+    AND?: CoderabbitCommentWhereInput | CoderabbitCommentWhereInput[];
+    OR?: CoderabbitCommentWhereInput[];
+    NOT?: CoderabbitCommentWhereInput | CoderabbitCommentWhereInput[];
+    id?: IntFilter<'CoderabbitComment'> | number;
+    uuid?: StringFilter<'CoderabbitComment'> | string;
+    pull_request_id?: IntFilter<'CoderabbitComment'> | number;
+    comment_id?: IntFilter<'CoderabbitComment'> | number;
+    url?: StringFilter<'CoderabbitComment'> | string;
+    comment_type?: StringFilter<'CoderabbitComment'> | string;
+    last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    last_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    is_not_deleted?: BoolNullableFilter<'CoderabbitComment'> | boolean | null;
+    deleted_at?: DateTimeNullableFilter<'CoderabbitComment'> | Date | string | null;
+    created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    pullRequest?: XOR<PullRequestScalarRelationFilter, PullRequestWhereInput>;
+  };
+
+  export type CoderabbitCommentOrderByWithRelationInput = {
+    id?: SortOrder;
+    uuid?: SortOrder;
+    pull_request_id?: SortOrder;
+    comment_id?: SortOrder;
+    url?: SortOrder;
+    comment_type?: SortOrder;
+    last_body_preview?: SortOrderInput | SortOrder;
+    gh_created_at?: SortOrder;
+    gh_updated_at?: SortOrder;
+    first_seen_at?: SortOrder;
+    last_seen_at?: SortOrder;
+    is_not_deleted?: SortOrderInput | SortOrder;
+    deleted_at?: SortOrderInput | SortOrder;
+    created_at?: SortOrder;
+    updated_at?: SortOrder;
+    pullRequest?: PullRequestOrderByWithRelationInput;
+  };
+
+  export type CoderabbitCommentWhereUniqueInput = Prisma.AtLeast<
+    {
+      id?: number;
+      uuid?: string;
+      comment_id_is_not_deleted?: CoderabbitCommentComment_idIs_not_deletedCompoundUniqueInput;
+      AND?: CoderabbitCommentWhereInput | CoderabbitCommentWhereInput[];
+      OR?: CoderabbitCommentWhereInput[];
+      NOT?: CoderabbitCommentWhereInput | CoderabbitCommentWhereInput[];
+      pull_request_id?: IntFilter<'CoderabbitComment'> | number;
+      comment_id?: IntFilter<'CoderabbitComment'> | number;
+      url?: StringFilter<'CoderabbitComment'> | string;
+      comment_type?: StringFilter<'CoderabbitComment'> | string;
+      last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+      gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+      gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+      first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+      last_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+      is_not_deleted?: BoolNullableFilter<'CoderabbitComment'> | boolean | null;
+      deleted_at?: DateTimeNullableFilter<'CoderabbitComment'> | Date | string | null;
+      created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+      updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+      pullRequest?: XOR<PullRequestScalarRelationFilter, PullRequestWhereInput>;
+    },
+    'id' | 'uuid' | 'comment_id_is_not_deleted'
+  >;
+
+  export type CoderabbitCommentOrderByWithAggregationInput = {
+    id?: SortOrder;
+    uuid?: SortOrder;
+    pull_request_id?: SortOrder;
+    comment_id?: SortOrder;
+    url?: SortOrder;
+    comment_type?: SortOrder;
+    last_body_preview?: SortOrderInput | SortOrder;
+    gh_created_at?: SortOrder;
+    gh_updated_at?: SortOrder;
+    first_seen_at?: SortOrder;
+    last_seen_at?: SortOrder;
+    is_not_deleted?: SortOrderInput | SortOrder;
+    deleted_at?: SortOrderInput | SortOrder;
+    created_at?: SortOrder;
+    updated_at?: SortOrder;
+    _count?: CoderabbitCommentCountOrderByAggregateInput;
+    _avg?: CoderabbitCommentAvgOrderByAggregateInput;
+    _max?: CoderabbitCommentMaxOrderByAggregateInput;
+    _min?: CoderabbitCommentMinOrderByAggregateInput;
+    _sum?: CoderabbitCommentSumOrderByAggregateInput;
+  };
+
+  export type CoderabbitCommentScalarWhereWithAggregatesInput = {
+    AND?: CoderabbitCommentScalarWhereWithAggregatesInput | CoderabbitCommentScalarWhereWithAggregatesInput[];
+    OR?: CoderabbitCommentScalarWhereWithAggregatesInput[];
+    NOT?: CoderabbitCommentScalarWhereWithAggregatesInput | CoderabbitCommentScalarWhereWithAggregatesInput[];
+    id?: IntWithAggregatesFilter<'CoderabbitComment'> | number;
+    uuid?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
+    pull_request_id?: IntWithAggregatesFilter<'CoderabbitComment'> | number;
+    comment_id?: IntWithAggregatesFilter<'CoderabbitComment'> | number;
+    url?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
+    comment_type?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
+    last_body_preview?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
+    gh_created_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
+    gh_updated_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
+    first_seen_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
+    last_seen_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
+    is_not_deleted?: BoolNullableWithAggregatesFilter<'CoderabbitComment'> | boolean | null;
+    deleted_at?: DateTimeNullableWithAggregatesFilter<'CoderabbitComment'> | Date | string | null;
+    created_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
+    updated_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
+  };
+
   export type SystemStateWhereInput = {
     AND?: SystemStateWhereInput | SystemStateWhereInput[];
     OR?: SystemStateWhereInput[];
@@ -8101,6 +9705,7 @@ export namespace Prisma {
     updated_at?: Date | string;
     queueItems?: ReviewQueueCreateNestedManyWithoutPullRequestInput;
     events?: EventCreateNestedManyWithoutPullRequestInput;
+    comments?: CoderabbitCommentCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUncheckedCreateInput = {
@@ -8122,6 +9727,7 @@ export namespace Prisma {
     updated_at?: Date | string;
     queueItems?: ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput;
     events?: EventUncheckedCreateNestedManyWithoutPullRequestInput;
+    comments?: CoderabbitCommentUncheckedCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUpdateInput = {
@@ -8142,6 +9748,7 @@ export namespace Prisma {
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     queueItems?: ReviewQueueUpdateManyWithoutPullRequestNestedInput;
     events?: EventUpdateManyWithoutPullRequestNestedInput;
+    comments?: CoderabbitCommentUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestUncheckedUpdateInput = {
@@ -8163,6 +9770,7 @@ export namespace Prisma {
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     queueItems?: ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput;
     events?: EventUncheckedUpdateManyWithoutPullRequestNestedInput;
+    comments?: CoderabbitCommentUncheckedUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestCreateManyInput = {
@@ -8521,6 +10129,128 @@ export namespace Prisma {
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
 
+  export type CoderabbitCommentCreateInput = {
+    uuid?: string;
+    comment_id: number;
+    url: string;
+    comment_type: string;
+    last_body_preview?: string | null;
+    gh_created_at: Date | string;
+    gh_updated_at: Date | string;
+    first_seen_at: Date | string;
+    last_seen_at: Date | string;
+    is_not_deleted?: boolean | null;
+    deleted_at?: Date | string | null;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+    pullRequest: PullRequestCreateNestedOneWithoutCommentsInput;
+  };
+
+  export type CoderabbitCommentUncheckedCreateInput = {
+    id?: number;
+    uuid?: string;
+    pull_request_id: number;
+    comment_id: number;
+    url: string;
+    comment_type: string;
+    last_body_preview?: string | null;
+    gh_created_at: Date | string;
+    gh_updated_at: Date | string;
+    first_seen_at: Date | string;
+    last_seen_at: Date | string;
+    is_not_deleted?: boolean | null;
+    deleted_at?: Date | string | null;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+  };
+
+  export type CoderabbitCommentUpdateInput = {
+    uuid?: StringFieldUpdateOperationsInput | string;
+    comment_id?: IntFieldUpdateOperationsInput | number;
+    url?: StringFieldUpdateOperationsInput | string;
+    comment_type?: StringFieldUpdateOperationsInput | string;
+    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    is_not_deleted?: NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    pullRequest?: PullRequestUpdateOneRequiredWithoutCommentsNestedInput;
+  };
+
+  export type CoderabbitCommentUncheckedUpdateInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    uuid?: StringFieldUpdateOperationsInput | string;
+    pull_request_id?: IntFieldUpdateOperationsInput | number;
+    comment_id?: IntFieldUpdateOperationsInput | number;
+    url?: StringFieldUpdateOperationsInput | string;
+    comment_type?: StringFieldUpdateOperationsInput | string;
+    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    is_not_deleted?: NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type CoderabbitCommentCreateManyInput = {
+    id?: number;
+    uuid?: string;
+    pull_request_id: number;
+    comment_id: number;
+    url: string;
+    comment_type: string;
+    last_body_preview?: string | null;
+    gh_created_at: Date | string;
+    gh_updated_at: Date | string;
+    first_seen_at: Date | string;
+    last_seen_at: Date | string;
+    is_not_deleted?: boolean | null;
+    deleted_at?: Date | string | null;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+  };
+
+  export type CoderabbitCommentUpdateManyMutationInput = {
+    uuid?: StringFieldUpdateOperationsInput | string;
+    comment_id?: IntFieldUpdateOperationsInput | number;
+    url?: StringFieldUpdateOperationsInput | string;
+    comment_type?: StringFieldUpdateOperationsInput | string;
+    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    is_not_deleted?: NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type CoderabbitCommentUncheckedUpdateManyInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    uuid?: StringFieldUpdateOperationsInput | string;
+    pull_request_id?: IntFieldUpdateOperationsInput | number;
+    comment_id?: IntFieldUpdateOperationsInput | number;
+    url?: StringFieldUpdateOperationsInput | string;
+    comment_type?: StringFieldUpdateOperationsInput | string;
+    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    is_not_deleted?: NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
   export type SystemStateCreateInput = {
     state_key: string;
     value_text?: string | null;
@@ -8643,6 +10373,12 @@ export namespace Prisma {
     none?: EventWhereInput;
   };
 
+  export type CoderabbitCommentListRelationFilter = {
+    every?: CoderabbitCommentWhereInput;
+    some?: CoderabbitCommentWhereInput;
+    none?: CoderabbitCommentWhereInput;
+  };
+
   export type SortOrderInput = {
     sort: SortOrder;
     nulls?: NullsOrder;
@@ -8653,6 +10389,10 @@ export namespace Prisma {
   };
 
   export type EventOrderByRelationAggregateInput = {
+    _count?: SortOrder;
+  };
+
+  export type CoderabbitCommentOrderByRelationAggregateInput = {
     _count?: SortOrder;
   };
 
@@ -9038,6 +10778,95 @@ export namespace Prisma {
     position?: SortOrder;
   };
 
+  export type BoolNullableFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null;
+    not?: NestedBoolNullableFilter<$PrismaModel> | boolean | null;
+  };
+
+  export type PullRequestScalarRelationFilter = {
+    is?: PullRequestWhereInput;
+    isNot?: PullRequestWhereInput;
+  };
+
+  export type CoderabbitCommentComment_idIs_not_deletedCompoundUniqueInput = {
+    comment_id: number;
+    is_not_deleted: boolean;
+  };
+
+  export type CoderabbitCommentCountOrderByAggregateInput = {
+    id?: SortOrder;
+    uuid?: SortOrder;
+    pull_request_id?: SortOrder;
+    comment_id?: SortOrder;
+    url?: SortOrder;
+    comment_type?: SortOrder;
+    last_body_preview?: SortOrder;
+    gh_created_at?: SortOrder;
+    gh_updated_at?: SortOrder;
+    first_seen_at?: SortOrder;
+    last_seen_at?: SortOrder;
+    is_not_deleted?: SortOrder;
+    deleted_at?: SortOrder;
+    created_at?: SortOrder;
+    updated_at?: SortOrder;
+  };
+
+  export type CoderabbitCommentAvgOrderByAggregateInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+    comment_id?: SortOrder;
+  };
+
+  export type CoderabbitCommentMaxOrderByAggregateInput = {
+    id?: SortOrder;
+    uuid?: SortOrder;
+    pull_request_id?: SortOrder;
+    comment_id?: SortOrder;
+    url?: SortOrder;
+    comment_type?: SortOrder;
+    last_body_preview?: SortOrder;
+    gh_created_at?: SortOrder;
+    gh_updated_at?: SortOrder;
+    first_seen_at?: SortOrder;
+    last_seen_at?: SortOrder;
+    is_not_deleted?: SortOrder;
+    deleted_at?: SortOrder;
+    created_at?: SortOrder;
+    updated_at?: SortOrder;
+  };
+
+  export type CoderabbitCommentMinOrderByAggregateInput = {
+    id?: SortOrder;
+    uuid?: SortOrder;
+    pull_request_id?: SortOrder;
+    comment_id?: SortOrder;
+    url?: SortOrder;
+    comment_type?: SortOrder;
+    last_body_preview?: SortOrder;
+    gh_created_at?: SortOrder;
+    gh_updated_at?: SortOrder;
+    first_seen_at?: SortOrder;
+    last_seen_at?: SortOrder;
+    is_not_deleted?: SortOrder;
+    deleted_at?: SortOrder;
+    created_at?: SortOrder;
+    updated_at?: SortOrder;
+  };
+
+  export type CoderabbitCommentSumOrderByAggregateInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+    comment_id?: SortOrder;
+  };
+
+  export type BoolNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null;
+    not?: NestedBoolNullableWithAggregatesFilter<$PrismaModel> | boolean | null;
+    _count?: NestedIntNullableFilter<$PrismaModel>;
+    _min?: NestedBoolNullableFilter<$PrismaModel>;
+    _max?: NestedBoolNullableFilter<$PrismaModel>;
+  };
+
   export type FloatNullableFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null;
     in?: number[] | null;
@@ -9122,6 +10951,16 @@ export namespace Prisma {
     connect?: EventWhereUniqueInput | EventWhereUniqueInput[];
   };
 
+  export type CoderabbitCommentCreateNestedManyWithoutPullRequestInput = {
+    create?:
+      | XOR<CoderabbitCommentCreateWithoutPullRequestInput, CoderabbitCommentUncheckedCreateWithoutPullRequestInput>
+      | CoderabbitCommentCreateWithoutPullRequestInput[]
+      | CoderabbitCommentUncheckedCreateWithoutPullRequestInput[];
+    connectOrCreate?: CoderabbitCommentCreateOrConnectWithoutPullRequestInput | CoderabbitCommentCreateOrConnectWithoutPullRequestInput[];
+    createMany?: CoderabbitCommentCreateManyPullRequestInputEnvelope;
+    connect?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+  };
+
   export type ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput = {
     create?:
       | XOR<ReviewQueueCreateWithoutPullRequestInput, ReviewQueueUncheckedCreateWithoutPullRequestInput>
@@ -9140,6 +10979,16 @@ export namespace Prisma {
     connectOrCreate?: EventCreateOrConnectWithoutPullRequestInput | EventCreateOrConnectWithoutPullRequestInput[];
     createMany?: EventCreateManyPullRequestInputEnvelope;
     connect?: EventWhereUniqueInput | EventWhereUniqueInput[];
+  };
+
+  export type CoderabbitCommentUncheckedCreateNestedManyWithoutPullRequestInput = {
+    create?:
+      | XOR<CoderabbitCommentCreateWithoutPullRequestInput, CoderabbitCommentUncheckedCreateWithoutPullRequestInput>
+      | CoderabbitCommentCreateWithoutPullRequestInput[]
+      | CoderabbitCommentUncheckedCreateWithoutPullRequestInput[];
+    connectOrCreate?: CoderabbitCommentCreateOrConnectWithoutPullRequestInput | CoderabbitCommentCreateOrConnectWithoutPullRequestInput[];
+    createMany?: CoderabbitCommentCreateManyPullRequestInputEnvelope;
+    connect?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
   };
 
   export type StringFieldUpdateOperationsInput = {
@@ -9196,6 +11045,23 @@ export namespace Prisma {
     deleteMany?: EventScalarWhereInput | EventScalarWhereInput[];
   };
 
+  export type CoderabbitCommentUpdateManyWithoutPullRequestNestedInput = {
+    create?:
+      | XOR<CoderabbitCommentCreateWithoutPullRequestInput, CoderabbitCommentUncheckedCreateWithoutPullRequestInput>
+      | CoderabbitCommentCreateWithoutPullRequestInput[]
+      | CoderabbitCommentUncheckedCreateWithoutPullRequestInput[];
+    connectOrCreate?: CoderabbitCommentCreateOrConnectWithoutPullRequestInput | CoderabbitCommentCreateOrConnectWithoutPullRequestInput[];
+    upsert?: CoderabbitCommentUpsertWithWhereUniqueWithoutPullRequestInput | CoderabbitCommentUpsertWithWhereUniqueWithoutPullRequestInput[];
+    createMany?: CoderabbitCommentCreateManyPullRequestInputEnvelope;
+    set?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+    disconnect?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+    delete?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+    connect?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+    update?: CoderabbitCommentUpdateWithWhereUniqueWithoutPullRequestInput | CoderabbitCommentUpdateWithWhereUniqueWithoutPullRequestInput[];
+    updateMany?: CoderabbitCommentUpdateManyWithWhereWithoutPullRequestInput | CoderabbitCommentUpdateManyWithWhereWithoutPullRequestInput[];
+    deleteMany?: CoderabbitCommentScalarWhereInput | CoderabbitCommentScalarWhereInput[];
+  };
+
   export type ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput = {
     create?:
       | XOR<ReviewQueueCreateWithoutPullRequestInput, ReviewQueueUncheckedCreateWithoutPullRequestInput>
@@ -9228,6 +11094,23 @@ export namespace Prisma {
     update?: EventUpdateWithWhereUniqueWithoutPullRequestInput | EventUpdateWithWhereUniqueWithoutPullRequestInput[];
     updateMany?: EventUpdateManyWithWhereWithoutPullRequestInput | EventUpdateManyWithWhereWithoutPullRequestInput[];
     deleteMany?: EventScalarWhereInput | EventScalarWhereInput[];
+  };
+
+  export type CoderabbitCommentUncheckedUpdateManyWithoutPullRequestNestedInput = {
+    create?:
+      | XOR<CoderabbitCommentCreateWithoutPullRequestInput, CoderabbitCommentUncheckedCreateWithoutPullRequestInput>
+      | CoderabbitCommentCreateWithoutPullRequestInput[]
+      | CoderabbitCommentUncheckedCreateWithoutPullRequestInput[];
+    connectOrCreate?: CoderabbitCommentCreateOrConnectWithoutPullRequestInput | CoderabbitCommentCreateOrConnectWithoutPullRequestInput[];
+    upsert?: CoderabbitCommentUpsertWithWhereUniqueWithoutPullRequestInput | CoderabbitCommentUpsertWithWhereUniqueWithoutPullRequestInput[];
+    createMany?: CoderabbitCommentCreateManyPullRequestInputEnvelope;
+    set?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+    disconnect?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+    delete?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+    connect?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+    update?: CoderabbitCommentUpdateWithWhereUniqueWithoutPullRequestInput | CoderabbitCommentUpdateWithWhereUniqueWithoutPullRequestInput[];
+    updateMany?: CoderabbitCommentUpdateManyWithWhereWithoutPullRequestInput | CoderabbitCommentUpdateManyWithWhereWithoutPullRequestInput[];
+    deleteMany?: CoderabbitCommentScalarWhereInput | CoderabbitCommentScalarWhereInput[];
   };
 
   export type QueueOrderCreateNestedOneWithoutQueueItemInput = {
@@ -9329,6 +11212,27 @@ export namespace Prisma {
     update?: XOR<
       XOR<ReviewQueueUpdateToOneWithWhereWithoutQueueOrderInput, ReviewQueueUpdateWithoutQueueOrderInput>,
       ReviewQueueUncheckedUpdateWithoutQueueOrderInput
+    >;
+  };
+
+  export type PullRequestCreateNestedOneWithoutCommentsInput = {
+    create?: XOR<PullRequestCreateWithoutCommentsInput, PullRequestUncheckedCreateWithoutCommentsInput>;
+    connectOrCreate?: PullRequestCreateOrConnectWithoutCommentsInput;
+    connect?: PullRequestWhereUniqueInput;
+  };
+
+  export type NullableBoolFieldUpdateOperationsInput = {
+    set?: boolean | null;
+  };
+
+  export type PullRequestUpdateOneRequiredWithoutCommentsNestedInput = {
+    create?: XOR<PullRequestCreateWithoutCommentsInput, PullRequestUncheckedCreateWithoutCommentsInput>;
+    connectOrCreate?: PullRequestCreateOrConnectWithoutCommentsInput;
+    upsert?: PullRequestUpsertWithoutCommentsInput;
+    connect?: PullRequestWhereUniqueInput;
+    update?: XOR<
+      XOR<PullRequestUpdateToOneWithWhereWithoutCommentsInput, PullRequestUpdateWithoutCommentsInput>,
+      PullRequestUncheckedUpdateWithoutCommentsInput
     >;
   };
 
@@ -9528,6 +11432,19 @@ export namespace Prisma {
     _max?: NestedStringNullableFilter<$PrismaModel>;
   };
 
+  export type NestedBoolNullableFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null;
+    not?: NestedBoolNullableFilter<$PrismaModel> | boolean | null;
+  };
+
+  export type NestedBoolNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: boolean | BooleanFieldRefInput<$PrismaModel> | null;
+    not?: NestedBoolNullableWithAggregatesFilter<$PrismaModel> | boolean | null;
+    _count?: NestedIntNullableFilter<$PrismaModel>;
+    _min?: NestedBoolNullableFilter<$PrismaModel>;
+    _max?: NestedBoolNullableFilter<$PrismaModel>;
+  };
+
   export type NestedFloatNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | FloatFieldRefInput<$PrismaModel> | null;
     in?: number[] | null;
@@ -9630,6 +11547,48 @@ export namespace Prisma {
     data: EventCreateManyPullRequestInput | EventCreateManyPullRequestInput[];
   };
 
+  export type CoderabbitCommentCreateWithoutPullRequestInput = {
+    uuid?: string;
+    comment_id: number;
+    url: string;
+    comment_type: string;
+    last_body_preview?: string | null;
+    gh_created_at: Date | string;
+    gh_updated_at: Date | string;
+    first_seen_at: Date | string;
+    last_seen_at: Date | string;
+    is_not_deleted?: boolean | null;
+    deleted_at?: Date | string | null;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+  };
+
+  export type CoderabbitCommentUncheckedCreateWithoutPullRequestInput = {
+    id?: number;
+    uuid?: string;
+    comment_id: number;
+    url: string;
+    comment_type: string;
+    last_body_preview?: string | null;
+    gh_created_at: Date | string;
+    gh_updated_at: Date | string;
+    first_seen_at: Date | string;
+    last_seen_at: Date | string;
+    is_not_deleted?: boolean | null;
+    deleted_at?: Date | string | null;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+  };
+
+  export type CoderabbitCommentCreateOrConnectWithoutPullRequestInput = {
+    where: CoderabbitCommentWhereUniqueInput;
+    create: XOR<CoderabbitCommentCreateWithoutPullRequestInput, CoderabbitCommentUncheckedCreateWithoutPullRequestInput>;
+  };
+
+  export type CoderabbitCommentCreateManyPullRequestInputEnvelope = {
+    data: CoderabbitCommentCreateManyPullRequestInput | CoderabbitCommentCreateManyPullRequestInput[];
+  };
+
   export type ReviewQueueUpsertWithWhereUniqueWithoutPullRequestInput = {
     where: ReviewQueueWhereUniqueInput;
     update: XOR<ReviewQueueUpdateWithoutPullRequestInput, ReviewQueueUncheckedUpdateWithoutPullRequestInput>;
@@ -9704,6 +11663,43 @@ export namespace Prisma {
     metadata?: StringNullableFilter<'Event'> | string | null;
   };
 
+  export type CoderabbitCommentUpsertWithWhereUniqueWithoutPullRequestInput = {
+    where: CoderabbitCommentWhereUniqueInput;
+    update: XOR<CoderabbitCommentUpdateWithoutPullRequestInput, CoderabbitCommentUncheckedUpdateWithoutPullRequestInput>;
+    create: XOR<CoderabbitCommentCreateWithoutPullRequestInput, CoderabbitCommentUncheckedCreateWithoutPullRequestInput>;
+  };
+
+  export type CoderabbitCommentUpdateWithWhereUniqueWithoutPullRequestInput = {
+    where: CoderabbitCommentWhereUniqueInput;
+    data: XOR<CoderabbitCommentUpdateWithoutPullRequestInput, CoderabbitCommentUncheckedUpdateWithoutPullRequestInput>;
+  };
+
+  export type CoderabbitCommentUpdateManyWithWhereWithoutPullRequestInput = {
+    where: CoderabbitCommentScalarWhereInput;
+    data: XOR<CoderabbitCommentUpdateManyMutationInput, CoderabbitCommentUncheckedUpdateManyWithoutPullRequestInput>;
+  };
+
+  export type CoderabbitCommentScalarWhereInput = {
+    AND?: CoderabbitCommentScalarWhereInput | CoderabbitCommentScalarWhereInput[];
+    OR?: CoderabbitCommentScalarWhereInput[];
+    NOT?: CoderabbitCommentScalarWhereInput | CoderabbitCommentScalarWhereInput[];
+    id?: IntFilter<'CoderabbitComment'> | number;
+    uuid?: StringFilter<'CoderabbitComment'> | string;
+    pull_request_id?: IntFilter<'CoderabbitComment'> | number;
+    comment_id?: IntFilter<'CoderabbitComment'> | number;
+    url?: StringFilter<'CoderabbitComment'> | string;
+    comment_type?: StringFilter<'CoderabbitComment'> | string;
+    last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    last_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    is_not_deleted?: BoolNullableFilter<'CoderabbitComment'> | boolean | null;
+    deleted_at?: DateTimeNullableFilter<'CoderabbitComment'> | Date | string | null;
+    created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+    updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+  };
+
   export type QueueOrderCreateWithoutQueueItemInput = {
     position?: number | null;
     created_at?: Date | string;
@@ -9739,6 +11735,7 @@ export namespace Prisma {
     created_at?: Date | string;
     updated_at?: Date | string;
     events?: EventCreateNestedManyWithoutPullRequestInput;
+    comments?: CoderabbitCommentCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUncheckedCreateWithoutQueueItemsInput = {
@@ -9759,6 +11756,7 @@ export namespace Prisma {
     created_at?: Date | string;
     updated_at?: Date | string;
     events?: EventUncheckedCreateNestedManyWithoutPullRequestInput;
+    comments?: CoderabbitCommentUncheckedCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestCreateOrConnectWithoutQueueItemsInput = {
@@ -9818,6 +11816,7 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     events?: EventUpdateManyWithoutPullRequestNestedInput;
+    comments?: CoderabbitCommentUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestUncheckedUpdateWithoutQueueItemsInput = {
@@ -9838,6 +11837,7 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     events?: EventUncheckedUpdateManyWithoutPullRequestNestedInput;
+    comments?: CoderabbitCommentUncheckedUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestCreateWithoutEventsInput = {
@@ -9857,6 +11857,7 @@ export namespace Prisma {
     created_at?: Date | string;
     updated_at?: Date | string;
     queueItems?: ReviewQueueCreateNestedManyWithoutPullRequestInput;
+    comments?: CoderabbitCommentCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUncheckedCreateWithoutEventsInput = {
@@ -9877,6 +11878,7 @@ export namespace Prisma {
     created_at?: Date | string;
     updated_at?: Date | string;
     queueItems?: ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput;
+    comments?: CoderabbitCommentUncheckedCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestCreateOrConnectWithoutEventsInput = {
@@ -9912,6 +11914,7 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     queueItems?: ReviewQueueUpdateManyWithoutPullRequestNestedInput;
+    comments?: CoderabbitCommentUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestUncheckedUpdateWithoutEventsInput = {
@@ -9932,6 +11935,7 @@ export namespace Prisma {
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     queueItems?: ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput;
+    comments?: CoderabbitCommentUncheckedUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type ReviewQueueCreateWithoutQueueOrderInput = {
@@ -10032,6 +12036,104 @@ export namespace Prisma {
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
 
+  export type PullRequestCreateWithoutCommentsInput = {
+    uuid?: string;
+    repo_full_name: string;
+    pr_number: number;
+    title: string;
+    author_login: string;
+    first_seen_at: Date | string;
+    first_review_limit_at?: Date | string | null;
+    last_review_limit_at?: Date | string | null;
+    last_review_requested_at?: Date | string | null;
+    last_coderabbit_review_at?: Date | string | null;
+    last_coderabbit_acknowledged_at?: Date | string | null;
+    retrigger_count?: number;
+    review_count?: number;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+    queueItems?: ReviewQueueCreateNestedManyWithoutPullRequestInput;
+    events?: EventCreateNestedManyWithoutPullRequestInput;
+  };
+
+  export type PullRequestUncheckedCreateWithoutCommentsInput = {
+    id?: number;
+    uuid?: string;
+    repo_full_name: string;
+    pr_number: number;
+    title: string;
+    author_login: string;
+    first_seen_at: Date | string;
+    first_review_limit_at?: Date | string | null;
+    last_review_limit_at?: Date | string | null;
+    last_review_requested_at?: Date | string | null;
+    last_coderabbit_review_at?: Date | string | null;
+    last_coderabbit_acknowledged_at?: Date | string | null;
+    retrigger_count?: number;
+    review_count?: number;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+    queueItems?: ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput;
+    events?: EventUncheckedCreateNestedManyWithoutPullRequestInput;
+  };
+
+  export type PullRequestCreateOrConnectWithoutCommentsInput = {
+    where: PullRequestWhereUniqueInput;
+    create: XOR<PullRequestCreateWithoutCommentsInput, PullRequestUncheckedCreateWithoutCommentsInput>;
+  };
+
+  export type PullRequestUpsertWithoutCommentsInput = {
+    update: XOR<PullRequestUpdateWithoutCommentsInput, PullRequestUncheckedUpdateWithoutCommentsInput>;
+    create: XOR<PullRequestCreateWithoutCommentsInput, PullRequestUncheckedCreateWithoutCommentsInput>;
+    where?: PullRequestWhereInput;
+  };
+
+  export type PullRequestUpdateToOneWithWhereWithoutCommentsInput = {
+    where?: PullRequestWhereInput;
+    data: XOR<PullRequestUpdateWithoutCommentsInput, PullRequestUncheckedUpdateWithoutCommentsInput>;
+  };
+
+  export type PullRequestUpdateWithoutCommentsInput = {
+    uuid?: StringFieldUpdateOperationsInput | string;
+    repo_full_name?: StringFieldUpdateOperationsInput | string;
+    pr_number?: IntFieldUpdateOperationsInput | number;
+    title?: StringFieldUpdateOperationsInput | string;
+    author_login?: StringFieldUpdateOperationsInput | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    retrigger_count?: IntFieldUpdateOperationsInput | number;
+    review_count?: IntFieldUpdateOperationsInput | number;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    queueItems?: ReviewQueueUpdateManyWithoutPullRequestNestedInput;
+    events?: EventUpdateManyWithoutPullRequestNestedInput;
+  };
+
+  export type PullRequestUncheckedUpdateWithoutCommentsInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    uuid?: StringFieldUpdateOperationsInput | string;
+    repo_full_name?: StringFieldUpdateOperationsInput | string;
+    pr_number?: IntFieldUpdateOperationsInput | number;
+    title?: StringFieldUpdateOperationsInput | string;
+    author_login?: StringFieldUpdateOperationsInput | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    retrigger_count?: IntFieldUpdateOperationsInput | number;
+    review_count?: IntFieldUpdateOperationsInput | number;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    queueItems?: ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput;
+    events?: EventUncheckedUpdateManyWithoutPullRequestNestedInput;
+  };
+
   export type ReviewQueueCreateManyPullRequestInput = {
     id?: number;
     uuid?: string;
@@ -10064,6 +12166,23 @@ export namespace Prisma {
     version: string;
     payload: string;
     metadata?: string | null;
+  };
+
+  export type CoderabbitCommentCreateManyPullRequestInput = {
+    id?: number;
+    uuid?: string;
+    comment_id: number;
+    url: string;
+    comment_type: string;
+    last_body_preview?: string | null;
+    gh_created_at: Date | string;
+    gh_updated_at: Date | string;
+    first_seen_at: Date | string;
+    last_seen_at: Date | string;
+    is_not_deleted?: boolean | null;
+    deleted_at?: Date | string | null;
+    created_at?: Date | string;
+    updated_at?: Date | string;
   };
 
   export type ReviewQueueUpdateWithoutPullRequestInput = {
@@ -10166,6 +12285,56 @@ export namespace Prisma {
     version?: StringFieldUpdateOperationsInput | string;
     payload?: StringFieldUpdateOperationsInput | string;
     metadata?: NullableStringFieldUpdateOperationsInput | string | null;
+  };
+
+  export type CoderabbitCommentUpdateWithoutPullRequestInput = {
+    uuid?: StringFieldUpdateOperationsInput | string;
+    comment_id?: IntFieldUpdateOperationsInput | number;
+    url?: StringFieldUpdateOperationsInput | string;
+    comment_type?: StringFieldUpdateOperationsInput | string;
+    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    is_not_deleted?: NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type CoderabbitCommentUncheckedUpdateWithoutPullRequestInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    uuid?: StringFieldUpdateOperationsInput | string;
+    comment_id?: IntFieldUpdateOperationsInput | number;
+    url?: StringFieldUpdateOperationsInput | string;
+    comment_type?: StringFieldUpdateOperationsInput | string;
+    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    is_not_deleted?: NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type CoderabbitCommentUncheckedUpdateManyWithoutPullRequestInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    uuid?: StringFieldUpdateOperationsInput | string;
+    comment_id?: IntFieldUpdateOperationsInput | number;
+    url?: StringFieldUpdateOperationsInput | string;
+    comment_type?: StringFieldUpdateOperationsInput | string;
+    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    is_not_deleted?: NullableBoolFieldUpdateOperationsInput | boolean | null;
+    deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
 
   /**

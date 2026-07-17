@@ -1,5 +1,5 @@
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
-import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
+import { PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import type { ProbeFactory } from '../probes/ProbeFactory.js';
@@ -9,8 +9,6 @@ import { type CommentDetails, type EnqueueData, type EnqueueResult, type Paginat
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
 import { inject, injectable } from 'inversify';
-
-const UNIQUE_CONSTRAINT_VIOLATION = 'P2002';
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -58,18 +56,22 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     }
 
     try {
-      const row = await db.reviewQueue.create({
-        data: {
-          pull_request_id: data.pullRequestId,
-          repo_full_name: repo,
-          pr_number: pr,
-          pr_title: prTitle,
-          not_before: notBefore,
-          source_comment_url: sourceCommentUrl,
-          source_comment_id: sourceCommentId,
-          trigger_source: TriggerSource.scheduler,
-        },
-      });
+      const row = await this.withPrismaErrorHandling(
+        () =>
+          db.reviewQueue.create({
+            data: {
+              pull_request_id: data.pullRequestId,
+              repo_full_name: repo,
+              pr_number: pr,
+              pr_title: prTitle,
+              not_before: notBefore,
+              source_comment_url: sourceCommentUrl,
+              source_comment_id: sourceCommentId,
+              trigger_source: TriggerSource.scheduler,
+            },
+          }),
+        'QueueRepositoryImpl.enqueue',
+      );
 
       await db.queueOrder.create({ data: { queue_item_id: row.id } });
 
@@ -77,7 +79,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       return { item: this.toQueueItem(row), created: true };
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === UNIQUE_CONSTRAINT_VIOLATION) {
+      if (err instanceof PrismaUniqueConstraintViolationError) {
         const existing = await db.reviewQueue.findFirst({
           where: {
             repo_full_name: repo,
@@ -289,7 +291,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         by: ['status'],
         _count: { status: true },
       });
-      const counts: Record<QueueStatus, number> = { pending: 0, retriggered: 0, reviewed: 0, failed: 0 };
+      const counts: Record<QueueStatus, number> = { coderabbit_skipped: 0, failed: 0, pending: 0, retriggered: 0, reviewed: 0 };
       for (const row of rows) {
         counts[row.status as QueueStatus] = row._count.status;
       }

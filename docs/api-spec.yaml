@@ -367,7 +367,7 @@ components:
 
     QueueStatus:
       type: string
-      enum: [pending, retriggered, reviewed, failed]
+      enum: [pending, retriggered, reviewed, failed, coderabbit_skipped]
 
     QueueItem:
       type: object
@@ -437,7 +437,7 @@ components:
 
     EventType:
       type: string
-      enum: [bypassed, coderabbit_review_approved, coderabbit_review_changes_requested, detected, enqueued, failed, retriggered]
+      enum: [bypassed, coderabbit_review_approved, coderabbit_review_changes_requested, coderabbit_review_skipped, detected, enqueued, failed, retriggered]
 
     EventEntry:
       type: object

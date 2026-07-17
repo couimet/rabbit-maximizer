@@ -220,7 +220,7 @@ export interface components {
       error: string;
     };
     /** @enum {string} */
-    QueueStatus: 'pending' | 'retriggered' | 'reviewed' | 'failed';
+    QueueStatus: 'pending' | 'retriggered' | 'reviewed' | 'failed' | 'coderabbit_skipped';
     QueueItem: {
       id: number;
       uuid: string;
@@ -255,7 +255,15 @@ export interface components {
       updated_at: string;
     };
     /** @enum {string} */
-    EventType: 'bypassed' | 'coderabbit_review_approved' | 'coderabbit_review_changes_requested' | 'detected' | 'enqueued' | 'failed' | 'retriggered';
+    EventType:
+      | 'bypassed'
+      | 'coderabbit_review_approved'
+      | 'coderabbit_review_changes_requested'
+      | 'coderabbit_review_skipped'
+      | 'detected'
+      | 'enqueued'
+      | 'failed'
+      | 'retriggered';
     EventEntry: {
       id: number;
       uuid: string;

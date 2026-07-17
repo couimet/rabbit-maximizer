@@ -131,6 +131,23 @@ describe('parseEventRow', () => {
     });
   });
 
+  it('parses a coderabbit_review_skipped event', () => {
+    const commentUrl = getUniqueString();
+    const skipReason = getUniqueString();
+    const row = baseRow({
+      type: 'coderabbit_review_skipped',
+      payload: JSON.stringify({ comment_url: commentUrl, skip_reason: skipReason }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_skipped');
+    expect(result.payload).toStrictEqual({
+      comment_url: commentUrl,
+      skip_reason: skipReason,
+    });
+  });
+
   it('parses a coderabbit_review_changes_requested event', () => {
     const coderabbitCommentUrl = getUniqueString();
     const row = baseRow({

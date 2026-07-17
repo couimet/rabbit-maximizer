@@ -20,6 +20,7 @@ import {
   drainMicrotasks,
 } from './helpers/index.js';
 
+import { getRandomEnumValue } from '@couimet/dynamic-testing';
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -70,12 +71,12 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
     repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? getUniqueString({ prefix: 'pr-title-' }),
-    status: over.status ?? QueueStatus.pending,
+    status: over.status ?? getRandomEnumValue(QueueStatus),
     not_before: over.not_before ?? new Date(Date.now() - 60_000),
     attempts: over.attempts ?? 0,
     source_comment_url: over.source_comment_url ?? `https://github.com/test-owner/test-repo/pull/${getUniqueInt()}#issuecomment-${commentId}`,
     source_comment_id: over.source_comment_id ?? commentId,
-    trigger_source: over.trigger_source ?? TriggerSource.scheduler,
+    trigger_source: over.trigger_source ?? getRandomEnumValue(TriggerSource),
     pull_request_id: over.pull_request_id ?? getUniqueInt(),
     created_at: over.created_at ?? getUniqueDate(),
     updated_at: over.updated_at ?? getUniqueDate(),

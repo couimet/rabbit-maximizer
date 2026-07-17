@@ -1,4 +1,6 @@
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/queueRepository.js';
+import { getUniqueIntsNamed } from '../../src/external-deps/couimet/dynamic-testing/unique.js';
+import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueStatus, TriggerSource } from '../../src/types/index.js';
@@ -696,7 +698,10 @@ describe('QueueRepositoryImpl', () => {
         ),
       ).rejects.toThrow('Unique constraint');
 
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: p2002 }, 'Enqueue failed; rethrowing');
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: expect.any(PrismaUniqueConstraintViolationError) },
+        'Enqueue failed; rethrowing',
+      );
     });
   });
 
@@ -730,10 +735,19 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getCountsByStatus', () => {
     it('returns counts keyed by QueueStatus, initializing missing statuses to 0', async () => {
+      const { pendingCnt, retriggeredCnt, reviewedCnt, skippedCnt, failedCnt } = getUniqueIntsNamed([
+        'pendingCnt',
+        'retriggeredCnt',
+        'reviewedCnt',
+        'skippedCnt',
+        'failedCnt',
+      ]);
       const rows = [
-        { status: QueueStatus.pending, _count: { status: 7 } },
-        { status: QueueStatus.retriggered, _count: { status: 3 } },
-        { status: QueueStatus.reviewed, _count: { status: 1 } },
+        { status: QueueStatus.pending, _count: { status: pendingCnt } },
+        { status: QueueStatus.retriggered, _count: { status: retriggeredCnt } },
+        { status: QueueStatus.reviewed, _count: { status: reviewedCnt } },
+        { status: QueueStatus.coderabbit_skipped, _count: { status: skippedCnt } },
+        { status: QueueStatus.failed, _count: { status: failedCnt } },
       ];
 
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -747,9 +761,24 @@ describe('QueueRepositoryImpl', () => {
         by: ['status'],
         _count: { status: true },
       });
-      expect(result).toStrictEqual({ pending: 7, retriggered: 3, reviewed: 1, failed: 0 });
+      expect(result).toStrictEqual({
+        coderabbit_skipped: skippedCnt,
+        failed: failedCnt,
+        pending: pendingCnt,
+        retriggered: retriggeredCnt,
+        reviewed: reviewedCnt,
+      });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.getCountsByStatus', counts: { pending: 7, retriggered: 3, reviewed: 1, failed: 0 } },
+        {
+          fn: 'QueueRepositoryImpl.getCountsByStatus',
+          counts: {
+            coderabbit_skipped: skippedCnt,
+            failed: failedCnt,
+            pending: pendingCnt,
+            retriggered: retriggeredCnt,
+            reviewed: reviewedCnt,
+          },
+        },
         'Fetched queue counts by status',
       );
     });
