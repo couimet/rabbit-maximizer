@@ -14,8 +14,8 @@ describe('truncateBodyPreview', () => {
     expect(truncateBodyPreview(undefined, MAX_LENGTH)).toBeUndefined();
   });
 
-  it('returns undefined for empty string', () => {
-    expect(truncateBodyPreview('', MAX_LENGTH)).toBeUndefined();
+  it('returns empty string for empty string input', () => {
+    expect(truncateBodyPreview('', MAX_LENGTH)).toBe('');
   });
 
   it('returns full string when shorter than maxLength', () => {

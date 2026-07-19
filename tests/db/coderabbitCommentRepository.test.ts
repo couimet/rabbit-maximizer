@@ -1,7 +1,7 @@
 import { CoderabbitCommentRepositoryImpl, type UpsertCommentData } from '../../src/db/coderabbitCommentRepository.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { CodeRabbitCommentType } from '../../src/types/CodeRabbitCommentType.js';
-import { createMockPrismaClient } from '../helpers/index.js';
+import { createMockPrismaClient } from '../helpers/createMockPrismaClient.js';
 
 import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -107,7 +107,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       );
     });
 
-    it('sets last_body_preview to null when body is empty', async () => {
+    it('preserves empty string as empty string', async () => {
       const data = makeData({ body: '' });
       const createdRow = makeRow();
       const { prisma, coderabbitComment } = createMockPrismaClient({
@@ -123,7 +123,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           pull_request_id: data.pull_request_id,
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: null,
+          last_body_preview: '',
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
