@@ -13,7 +13,6 @@ export class QueueItemMapper {
       pr_number: input.pr_number,
       pr_title: input.pr_title,
       status: input.status as QueueItemResponse['status'],
-      not_before: input.not_before.toISOString(),
       attempts: input.attempts,
       source_comment_url: input.source_comment_url,
       trigger_source: input.trigger_source as QueueItemResponse['trigger_source'],

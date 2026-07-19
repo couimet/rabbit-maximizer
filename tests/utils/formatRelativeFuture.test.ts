@@ -20,6 +20,10 @@ describe('formatRelativeFuture', () => {
     expect(formatRelativeFuture('2026-07-04T12:07:00.000Z')).toBe('in 7m');
   });
 
+  it('returns "in 4h" for exactly 4 hours from now', () => {
+    expect(formatRelativeFuture('2026-07-04T16:00:00.000Z')).toBe('in 4h');
+  });
+
   it('returns "in 4h 13m" for 4h 13m from now', () => {
     expect(formatRelativeFuture('2026-07-04T16:13:00.000Z')).toBe('in 4h 13m');
   });

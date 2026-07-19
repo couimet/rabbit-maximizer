@@ -102,15 +102,15 @@ export class ReviewTrigger {
     }
 
     const waitSeconds = (parseWaitSeconds(latestBody) ?? this.fallbackWaitSeconds) + this.bufferSeconds;
-    const notBefore = new Date(new Date(latest.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
+    const rescheduleEarliest = new Date(new Date(latest.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
-    probe.staleCommentRescheduled(notBefore);
+    probe.staleCommentRescheduled(rescheduleEarliest);
     return RabbitResult.err(
       new RabbitMaximizerError({
         code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE,
         message: 'Source comment was replaced; item must be rescheduled',
         functionName: 'ReviewTrigger.trigger',
-        details: { notBefore: notBefore.toISOString(), sourceComment: { commentId: latest.comment_id, commentUrl: latest.url } },
+        details: { rescheduleEarliest: rescheduleEarliest.toISOString(), sourceComment: { commentId: latest.comment_id, commentUrl: latest.url } },
       }),
     );
   }

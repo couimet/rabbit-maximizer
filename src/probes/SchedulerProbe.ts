@@ -94,11 +94,11 @@ export class SchedulerProbe {
     const item = this.item!;
 
     if (error.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
-      const details = error.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
-      const newNotBefore = new Date(details.notBefore);
+      const details = error.details as { rescheduleEarliest: string; sourceComment: { commentId: number; commentUrl: string } };
+      const rescheduleEarliest = new Date(details.rescheduleEarliest);
       this.log.info(
-        { fn: 'SchedulerProbe.rescheduled', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, newNotBefore, error },
-        'Stale source comment replaced; rescheduled with updated not_before',
+        { fn: 'SchedulerProbe.rescheduled', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, rescheduleEarliest, error },
+        'Stale source comment replaced; rescheduled with updated time',
       );
     } else {
       const backoffMs = computeSchedulerBackoff(item.attempts, this.baseBackoff, this.maxBackoff);

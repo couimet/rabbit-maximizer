@@ -18,7 +18,7 @@ import { StatusCodes } from 'http-status-codes';
 export const createGetQueueOrderHandler = (queueOrderRepo: QueueOrderRepository, queueItemMapper: QueueItemMapper, logger: Logger) => {
   return async (_req: Request, res: Response): Promise<void> => {
     try {
-      const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
+      const items = await queueOrderRepo.getEffectiveOrder();
       const data = queueItemMapper.mapToQueueItemResponseList(items);
       res.json({ data });
     } catch (error) {
@@ -47,7 +47,7 @@ export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository
         return;
       }
 
-      const currentOrder = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
+      const currentOrder = await queueOrderRepo.getEffectiveOrder();
       const currentUuids = new Set(currentOrder.map((item) => item.uuid));
       const missingUuids = queueItemUuids.filter((uuid: string) => !currentUuids.has(uuid));
       if (missingUuids.length > 0) {
@@ -89,7 +89,7 @@ export const createRetriggerNowHandler = (
         logger.info({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Retriggering while scheduler is paused (overridePause=true)');
       }
 
-      const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
+      const items = await queueOrderRepo.getEffectiveOrder();
       const item = items.find((i) => i.uuid === uuid);
       if (!item) {
         logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Queue item not found');

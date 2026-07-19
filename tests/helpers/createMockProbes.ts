@@ -49,13 +49,11 @@ export interface MockEnqueueProbe {
   enqueued: jest.Mock<any>;
   recentlyRetriggered: jest.Mock<any>;
   alreadyQueued: jest.Mock<any>;
-  alreadyQueuedRescheduled: jest.Mock<any>;
 }
 export const createMockEnqueueProbe = (): MockEnqueueProbe => ({
   enqueued: jest.fn<any>(),
   recentlyRetriggered: jest.fn<any>(),
   alreadyQueued: jest.fn<any>(),
-  alreadyQueuedRescheduled: jest.fn<any>(),
 });
 
 export interface MockSchedulerProbe {

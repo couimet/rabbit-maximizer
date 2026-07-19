@@ -10,7 +10,6 @@ export interface DetectedPayload {
 }
 
 export interface EnqueuedPayload {
-  readonly not_before: Date;
   readonly new_wait: number;
 }
 

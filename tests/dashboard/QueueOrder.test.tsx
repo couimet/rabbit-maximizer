@@ -26,7 +26,6 @@ const makeQueueItem = (over: Record<string, unknown> = {}) => ({
   pr_number: getUniqueInt(),
   pr_title: getUniqueString({ prefix: 'pr-' }),
   status: QueueStatus.pending,
-  not_before: getUniqueDate().toISOString(),
   attempts: getUniqueInt(),
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   trigger_source: TriggerSource.scheduler,
@@ -331,51 +330,10 @@ describe('QueueOrder', () => {
     });
   });
 
-  describe('not_before display', () => {
-    it('renders column header', () => {
-      renderQueueOrder([makeQueueItem({ not_before: new Date(Date.now() + 300_000).toISOString() })]);
-      expect(screen.getByText('Not Before')).toBeInTheDocument();
-    });
-
-    it('shows eligible now for not_before in the past', () => {
-      renderQueueOrder([makeQueueItem({ not_before: new Date(Date.now() - 60_000).toISOString() })]);
-      expect(screen.getAllByText('eligible now').length).toBeGreaterThanOrEqual(1);
-    });
-  });
-
   describe('Status column', () => {
-    const PAST_NOT_BEFORE_ISO = new Date(Date.now() - 60_000).toISOString();
-    const FUTURE_NOT_BEFORE_ISO = new Date(Date.now() + 300_000).toISOString();
-
     it('renders Status column header', () => {
       renderQueueOrder([makeQueueItem()]);
       expect(screen.getByText('Status')).toBeInTheDocument();
-    });
-
-    it('shows green Eligible now pill for position 1 when not_before is in the past', () => {
-      renderQueueOrder([makeQueueItem({ not_before: PAST_NOT_BEFORE_ISO })]);
-      const pill = document.querySelector('.status-pill.eligible');
-      expect(pill).not.toBeNull();
-      expect(pill!.textContent).toBe('eligible now');
-    });
-
-    it('shows orange cooldown pill for position 1 when not_before is in the future', () => {
-      renderQueueOrder([makeQueueItem({ not_before: FUTURE_NOT_BEFORE_ISO })]);
-      const pill = document.querySelector('.status-pill.cooldown');
-      expect(pill).not.toBeNull();
-      expect(pill!.textContent).toMatch(/^in \d+m$/);
-    });
-
-    it('shows one carrot for position 2', () => {
-      renderQueueOrder([makeQueueItem(), makeQueueItem()]);
-      const rows = screen.getAllByRole('row');
-      expect(rows[2]).toHaveTextContent('🥕');
-    });
-
-    it('shows two carrots for position 3', () => {
-      renderQueueOrder([makeQueueItem(), makeQueueItem(), makeQueueItem()]);
-      const rows = screen.getAllByRole('row');
-      expect(rows[3]).toHaveTextContent('🥕🥕');
     });
 
     it('applies row-waiting class to positions greater than 1', () => {
@@ -388,12 +346,6 @@ describe('QueueOrder', () => {
       renderQueueOrder([makeQueueItem(), makeQueueItem()]);
       const rows = screen.getAllByRole('row');
       expect(rows[1].classList.contains('row-waiting')).toBe(false);
-    });
-
-    it('shows pill with no carrots for single item', () => {
-      renderQueueOrder([makeQueueItem({ not_before: PAST_NOT_BEFORE_ISO })]);
-      expect(document.querySelector('.status-pill')).not.toBeNull();
-      expect(screen.queryByText('🥕')).not.toBeInTheDocument();
     });
   });
 

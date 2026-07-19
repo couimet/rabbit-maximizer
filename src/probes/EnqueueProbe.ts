@@ -17,7 +17,7 @@ export class EnqueueProbe {
     this.log.debug({ fn: 'EnqueueProbe.recentlyRetriggered', repo, pr }, 'PR was recently retriggered; skipping');
   }
 
-  async enqueued(params: { repo: string; pr: number; notBefore: Date; newWait: number }): Promise<void> {
+  async enqueued(params: { repo: string; pr: number; newWait: number }): Promise<void> {
     const event = await this.events.record(
       {
         type: EventType.enqueued,
@@ -26,7 +26,7 @@ export class EnqueueProbe {
         correlation_id: this.observation.correlationId,
         request_id: this.observation.requestId,
         version: this.observation.version,
-        payload: { not_before: params.notBefore, new_wait: params.newWait },
+        payload: { new_wait: params.newWait },
       },
       this.tx,
     );
@@ -35,9 +35,5 @@ export class EnqueueProbe {
 
   alreadyQueued(repo: string, pr: number, status: string): void {
     this.log.debug({ fn: 'EnqueueProbe.alreadyQueued', repo, pr, status }, 'Already queued; returning existing row');
-  }
-
-  alreadyQueuedRescheduled(repo: string, pr: number, oldNotBefore: Date, newNotBefore: Date): void {
-    this.log.debug({ fn: 'EnqueueProbe.alreadyQueuedRescheduled', repo, pr, oldNotBefore, newNotBefore }, 'Already queued; schedule updated on re-detection');
   }
 }

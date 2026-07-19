@@ -13,7 +13,7 @@ import { inject, injectable } from 'inversify';
 export type MoveDirection = 'up' | 'down';
 
 export interface QueueOrderRepository {
-  getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]>;
+  getEffectiveOrder(): Promise<QueueItem[]>;
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]>;
   moveToTop(uuid: string): Promise<QueueItem>;
 }
@@ -24,16 +24,13 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     super(prisma, Prisma.ModelName.QueueOrder, log);
   }
 
-  getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]> {
-    return this.readEffectiveOrder(undefined, options?.eligibleOnly ?? true);
+  getEffectiveOrder(): Promise<QueueItem[]> {
+    return this.readEffectiveOrder(undefined);
   }
 
-  private readEffectiveOrder(tx: Prisma.TransactionClient | undefined, eligibleOnly: boolean): Promise<QueueItem[]> {
+  private readEffectiveOrder(tx: Prisma.TransactionClient | undefined): Promise<QueueItem[]> {
     return this.enforceTx(tx, async (db) => {
       const where: Prisma.ReviewQueueWhereInput = { status: 'pending' };
-      if (eligibleOnly) {
-        where.not_before = { lte: new Date() };
-      }
       const rows = await db.reviewQueue.findMany({
         where,
         include: { queueOrder: true },
@@ -46,14 +43,14 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
           'Filtered out rows with null pull_request_id',
         );
       }
-      this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length, eligibleOnly }, 'Fetched effective order');
+      this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length }, 'Fetched effective order');
       return validRows.map((row) => this.toQueueItem(row));
     });
   }
 
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]> {
     return this.enforceTx(undefined, async (tx) => {
-      const ordered = await this.readEffectiveOrder(tx, false);
+      const ordered = await this.readEffectiveOrder(tx);
       const orderedIds = ordered.map((item) => item.id);
       const selectedIds = resolveUuidsToIds(ordered, [...new Set(queueItemUuids)]);
 
@@ -77,7 +74,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemUuids, direction }, 'Moved items in queue order');
 
-      return this.readEffectiveOrder(tx, false);
+      return this.readEffectiveOrder(tx);
     });
   }
 
@@ -105,7 +102,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
         });
       }
 
-      const ordered = await this.readEffectiveOrder(tx, false);
+      const ordered = await this.readEffectiveOrder(tx);
       const item = findByUuid(ordered, uuid);
 
       if (!item) {
@@ -124,7 +121,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid }, 'Moved item to top');
 
-      const updatedList = await this.readEffectiveOrder(tx, false);
+      const updatedList = await this.readEffectiveOrder(tx);
       return updatedList.find((i) => i.uuid === uuid)!;
     });
   }
@@ -177,7 +174,6 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       pr_number: row.pr_number,
       pr_title: row.pr_title,
       status: row.status as QueueStatus,
-      not_before: row.not_before,
       attempts: row.attempts,
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,

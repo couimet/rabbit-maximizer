@@ -328,7 +328,6 @@ describe('SummaryStats', () => {
         repo_full_name: repo,
         pr_number: prNumber,
         status: 'pending',
-        not_before: getUniqueDate().toISOString(),
         attempts: 0,
         trigger_source: 'scheduler',
         pull_request_id: getUniqueInt(),

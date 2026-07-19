@@ -15,7 +15,6 @@ export const makeQueueItem = (overrides: Record<string, unknown> = {}) => {
     pr_number: prNumber,
     pr_title: `Test PR ${prNumber}`,
     status: getRandomEnumValue(QueueStatus),
-    not_before: getUniqueDate(),
     attempts: 0,
     source_comment_id: commentId,
     source_comment_url: `https://github.com/${repoRef.owner}/${repoRef.repo}/pull/${prNumber}#discussion_r${commentId}`,

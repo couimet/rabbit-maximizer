@@ -16,7 +16,6 @@ interface MakeRowOverrides {
   pr_number?: number;
   pr_title?: string;
   status?: string;
-  not_before?: Date;
   attempts?: number;
   source_comment_url?: string;
   source_comment_id?: number;
@@ -35,7 +34,6 @@ const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: 
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? 'Test PR title',
     status: over.status ?? 'pending',
-    not_before: over.not_before ?? new Date(Date.now() - 60_000),
     attempts: over.attempts ?? 0,
     source_comment_url: over.source_comment_url ?? `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`,
     source_comment_id: over.source_comment_id ?? commentId,
@@ -63,7 +61,6 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
   pr_number: row.pr_number,
   pr_title: row.pr_title,
   status: row.status as QueueStatus,
-  not_before: row.not_before,
   attempts: row.attempts,
   source_comment_url: row.source_comment_url,
   source_comment_id: row.source_comment_id,
@@ -100,24 +97,12 @@ describe('QueueOrderRepositoryImpl', () => {
       const result = await sut.getEffectiveOrder();
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: 'pending', not_before: { lte: frozenNow } },
+        where: { status: 'pending' },
         include: { queueOrder: true },
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 3, eligibleOnly: true }, 'Fetched effective order');
-    });
-
-    it('only returns pending items with not_before <= now', async () => {
-      const eligible = makeRow({ not_before: new Date(Date.now() - 60_000) });
-      const rows = [eligible];
-
-      const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
-
-      const result = await sut.getEffectiveOrder();
-
-      expect(result).toStrictEqual([toExpectedItem(eligible)]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 3 }, 'Fetched effective order');
     });
 
     it('returns empty array when nothing eligible', async () => {
@@ -146,24 +131,14 @@ describe('QueueOrderRepositoryImpl', () => {
       );
     });
 
-    it('returns all pending items regardless of not_before when eligibleOnly is false', async () => {
-      const rows = [makeRow({ not_before: new Date(Date.now() + 3600_000) })];
-
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
+    it('returns all pending items', async () => {
+      const rows = [makeRow(), makeRow()];
+      const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.getEffectiveOrder({ eligibleOnly: false });
+      const result = await sut.getEffectiveOrder();
 
-      expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: 'pending' },
-        include: { queueOrder: true },
-        orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
-      });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 1, eligibleOnly: false },
-        'Fetched effective order',
-      );
     });
   });
 
@@ -463,35 +438,6 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: 2 } });
       expect(result).toStrictEqual(toExpectedItem(itemA));
-    });
-
-    it('does not update not_before or trigger_source (position-only reorder)', async () => {
-      const itemA = makeRow({ id: 1, not_before: new Date('2026-06-01'), trigger_source: null }, { position: 1, id: getUniqueInt() });
-      const itemB = makeRow({ id: 2, not_before: new Date('2026-06-15'), trigger_source: null }, { position: 2, id: getUniqueInt() });
-
-      const ORIGINAL_NOT_BEFORE = itemB.not_before;
-      const ORIGINAL_TRIGGER_SOURCE = itemB.trigger_source;
-
-      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
-        reviewQueue: {
-          findUnique: jest.fn<any>().mockResolvedValue({ id: itemB.id, status: 'pending' }),
-          findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemB, itemA]),
-        },
-        queueOrder: {
-          updateMany: jest.fn<any>().mockResolvedValue({ count: 0 }),
-          update: jest.fn<any>().mockResolvedValue({}),
-        },
-      });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
-
-      const result = await sut.moveToTop(itemB.uuid);
-
-      expect(reviewQueue.update).not.toHaveBeenCalled();
-      expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemB.queueOrder.id }, data: { position: 1 } });
-      expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
-      expect(result.not_before).toStrictEqual(ORIGINAL_NOT_BEFORE);
-      expect(result.trigger_source).toBe(ORIGINAL_TRIGGER_SOURCE);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid: itemB.uuid }, 'Moved item to top');
     });
 
     it('throws when item is not found', async () => {

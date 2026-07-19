@@ -22,19 +22,14 @@ export const createGetDashboardStateHandler = (
       const since = resolveDurationSince(req.query.duration);
 
       const [items, eventCounts, paused] = await Promise.all([
-        queueOrderRepo.getEffectiveOrder({ eligibleOnly: false }),
+        queueOrderRepo.getEffectiveOrder(),
         eventRepo.countByType(since),
         systemStateRepo.isSchedulerPaused(),
       ]);
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
       const pendingItems = queueItemMapper.mapToQueueItemResponseList(items);
 
-      const now = new Date();
-      const hasEligibleNow = items.some((item) => item.not_before <= now);
-      const nextReviewAvailableAt =
-        !hasEligibleNow && items.length > 0
-          ? items.reduce((min, item) => (item.not_before < min ? item.not_before : min), items[0].not_before).toISOString()
-          : null;
+      const nextReviewAvailableAt: string | null = null;
 
       res.json({ nextReviewAvailableAt, pendingItems, eventCounts: activeEventCounts, paused });
     } catch (error) {

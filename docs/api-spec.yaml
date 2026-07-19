@@ -378,7 +378,6 @@ components:
         - pr_number
         - pr_title
         - status
-        - not_before
         - attempts
         - trigger_source
         - created_at
@@ -396,10 +395,6 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/QueueStatus'
-        not_before:
-          type: string
-          format: date-time
-          description: Eligibility gate — item cannot be processed before this timestamp
         attempts:
           type: integer
         source_comment_url:

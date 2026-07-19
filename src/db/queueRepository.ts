@@ -15,8 +15,8 @@ export interface QueueRepository {
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markReviewed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markReviewedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
-  reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  reschedule(id: number, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
@@ -39,7 +39,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   /* c8 ignore stop */
 
   async enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
-    const { repo, pr, prTitle, notBefore, sourceCommentUrl, sourceCommentId, newWait } = data;
+    const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId, newWait } = data;
     const probe = this.probeFactory.createEnqueueProbe(tx);
     const db = this.client(tx);
     const recentRetriggered = await db.reviewQueue.findFirst({
@@ -47,7 +47,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         repo_full_name: repo,
         pr_number: pr,
         status: QueueStatus.retriggered,
-        not_before: { gt: new Date() },
       },
     });
     if (recentRetriggered) {
@@ -64,7 +63,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               repo_full_name: repo,
               pr_number: pr,
               pr_title: prTitle,
-              not_before: notBefore,
               source_comment_url: sourceCommentUrl,
               source_comment_id: sourceCommentId,
               trigger_source: TriggerSource.scheduler,
@@ -75,7 +73,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       await db.queueOrder.create({ data: { queue_item_id: row.id } });
 
-      await probe.enqueued({ repo, pr, notBefore, newWait });
+      await probe.enqueued({ repo, pr, newWait });
 
       return { item: this.toQueueItem(row), created: true };
     } catch (err) {
@@ -88,11 +86,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           },
         });
         if (existing) {
-          if (existing.not_before.getTime() !== notBefore.getTime()) {
-            const updated = await db.reviewQueue.update({ where: { id: existing.id }, data: { not_before: notBefore } });
-            probe.alreadyQueuedRescheduled(repo, pr, existing.not_before, notBefore);
-            return { item: this.toQueueItem(updated), created: false };
-          }
           probe.alreadyQueued(repo, pr, existing.status);
           return { item: this.toQueueItem(existing), created: false };
         }
@@ -111,7 +104,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             status: QueueStatus.retriggered,
             retriggered_at: new Date(),
             retrigger_comment_url: retriggerCommentUrl,
-            not_before: cooldownUntil,
           },
         }),
       'QueueRepositoryImpl.markRetriggered',
@@ -159,14 +151,13 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
   }
 
-  async reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async reschedule(id: number, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
       () =>
         this.client(tx).reviewQueue.update({
           where: { id },
           data: {
             attempts: { increment: 1 },
-            not_before: newNotBefore,
             source_comment_id: sourceComment.commentId,
             source_comment_url: sourceComment.commentUrl,
           },
@@ -177,14 +168,13 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.toQueueItem(row);
   }
 
-  async backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
       () =>
         this.client(tx).reviewQueue.update({
           where: { id },
           data: {
             attempts: { increment: 1 },
-            not_before: newNotBefore,
           },
         }),
       'QueueRepositoryImpl.backoff',
@@ -211,7 +201,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.enforceTx(tx, async (db) => {
       const rows = await db.reviewQueue.findMany({
         where: { status: QueueStatus.pending },
-        orderBy: { not_before: 'asc' },
+        orderBy: { id: 'asc' },
       });
       this.log.debug({ fn: 'QueueRepositoryImpl.getPendingQueue', count: rows.length }, 'Fetched pending queue');
       return rows.map((row) => this.toQueueItem(row));
@@ -268,7 +258,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.enforceTx(tx, async (db) => {
       const row = await db.reviewQueue.findFirst({
         where: { status: QueueStatus.pending },
-        orderBy: { not_before: 'asc' },
+        orderBy: { id: 'asc' },
       });
       this.log.debug({ fn: 'QueueRepositoryImpl.getOldestPending', found: row !== null }, 'Fetched oldest pending item');
       return row ? this.toQueueItem(row) : null;
@@ -278,7 +268,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   // eslint-disable-next-line require-await
   async getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
     return this.enforceTx(tx, async (db) => {
-      const [rows, total] = await Promise.all([db.reviewQueue.findMany({ orderBy: { not_before: 'asc' }, skip, take }), db.reviewQueue.count()]);
+      const [rows, total] = await Promise.all([db.reviewQueue.findMany({ orderBy: { id: 'asc' }, skip, take }), db.reviewQueue.count()]);
       this.log.debug({ fn: 'QueueRepositoryImpl.getAll', count: rows.length, total }, 'Fetched all queue items');
       return { items: rows.map((row) => this.toQueueItem(row)), total };
     });
@@ -308,7 +298,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       pr_number: row.pr_number,
       pr_title: row.pr_title,
       status: row.status as QueueStatus,
-      not_before: row.not_before,
       attempts: row.attempts,
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,

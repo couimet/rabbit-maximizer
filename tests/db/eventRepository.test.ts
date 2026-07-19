@@ -154,7 +154,6 @@ describe('EventRepositoryImpl', () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const detectedUrl = getUniqueString({ prefix: 'https://gh/c/' });
-      const scheduledFor = getUniqueDate();
 
       const detectedRow = {
         id: getUniqueInt(),
@@ -180,7 +179,6 @@ describe('EventRepositoryImpl', () => {
         request_id: null,
         version: getUniqueString(),
         payload: JSON.stringify({
-          not_before: scheduledFor.toISOString(),
           new_wait: 60,
         }),
         metadata: null,
@@ -224,7 +222,6 @@ describe('EventRepositoryImpl', () => {
           metadata: undefined,
           type: 'enqueued',
           payload: {
-            not_before: scheduledFor,
             new_wait: 60,
           },
         },
