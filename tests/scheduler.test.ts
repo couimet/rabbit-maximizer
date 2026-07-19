@@ -172,13 +172,12 @@ describe('Scheduler', () => {
 
     it('reschedules when ReviewTrigger returns stale reschedule', async () => {
       const item = makeItem();
-      const notBefore = new Date(Date.now() + 60_000);
       const newComment = { commentId: 999, commentUrl: 'https://gh/c/new' };
       const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
         code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
         message: 'stale',
         functionName: 'test',
-        details: { notBefore: notBefore.toISOString(), sourceComment: newComment },
+        details: { rescheduleEarliest: new Date(Date.now() + 60_000).toISOString(), sourceComment: newComment },
       });
       const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
@@ -190,7 +189,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, notBefore, newComment, deps.tx);
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, deps.tx);
 
       await stop();
     });
@@ -212,8 +211,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
 
       await stop();
     });
@@ -235,8 +233,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
 
       await stop();
     });
@@ -258,8 +255,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
 
       await stop();
     });

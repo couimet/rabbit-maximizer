@@ -22,7 +22,7 @@ export const createGetDashboardStateHandler = (
       const since = resolveDurationSince(req.query.duration);
 
       const [items, eventCounts, paused] = await Promise.all([
-        queueOrderRepo.getEffectiveOrder({ eligibleOnly: false }),
+        queueOrderRepo.getEffectiveOrder(),
         eventRepo.countByType(since),
         systemStateRepo.isSchedulerPaused(),
       ]);

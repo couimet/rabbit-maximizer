@@ -27,10 +27,10 @@ export class ReviewRetriggerProbe {
     );
   }
 
-  staleCommentRescheduled(notBefore: Date): void {
+  staleCommentRescheduled(cooldownUntil: Date): void {
     this.log.info(
-      { fn: 'ReviewRetriggerProbe.staleCommentRescheduled', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, notBefore },
-      'Stale source comment replaced; rescheduled with updated not_before',
+      { fn: 'ReviewRetriggerProbe.staleCommentRescheduled', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, cooldownUntil },
+      'Stale source comment replaced; rescheduled with updated cooldown time',
     );
   }
 

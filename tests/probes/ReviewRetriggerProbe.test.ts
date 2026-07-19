@@ -60,14 +60,14 @@ describe('ReviewRetriggerProbe', () => {
 
   it('logs on staleCommentRescheduled', () => {
     const item = makeQueueItem() as QueueItem;
-    const notBefore = getUniqueDate();
+    const cooldownUntil = getUniqueDate();
 
     const probe = createProbe(item);
-    probe.staleCommentRescheduled(notBefore);
+    probe.staleCommentRescheduled(cooldownUntil);
 
     expect(logger.info).toHaveBeenCalledWith(
-      { ...LOGGING_CTX(item)('ReviewRetriggerProbe.staleCommentRescheduled'), notBefore },
-      'Stale source comment replaced; rescheduled with updated not_before',
+      { ...LOGGING_CTX(item)('ReviewRetriggerProbe.staleCommentRescheduled'), cooldownUntil },
+      'Stale source comment replaced; rescheduled with updated cooldown time',
     );
   });
 

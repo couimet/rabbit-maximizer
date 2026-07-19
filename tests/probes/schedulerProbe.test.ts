@@ -76,11 +76,11 @@ describe('SchedulerProbe', () => {
       const { fullName: firstRepo } = getUniqueGitHubRepoRef();
       const firstPr = getUniqueInt();
       const firstItem = makeItem(firstRepo, firstPr);
-      const firstNotBefore = getUniqueDate();
+      const firstRescheduleEarliest = getUniqueDate();
       const { fullName: secondRepo } = getUniqueGitHubRepoRef();
       const secondPr = getUniqueInt();
       const secondItem = makeItem(secondRepo, secondPr);
-      const secondNotBefore = getUniqueDate();
+      const secondRescheduleEarliest = getUniqueDate();
       const probe = createProbe();
 
       probe.withItem(firstItem);
@@ -88,12 +88,19 @@ describe('SchedulerProbe', () => {
         code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
         message: 'test',
         functionName: 'test',
-        details: { notBefore: firstNotBefore.toISOString(), sourceComment: { commentId: 1, commentUrl: 'https://gh/c/1' } },
+        details: { rescheduleEarliest: firstRescheduleEarliest.toISOString(), sourceComment: { commentId: 1, commentUrl: 'https://gh/c/1' } },
       });
       await probe.triggerFailed(firstError, makeTx());
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.rescheduled', repo: firstRepo, pr: firstPr, queueId: firstItem.id, newNotBefore: firstNotBefore, error: firstError },
-        'Stale source comment replaced; rescheduled with updated not_before',
+        {
+          fn: 'SchedulerProbe.rescheduled',
+          repo: firstRepo,
+          pr: firstPr,
+          queueId: firstItem.id,
+          rescheduleEarliest: firstRescheduleEarliest,
+          error: firstError,
+        },
+        'Stale source comment replaced; rescheduled with updated time',
       );
 
       probe.withItem(secondItem);
@@ -101,12 +108,19 @@ describe('SchedulerProbe', () => {
         code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
         message: 'test',
         functionName: 'test',
-        details: { notBefore: secondNotBefore.toISOString(), sourceComment: { commentId: 2, commentUrl: 'https://gh/c/2' } },
+        details: { rescheduleEarliest: secondRescheduleEarliest.toISOString(), sourceComment: { commentId: 2, commentUrl: 'https://gh/c/2' } },
       });
       await probe.triggerFailed(secondError, makeTx());
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.rescheduled', repo: secondRepo, pr: secondPr, queueId: secondItem.id, newNotBefore: secondNotBefore, error: secondError },
-        'Stale source comment replaced; rescheduled with updated not_before',
+        {
+          fn: 'SchedulerProbe.rescheduled',
+          repo: secondRepo,
+          pr: secondPr,
+          queueId: secondItem.id,
+          rescheduleEarliest: secondRescheduleEarliest,
+          error: secondError,
+        },
+        'Stale source comment replaced; rescheduled with updated time',
       );
     });
   });
@@ -191,21 +205,21 @@ describe('SchedulerProbe', () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
       const item = makeItem(repo, pr);
-      const NOT_BEFORE = getUniqueDate();
+      const RESCHEDULE_EARLIEST = getUniqueDate();
       const NEW_COMMENT = { commentId: getUniqueInt(), commentUrl: getUniqueString({ prefix: 'https://gh/c/' }) };
       const tx = makeTx();
       const error = new RabbitMaximizerError({
         code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
         message: 'test',
         functionName: 'test',
-        details: { notBefore: NOT_BEFORE.toISOString(), sourceComment: NEW_COMMENT },
+        details: { rescheduleEarliest: RESCHEDULE_EARLIEST.toISOString(), sourceComment: NEW_COMMENT },
       });
       const probe = createProbe();
       probe.withItem(item);
       await probe.triggerFailed(error, tx);
       expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.rescheduled', repo, pr, queueId: item.id, newNotBefore: NOT_BEFORE, error },
-        'Stale source comment replaced; rescheduled with updated not_before',
+        { fn: 'SchedulerProbe.rescheduled', repo, pr, queueId: item.id, rescheduleEarliest: RESCHEDULE_EARLIEST, error },
+        'Stale source comment replaced; rescheduled with updated time',
       );
     });
 

@@ -102,7 +102,7 @@ describe('QueueOrderRepositoryImpl', () => {
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
       expect(result).toStrictEqual(rows.map(toExpectedItem));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 3, eligibleOnly: true }, 'Fetched effective order');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 3 }, 'Fetched effective order');
     });
 
     it('returns empty array when nothing eligible', async () => {
@@ -131,12 +131,12 @@ describe('QueueOrderRepositoryImpl', () => {
       );
     });
 
-    it('returns all pending items when eligibleOnly is false', async () => {
+    it('returns all pending items', async () => {
       const rows = [makeRow(), makeRow()];
       const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
-      const result = await sut.getEffectiveOrder({ eligibleOnly: false });
+      const result = await sut.getEffectiveOrder();
 
       expect(result).toStrictEqual(rows.map(toExpectedItem));
     });

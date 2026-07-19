@@ -15,8 +15,8 @@ export interface QueueRepository {
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markReviewed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markReviewedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
-  reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  reschedule(id: number, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
@@ -151,7 +151,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
   }
 
-  async reschedule(id: number, newNotBefore: Date, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async reschedule(id: number, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
       () =>
         this.client(tx).reviewQueue.update({
@@ -168,7 +168,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.toQueueItem(row);
   }
 
-  async backoff(id: number, newNotBefore: Date, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
     const row = await this.withPrismaErrorHandling(
       () =>
         this.client(tx).reviewQueue.update({

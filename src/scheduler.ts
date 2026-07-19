@@ -101,12 +101,11 @@ export class Scheduler extends IntervalService {
             // Source comment was replaced by a newer rate-limit comment: reschedule to the
             // new comment's notBefore with updated source_comment data. Not a failure.
             const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
-            await this.queue.reschedule(item!.id, new Date(details.notBefore), details.sourceComment, tx);
+            await this.queue.reschedule(item!.id, details.sourceComment, tx);
           } else {
             // Genuine failure (stale-skip, replacement-deleted, or unknown): apply
             // exponential backoff. The item may succeed on a later attempt.
-            const backoffMs = computeSchedulerBackoff(item!.attempts, this.baseBackoff, this.maxBackoff);
-            await this.queue.backoff(item!.id, new Date(Date.now() + backoffMs), tx);
+            await this.queue.backoff(item!.id, tx);
           }
           await probe.triggerFailed(err, tx);
         });
@@ -131,7 +130,7 @@ export class Scheduler extends IntervalService {
       const backoffMs = computeSchedulerBackoff(item!.attempts, this.baseBackoff, this.maxBackoff);
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.backoff(item!.id, new Date(Date.now() + backoffMs), tx);
+        await this.queue.backoff(item!.id, tx);
         await probe.backedOff(backoffMs, item!.attempts, err, tx);
       });
     }

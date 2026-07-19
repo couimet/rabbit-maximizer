@@ -46,7 +46,7 @@ describe('getDashboardState', () => {
     port = result.port;
   };
 
-  it('returns null for nextReviewAvailableAt when at least one pending item is eligible now', async () => {
+  it('returns null for nextReviewAvailableAt regardless of pending items', async () => {
     logger = createMockLogger();
     const items = [makeQueueItem({ id: 1 }), makeQueueItem({ id: 2 }), makeQueueItem({ id: 3 })];
     startServer(
