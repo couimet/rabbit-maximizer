@@ -387,3 +387,39 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <never>Assume the database is at `data/rabbit-maximizer.db` relative to the current working directory — the repo uses git worktrees, and all worktrees share a single database in the main repository's `data/` directory</never>
   <rationale>The `local` script in `package.json` overrides `DATABASE_URL` at startup with `file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db`, which resolves to the main repo's data directory (not the worktree's). The `.env` file's `DATABASE_URL=file:./data/rabbit-maximizer.db` is a relative fallback that may point to the wrong location when working from a worktree. Querying the wrong database leads to false conclusions — an empty database looks like a broken app when the real database is healthy.</rationale>
 </rule>
+
+<rule id="P007" priority="critical">
+  <title>Constructors must not call new() on collaborators</title>
+  <do>Inject a factory interface when a class needs to instantiate another class. The factory is registered in the DI container and injected via the constructor.</do>
+  <do>Follow the existing `ProbeFactory` pattern: define a factory interface, bind it in `container.ts`, inject it in the consuming class's constructor, and call `factory.create()` at the point of use.</do>
+  <never>Call `new` on a collaborator class inside a constructor or method of an @injectable() class</never>
+  <rationale>Inlined `new()` calls couple the parent to a concrete implementation, making unit testing harder (can't mock the collaborator) and violating the Dependency Inversion Principle. Factory injection keeps the container as the single source of wiring while allowing instances to be created at runtime with their own DI-resolved dependencies.</rationale>
+  <good-example>
+    ```typescript
+    @injectable()
+    class PollDetector extends IntervalService {
+      constructor(
+        @inject(TYPES.ReviewCompletionGuardFactory) private readonly reviewCompletionGuardFactory: ReviewCompletionGuardFactory,
+        @inject(TYPES.Logger) log: Logger,
+      ) {
+        super(log, POLL_INTERVAL_MS);
+      }
+      private async someMethod() {
+        const guard = this.reviewCompletionGuardFactory.create();
+        const hasReview = await guard.hasCompletedReview(prId);
+      }
+    }
+    ```
+  </good-example>
+  <bad-example>
+    ```typescript
+    @injectable()
+    class PollDetector extends IntervalService {
+      private async someMethod() {
+        const guard = new ReviewCompletionGuard(this.coderabbitCommentRepo); // BAD: inline new()
+        const hasReview = await guard.hasCompletedReview(prId);
+      }
+    }
+    ```
+  </bad-example>
+</rule>

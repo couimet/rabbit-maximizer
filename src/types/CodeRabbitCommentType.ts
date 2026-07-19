@@ -1,5 +1,5 @@
 /** Classifies the type of review outcome a CodeRabbit comment represents. Sorted by lifecycle: not-reviewed outcomes first, then review outcomes. */
-export enum CommentType {
+export enum CodeRabbitCommentType {
   /** CodeRabbit refused due to rate limiting. */
   review_limited = 'review_limited',
   /** CodeRabbit explicitly skipped the review (permanent refusal). */

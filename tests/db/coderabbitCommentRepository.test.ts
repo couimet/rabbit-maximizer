@@ -1,14 +1,14 @@
 import { CoderabbitCommentRepositoryImpl, type UpsertCommentData } from '../../src/db/coderabbitCommentRepository.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
-import { CommentType } from '../../src/types/CommentType.js';
-import { createMockPrismaClient } from '../helpers/index.js';
+import { CodeRabbitCommentType } from '../../src/types/CodeRabbitCommentType.js';
+import { createMockPrismaClient } from '../helpers/createMockPrismaClient.js';
 
 import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 
-const LAST_BODY_PREVIEW_MAX_LENGTH = 1024;
+const EXPECTED_BODY_PREVIEW_MAX_LENGTH = 1024;
 
 describe('CoderabbitCommentRepositoryImpl', () => {
   let frozenNow: Date;
@@ -25,7 +25,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     comment_id: getUniqueInt(),
     pull_request_id: getUniqueInt(),
     url: getUniqueString(),
-    comment_type: getRandomEnumValue(CommentType),
+    comment_type: getRandomEnumValue(CodeRabbitCommentType),
     body: getUniqueString(),
     gh_created_at: getUniqueDate(),
     gh_updated_at: getUniqueDate(),
@@ -38,7 +38,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     pull_request_id: getUniqueInt(),
     comment_id: getUniqueInt(),
     url: getUniqueString(),
-    comment_type: getRandomEnumValue(CommentType),
+    comment_type: getRandomEnumValue(CodeRabbitCommentType),
     last_body_preview: getUniqueString(),
     gh_created_at: getUniqueDate(),
     gh_updated_at: getUniqueDate(),
@@ -50,7 +50,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
   describe('upsert', () => {
     it('creates a new coderabbit_comment row when none exists', async () => {
       const data = makeData();
-      const created = makeRow({ id: getUniqueInt() });
+      const created = makeRow();
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(created) },
       });
@@ -64,7 +64,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           pull_request_id: data.pull_request_id,
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body!.slice(0, LAST_BODY_PREVIEW_MAX_LENGTH),
+          last_body_preview: data.body,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
@@ -95,7 +95,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         data: {
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body!.slice(0, LAST_BODY_PREVIEW_MAX_LENGTH),
+          last_body_preview: data.body,
           gh_updated_at: data.gh_updated_at,
           last_seen_at: frozenNow,
         },
@@ -107,7 +107,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       );
     });
 
-    it('sets last_body_preview to null when body is empty', async () => {
+    it('preserves empty string as empty string', async () => {
       const data = makeData({ body: '' });
       const createdRow = makeRow();
       const { prisma, coderabbitComment } = createMockPrismaClient({
@@ -123,7 +123,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           pull_request_id: data.pull_request_id,
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: null,
+          last_body_preview: '',
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
@@ -165,6 +165,33 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: createdRow.id },
         'Created CoderabbitComment',
       );
+    });
+
+    it('truncates body to EXPECTED_BODY_PREVIEW_MAX_LENGTH', async () => {
+      const longBody = getUniqueString({ maxLength: EXPECTED_BODY_PREVIEW_MAX_LENGTH + 100 });
+      const data = makeData({ body: longBody });
+      const created = makeRow();
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(created) },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      await sut.upsert(data);
+
+      expect(coderabbitComment.create).toHaveBeenCalledWith({
+        data: {
+          comment_id: data.comment_id,
+          pull_request_id: data.pull_request_id,
+          url: data.url,
+          comment_type: data.comment_type,
+          last_body_preview: longBody.slice(0, EXPECTED_BODY_PREVIEW_MAX_LENGTH),
+          gh_created_at: data.gh_created_at,
+          gh_updated_at: data.gh_updated_at,
+          first_seen_at: frozenNow,
+          last_seen_at: frozenNow,
+          is_not_deleted: true,
+        },
+      });
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError on update', async () => {
@@ -211,7 +238,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         data: {
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body!.slice(0, LAST_BODY_PREVIEW_MAX_LENGTH),
+          last_body_preview: data.body,
           gh_updated_at: data.gh_updated_at,
           last_seen_at: frozenNow,
         },
@@ -278,7 +305,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         where: { pull_request_id: pullRequestId },
         orderBy: { gh_created_at: 'desc' },
       });
-      expect(result).toHaveLength(2);
+      expect(result).toStrictEqual(rows);
     });
 
     it('returns empty array when no comments exist', async () => {
@@ -296,7 +323,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
   describe('findActiveByType', () => {
     it('returns the most recent active comment of a given type', async () => {
       const pullRequestId = getUniqueInt();
-      const commentType = CommentType.review_skipped;
+      const commentType = getRandomEnumValue(CodeRabbitCommentType);
       const row = makeRow({ comment_type: commentType });
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(row) },
@@ -309,8 +336,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         where: { pull_request_id: pullRequestId, comment_type: commentType },
         orderBy: { gh_created_at: 'desc' },
       });
-      expect(result).not.toBeUndefined();
-      expect(result!.comment_type).toBe('review_skipped');
+      expect(result).toStrictEqual(row);
     });
 
     it('returns undefined when no matching comment exists', async () => {
@@ -319,7 +345,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       });
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
 
-      const result = await sut.findActiveByType(getUniqueInt(), CommentType.review_approved);
+      const result = await sut.findActiveByType(getUniqueInt(), getRandomEnumValue(CodeRabbitCommentType));
 
       expect(result).toBeUndefined();
     });

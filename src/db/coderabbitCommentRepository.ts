@@ -1,12 +1,12 @@
 import { BasePrismaRepository, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { TYPES } from '../inversify-types.js';
-import { CommentType } from '../types/CommentType.js';
+import { BODY_PREVIEW_MAX_LENGTH } from '../schemas/lengths.js';
+import { CodeRabbitCommentType } from '../types/CodeRabbitCommentType.js';
+import { truncateBodyPreview } from '../utils/truncateBodyPreview.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
-
-const LAST_BODY_PREVIEW_MAX_LENGTH = 1024;
 
 export interface CoderabbitCommentRow {
   readonly id: number;
@@ -14,7 +14,7 @@ export interface CoderabbitCommentRow {
   readonly pull_request_id: number;
   readonly comment_id: number;
   readonly url: string;
-  readonly comment_type: CommentType;
+  readonly comment_type: CodeRabbitCommentType;
   readonly last_body_preview: string | null;
   readonly gh_created_at: Date;
   readonly gh_updated_at: Date;
@@ -26,7 +26,7 @@ export interface UpsertCommentData {
   readonly comment_id: number;
   readonly pull_request_id: number;
   readonly url: string;
-  readonly comment_type: CommentType;
+  readonly comment_type: CodeRabbitCommentType;
   readonly body: string | null;
   readonly gh_created_at: Date;
   readonly gh_updated_at: Date;
@@ -36,7 +36,7 @@ export interface CoderabbitCommentRepository {
   upsert(data: UpsertCommentData, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow>;
   deactivate(commentId: number, tx?: Prisma.TransactionClient): Promise<void>;
   findByPr(pullRequestId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow[]>;
-  findActiveByType(pullRequestId: number, commentType: CommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow | undefined>;
+  findActiveByType(pullRequestId: number, commentType: CodeRabbitCommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow | undefined>;
 }
 
 @injectable()
@@ -51,7 +51,7 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
   async upsert(data: UpsertCommentData, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow> {
     return this.enforceTx(tx, async (db) => {
       const now = new Date();
-      const lastBodyPreview = data.body !== null && data.body.length > 0 ? data.body.slice(0, LAST_BODY_PREVIEW_MAX_LENGTH) : null;
+      const lastBodyPreviewForSql: string | null = truncateBodyPreview(data.body, BODY_PREVIEW_MAX_LENGTH) ?? null;
 
       const existing = await db.coderabbitComment.findFirst({
         where: { comment_id: data.comment_id },
@@ -66,7 +66,7 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
               data: {
                 url: data.url,
                 comment_type: data.comment_type,
-                last_body_preview: lastBodyPreview,
+                last_body_preview: lastBodyPreviewForSql,
                 gh_updated_at: data.gh_updated_at,
                 last_seen_at: now,
               },
@@ -86,7 +86,7 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
                 pull_request_id: data.pull_request_id,
                 url: data.url,
                 comment_type: data.comment_type,
-                last_body_preview: lastBodyPreview,
+                last_body_preview: lastBodyPreviewForSql,
                 gh_created_at: data.gh_created_at,
                 gh_updated_at: data.gh_updated_at,
                 first_seen_at: now,
@@ -113,7 +113,7 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
                   data: {
                     url: data.url,
                     comment_type: data.comment_type,
-                    last_body_preview: lastBodyPreview,
+                    last_body_preview: lastBodyPreviewForSql,
                     gh_updated_at: data.gh_updated_at,
                     last_seen_at: now,
                   },
@@ -149,7 +149,7 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
   }
 
   // eslint-disable-next-line require-await
-  async findActiveByType(pullRequestId: number, commentType: CommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow | undefined> {
+  async findActiveByType(pullRequestId: number, commentType: CodeRabbitCommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow | undefined> {
     return this.enforceTx(tx, async (db) => {
       const row = await db.coderabbitComment.findFirst({
         where: { pull_request_id: pullRequestId, comment_type: commentType },
@@ -167,7 +167,7 @@ const toRow = (row: any): CoderabbitCommentRow => ({
   pull_request_id: row.pull_request_id,
   comment_id: row.comment_id,
   url: row.url,
-  comment_type: row.comment_type as CommentType,
+  comment_type: row.comment_type as CodeRabbitCommentType,
   last_body_preview: row.last_body_preview,
   gh_created_at: row.gh_created_at,
   gh_updated_at: row.gh_updated_at,
