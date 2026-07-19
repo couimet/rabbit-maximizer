@@ -2743,7 +2743,6 @@ export namespace Prisma {
     pr_number: number | null;
     pr_title: string | null;
     status: string | null;
-    not_before: Date | null;
     attempts: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
@@ -2764,7 +2763,6 @@ export namespace Prisma {
     pr_number: number | null;
     pr_title: string | null;
     status: string | null;
-    not_before: Date | null;
     attempts: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
@@ -2785,7 +2783,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: number;
     status: number;
-    not_before: number;
     attempts: number;
     source_comment_url: number;
     source_comment_id: number;
@@ -2823,7 +2820,6 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
-    not_before?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2844,7 +2840,6 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
-    not_before?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2865,7 +2860,6 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
-    not_before?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2970,7 +2964,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status: string;
-    not_before: Date;
     attempts: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -3009,7 +3002,6 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
-      not_before?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3035,7 +3027,6 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
-      not_before?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3060,7 +3051,6 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
-      not_before?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3084,7 +3074,6 @@ export namespace Prisma {
     pr_number?: boolean;
     pr_title?: boolean;
     status?: boolean;
-    not_before?: boolean;
     attempts?: boolean;
     source_comment_url?: boolean;
     source_comment_id?: boolean;
@@ -3105,7 +3094,6 @@ export namespace Prisma {
     | 'pr_number'
     | 'pr_title'
     | 'status'
-    | 'not_before'
     | 'attempts'
     | 'source_comment_url'
     | 'source_comment_id'
@@ -3156,7 +3144,6 @@ export namespace Prisma {
          * Max 25; one of 'pending' | 'retriggered' | 'reviewed' | 'failed' (CHECK in the init migration).
          */
         status: string;
-        not_before: Date;
         attempts: number;
         /**
          * Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
@@ -3657,7 +3644,6 @@ export namespace Prisma {
     readonly pr_number: FieldRef<'ReviewQueue', 'Int'>;
     readonly pr_title: FieldRef<'ReviewQueue', 'String'>;
     readonly status: FieldRef<'ReviewQueue', 'String'>;
-    readonly not_before: FieldRef<'ReviewQueue', 'DateTime'>;
     readonly attempts: FieldRef<'ReviewQueue', 'Int'>;
     readonly source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly source_comment_id: FieldRef<'ReviewQueue', 'Int'>;
@@ -8989,7 +8975,6 @@ export namespace Prisma {
     pr_number: 'pr_number';
     pr_title: 'pr_title';
     status: 'status';
-    not_before: 'not_before';
     attempts: 'attempts';
     source_comment_url: 'source_comment_url';
     source_comment_id: 'source_comment_id';
@@ -9242,7 +9227,6 @@ export namespace Prisma {
     pr_number?: IntFilter<'ReviewQueue'> | number;
     pr_title?: StringFilter<'ReviewQueue'> | string;
     status?: StringFilter<'ReviewQueue'> | string;
-    not_before?: DateTimeFilter<'ReviewQueue'> | Date | string;
     attempts?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -9265,7 +9249,6 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
-    not_before?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -9292,7 +9275,6 @@ export namespace Prisma {
       pr_number?: IntFilter<'ReviewQueue'> | number;
       pr_title?: StringFilter<'ReviewQueue'> | string;
       status?: StringFilter<'ReviewQueue'> | string;
-      not_before?: DateTimeFilter<'ReviewQueue'> | Date | string;
       attempts?: IntFilter<'ReviewQueue'> | number;
       source_comment_url?: StringFilter<'ReviewQueue'> | string;
       source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -9317,7 +9299,6 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
-    not_before?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -9346,7 +9327,6 @@ export namespace Prisma {
     pr_number?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     pr_title?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     status?: StringWithAggregatesFilter<'ReviewQueue'> | string;
-    not_before?: DateTimeWithAggregatesFilter<'ReviewQueue'> | Date | string;
     attempts?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     source_comment_url?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     source_comment_id?: IntWithAggregatesFilter<'ReviewQueue'> | number;
@@ -9835,7 +9815,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
-    not_before: Date | string;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9858,7 +9837,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
-    not_before: Date | string;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9878,7 +9856,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9901,7 +9878,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9923,7 +9899,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
-    not_before: Date | string;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9942,7 +9917,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9963,7 +9937,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -10576,7 +10549,6 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
-    not_before?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -10605,7 +10577,6 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
-    not_before?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -10626,7 +10597,6 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
-    not_before?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -11467,7 +11437,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
-    not_before: Date | string;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11488,7 +11457,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
-    not_before: Date | string;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11616,7 +11584,6 @@ export namespace Prisma {
     pr_number?: IntFilter<'ReviewQueue'> | number;
     pr_title?: StringFilter<'ReviewQueue'> | string;
     status?: StringFilter<'ReviewQueue'> | string;
-    not_before?: DateTimeFilter<'ReviewQueue'> | Date | string;
     attempts?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -11944,7 +11911,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
-    not_before: Date | string;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11966,7 +11932,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
-    not_before: Date | string;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -12001,7 +11966,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12023,7 +11987,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12141,7 +12104,6 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
-    not_before: Date | string;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -12191,7 +12153,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12212,7 +12173,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12233,7 +12193,6 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
-    not_before?: DateTimeFieldUpdateOperationsInput | Date | string;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
