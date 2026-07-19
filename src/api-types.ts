@@ -228,11 +228,6 @@ export interface components {
       pr_number: number;
       pr_title: string;
       status: components['schemas']['QueueStatus'];
-      /**
-       * Format: date-time
-       * @description Eligibility gate — item cannot be processed before this timestamp
-       */
-      not_before: string;
       attempts: number;
       source_comment_url?: string;
       /** @enum {string} */

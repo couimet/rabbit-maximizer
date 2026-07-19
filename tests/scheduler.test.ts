@@ -38,7 +38,6 @@ interface QueueItemStub {
   pr_number: number;
   pr_title: string;
   status: QueueStatus;
-  not_before: Date;
   attempts: number;
   source_comment_url: string;
   source_comment_id: number;
@@ -72,7 +71,6 @@ const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
     pr_number: over.pr_number ?? getUniqueInt(),
     pr_title: over.pr_title ?? getUniqueString({ prefix: 'pr-title-' }),
     status: over.status ?? getRandomEnumValue(QueueStatus),
-    not_before: over.not_before ?? new Date(Date.now() - 60_000),
     attempts: over.attempts ?? 0,
     source_comment_url: over.source_comment_url ?? `https://github.com/test-owner/test-repo/pull/${getUniqueInt()}#issuecomment-${commentId}`,
     source_comment_id: over.source_comment_id ?? commentId,
@@ -413,31 +411,6 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.tickFailed).toHaveBeenCalledWith('raw string failure');
-
-      await stop();
-    });
-
-    it('updates not_before on reschedule when item needs backoff', async () => {
-      const item = makeItem();
-      const rescheduleNotBefore = new Date(Date.now() + 120_000);
-      const newComment = { commentId: 888, commentUrl: 'https://gh/c/newer' };
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      const staleErr = RabbitResult.err(
-        new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-          code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
-          message: 'stale',
-          functionName: 'test',
-          details: { notBefore: rescheduleNotBefore.toISOString(), sourceComment: newComment },
-        }),
-      );
-      deps.reviewTrigger.trigger.mockResolvedValue(staleErr);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(staleErr.error, deps.tx);
 
       await stop();
     });

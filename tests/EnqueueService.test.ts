@@ -14,8 +14,6 @@ import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, g
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
-const MS_PER_SECOND = 1000;
-
 const makeComment = (): DetectedComment => ({
   url: getUniqueString({ prefix: 'https://gh/c/' }),
   repo_full_name: getUniqueGitHubRepoRef().fullName,
@@ -110,7 +108,6 @@ describe('EnqueueService', () => {
       const waitSeconds = 330;
       const pullRequestId = getUniqueInt();
       mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
-      const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       await svc.handle(comment, waitSeconds);
 
@@ -125,7 +122,6 @@ describe('EnqueueService', () => {
           repo: comment.repo_full_name,
           pr: comment.pr_number,
           prTitle: comment.pr_title,
-          notBefore: expectedScheduledFor,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.comment_id,
           newWait: waitSeconds,
@@ -174,7 +170,6 @@ describe('EnqueueService', () => {
       const waitSeconds = 120;
       const pullRequestId = getUniqueInt();
       mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
-      const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
 
       await svc.handle(comment, waitSeconds);
 
@@ -183,7 +178,6 @@ describe('EnqueueService', () => {
           repo: comment.repo_full_name,
           pr: comment.pr_number,
           prTitle: comment.pr_title,
-          notBefore: expectedScheduledFor,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.comment_id,
           newWait: waitSeconds,

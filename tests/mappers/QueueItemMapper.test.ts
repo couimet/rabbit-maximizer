@@ -29,7 +29,6 @@ const makeQueueItem = (overrides: Partial<QueueItem> = {}): QueueItem => ({
   pr_number: PR_NUMBER,
   pr_title: PR_TITLE,
   status: STATUS,
-  not_before: NOW,
   attempts: ATTEMPTS,
   source_comment_url: SOURCE_COMMENT_URL,
   source_comment_id: getUniqueInt(),
@@ -66,7 +65,6 @@ describe('QueueItemMapper', () => {
       const input = makeQueueItem();
       const result = mapper.mapToQueueItemResponse(input);
 
-      expect(result.not_before).toBe(NOW.toISOString());
       expect(result.created_at).toBe(CREATED_AT.toISOString());
       expect(result.updated_at).toBe(UPDATED_AT.toISOString());
       expect(result.retriggered_at).toBe(RETRIGGERED_AT.toISOString());

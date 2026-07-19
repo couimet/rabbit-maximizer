@@ -10,8 +10,6 @@ import { TYPES } from './inversify-types.js';
 import { type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
-const MILLISECONDS_PER_SECOND = 1000;
-
 @injectable()
 export class EnqueueService {
   /* c8 ignore start — decorator emit branches */
@@ -32,7 +30,6 @@ export class EnqueueService {
   /* c8 ignore stop */
 
   readonly handle: OnDetectedCallback = async (comment, waitSeconds) => {
-    const scheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MILLISECONDS_PER_SECOND);
     const obs = this.observation.current();
 
     const probe = this.probes.createDetectedProbe(
@@ -65,7 +62,6 @@ export class EnqueueService {
             repo: comment.repo_full_name,
             pr: comment.pr_number,
             prTitle: comment.pr_title,
-            notBefore: scheduledFor,
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.comment_id,
             newWait: waitSeconds,

@@ -31,9 +31,6 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
   private readEffectiveOrder(tx: Prisma.TransactionClient | undefined, eligibleOnly: boolean): Promise<QueueItem[]> {
     return this.enforceTx(tx, async (db) => {
       const where: Prisma.ReviewQueueWhereInput = { status: 'pending' };
-      if (eligibleOnly) {
-        where.not_before = { lte: new Date() };
-      }
       const rows = await db.reviewQueue.findMany({
         where,
         include: { queueOrder: true },
@@ -177,7 +174,6 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       pr_number: row.pr_number,
       pr_title: row.pr_title,
       status: row.status as QueueStatus,
-      not_before: row.not_before,
       attempts: row.attempts,
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,

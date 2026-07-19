@@ -22,7 +22,6 @@ const makeItem = () => ({
   repo_full_name: getUniqueGitHubRepoRef().fullName,
   pr_number: getUniqueInt(),
   status: QueueStatus.pending,
-  not_before: getUniqueDate(),
   attempts: 0,
   pr_title: getUniqueString({ prefix: 'PR title ' }),
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),

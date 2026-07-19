@@ -41,7 +41,6 @@ const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: numb
     pr_number: getUniqueInt(),
     pr_title: 'Test PR title',
     status: getRandomEnumValue(QueueStatus),
-    not_before: getUniqueDate(),
     attempts: 1,
     source_comment_url: `https://github.com/org/repo/issues/1#issuecomment-${commentId}`,
     source_comment_id: commentId,

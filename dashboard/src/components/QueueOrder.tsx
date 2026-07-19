@@ -1,5 +1,4 @@
 import type { QueueItemResponse } from '../../../src/types/api.js';
-import { formatRelativeFuture } from '../../../src/utils/formatRelativeFuture.js';
 import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
@@ -180,7 +179,6 @@ const QueueOrder = ({
                 </th>
                 <th className="col-position">#</th>
                 <th>Repo / PR</th>
-                <th>Not Before</th>
                 <th>Status</th>
                 <th className="col-actions"></th>
               </tr>
@@ -209,20 +207,9 @@ const QueueOrder = ({
                       </a>
                       <span className="pr-title">{item.pr_title}</span>
                     </td>
-                    <td>{formatRelativeFuture(item.not_before)}</td>
-                    {index === 0 ? (
-                      <td>
-                        {new Date(item.not_before).getTime() <= Date.now() ? (
-                          <span className="status-pill eligible">{formatRelativeFuture(item.not_before)}</span>
-                        ) : (
-                          <span className="status-pill cooldown">{formatRelativeFuture(item.not_before)}</span>
-                        )}
-                      </td>
-                    ) : (
-                      <td>
-                        <span className="queue-order-carrots">{'🥕'.repeat(index)}</span>
-                      </td>
-                    )}
+                    <td>
+                      <span className="status-pill pending">pending</span>
+                    </td>
                     <td className="col-actions">
                       <button
                         className="btn-retrigger"

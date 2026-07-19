@@ -1,10 +1,11 @@
 import type { EventRepository } from '../../src/db/eventRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
-import { EventType, QueueStatus, TriggerSource } from '../../src/types/index.js';
+import { EventType, type QueueItem } from '../../src/types/index.js';
 import { createMockEventRepo } from '../helpers/index.js';
+import { makeQueueItem } from '../helpers/makeQueueItem.js';
 
-import { getRandomEnumValue, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -12,24 +13,7 @@ import type { Prisma } from '@prisma/client';
 
 const TX = {} as Prisma.TransactionClient;
 
-const makeItem = () => ({
-  id: getUniqueInt(),
-  uuid: getUuid(),
-  repo_full_name: getUniqueGitHubRepoRef().fullName,
-  pr_number: getUniqueInt(),
-  status: getRandomEnumValue(QueueStatus),
-  not_before: getUniqueDate(),
-  attempts: 0,
-  pr_title: getUniqueString({ prefix: 'PR title ' }),
-  source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
-  source_comment_id: getUniqueInt(),
-  trigger_source: getRandomEnumValue(TriggerSource),
-  pull_request_id: getUniqueInt(),
-  created_at: getUniqueDate(),
-  updated_at: getUniqueDate(),
-});
-
-const LOGGING_CTX = (item: ReturnType<typeof makeItem>) => (fn: string) => ({ fn, repo: item.repo_full_name, pr: item.pr_number, queueId: item.id });
+const LOGGING_CTX = (item: QueueItem) => (fn: string) => ({ fn, repo: item.repo_full_name, pr: item.pr_number, queueId: item.id });
 
 describe('ReviewRetriggerProbe', () => {
   let events: jest.Mocked<EventRepository>;
@@ -46,10 +30,10 @@ describe('ReviewRetriggerProbe', () => {
     };
   });
 
-  const createProbe = (item: ReturnType<typeof makeItem>) => new ReviewRetriggerProbe(item, events, observation, logger);
+  const createProbe = (item: QueueItem) => new ReviewRetriggerProbe(item, events, observation, logger);
 
   it('records event, and logs on reviewRetriggered', async () => {
-    const item = makeItem();
+    const item = makeQueueItem() as QueueItem;
     const cooldownUntil = getUniqueDate();
     const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
@@ -75,7 +59,7 @@ describe('ReviewRetriggerProbe', () => {
   });
 
   it('logs on staleCommentRescheduled', () => {
-    const item = makeItem();
+    const item = makeQueueItem() as QueueItem;
     const notBefore = getUniqueDate();
 
     const probe = createProbe(item);
@@ -88,7 +72,7 @@ describe('ReviewRetriggerProbe', () => {
   });
 
   it('logs on staleCommentSkipped', () => {
-    const item = makeItem();
+    const item = makeQueueItem() as QueueItem;
 
     const probe = createProbe(item);
     probe.staleCommentSkipped();
@@ -97,7 +81,7 @@ describe('ReviewRetriggerProbe', () => {
   });
 
   it('logs on staleCommentReplacementDeleted', () => {
-    const item = makeItem();
+    const item = makeQueueItem() as QueueItem;
     const REPLACEMENT_ID = getUniqueInt();
 
     const probe = createProbe(item);

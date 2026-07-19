@@ -48,14 +48,7 @@ describe('getDashboardState', () => {
 
   it('returns null for nextReviewAvailableAt when at least one pending item is eligible now', async () => {
     logger = createMockLogger();
-    const futureDate1 = new Date(Date.now() + 900_000);
-    const pastDate = new Date(Date.now() - 3_600_000);
-    const futureDate2 = new Date(Date.now() + 3_600_000);
-    const items = [
-      makeQueueItem({ id: 1, not_before: futureDate2 }),
-      makeQueueItem({ id: 2, not_before: pastDate }),
-      makeQueueItem({ id: 3, not_before: futureDate1 }),
-    ];
+    const items = [makeQueueItem({ id: 1 }), makeQueueItem({ id: 2 }), makeQueueItem({ id: 3 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
       {
@@ -76,64 +69,6 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
-      paused: false,
-    });
-  });
-
-  it('returns nextReviewAvailableAt from oldest future not_before when all items are in the future', async () => {
-    logger = createMockLogger();
-    const futureDate1 = new Date(Date.now() + 900_000);
-    const futureDate2 = new Date(Date.now() + 3_600_000);
-    const items = [makeQueueItem({ id: 1, not_before: futureDate2 }), makeQueueItem({ id: 2, not_before: futureDate1 })];
-    startServer(
-      { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
-      {
-        countByType: jest.fn<any>().mockResolvedValue({
-          detected: 5,
-          enqueued: 3,
-          retriggered: 2,
-          failed: 1,
-          bypassed: 0,
-          coderabbit_review_approved: 0,
-          coderabbit_review_changes_suggested: 0,
-        }),
-      },
-    );
-
-    const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
-      nextReviewAvailableAt: futureDate1.toISOString(),
-      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
-      eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
-      paused: false,
-    });
-  });
-
-  it('returns null for nextReviewAvailableAt when all pending not_before values are in the past', async () => {
-    logger = createMockLogger();
-    const pastDate1 = new Date(Date.now() - 3_600_000);
-    const pastDate2 = new Date(Date.now() - 1_800_000);
-    const items = [makeQueueItem({ id: 1, not_before: pastDate1 }), makeQueueItem({ id: 2, not_before: pastDate2 })];
-    startServer(
-      { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
-      {
-        countByType: jest.fn<any>().mockResolvedValue({
-          detected: 0,
-          enqueued: 0,
-          retriggered: 0,
-          bypassed: 0,
-          coderabbit_review_approved: 0,
-          coderabbit_review_changes_suggested: 0,
-          failed: 0,
-        }),
-      },
-    );
-
-    const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
-      nextReviewAvailableAt: null,
-      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
-      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
   });
@@ -153,7 +88,7 @@ describe('getDashboardState', () => {
 
   it('returns pendingItems as the array from getEffectiveOrder', async () => {
     logger = createMockLogger();
-    const items = [makeQueueItem({ id: 1, not_before: new Date(0) }), makeQueueItem({ id: 2, repo_full_name: 'a/b', pr_number: 99, not_before: new Date(0) })];
+    const items = [makeQueueItem({ id: 1 }), makeQueueItem({ id: 2, repo_full_name: 'a/b', pr_number: 99 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
       {

@@ -29,12 +29,7 @@ export const createGetDashboardStateHandler = (
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
       const pendingItems = queueItemMapper.mapToQueueItemResponseList(items);
 
-      const now = new Date();
-      const hasEligibleNow = items.some((item) => item.not_before <= now);
-      const nextReviewAvailableAt =
-        !hasEligibleNow && items.length > 0
-          ? items.reduce((min, item) => (item.not_before < min ? item.not_before : min), items[0].not_before).toISOString()
-          : null;
+      const nextReviewAvailableAt: string | null = null;
 
       res.json({ nextReviewAvailableAt, pendingItems, eventCounts: activeEventCounts, paused });
     } catch (error) {

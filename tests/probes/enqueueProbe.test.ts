@@ -2,7 +2,7 @@ import { ObservationContext } from '../../src/observability/index.js';
 import { EnqueueProbe } from '../../src/probes/EnqueueProbe.js';
 import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -41,12 +41,11 @@ describe('EnqueueProbe', () => {
     it('records enqueued event and logs info with event uuid', async () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
-      const NOT_BEFORE = getUniqueDate();
       const NEW_WAIT = getUniqueInt();
       const tx = makeTx();
       const probe = createProbe(tx);
       (events.record as jest.Mock<any>).mockResolvedValue({ uuid: EVENT_UUID });
-      await probe.enqueued({ repo, pr, notBefore: NOT_BEFORE, newWait: NEW_WAIT });
+      await probe.enqueued({ repo, pr, newWait: NEW_WAIT });
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'enqueued',
@@ -55,7 +54,7 @@ describe('EnqueueProbe', () => {
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
-          payload: { not_before: NOT_BEFORE, new_wait: NEW_WAIT },
+          payload: { new_wait: NEW_WAIT },
         },
         tx,
       );
@@ -73,21 +72,6 @@ describe('EnqueueProbe', () => {
       expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.alreadyQueued', repo, pr, status: STATUS },
         'Already queued; returning existing row',
-      );
-    });
-  });
-
-  describe('alreadyQueuedRescheduled', () => {
-    it('logs debug when already queued PR is rescheduled', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const OLD_NOT_BEFORE = getUniqueDate();
-      const NEW_NOT_BEFORE = getUniqueDate();
-      const probe = createProbe(makeTx());
-      probe.alreadyQueuedRescheduled(repo, pr, OLD_NOT_BEFORE, NEW_NOT_BEFORE);
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'EnqueueProbe.alreadyQueuedRescheduled', repo, pr, oldNotBefore: OLD_NOT_BEFORE, newNotBefore: NEW_NOT_BEFORE },
-        'Already queued; schedule updated on re-detection',
       );
     });
   });

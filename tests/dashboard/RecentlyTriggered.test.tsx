@@ -28,7 +28,6 @@ const makeItem = (over: Record<string, unknown> = {}) => ({
   pr_number: getUniqueInt(),
   pr_title: getUniqueString({ prefix: 'pr-' }),
   status: QueueStatus.retriggered,
-  not_before: getUniqueDate().toISOString(),
   attempts: 0,
   source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
   trigger_source: TriggerSource.scheduler,
