@@ -1,12 +1,11 @@
 import { StateKey } from '../src/db/systemStateRepository.js';
+import type { DetectionRouter } from '../src/detection/DetectionRouter.js';
 import { PollDetector } from '../src/detectorPoll.js';
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
 import type { DetectedComment } from '../src/types/DetectedComment.js';
-import type { OnDetectedCallback } from '../src/types/OnDetectedCallback.js';
 
 import {
   createMockCoderabbitGitHubClient,
-  createMockOnDetectedCallback,
   createMockPullRequestRepo,
   createMockSystemStateRepository,
   drainMicrotasks,
@@ -18,17 +17,17 @@ import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const DEFAULT_FALLBACK_WAIT_SECONDS = 3600;
 const POLL_INTERVAL_SEC = 90;
 const POLL_INTERVAL_MS = POLL_INTERVAL_SEC * 1000;
 const EXPECTED_REPO_COUNT = 1;
 const MS_PER_SECOND = 1000;
 const MS_PER_HOUR = 60 * 60 * MS_PER_SECOND;
 const TICK_DEPTH = 20;
+const EXPECTED_WAIT_SECONDS = 5 * 60 + 30;
 
 interface MockDetectorDeps {
   github: jest.Mocked<CoderabbitGitHubClient>;
-  onDetected: jest.Mocked<OnDetectedCallback>;
+  router: jest.Mocked<DetectionRouter>;
   pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   systemStateRepo: ReturnType<typeof createMockSystemStateRepository>;
   logger: Logger;
@@ -36,13 +35,12 @@ interface MockDetectorDeps {
 
 const setup = (): MockDetectorDeps => {
   const github = createMockCoderabbitGitHubClient();
-
-  const onDetected = createMockOnDetectedCallback();
+  const router = { route: jest.fn<any>() } as unknown as jest.Mocked<DetectionRouter>;
   const pullRequests = createMockPullRequestRepo();
   const systemStateRepo = createMockSystemStateRepository();
   const logger = createMockLogger();
 
-  return { github, onDetected, pullRequests, systemStateRepo, logger };
+  return { github, router, pullRequests, systemStateRepo, logger };
 };
 
 describe('PollDetector', () => {
@@ -53,7 +51,7 @@ describe('PollDetector', () => {
     jest.useFakeTimers();
   });
 
-  const createDetector = () => new PollDetector(deps.github, deps.onDetected, deps.pullRequests, deps.systemStateRepo, deps.logger);
+  const createDetector = () => new PollDetector(deps.github, deps.router, deps.pullRequests, deps.systemStateRepo, deps.logger);
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
@@ -85,14 +83,12 @@ describe('PollDetector', () => {
     });
   });
 
-  describe('detection', () => {
-    it('fetches body, verifies markers, and fires onDetected callback with wait seconds', async () => {
+  describe('detection routing', () => {
+    it('fetches comment body, enriches it, and delegates to router', async () => {
       const comment = makeDetectedComment({});
-      const bodyText = 'some text rate limited by coderabbit.ai more text Please wait 5 minutes and 30 seconds before requesting another review.';
+      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
-
-      const expectedWaitSeconds = 5 * 60 + 30;
 
       const detector = createDetector();
       detector.start();
@@ -101,61 +97,98 @@ describe('PollDetector', () => {
 
       const [owner, repo] = comment.repoFullName.split('/');
       expect(deps.github.fetchComment).toHaveBeenCalledWith(owner, repo, comment.commentId);
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds);
+      expect(deps.router.route).toHaveBeenCalledWith({ ...comment, body: bodyText, updatedAt: comment.updatedAt });
     });
 
-    it('falls back to DEFAULT_FALLBACK_WAIT_SECONDS when parseWaitSeconds returns undefined', async () => {
+    it('aggregates earliestNextReview from router results', async () => {
       const comment = makeDetectedComment({});
-      const bodyText = 'rate limited by coderabbit.ai but no wait time pattern';
+      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+
+      const candidateDate = new Date(new Date(comment.updatedAt).getTime() + EXPECTED_WAIT_SECONDS * MS_PER_SECOND);
+      deps.router.route.mockResolvedValue(candidateDate);
+      deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
       const detector = createDetector();
       detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, DEFAULT_FALLBACK_WAIT_SECONDS);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, candidateDate);
     });
-  });
 
-  describe('self-marker exclusion', () => {
-    it('skips comments whose full body contains the own-retrigger marker', async () => {
-      const comment = makeDetectedComment({});
-      const bodyText = 'rate limited by coderabbit.ai <!-- rabbit-maximizer already processed -->';
-      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
-      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+    it('picks earliest candidate when router returns multiple dates', async () => {
+      const earlyDate = getUniqueDate();
+      const laterDate = new Date(earlyDate.getTime() + MS_PER_HOUR);
+      const earlyComment = makeDetectedComment({ updatedAt: earlyDate.toISOString() });
+      const laterComment = makeDetectedComment({ updatedAt: laterDate.toISOString() });
+      const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
+      deps.github.searchReviewLimitComments.mockResolvedValue([earlyComment, laterComment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: earlyComment.updatedAt });
+
+      const earlyCandidate = new Date(earlyDate.getTime() + 600 * 1000);
+      const laterCandidate = new Date(laterDate.getTime() + 600 * 1000);
+      deps.router.route.mockResolvedValueOnce(earlyCandidate).mockResolvedValueOnce(laterCandidate);
+      deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
       const detector = createDetector();
       detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      const [owner, repo] = comment.repoFullName.split('/');
-      expect(deps.onDetected).not.toHaveBeenCalled();
-      expect(deps.logger.debug).toHaveBeenCalledWith(
-        { fn: 'PollDetector.tick', owner, repo, commentId: comment.commentId },
-        'Skipping comment with own retrigger marker',
-      );
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, earlyCandidate);
     });
 
-    it('skips comments that lack the rate-limit marker', async () => {
+    it('skips state update when router returns undefined for all comments', async () => {
       const comment = makeDetectedComment({});
-      const bodyText = 'some unrelated comment body';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
-      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.github.fetchComment.mockResolvedValue({ body: 'unrelated body', updatedAt: comment.updatedAt });
+      deps.router.route.mockResolvedValue(undefined);
 
       const detector = createDetector();
       detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      const [owner, repo] = comment.repoFullName.split('/');
-      expect(deps.onDetected).not.toHaveBeenCalled();
-      expect(deps.logger.debug).toHaveBeenCalledWith(
-        { fn: 'PollDetector.tick', owner, repo, commentId: comment.commentId },
-        'Skipping comment without rate-limit marker',
-      );
+      expect(deps.systemStateRepo.setState).not.toHaveBeenCalled();
+    });
+
+    it('updates state when existing nextReviewAvailableAt is inactive', async () => {
+      const comment = makeDetectedComment({});
+      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes before requesting another review.';
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+
+      const candidateDate = new Date(Date.now() + 60000);
+      deps.router.route.mockResolvedValue(candidateDate);
+      deps.systemStateRepo.getState.mockResolvedValue(new Date(Date.now() - 3600000));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, candidateDate);
+    });
+
+    it('skips state update when existing nextReviewAvailableAt is active and earlier', async () => {
+      const comment = makeDetectedComment({});
+      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes before requesting another review.';
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+
+      const laterCandidate = new Date(Date.now() + 600000);
+      const earlierActive = new Date(Date.now() + 60000);
+      deps.router.route.mockResolvedValue(laterCandidate);
+      deps.systemStateRepo.getState.mockResolvedValue(earlierActive);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.systemStateRepo.setState).not.toHaveBeenCalled();
     });
   });
 
@@ -241,26 +274,6 @@ describe('PollDetector', () => {
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
     });
 
-    it('falls through to generic error log when rate limit response has non-numeric x-ratelimit-reset header', async () => {
-      const rateLimitError = {
-        status: 429,
-        response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
-      };
-      deps.github.searchReviewLimitComments.mockRejectedValue(rateLimitError);
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: rateLimitError }, 'Poll tick failed; will retry on next interval');
-      expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
-
-      jest.advanceTimersByTime(POLL_INTERVAL_MS);
-      await Promise.resolve();
-      expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(2);
-    });
-
     it('logs generic warning for non-rate-limit errors and continues', async () => {
       const networkError = new Error('Network error');
       deps.github.searchReviewLimitComments.mockRejectedValue(networkError);
@@ -271,134 +284,6 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: networkError }, 'Poll tick failed; will retry on next interval');
-    });
-
-    it('falls through to generic error log when rate limit response is missing a valid x-ratelimit-reset header', async () => {
-      const badHeaderError = {
-        status: 403,
-        response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
-      };
-      deps.github.searchReviewLimitComments.mockRejectedValue(badHeaderError);
-
-      const detector = createDetector();
-      detector.start();
-
-      for (let i = 0; i < TICK_DEPTH; i++) {
-        await Promise.resolve();
-      }
-
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: badHeaderError }, 'Poll tick failed; will retry on next interval');
-    });
-  });
-
-  describe('system state tracking', () => {
-    it('upserts next_review_available_at when no existing state', async () => {
-      const updatedAt = getUniqueDate().toISOString();
-      const comment = makeDetectedComment({ updatedAt });
-      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
-      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
-      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
-
-      const expectedWaitSeconds = 5 * 60 + 30;
-      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * MS_PER_SECOND);
-
-      deps.systemStateRepo.getState.mockResolvedValue(undefined);
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds);
-    });
-
-    it('updates when new comment has an earlier available time than existing state', async () => {
-      const now = Date.now();
-      const comment = makeDetectedComment({ updatedAt: new Date(now).toISOString() });
-      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
-      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
-      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
-
-      const expectedWaitSeconds = 5 * 60 + 30;
-      const expectedDate = new Date(now + expectedWaitSeconds * 1000);
-      const laterDate = new Date(expectedDate.getTime() + 3600_000);
-
-      deps.systemStateRepo.getState.mockResolvedValue(laterDate);
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
-    });
-
-    it('skips update when new comment has a later available time than existing state', async () => {
-      const now = Date.now();
-      const comment = makeDetectedComment({ updatedAt: new Date(now).toISOString() });
-      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
-      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
-      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
-
-      const expectedWaitSeconds = 5 * 60 + 30;
-      const earlierDate = new Date(now + 60_000);
-
-      deps.systemStateRepo.getState.mockResolvedValue(earlierDate);
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.systemStateRepo.setState).not.toHaveBeenCalled();
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds);
-    });
-
-    it('uses correct StateKey and Date values when upserting state', async () => {
-      const updatedAt = getUniqueDate().toISOString();
-      const comment = makeDetectedComment({ updatedAt });
-      const bodyText = 'rate limited by coderabbit.ai Please wait 2 minutes before requesting another review.';
-      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
-      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
-
-      const expectedWaitSeconds = 120;
-      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * MS_PER_SECOND);
-
-      deps.systemStateRepo.getState.mockResolvedValue(undefined);
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledTimes(1);
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
-      expect(deps.systemStateRepo.getState).toHaveBeenCalledWith('next_review_available_at' as StateKey);
-    });
-
-    it('picks the earliest candidate across multiple comments', async () => {
-      const earlyDate = getUniqueDate();
-      const laterDate = new Date(earlyDate.getTime() + MS_PER_HOUR);
-      const earlyComment = makeDetectedComment({ updatedAt: earlyDate.toISOString() });
-      const laterComment = makeDetectedComment({ updatedAt: laterDate.toISOString() });
-      const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
-      deps.github.searchReviewLimitComments.mockResolvedValue([earlyComment, laterComment]);
-      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: earlyComment.updatedAt });
-
-      const expectedWaitSeconds = 600;
-      const expectedDate = new Date(new Date(earlyComment.updatedAt).getTime() + expectedWaitSeconds * 1000);
-
-      deps.systemStateRepo.getState.mockResolvedValue(undefined);
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledTimes(1);
-      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
-      expect(deps.onDetected).toHaveBeenCalledTimes(2);
     });
   });
 });

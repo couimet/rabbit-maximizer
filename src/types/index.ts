@@ -27,3 +27,4 @@ export * from './ReviewLimitComment.js';
 export * from './SchedulerStatus.js';
 export * from './TriggerDetails.js';
 export * from './TriggerSource.js';
+export * from './UpsertPullRequestResult.js';

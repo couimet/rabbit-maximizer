@@ -6,7 +6,9 @@
  */
 export const TYPES = {
   CoderabbitCommentRepository: Symbol.for('CoderabbitCommentRepository'),
+  CommentEditDetector: Symbol.for('CommentEditDetector'),
   Config: Symbol.for('Config'),
+  DetectionRouter: Symbol.for('DetectionRouter'),
   CoderabbitGitHubClient: Symbol.for('CoderabbitGitHubClient'),
   EnqueueService: Symbol.for('EnqueueService'),
   EventCountsMapper: Symbol.for('EventCountsMapper'),
@@ -26,6 +28,7 @@ export const TYPES = {
   QueueItemMapper: Symbol.for('QueueItemMapper'),
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
+  ReviewCompletionGuard: Symbol.for('ReviewCompletionGuard'),
   ReviewDetector: Symbol.for('ReviewDetector'),
   ReviewTrigger: Symbol.for('ReviewTrigger'),
   Scheduler: Symbol.for('Scheduler'),

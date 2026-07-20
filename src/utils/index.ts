@@ -1,3 +1,4 @@
+export * from './codeRabbitCommentTypeToEventType.js';
 export * from './computeSchedulerBackoff.js';
 export * from './describeDatabaseUrl.js';
 export * from './durations.js';
@@ -6,6 +7,5 @@ export * from './formatRelativeFuture.js';
 export * from './formatRelativeTime.js';
 export * from './isValidTimezone.js';
 export * from './resolveDurationSince.js';
-export * from './reviewStateToEventType.js';
 export * from './truncateBodyPreview.js';
 export * from './uuidLookup.js';

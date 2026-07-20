@@ -18,6 +18,8 @@ generator client {
 //   last_review_limit_at      Latest review-limit comment timestamp (NULL if none).
 //   last_review_requested_at  Last time we posted a retrigger comment.
 //   last_coderabbit_review_at Last time CodeRabbit performed a review.
+//   last_review_url           URL of the most recent CodeRabbit review comment.
+//   last_review_state         State of the most recent CodeRabbit review (approved, changes_suggested).
 //   retrigger_count           Total retrigger comments posted.
 //   review_count              Total reviews actually performed by CodeRabbit.
 // ---------------------------------------------------------------------------
@@ -35,6 +37,8 @@ model PullRequest {
   last_review_requested_at  DateTime?
   last_coderabbit_review_at       DateTime?
   last_coderabbit_acknowledged_at DateTime?
+  last_review_url           String?
+  last_review_state         String?
   retrigger_count           Int       @default(0)
   review_count              Int       @default(0)
   created_at                DateTime  @default(now())

@@ -61,6 +61,20 @@ export class ReviewDetectorProbe {
     );
   }
 
+  commentDeleted(): void {
+    this.log.info(
+      { fn: 'ReviewDetectorProbe.commentDeleted', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id },
+      'Source comment was deleted before edit detection',
+    );
+  }
+
+  commentNotEdited(): void {
+    this.log.debug(
+      { fn: 'ReviewDetectorProbe.commentNotEdited', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id },
+      'Source comment not edited since last detection',
+    );
+  }
+
   caughtError(err: unknown): void {
     this.log.warn(
       { fn: 'ReviewDetectorProbe.caughtError', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, error: err },

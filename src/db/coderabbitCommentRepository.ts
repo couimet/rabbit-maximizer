@@ -35,6 +35,7 @@ export interface UpsertCommentData {
 export interface CoderabbitCommentRepository {
   upsert(data: UpsertCommentData, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow>;
   deactivate(commentId: number, tx?: Prisma.TransactionClient): Promise<void>;
+  findByCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow | undefined>;
   findByPr(pullRequestId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow[]>;
   findActiveByType(pullRequestId: number, commentType: CodeRabbitCommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow | undefined>;
 }
@@ -135,6 +136,17 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
   // eslint-disable-next-line require-await
   async deactivate(commentId: number, tx?: Prisma.TransactionClient): Promise<void> {
     return this.softDeleteRow({ comment_id: commentId }, tx);
+  }
+
+  // eslint-disable-next-line require-await
+  async findByCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitCommentRow | undefined> {
+    return this.enforceTx(tx, async (db) => {
+      const row = await db.coderabbitComment.findFirst({
+        where: { comment_id: commentId },
+        orderBy: { gh_updated_at: 'desc' },
+      });
+      return row ? toRow(row) : undefined;
+    });
   }
 
   // eslint-disable-next-line require-await

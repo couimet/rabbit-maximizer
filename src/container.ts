@@ -5,6 +5,8 @@ import { type PullRequestRepository, PullRequestRepositoryImpl } from './db/pull
 import { type QueueOrderRepository, QueueOrderRepositoryImpl } from './db/queueOrderRepository.js';
 import { type QueueRepository, QueueRepositoryImpl } from './db/queueRepository.js';
 import { type SystemStateRepository, SystemStateRepositoryImpl } from './db/systemStateRepository.js';
+import type { DetectionRouter } from './detection/index.js';
+import { CommentEditDetector, DetectionRouterImpl, ReviewCompletionGuard } from './detection/index.js';
 import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/softDeleteExtension.js';
 import type { CoderabbitGitHubClient } from './github/index.js';
 import { CoderabbitGitHubClientImpl } from './github/index.js';
@@ -69,7 +71,13 @@ container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory).inSingletonSco
 
 container.bind<CoderabbitCommentRepository>(TYPES.CoderabbitCommentRepository).to(CoderabbitCommentRepositoryImpl).inSingletonScope();
 
+container.bind<CommentEditDetector>(TYPES.CommentEditDetector).to(CommentEditDetector).inSingletonScope();
+
+container.bind<DetectionRouter>(TYPES.DetectionRouter).to(DetectionRouterImpl).inSingletonScope();
+
 container.bind<PullRequestRepository>(TYPES.PullRequestRepository).to(PullRequestRepositoryImpl).inSingletonScope();
+
+container.bind<ReviewCompletionGuard>(TYPES.ReviewCompletionGuard).to(ReviewCompletionGuard).inSingletonScope();
 
 container.bind<PruneEvaluator>(TYPES.PruneEvaluator).to(PruneEvaluatorImpl).inSingletonScope();
 

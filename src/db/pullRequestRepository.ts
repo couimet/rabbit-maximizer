@@ -1,6 +1,8 @@
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
 import { TYPES } from '../inversify-types.js';
+import { CodeRabbitCommentType } from '../types/CodeRabbitCommentType.js';
 import type { PendingAcknowledgement } from '../types/PendingAcknowledgement.js';
+import type { UpsertPullRequestResult } from '../types/UpsertPullRequestResult.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -23,12 +25,13 @@ export interface PullRequestRepository {
     repoFullName: string,
     prNumber: number,
     data: { prTitle?: string; reviewLimitAt?: Date },
-    tx?: Prisma.TransactionClient,
-  ): Promise<{ id: number; created: boolean }>;
+    tx: Prisma.TransactionClient,
+  ): Promise<UpsertPullRequestResult>;
   findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<{ id: number } | null>;
   updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
   incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
   recordReview(id: number, tx: Prisma.TransactionClient): Promise<void>;
+  updateLastCoderabbitReviewResult(id: number, reviewUrl: string, reviewState: CodeRabbitCommentType, tx: Prisma.TransactionClient): Promise<void>;
   findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
   recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void>;
 }
@@ -46,8 +49,8 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
     repoFullName: string,
     prNumber: number,
     data: { prTitle?: string; reviewLimitAt?: Date },
-    tx?: Prisma.TransactionClient,
-  ): Promise<{ id: number; created: boolean }> {
+    tx: Prisma.TransactionClient,
+  ): Promise<UpsertPullRequestResult> {
     return this.enforceTx(tx, async (db) => {
       const existing = await db.pullRequest.findUnique({
         where: { repo_full_name_pr_number: { repo_full_name: repoFullName, pr_number: prNumber } },
@@ -131,6 +134,21 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       'PullRequestRepositoryImpl.recordReview',
     );
     this.log.debug({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+  }
+
+  async updateLastCoderabbitReviewResult(id: number, reviewUrl: string, reviewState: CodeRabbitCommentType, tx: Prisma.TransactionClient): Promise<void> {
+    await this.withPrismaErrorHandling(
+      () =>
+        this.client(tx).pullRequest.update({
+          where: { id },
+          data: { last_review_url: reviewUrl, last_review_state: reviewState, last_coderabbit_review_at: new Date() },
+        }),
+      'PullRequestRepositoryImpl.updateLastCoderabbitReviewResult',
+    );
+    this.log.debug(
+      { fn: 'PullRequestRepositoryImpl.updateLastCoderabbitReviewResult', id, reviewUrl, reviewState },
+      'Updated PullRequest last CodeRabbit review',
+    );
   }
 
   async findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined> {

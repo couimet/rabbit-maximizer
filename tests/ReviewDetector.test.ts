@@ -1,8 +1,19 @@
 import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
+import { splitRepo } from '../src/github/splitRepo.js';
 import { ReviewDetector } from '../src/ReviewDetector.js';
+import { CodeRabbitCommentType } from '../src/types/CodeRabbitCommentType.js';
 import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.js';
 
-import { createMockCoderabbitGitHubClient, createMockProbeFactory, createMockQueueRepo, createMockReviewDetectorProbe } from './helpers/index.js';
+import {
+  createMockCoderabbitCommentRepo,
+  createMockCoderabbitGitHubClient,
+  createMockCommentEditDetector,
+  createMockProbeFactory,
+  createMockPullRequestRepo,
+  createMockQueueRepo,
+  createMockReviewDetectorProbe,
+  makeCoderabbitCommentRow,
+} from './helpers/index.js';
 
 import { getRandomEnumValue, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -22,10 +33,12 @@ const drainMicrotasks = async (depth: number): Promise<void> => {
 
 interface MockReviewDetectorDeps {
   queue: { getRetriggeredQueue: jest.Mock<any>; markReviewed: jest.Mock<any> };
-  pullRequests: { recordReview: jest.Mock<any> };
+  pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   github: jest.Mocked<CoderabbitGitHubClient>;
   probeFactory: ReturnType<typeof createMockProbeFactory>;
   probe: ReturnType<typeof createMockReviewDetectorProbe>;
+  commentEditDetector: ReturnType<typeof createMockCommentEditDetector>;
+  commentRepo: ReturnType<typeof createMockCoderabbitCommentRepo>;
   prisma: { $transaction: jest.Mock<any> };
   logger: Logger;
   config: { POLL_INTERVAL_SEC: number };
@@ -53,16 +66,25 @@ const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: numb
   return { ...defaults, ...rest };
 };
 
+const DEFAULT_EDIT_RESULT = {
+  wasEdited: false,
+  newClassification: CodeRabbitCommentType.review_limited,
+  updatedCommentRow: makeCoderabbitCommentRow({ comment_type: CodeRabbitCommentType.review_limited }),
+};
+
 const setup = (): MockReviewDetectorDeps => {
   const queue = createMockQueueRepo() as unknown as MockReviewDetectorDeps['queue'];
-  const pullRequests = { recordReview: jest.fn<any>() };
+  const pullRequests = createMockPullRequestRepo();
   const github = createMockCoderabbitGitHubClient();
   const probe = createMockReviewDetectorProbe();
   const probeFactory = createMockProbeFactory({ createReviewDetectorProbe: jest.fn<any>().mockReturnValue(probe) });
+  const commentEditDetector = createMockCommentEditDetector();
+  commentEditDetector.detect.mockResolvedValue(DEFAULT_EDIT_RESULT);
+  const commentRepo = createMockCoderabbitCommentRepo();
   const prisma = { $transaction: jest.fn<any>() };
   const logger = createMockLogger();
   const config = { POLL_INTERVAL_SEC: POLL_INTERVAL_SEC };
-  return { queue, pullRequests, github, probeFactory, probe, prisma, logger, config };
+  return { queue, pullRequests, github, probeFactory, probe, commentEditDetector, commentRepo, prisma, logger, config };
 };
 
 describe('ReviewDetector', () => {
@@ -77,6 +99,8 @@ describe('ReviewDetector', () => {
       deps.pullRequests as any,
       deps.github,
       deps.probeFactory as any,
+      deps.commentEditDetector as any,
+      deps.commentRepo as any,
       deps.prisma as unknown as PrismaClient,
       deps.config as any,
       deps.logger,
@@ -103,7 +127,7 @@ describe('ReviewDetector', () => {
   });
 
   describe('detection', () => {
-    it('records coderabbit_review_approved when Reviews API returns APPROVED', async () => {
+    it('marks reviewed with coderabbit_review_approved when completed review is an approval', async () => {
       const retriggeredAt = getUniqueDate();
       const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
       const prNumber = getUniqueInt();
@@ -111,7 +135,7 @@ describe('ReviewDetector', () => {
       const reviewUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${getUniqueInt()}`;
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findLatestCoderabbitReview.mockResolvedValue({ htmlUrl: reviewUrl, state: 'approved' });
+      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: reviewUrl, reviewId: getUniqueInt(), isApproval: true });
 
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
@@ -120,15 +144,14 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findLatestCoderabbitReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
       expect(deps.probeFactory.createReviewDetectorProbe).toHaveBeenCalledTimes(1);
       expect(deps.probe.withItem).toHaveBeenCalledWith(item);
       expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
-      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
-    it('records coderabbit_review_changes_suggested when Reviews API returns CHANGES_REQUESTED', async () => {
+    it('marks reviewed with coderabbit_review_changes_suggested when completed review is not an approval', async () => {
       const retriggeredAt = getUniqueDate();
       const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
       const prNumber = getUniqueInt();
@@ -136,7 +159,7 @@ describe('ReviewDetector', () => {
       const reviewUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${getUniqueInt()}`;
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findLatestCoderabbitReview.mockResolvedValue({ htmlUrl: reviewUrl, state: 'changes_requested' });
+      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: reviewUrl, reviewId: getUniqueInt(), isApproval: false });
 
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
@@ -145,61 +168,13 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findLatestCoderabbitReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', reviewUrl, {});
-      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
-    });
-
-    it('falls back to findCompletedReview, using isApproval to determine event type (approved)', async () => {
-      const retriggeredAt = getUniqueDate();
-      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
-      const reviewId = getUniqueInt();
-      const completedCommentUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${reviewId}`;
-
-      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findLatestCoderabbitReview.mockResolvedValue(undefined);
-      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: completedCommentUrl, reviewId, isApproval: true });
-
-      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.github.findLatestCoderabbitReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', completedCommentUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', reviewUrl, {});
     });
 
-    it('records coderabbit_review_changes_suggested when fallback completed review is not an approval', async () => {
-      const retriggeredAt = getUniqueDate();
-      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
-      const reviewId = getUniqueInt();
-      const completedCommentUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${reviewId}`;
-
-      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findLatestCoderabbitReview.mockResolvedValue(undefined);
-      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: completedCommentUrl, reviewId, isApproval: false });
-
-      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
-
-      const detector = createDetector();
-      detector.start();
-
-      await drainMicrotasks(TICK_DEPTH);
-
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', completedCommentUrl, {});
-    });
-
-    it('skips item when no review is found via either API', async () => {
+    it('skips item when no completed review is found', async () => {
       const item = makeRetriggeredItem({});
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.github.findLatestCoderabbitReview.mockResolvedValue(undefined);
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
@@ -219,7 +194,7 @@ describe('ReviewDetector', () => {
       detector.start();
       await drainMicrotasks(TICK_DEPTH);
       expect(deps.probe.noRetriggeredItemFound).toHaveBeenCalled();
-      expect(deps.github.findLatestCoderabbitReview).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
     it('skips items with null retriggered_at', async () => {
@@ -231,14 +206,13 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findLatestCoderabbitReview).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
     it('processes multiple retriggered items in sequence', async () => {
       const item1 = makeRetriggeredItem({ repo_full_name: 'org-a/repo-a', pr_number: 1 });
       const item2 = makeRetriggeredItem({ repo_full_name: 'org-b/repo-b', pr_number: 2 });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
-      deps.github.findLatestCoderabbitReview.mockResolvedValue(undefined);
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
@@ -246,7 +220,6 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findLatestCoderabbitReview).toHaveBeenCalledTimes(2);
       expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(2);
     });
   });
@@ -275,6 +248,127 @@ describe('ReviewDetector', () => {
     });
   });
 
+  describe('edit detection', () => {
+    it('marks reviewed directly when edit detection finds a completed review', async () => {
+      const item = makeRetriggeredItem({});
+      const reviewUrl = `https://github.com/org/repo/pull/1#issuecomment-${getUniqueInt()}`;
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.commentEditDetector.detect.mockResolvedValue({
+        wasEdited: true,
+        newClassification: CodeRabbitCommentType.review_approved,
+        updatedCommentRow: makeCoderabbitCommentRow({ url: reviewUrl, comment_type: CodeRabbitCommentType.review_approved }),
+      });
+
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.pullRequests.updateLastCoderabbitReviewResult).toHaveBeenCalledWith(
+        item.pull_request_id,
+        reviewUrl,
+        CodeRabbitCommentType.review_approved,
+        {},
+      );
+      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('uses changes_suggested event type when edit result classification is review_changes_suggested', async () => {
+      const item = makeRetriggeredItem({});
+      const reviewUrl = `https://github.com/org/repo/pull/1#issuecomment-${getUniqueInt()}`;
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.commentEditDetector.detect.mockResolvedValue({
+        wasEdited: true,
+        newClassification: CodeRabbitCommentType.review_changes_suggested,
+        updatedCommentRow: makeCoderabbitCommentRow({ url: reviewUrl, comment_type: CodeRabbitCommentType.review_changes_suggested }),
+      });
+
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.pullRequests.updateLastCoderabbitReviewResult).toHaveBeenCalledWith(
+        item.pull_request_id,
+        reviewUrl,
+        CodeRabbitCommentType.review_changes_suggested,
+        {},
+      );
+      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', reviewUrl, {});
+    });
+
+    it('deactivates comment and calls commentDeleted when fetchComment gets 404', async () => {
+      const item = makeRetriggeredItem({});
+      const notFoundError = { status: 404 };
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.commentEditDetector.detect.mockRejectedValue(notFoundError);
+
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.probe.commentDeleted).toHaveBeenCalled();
+      expect(deps.commentRepo.deactivate).toHaveBeenCalledWith(item.source_comment_id);
+    });
+
+    it('calls commentNotEdited and continues with normal flow when edit result is wasEdited false', async () => {
+      const item = makeRetriggeredItem({});
+      const { owner, repo } = splitRepo(item.repo_full_name);
+      const reviewUrl = `https://github.com/org/repo/pull/1#pullrequestreview-${getUniqueInt()}`;
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.commentEditDetector.detect.mockResolvedValue({
+        wasEdited: false,
+        newClassification: CodeRabbitCommentType.review_limited,
+        updatedCommentRow: makeCoderabbitCommentRow({ url: 'https://gh/c/1' }),
+      });
+      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: reviewUrl, reviewId: getUniqueInt(), isApproval: true });
+
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.probe.commentNotEdited).toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, item.pr_number, item.retriggered_at);
+      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+    });
+
+    it('calls commentNotEdited and continues when edit detection returns undefined', async () => {
+      const item = makeRetriggeredItem({});
+      const { owner, repo } = splitRepo(item.repo_full_name);
+      const reviewUrl = `https://github.com/org/repo/pull/1#pullrequestreview-${getUniqueInt()}`;
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.commentEditDetector.detect.mockResolvedValue(undefined);
+      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: reviewUrl, reviewId: getUniqueInt(), isApproval: true });
+
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.probe.commentNotEdited).toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, item.pr_number, item.retriggered_at);
+    });
+  });
+
   describe('error handling', () => {
     it('logs warning via base class when getRetriggeredQueue fails', async () => {
       const error = new Error('GitHub API error');
@@ -293,8 +387,8 @@ describe('ReviewDetector', () => {
       const item2 = makeRetriggeredItem({ repo_full_name: 'org-b/repo-b', pr_number: 2 });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
 
-      const perItemError = new Error('findLatestCoderabbitReview failed');
-      deps.github.findLatestCoderabbitReview.mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);
+      const perItemError = new Error('findCompletedReview failed');
+      deps.github.findCompletedReview.mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
@@ -304,7 +398,21 @@ describe('ReviewDetector', () => {
 
       expect(deps.probe.caughtError).toHaveBeenCalledWith(perItemError);
       expect(deps.probeFactory.createReviewDetectorProbe).toHaveBeenCalledTimes(1);
-      expect(deps.github.findLatestCoderabbitReview).toHaveBeenCalledTimes(2);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(2);
+    });
+
+    it('rethrows non-404 errors from edit detection via probe', async () => {
+      const item = makeRetriggeredItem({});
+      const editError = new Error('API unavailable');
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.commentEditDetector.detect.mockRejectedValue(editError);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.probe.caughtError).toHaveBeenCalledWith(editError);
     });
   });
 });

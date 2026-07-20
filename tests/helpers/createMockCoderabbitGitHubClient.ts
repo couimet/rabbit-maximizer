@@ -10,7 +10,6 @@ export const createMockCoderabbitGitHubClient = (overrides?: Partial<jest.Mocked
     postRetrigger: jest.fn<any>(),
     getPRState: jest.fn<any>(),
     findCompletedReview: jest.fn<any>(),
-    findLatestCoderabbitReview: jest.fn<any>(),
     findLatestReviewLimitComment: jest.fn<any>(),
     findAcknowledgement: jest.fn<any>(),
     ...overrides,

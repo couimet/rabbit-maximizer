@@ -1,4 +1,5 @@
 import { PullRequestRepositoryImpl } from '../../src/db/pullRequestRepository.js';
+import { CodeRabbitCommentType } from '../../src/types/CodeRabbitCommentType.js';
 import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
@@ -11,7 +12,6 @@ describe('PullRequestRepositoryImpl', () => {
   let logger: ReturnType<typeof createMockLogger>;
   let repoFullName: string;
   let prNumber: number;
-
   beforeEach(() => {
     frozenNow = getUniqueDate();
     logger = createMockLogger();
@@ -47,7 +47,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', reviewLimitAt });
+      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', reviewLimitAt }, prisma);
 
       expect(result).toStrictEqual({ id: row.id, created: true });
       expect(logger.debug).toHaveBeenCalledWith(
@@ -80,7 +80,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, {});
+      const result = await sut.upsert(repoFullName, prNumber, {}, prisma);
 
       expect(result).toStrictEqual({ id: row.id, created: true });
     });
@@ -93,7 +93,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, {});
+      const result = await sut.upsert(repoFullName, prNumber, {}, prisma);
 
       expect(pullRequest.findUnique).toHaveBeenCalled();
       expect(pullRequest.create).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { reviewLimitAt });
+      await sut.upsert(repoFullName, prNumber, { reviewLimitAt }, prisma);
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -131,7 +131,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { reviewLimitAt });
+      await sut.upsert(repoFullName, prNumber, { reviewLimitAt }, prisma);
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -148,7 +148,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prTitle });
+      await sut.upsert(repoFullName, prNumber, { prTitle }, prisma);
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -164,7 +164,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test' })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test' }, prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'PullRequest'",
         functionName: 'PullRequestRepositoryImpl.upsert',
         details: { tableName: 'PullRequest' },
@@ -355,6 +355,28 @@ describe('PullRequestRepositoryImpl', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'PullRequestRepositoryImpl.recordReview', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
+      );
+    });
+  });
+
+  describe('updateLastCoderabbitReviewResult', () => {
+    it('updates last_review_url, last_review_state, and last_coderabbit_review_at', async () => {
+      const id = getUniqueInt();
+      const reviewUrl = getUniqueString({ prefix: 'https://gh/pull/1#' });
+      const reviewState = CodeRabbitCommentType.review_approved;
+      const { prisma, pullRequest } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const tx = prisma;
+
+      await sut.updateLastCoderabbitReviewResult(id, reviewUrl, reviewState, tx);
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id },
+        data: { last_review_url: reviewUrl, last_review_state: reviewState, last_coderabbit_review_at: expect.any(Date) as Date },
+      });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.updateLastCoderabbitReviewResult', id, reviewUrl, reviewState },
+        'Updated PullRequest last CodeRabbit review',
       );
     });
   });

@@ -78,6 +78,36 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
+  describe('commentDeleted', () => {
+    it('logs info when source comment was deleted', () => {
+      const { fullName: repo } = getUniqueGitHubRepoRef();
+      const pr = getUniqueInt();
+      const item = makeItem(repo, pr);
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.commentDeleted();
+      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.commentDeleted', repo, pr, queueId: item.id },
+        'Source comment was deleted before edit detection',
+      );
+    });
+  });
+
+  describe('commentNotEdited', () => {
+    it('logs debug when comment was not edited', () => {
+      const { fullName: repo } = getUniqueGitHubRepoRef();
+      const pr = getUniqueInt();
+      const item = makeItem(repo, pr);
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.commentNotEdited();
+      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.commentNotEdited', repo, pr, queueId: item.id },
+        'Source comment not edited since last detection',
+      );
+    });
+  });
+
   describe('caughtError', () => {
     it('logs warn with item context and error', () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();

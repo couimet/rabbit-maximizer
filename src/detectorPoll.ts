@@ -1,13 +1,11 @@
 import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
 import { StateKey } from './db/systemStateRepository.js';
+import type { DetectionRouter } from './detection/DetectionRouter.js';
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
-import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
-import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
 import { parseGitHubRateLimitError } from './github/parseGitHubRateLimitError.js';
-import { parseWaitSeconds } from './github/parseWaitSeconds.js';
 import { splitRepo } from './github/splitRepo.js';
-import type { OnDetectedCallback } from './types/index.js';
+import type { DetectedComment } from './types/DetectedComment.js';
 import { MS_PER_SECOND } from './utils/durations.js';
 import { config } from './config.js';
 import { IntervalService } from './IntervalService.js';
@@ -26,8 +24,8 @@ export class PollDetector extends IntervalService {
   constructor(
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
-    @inject(TYPES.OnDetectedCallback)
-    private readonly onDetected: OnDetectedCallback,
+    @inject(TYPES.DetectionRouter)
+    private readonly router: DetectionRouter,
     @inject(TYPES.PullRequestRepository)
     private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.SystemStateRepository)
@@ -59,26 +57,13 @@ export class PollDetector extends IntervalService {
 
       for (const c of comments) {
         const { owner, repo } = splitRepo(c.repoFullName);
-        const { body } = await this.github.fetchComment(owner, repo, c.commentId);
+        const { body, updatedAt } = await this.github.fetchComment(owner, repo, c.commentId);
 
-        if (!hasRateLimitMarker(body)) {
-          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment without rate-limit marker');
-          continue;
-        }
-
-        if (hasOwnRetriggerMarker(body)) {
-          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with own retrigger marker');
-          continue;
-        }
-
-        const waitSeconds = parseWaitSeconds(body);
-        const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
-        const candidate = new Date(new Date(c.updatedAt).getTime() + effectiveWait * MS_PER_SECOND);
-        if (!earliestNextReview || candidate < earliestNextReview) {
+        const enriched: DetectedComment = { ...c, body, updatedAt };
+        const candidate = await this.router.route(enriched);
+        if (candidate && (!earliestNextReview || candidate < earliestNextReview)) {
           earliestNextReview = candidate;
         }
-
-        await this.onDetected({ ...c, body }, effectiveWait);
       }
 
       try {

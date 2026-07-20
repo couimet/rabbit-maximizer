@@ -350,4 +350,34 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       expect(result).toBeUndefined();
     });
   });
+
+  describe('findByCommentId', () => {
+    it('returns the most recent active comment with the given comment_id', async () => {
+      const commentId = getUniqueInt();
+      const row = makeRow({ comment_id: commentId });
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(row) },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      const result = await sut.findByCommentId(commentId);
+
+      expect(coderabbitComment.findFirst).toHaveBeenCalledWith({
+        where: { comment_id: commentId },
+        orderBy: { gh_updated_at: 'desc' },
+      });
+      expect(result).toStrictEqual(row);
+    });
+
+    it('returns undefined when no matching comment exists', async () => {
+      const { prisma } = createMockPrismaClient({
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null) },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      const result = await sut.findByCommentId(getUniqueInt());
+
+      expect(result).toBeUndefined();
+    });
+  });
 });
