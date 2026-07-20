@@ -29,6 +29,8 @@ model PullRequest {
   pr_number                 Int
   title                     String
   author_login              String
+  /// One of 'open', 'merged', 'closed'. Enforced by CHECK in migration.
+  pr_state                  String    @default("open")
   first_seen_at             DateTime
   first_review_limit_at     DateTime?
   last_review_limit_at      DateTime?

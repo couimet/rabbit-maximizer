@@ -20,6 +20,7 @@ export const TYPES = {
   PRStateFetcher: Symbol.for('PRStateFetcher'),
   PrismaClient: Symbol.for('PrismaClient'),
   ProbeFactory: Symbol.for('ProbeFactory'),
+  PrScanner: Symbol.for('PrScanner'),
   PruneEvaluator: Symbol.for('PruneEvaluator'),
   Pruner: Symbol.for('Pruner'),
   PullRequestRepository: Symbol.for('PullRequestRepository'),

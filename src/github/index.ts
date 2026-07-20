@@ -1,4 +1,6 @@
 export * from './buildCommentBody.js';
+export * from './buildOpenPRSearchQuery.js';
+export * from './buildRepoQualifierClause.js';
 export * from './buildSearchQuery.js';
 export * from './classifyCoderabbitComment.js';
 export * from './coderabbitGitHubClient.js';

@@ -10,6 +10,7 @@ export enum StateKey {
   lastPollStartedAt = 'last_poll_started_at',
   lastPollCompletedAt = 'last_poll_completed_at',
   lastPollOutcome = 'last_poll_outcome',
+  lastScanAt = 'last_scan_at',
   schedulerStatus = 'scheduler_status',
   nextReviewAvailableAt = 'next_review_available_at',
 }
@@ -20,6 +21,7 @@ const STATE_KEY_CONFIG: Record<StateKey, { column: ValueColumn }> = {
   [StateKey.lastPollStartedAt]: { column: 'value_datetime' },
   [StateKey.lastPollCompletedAt]: { column: 'value_datetime' },
   [StateKey.lastPollOutcome]: { column: 'value_text' },
+  [StateKey.lastScanAt]: { column: 'value_datetime' },
   [StateKey.schedulerStatus]: { column: 'value_text' },
   [StateKey.nextReviewAvailableAt]: { column: 'value_datetime' },
 };
@@ -37,6 +39,7 @@ type StateKeyToType = {
   [StateKey.lastPollStartedAt]: Date;
   [StateKey.lastPollCompletedAt]: Date;
   [StateKey.lastPollOutcome]: string;
+  [StateKey.lastScanAt]: Date;
   [StateKey.schedulerStatus]: string;
   [StateKey.nextReviewAvailableAt]: Date;
 };

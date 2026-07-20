@@ -37,8 +37,9 @@ export interface FailedPayload {
 }
 
 export enum BypassReason {
-  prMerged = 'prMerged',
   prClosedWithoutMerge = 'prClosedWithoutMerge',
+  prMerged = 'prMerged',
+  prNotRegistered = 'prNotRegistered',
   other = 'other',
 }
 

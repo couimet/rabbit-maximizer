@@ -175,6 +175,48 @@ describe('DetectedProbe', () => {
     expect(logger.info).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid }, 'Review-limit comment bypassed: PR closed without merge');
   });
 
+  it('records a bypassed event for unregistered PRs', async () => {
+    const { fullName: repo } = getUniqueGitHubRepoRef();
+    const pr = getUniqueInt();
+    const correlationId = getUuid();
+    const requestId = getUuid();
+    const version = getUniqueString({ prefix: 'v' });
+    const entryUuid = getUuid();
+    const tx = makeTx();
+
+    const entry = { uuid: entryUuid } as unknown as EventLogEntry;
+    const { eventRepository, record } = makeEventRepository(entry);
+    const logger = createMockLogger();
+    const observation: ObservationContext = { correlationId, requestId, version };
+
+    const probe = new DetectedProbe(
+      { repo_full_name: repo, pr_number: pr, source_ts: getUniqueDate(), source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }) },
+      eventRepository,
+      observation,
+      logger,
+    );
+
+    const result = await probe.prNotRegistered(tx);
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        type: 'bypassed',
+        repo_full_name: repo,
+        pr_number: pr,
+        correlation_id: correlationId,
+        request_id: requestId,
+        version,
+        payload: { reason: 'prNotRegistered' },
+      },
+      tx,
+    );
+    expect(result).toBe(entry);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DetectedProbe', repo, pr, eventUuid: entryUuid },
+      'Review-limit comment bypassed: PR not yet registered by scanner',
+    );
+  });
+
   it('logs when the queue item already exists', () => {
     const { fullName: repo } = getUniqueGitHubRepoRef();
     const pr = getUniqueInt();

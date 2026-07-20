@@ -18,6 +18,7 @@ import { type Config, config } from './config.js';
 import { PollDetector } from './detectorPoll.js';
 import { EnqueueService } from './EnqueueService.js';
 import { TYPES } from './inversify-types.js';
+import { type PrScanner, PrScannerImpl } from './prScanner.js';
 import { type PruneEvaluator, PruneEvaluatorImpl } from './PruneEvaluator.js';
 import { type Pruner, PrunerImpl } from './Pruner.js';
 import { ReviewDetector } from './ReviewDetector.js';
@@ -74,6 +75,8 @@ container.bind<PullRequestRepository>(TYPES.PullRequestRepository).to(PullReques
 container.bind<PruneEvaluator>(TYPES.PruneEvaluator).to(PruneEvaluatorImpl).inSingletonScope();
 
 container.bind<Pruner>(TYPES.Pruner).to(PrunerImpl).inSingletonScope();
+
+container.bind<PrScanner>(TYPES.PrScanner).to(PrScannerImpl).inSingletonScope();
 
 container.bind<EnqueueService>(TYPES.EnqueueService).to(EnqueueService).inSingletonScope();
 
