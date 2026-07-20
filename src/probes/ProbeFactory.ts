@@ -6,6 +6,7 @@ import type { QueueItem } from '../types/index.js';
 import { DetectedProbe, type DetectedProbeContext } from './DetectedProbe.js';
 import { EnqueueProbe } from './EnqueueProbe.js';
 import { MarkQueueItemReviewedProbe } from './MarkQueueItemReviewedProbe.js';
+import { PrScannerProbe } from './PrScannerProbe.js';
 import { PrunerProbe } from './PrunerProbe.js';
 import { ReviewDetectorProbe } from './ReviewDetectorProbe.js';
 import { ReviewRetriggerProbe } from './ReviewRetriggerProbe.js';
@@ -29,6 +30,10 @@ export class ProbeFactory {
   // This is the only factory method that accepts ObservationContext directly.
   createDetectedProbe(context: DetectedProbeContext, observation: ObservationContext): DetectedProbe {
     return new DetectedProbe(context, this.eventRepository, observation, this.log);
+  }
+
+  createPrScannerProbe(): PrScannerProbe {
+    return new PrScannerProbe(this.observation.current(), this.log);
   }
 
   createPrunerProbe(): PrunerProbe {

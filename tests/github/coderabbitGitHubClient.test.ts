@@ -324,8 +324,8 @@ describe('client', () => {
   });
 
   describe('searchReviewLimitComments', () => {
-    const userFilter: RepoFilter = { pattern: 'couimet/*', scope: 'user' };
-    const repoFilter: RepoFilter = {
+    const USER_FILTER: RepoFilter = { pattern: 'couimet/*', scope: 'user' };
+    const REPO_FILTER: RepoFilter = {
       pattern: 'other-org/specific-repo',
       scope: 'repo',
     };
@@ -337,7 +337,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      await client.searchReviewLimitComments([userFilter, repoFilter]);
+      await client.searchReviewLimitComments([USER_FILTER, REPO_FILTER]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
         q: `("review limit" OR "rate limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
@@ -416,7 +416,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchReviewLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([USER_FILTER]);
 
       expect(results).toStrictEqual([
         {
@@ -469,7 +469,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchReviewLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([USER_FILTER]);
 
       expect(results).toStrictEqual([]);
 
@@ -489,7 +489,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchReviewLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([USER_FILTER]);
 
       expect(results).toStrictEqual([]);
 
@@ -500,6 +500,149 @@ describe('client', () => {
         },
         'Searching for rate-limit comments',
       );
+    });
+  });
+
+  describe('listOpenPRs', () => {
+    const USER_FILTER: RepoFilter = { pattern: 'couimet/*', scope: 'user' };
+
+    it('returns empty array when no repos match', async () => {
+      search.issuesAndPullRequests.mockResolvedValue({
+        data: { items: [] },
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const results = await client.listOpenPRs([USER_FILTER]);
+
+      expect(results).toStrictEqual([]);
+      expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
+        q: 'is:pr state:open user:couimet',
+        sort: 'created',
+        order: 'desc',
+        per_page: 100,
+        page: 1,
+      });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'listOpenPRs', query: 'is:pr state:open user:couimet' }, 'Searching for open PRs');
+    });
+
+    it('returns DiscoveredPR[] from search results', async () => {
+      const { fullName } = getUniqueGitHubRepoRef();
+      const prTitle = getUniqueString({ prefix: 'pr-title-' });
+      const authorLogin = getUniqueString({ prefix: 'author-' });
+
+      search.issuesAndPullRequests.mockResolvedValue({
+        data: {
+          items: [
+            {
+              repository_url: `https://api.github.com/repos/${fullName}`,
+              number: prNumber,
+              title: prTitle,
+              user: { login: authorLogin },
+            },
+          ],
+        },
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const results = await client.listOpenPRs([USER_FILTER]);
+
+      expect(results).toStrictEqual([
+        {
+          repoFullName: fullName,
+          prNumber,
+          prTitle,
+          authorLogin,
+        },
+      ]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'listOpenPRs', query: 'is:pr state:open user:couimet' }, 'Searching for open PRs');
+    });
+
+    it('paginates through multiple pages', async () => {
+      const { fullName } = getUniqueGitHubRepoRef();
+      const page1Author = getUniqueString({ prefix: 'author1-' });
+      const page2Author = getUniqueString({ prefix: 'author2-' });
+      const page2Title = getUniqueString({ prefix: 'page2-' });
+
+      search.issuesAndPullRequests
+        .mockResolvedValueOnce({
+          data: {
+            items: Array.from({ length: 100 }, (_, _i) => ({
+              repository_url: `https://api.github.com/repos/${fullName}`,
+              number: getUniqueInt(),
+              title: getUniqueString({ prefix: 'page1-' }),
+              user: { login: page1Author },
+            })),
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            items: [
+              {
+                repository_url: `https://api.github.com/repos/${fullName}`,
+                number: prNumber,
+                title: page2Title,
+                user: { login: page2Author },
+              },
+            ],
+          },
+        });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const results = await client.listOpenPRs([USER_FILTER]);
+
+      expect(results).toHaveLength(101);
+      expect(results[100]).toStrictEqual({
+        repoFullName: fullName,
+        prNumber,
+        prTitle: page2Title,
+        authorLogin: page2Author,
+      });
+      expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
+        q: 'is:pr state:open user:couimet',
+        sort: 'created',
+        order: 'desc',
+        per_page: 100,
+        page: 1,
+      });
+      expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
+        q: 'is:pr state:open user:couimet',
+        sort: 'created',
+        order: 'desc',
+        per_page: 100,
+        page: 2,
+      });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'listOpenPRs', query: 'is:pr state:open user:couimet' }, 'Searching for open PRs');
+    });
+
+    it('handles missing user.login (deleted account) by using <unknown>', async () => {
+      const { fullName } = getUniqueGitHubRepoRef();
+      const prTitle = getUniqueString({ prefix: 'pr-title-' });
+
+      search.issuesAndPullRequests.mockResolvedValue({
+        data: {
+          items: [
+            {
+              repository_url: `https://api.github.com/repos/${fullName}`,
+              number: prNumber,
+              title: prTitle,
+              user: null,
+            },
+          ],
+        },
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const results = await client.listOpenPRs([USER_FILTER]);
+
+      expect(results).toStrictEqual([
+        {
+          repoFullName: fullName,
+          prNumber,
+          prTitle,
+          authorLogin: '<unknown>',
+        },
+      ]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'listOpenPRs', query: 'is:pr state:open user:couimet' }, 'Searching for open PRs');
     });
   });
 

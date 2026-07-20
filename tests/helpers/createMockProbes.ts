@@ -1,5 +1,26 @@
 import { jest } from '@jest/globals';
 
+export interface MockPrScannerProbe {
+  scanStarted: jest.Mock<any>;
+  skipped: jest.Mock<any>;
+  discovered: jest.Mock<any>;
+  detectedClosures: jest.Mock<any>;
+  caughtError: jest.Mock<any>;
+  failed: jest.Mock<any>;
+  failedToPersistLastScanAt: jest.Mock<any>;
+  completed: jest.Mock<any>;
+}
+export const createMockPrScannerProbe = (): MockPrScannerProbe => ({
+  scanStarted: jest.fn<any>(),
+  skipped: jest.fn<any>(),
+  discovered: jest.fn<any>(),
+  detectedClosures: jest.fn<any>(),
+  caughtError: jest.fn<any>(),
+  failed: jest.fn<any>(),
+  failedToPersistLastScanAt: jest.fn<any>(),
+  completed: jest.fn<any>(),
+});
+
 export interface MockPrunerProbe {
   withItem: jest.Mock<any>;
   noItemsToPrune: jest.Mock<any>;
@@ -20,6 +41,7 @@ export interface MockDetectedProbe {
   enqueued: jest.Mock<() => Promise<unknown>>;
   prMerged: jest.Mock<() => Promise<unknown>>;
   prClosedWithoutMerge: jest.Mock<() => Promise<unknown>>;
+  prNotRegistered: jest.Mock<() => Promise<unknown>>;
   alreadyQueued: jest.Mock;
   skipped: jest.Mock<() => Promise<unknown>>;
   alreadySkipped: jest.Mock;
@@ -29,6 +51,7 @@ export const createMockDetectedProbe = (): MockDetectedProbe => ({
   enqueued: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   prMerged: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   prClosedWithoutMerge: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
+  prNotRegistered: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadyQueued: jest.fn(),
   skipped: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadySkipped: jest.fn(),

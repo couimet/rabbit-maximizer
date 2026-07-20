@@ -1364,6 +1364,7 @@ export namespace Prisma {
     pr_number: number | null;
     title: string | null;
     author_login: string | null;
+    pr_state: string | null;
     first_seen_at: Date | null;
     first_review_limit_at: Date | null;
     last_review_limit_at: Date | null;
@@ -1383,6 +1384,7 @@ export namespace Prisma {
     pr_number: number | null;
     title: string | null;
     author_login: string | null;
+    pr_state: string | null;
     first_seen_at: Date | null;
     first_review_limit_at: Date | null;
     last_review_limit_at: Date | null;
@@ -1402,6 +1404,7 @@ export namespace Prisma {
     pr_number: number;
     title: number;
     author_login: number;
+    pr_state: number;
     first_seen_at: number;
     first_review_limit_at: number;
     last_review_limit_at: number;
@@ -1436,6 +1439,7 @@ export namespace Prisma {
     pr_number?: true;
     title?: true;
     author_login?: true;
+    pr_state?: true;
     first_seen_at?: true;
     first_review_limit_at?: true;
     last_review_limit_at?: true;
@@ -1455,6 +1459,7 @@ export namespace Prisma {
     pr_number?: true;
     title?: true;
     author_login?: true;
+    pr_state?: true;
     first_seen_at?: true;
     first_review_limit_at?: true;
     last_review_limit_at?: true;
@@ -1474,6 +1479,7 @@ export namespace Prisma {
     pr_number?: true;
     title?: true;
     author_login?: true;
+    pr_state?: true;
     first_seen_at?: true;
     first_review_limit_at?: true;
     last_review_limit_at?: true;
@@ -1577,6 +1583,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state: string;
     first_seen_at: Date;
     first_review_limit_at: Date | null;
     last_review_limit_at: Date | null;
@@ -1614,6 +1621,7 @@ export namespace Prisma {
       pr_number?: boolean;
       title?: boolean;
       author_login?: boolean;
+      pr_state?: boolean;
       first_seen_at?: boolean;
       first_review_limit_at?: boolean;
       last_review_limit_at?: boolean;
@@ -1640,6 +1648,7 @@ export namespace Prisma {
       pr_number?: boolean;
       title?: boolean;
       author_login?: boolean;
+      pr_state?: boolean;
       first_seen_at?: boolean;
       first_review_limit_at?: boolean;
       last_review_limit_at?: boolean;
@@ -1662,6 +1671,7 @@ export namespace Prisma {
       pr_number?: boolean;
       title?: boolean;
       author_login?: boolean;
+      pr_state?: boolean;
       first_seen_at?: boolean;
       first_review_limit_at?: boolean;
       last_review_limit_at?: boolean;
@@ -1683,6 +1693,7 @@ export namespace Prisma {
     pr_number?: boolean;
     title?: boolean;
     author_login?: boolean;
+    pr_state?: boolean;
     first_seen_at?: boolean;
     first_review_limit_at?: boolean;
     last_review_limit_at?: boolean;
@@ -1702,6 +1713,7 @@ export namespace Prisma {
     | 'pr_number'
     | 'title'
     | 'author_login'
+    | 'pr_state'
     | 'first_seen_at'
     | 'first_review_limit_at'
     | 'last_review_limit_at'
@@ -1738,6 +1750,10 @@ export namespace Prisma {
         pr_number: number;
         title: string;
         author_login: string;
+        /**
+         * One of 'open', 'merged', 'closed'. Enforced by CHECK in migration.
+         */
+        pr_state: string;
         first_seen_at: Date;
         first_review_limit_at: Date | null;
         last_review_limit_at: Date | null;
@@ -2218,6 +2234,7 @@ export namespace Prisma {
     readonly pr_number: FieldRef<'PullRequest', 'Int'>;
     readonly title: FieldRef<'PullRequest', 'String'>;
     readonly author_login: FieldRef<'PullRequest', 'String'>;
+    readonly pr_state: FieldRef<'PullRequest', 'String'>;
     readonly first_seen_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly first_review_limit_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly last_review_limit_at: FieldRef<'PullRequest', 'DateTime'>;
@@ -8953,6 +8970,7 @@ export namespace Prisma {
     pr_number: 'pr_number';
     title: 'title';
     author_login: 'author_login';
+    pr_state: 'pr_state';
     first_seen_at: 'first_seen_at';
     first_review_limit_at: 'first_review_limit_at';
     last_review_limit_at: 'last_review_limit_at';
@@ -9104,6 +9122,7 @@ export namespace Prisma {
     pr_number?: IntFilter<'PullRequest'> | number;
     title?: StringFilter<'PullRequest'> | string;
     author_login?: StringFilter<'PullRequest'> | string;
+    pr_state?: StringFilter<'PullRequest'> | string;
     first_seen_at?: DateTimeFilter<'PullRequest'> | Date | string;
     first_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
     last_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
@@ -9126,6 +9145,7 @@ export namespace Prisma {
     pr_number?: SortOrder;
     title?: SortOrder;
     author_login?: SortOrder;
+    pr_state?: SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrderInput | SortOrder;
     last_review_limit_at?: SortOrderInput | SortOrder;
@@ -9153,6 +9173,7 @@ export namespace Prisma {
       pr_number?: IntFilter<'PullRequest'> | number;
       title?: StringFilter<'PullRequest'> | string;
       author_login?: StringFilter<'PullRequest'> | string;
+      pr_state?: StringFilter<'PullRequest'> | string;
       first_seen_at?: DateTimeFilter<'PullRequest'> | Date | string;
       first_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
       last_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
@@ -9177,6 +9198,7 @@ export namespace Prisma {
     pr_number?: SortOrder;
     title?: SortOrder;
     author_login?: SortOrder;
+    pr_state?: SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrderInput | SortOrder;
     last_review_limit_at?: SortOrderInput | SortOrder;
@@ -9204,6 +9226,7 @@ export namespace Prisma {
     pr_number?: IntWithAggregatesFilter<'PullRequest'> | number;
     title?: StringWithAggregatesFilter<'PullRequest'> | string;
     author_login?: StringWithAggregatesFilter<'PullRequest'> | string;
+    pr_state?: StringWithAggregatesFilter<'PullRequest'> | string;
     first_seen_at?: DateTimeWithAggregatesFilter<'PullRequest'> | Date | string;
     first_review_limit_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
     last_review_limit_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
@@ -9673,6 +9696,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -9695,6 +9719,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -9716,6 +9741,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -9738,6 +9764,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -9760,6 +9787,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -9778,6 +9806,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -9797,6 +9826,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -10381,6 +10411,7 @@ export namespace Prisma {
     pr_number?: SortOrder;
     title?: SortOrder;
     author_login?: SortOrder;
+    pr_state?: SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrder;
     last_review_limit_at?: SortOrder;
@@ -10407,6 +10438,7 @@ export namespace Prisma {
     pr_number?: SortOrder;
     title?: SortOrder;
     author_login?: SortOrder;
+    pr_state?: SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrder;
     last_review_limit_at?: SortOrder;
@@ -10426,6 +10458,7 @@ export namespace Prisma {
     pr_number?: SortOrder;
     title?: SortOrder;
     author_login?: SortOrder;
+    pr_state?: SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrder;
     last_review_limit_at?: SortOrder;
@@ -11691,6 +11724,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -11712,6 +11746,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -11772,6 +11807,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -11793,6 +11829,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -11813,6 +11850,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -11834,6 +11872,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -11870,6 +11909,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -11891,6 +11931,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -12005,6 +12046,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -12026,6 +12068,7 @@ export namespace Prisma {
     pr_number: number;
     title: string;
     author_login: string;
+    pr_state?: string;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -12062,6 +12105,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -12083,6 +12127,7 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;

@@ -133,11 +133,12 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 </rule>
 
 <rule id="C012" priority="critical">
-  <title>Every module imports from the source of truth, never through a re-export</title>
-  <do>Import symbols directly from the file that defines them</do>
-  <never>Re-export a symbol from one module through another module's barrel file (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
-  <never>Use a barrel file to forward symbols that originate in a different directory or package</never>
-  <rationale>Re-exports create invisible coupling between modules, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Each module's barrel exports only what that module defines.</rationale>
+  <title>Every import comes from the source file or a same-directory barrel</title>
+  <do>Import symbols from the file that defines them, or from a same-directory barrel file that only re-exports its sibling files</do>
+  <do>Use barrel files to aggregate exports within a single directory, providing a shorter import path for consumers</do>
+  <never>Re-export a symbol from one directory or package through a barrel file in a different directory (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
+  <never>Import a symbol through a barrel that lives outside the symbol's defining directory</never>
+  <rationale>Cross-directory re-exports create invisible coupling, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Same-directory barrels are fine — they act as namespace indexes for their own directory's exports, reduce import path verbosity, and make future linting rules (removing redundant folder segments) possible.</rationale>
 </rule>
 
 <rule id="T001" priority="critical">

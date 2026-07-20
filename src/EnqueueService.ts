@@ -1,8 +1,6 @@
 import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import { classifyCoderabbitComment } from './github/classifyCoderabbitComment.js';
-import type { PRStateFetcher } from './github/PRStateFetcher.js';
-import { isPRClosedWithoutMerge, isPRMerged } from './github/prStateUtils.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
 import type { ProbeFactory } from './probes/ProbeFactory.js';
 import { type OnDetectedCallback } from './types/index.js';
@@ -25,8 +23,6 @@ export class EnqueueService {
     private readonly probes: ProbeFactory,
     @inject(TYPES.ObservationContextProvider)
     private readonly observation: ObservationContextProvider,
-    @inject(TYPES.PRStateFetcher)
-    private readonly fetcher: PRStateFetcher,
   ) {}
   /* c8 ignore stop */
 
@@ -44,61 +40,55 @@ export class EnqueueService {
     );
     await probe.detected();
 
-    const prState = await this.fetcher.fetch(comment.repoFullName, comment.prNumber, 'EnqueueService.handle');
-
     await this.prisma.$transaction(async (tx) => {
-      if (prState !== undefined && isPRMerged(prState)) {
-        await probe.prMerged(tx);
-      } else if (prState !== undefined && isPRClosedWithoutMerge(prState)) {
-        await probe.prClosedWithoutMerge(tx);
-      } else {
-        const classification = classifyCoderabbitComment(comment.body);
+      const existingPr = await this.pullRequests.findByRepoAndPr(comment.repoFullName, comment.prNumber, tx);
+      if (!existingPr) {
+        await probe.prNotRegistered(tx);
+        return;
+      }
+      const pullRequestId = existingPr.id;
 
-        const { id: pullRequestId } = await this.pullRequests.upsert(
-          comment.repoFullName,
-          comment.prNumber,
-          { prTitle: comment.prTitle, reviewLimitAt: new Date() },
-          tx,
-        );
+      await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
 
-        if (classification === 'review_skipped') {
-          const { item, created } = await this.queue.createSkipped(
-            {
-              repo: comment.repoFullName,
-              pr: comment.prNumber,
-              prTitle: comment.prTitle,
-              sourceCommentUrl: comment.url,
-              sourceCommentId: comment.commentId,
-              pullRequestId,
-            },
-            tx,
-          );
-          if (created) {
-            await probe.skipped(tx);
-          } else {
-            probe.alreadySkipped(item.status);
-          }
-          return;
-        }
+      const classification = classifyCoderabbitComment(comment.body);
 
-        const { created } = await this.queue.enqueue(
+      if (classification === 'review_skipped') {
+        const { item, created } = await this.queue.createSkipped(
           {
             repo: comment.repoFullName,
             pr: comment.prNumber,
             prTitle: comment.prTitle,
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.commentId,
-            newWait: waitSeconds,
             pullRequestId,
           },
-          obs,
           tx,
         );
         if (created) {
-          await probe.enqueued(tx);
+          await probe.skipped(tx);
         } else {
-          probe.alreadyQueued();
+          probe.alreadySkipped(item.status);
         }
+        return;
+      }
+
+      const { created } = await this.queue.enqueue(
+        {
+          repo: comment.repoFullName,
+          pr: comment.prNumber,
+          prTitle: comment.prTitle,
+          sourceCommentUrl: comment.url,
+          sourceCommentId: comment.commentId,
+          newWait: waitSeconds,
+          pullRequestId,
+        },
+        obs,
+        tx,
+      );
+      if (created) {
+        await probe.enqueued(tx);
+      } else {
+        probe.alreadyQueued();
       }
     });
   };

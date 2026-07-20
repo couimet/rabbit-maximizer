@@ -110,6 +110,7 @@ const setup = (): MockSchedulerDeps => {
     PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 1800,
     PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 900,
     POLL_INTERVAL_SEC: 90,
+    PR_SCANNER_INTERVAL_SEC: 300,
     REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
     DATABASE_URL: 'file:./data/test.db',
     WEB_PORT: 3000,

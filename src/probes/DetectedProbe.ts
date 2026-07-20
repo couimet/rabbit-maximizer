@@ -77,6 +77,10 @@ export class DetectedProbe {
     return this.recordBypass(tx, BypassReason.prClosedWithoutMerge, 'Review-limit comment bypassed: PR closed without merge');
   }
 
+  prNotRegistered(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+    return this.recordBypass(tx, BypassReason.prNotRegistered, 'Review-limit comment bypassed: PR not yet registered by scanner');
+  }
+
   alreadyQueued(): void {
     this.log.info(this.loggingCtx, 'Review-limit comment already queued; skipping');
   }
