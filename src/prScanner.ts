@@ -3,6 +3,7 @@ import { StateKey, type SystemStateRepository } from './db/systemStateRepository
 import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
 import { isPRClosedWithoutMerge, isPRMerged } from './github/prStateUtils.js';
 import type { ProbeFactory } from './probes/ProbeFactory.js';
+import { MS_PER_SECOND } from './utils/durations.js';
 import type { Config } from './config.js';
 import { TYPES } from './inversify-types.js';
 
@@ -36,21 +37,21 @@ export class PrScannerImpl implements PrScanner {
     const probe = this.probeFactory.createPrScannerProbe();
 
     const now = new Date();
-    const lastScanAt = await this.systemState.getState(StateKey.lastScanAt);
-    if (lastScanAt) {
-      const elapsedMs = now.getTime() - lastScanAt.getTime();
-      if (elapsedMs < this.config.PR_SCANNER_INTERVAL_SEC * 1000) {
-        probe.skipped(elapsedMs);
-        return;
-      }
-    }
-
-    probe.scanStarted();
 
     let opened = 0;
     let updated = 0;
 
     try {
+      probe.scanStarted();
+
+      const lastScanAt = await this.systemState.getState(StateKey.lastScanAt);
+      if (lastScanAt) {
+        const elapsedMs = now.getTime() - lastScanAt.getTime();
+        if (elapsedMs < this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND) {
+          probe.skipped(elapsedMs);
+          return;
+        }
+      }
       const discoveredPRs = await this.github.listOpenPRs(this.config.REPO_FILTER);
       const discoveredKeys = new Set(discoveredPRs.map((p) => `${p.repoFullName}#${p.prNumber}`));
 
@@ -80,10 +81,11 @@ export class PrScannerImpl implements PrScanner {
             const prState = await this.github.getPRState(dbPR.repo_full_name, dbPR.pr_number);
             if (isPRMerged(prState)) {
               await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: 'merged' });
+              closed++;
             } else if (isPRClosedWithoutMerge(prState)) {
               await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: 'closed' });
+              closed++;
             }
-            closed++;
           } catch (err: unknown) {
             probe.caughtError(dbPR.repo_full_name, dbPR.pr_number, err);
           }

@@ -103,8 +103,8 @@ describe('PrScannerImpl', () => {
     const scanner = createScanner();
     await scanner.scan();
 
+    expect(prScannerProbe.scanStarted).toHaveBeenCalledTimes(1);
     expect(prScannerProbe.skipped).toHaveBeenCalledTimes(1);
-    expect(prScannerProbe.scanStarted).not.toHaveBeenCalled();
   });
 
   it('handles per-PR errors gracefully without stopping the scan', async () => {

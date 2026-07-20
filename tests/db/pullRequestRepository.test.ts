@@ -158,8 +158,19 @@ describe('PullRequestRepositoryImpl', () => {
       await sut.upsert(repoFullName, prNumber, { prState: 'closed' });
 
       expect(mockCreate).toHaveBeenCalledWith({
-        data: expect.objectContaining({ pr_state: 'closed' }),
+        data: {
+          repo_full_name: repoFullName,
+          pr_number: prNumber,
+          title: '<unknown>',
+          author_login: '<unknown>',
+          pr_state: 'closed',
+          first_seen_at: frozenNow,
+        },
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: row.id },
+        'Created PullRequest',
+      );
     });
 
     it('creates with authorLogin on create', async () => {
@@ -175,8 +186,19 @@ describe('PullRequestRepositoryImpl', () => {
       await sut.upsert(repoFullName, prNumber, { prState: 'open', authorLogin });
 
       expect(mockCreate).toHaveBeenCalledWith({
-        data: expect.objectContaining({ author_login: authorLogin }),
+        data: {
+          repo_full_name: repoFullName,
+          pr_number: prNumber,
+          title: '<unknown>',
+          author_login: authorLogin,
+          pr_state: 'open',
+          first_seen_at: frozenNow,
+        },
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: row.id },
+        'Created PullRequest',
+      );
     });
 
     it('updates prState on existing PR', async () => {
@@ -192,6 +214,10 @@ describe('PullRequestRepositoryImpl', () => {
         where: { id: existing.id },
         data: { pr_state: 'merged' },
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: existing.id },
+        'PullRequest already exists',
+      );
     });
 
     it('updates authorLogin on existing PR', async () => {
@@ -208,6 +234,10 @@ describe('PullRequestRepositoryImpl', () => {
         where: { id: existing.id },
         data: { pr_state: 'open', author_login: authorLogin },
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: existing.id },
+        'PullRequest already exists',
+      );
     });
   });
 
@@ -521,6 +551,10 @@ describe('PullRequestRepositoryImpl', () => {
         where: { id },
         data: { last_review_limit_at: reviewLimitAt },
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.recordReviewLimitDetection', id },
+        'Recorded review limit detection on PullRequest',
+      );
     });
   });
 });

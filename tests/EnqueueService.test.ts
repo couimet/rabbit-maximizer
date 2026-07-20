@@ -7,13 +7,14 @@ import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
 import { createMockDetectedProbe } from './helpers/createMockProbes.js';
 import { createMockPullRequestRepo, createMockQueueRepo, makeDetectedComment } from './helpers/index.js';
 
-import { getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const FOR_TEST_SKIP_BODY = 'skip review by coderabbit.ai';
 
 describe('EnqueueService', () => {
+  let frozenNow: Date;
   let queue: ReturnType<typeof createMockQueueRepo>;
   let probes: ProbeFactory;
   let observation: ObservationContextProvider;
@@ -24,7 +25,8 @@ describe('EnqueueService', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-06-22T12:00:00Z'));
+    frozenNow = getUniqueDate();
+    jest.setSystemTime(frozenNow);
     mockPullRequests = createMockPullRequestRepo();
     queue = createMockQueueRepo({ enqueue: jest.fn<any>().mockResolvedValue({ item: {}, created: true }) });
 
@@ -75,7 +77,7 @@ describe('EnqueueService', () => {
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(mockPullRequests.findByRepoAndPr).toHaveBeenCalledWith(comment.repoFullName, comment.prNumber, tx);
-      expect(mockPullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, new Date(), tx);
+      expect(mockPullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
       expect(queue.enqueue).toHaveBeenCalledWith(
         {
           repo: comment.repoFullName,
@@ -147,7 +149,7 @@ describe('EnqueueService', () => {
 
         expect(probe.detected).toHaveBeenCalled();
         expect(mockPullRequests.findByRepoAndPr).toHaveBeenCalledWith(comment.repoFullName, comment.prNumber, tx);
-        expect(mockPullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, new Date(), tx);
+        expect(mockPullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
         expect(queue.createSkipped).toHaveBeenCalledWith(
           {
             repo: comment.repoFullName,

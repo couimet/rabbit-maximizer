@@ -84,6 +84,8 @@ describe('ProbeFactory', () => {
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createPrScannerProbe();
     expect(probe).toBeInstanceOf(PrScannerProbe);
+    probe.scanStarted();
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'PrScannerProbe.scanStarted' }, 'PR scan started');
   });
 
   it('creates a ReviewDetectorProbe', () => {

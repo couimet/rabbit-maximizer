@@ -122,13 +122,6 @@ describe('parseConfig', () => {
     expect(result.value.POLL_INTERVAL_SEC).toBe(90);
   });
 
-  it('parses PR_SCANNER_INTERVAL_SEC from env var string', () => {
-    const customInterval = 120;
-    const result = parseConfig(env(BASE, { PR_SCANNER_INTERVAL_SEC: String(customInterval) }));
-
-    expect(result.value.PR_SCANNER_INTERVAL_SEC).toBe(customInterval);
-  });
-
   it('applies default SCHEDULER_TICK_INTERVAL_SEC of 10 when absent', () => {
     const result = parseConfig(BASE);
 

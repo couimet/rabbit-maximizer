@@ -109,10 +109,20 @@ describe('ConfigSchema', () => {
   });
 
   it('defaults PR_SCANNER_INTERVAL_SEC to 300', () => {
-    const result = ConfigSchema.safeParse(BASE);
+    const { PR_SCANNER_INTERVAL_SEC: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.PR_SCANNER_INTERVAL_SEC).toBe(300);
+    }
+  });
+
+  it('coerces numeric PR_SCANNER_INTERVAL_SEC from a string', () => {
+    const customPrScannerIntervalSec = 450;
+    const result = ConfigSchema.safeParse({ ...BASE, PR_SCANNER_INTERVAL_SEC: String(customPrScannerIntervalSec) });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.PR_SCANNER_INTERVAL_SEC).toBe(customPrScannerIntervalSec);
     }
   });
 

@@ -324,8 +324,8 @@ describe('client', () => {
   });
 
   describe('searchReviewLimitComments', () => {
-    const userFilter: RepoFilter = { pattern: 'couimet/*', scope: 'user' };
-    const repoFilter: RepoFilter = {
+    const USER_FILTER: RepoFilter = { pattern: 'couimet/*', scope: 'user' };
+    const REPO_FILTER: RepoFilter = {
       pattern: 'other-org/specific-repo',
       scope: 'repo',
     };
@@ -337,7 +337,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      await client.searchReviewLimitComments([userFilter, repoFilter]);
+      await client.searchReviewLimitComments([USER_FILTER, REPO_FILTER]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
         q: `("review limit" OR "rate limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
@@ -416,7 +416,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchReviewLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([USER_FILTER]);
 
       expect(results).toStrictEqual([
         {
@@ -469,7 +469,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchReviewLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([USER_FILTER]);
 
       expect(results).toStrictEqual([]);
 
@@ -489,7 +489,7 @@ describe('client', () => {
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const results = await client.searchReviewLimitComments([userFilter]);
+      const results = await client.searchReviewLimitComments([USER_FILTER]);
 
       expect(results).toStrictEqual([]);
 
@@ -504,7 +504,7 @@ describe('client', () => {
   });
 
   describe('listOpenPRs', () => {
-    const userFilter: RepoFilter = { pattern: 'couimet/*', scope: 'user' };
+    const USER_FILTER: RepoFilter = { pattern: 'couimet/*', scope: 'user' };
 
     it('returns empty array when no repos match', async () => {
       search.issuesAndPullRequests.mockResolvedValue({
@@ -512,7 +512,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const results = await client.listOpenPRs([userFilter]);
+      const results = await client.listOpenPRs([USER_FILTER]);
 
       expect(results).toStrictEqual([]);
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
@@ -544,7 +544,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const results = await client.listOpenPRs([userFilter]);
+      const results = await client.listOpenPRs([USER_FILTER]);
 
       expect(results).toStrictEqual([
         {
@@ -588,7 +588,7 @@ describe('client', () => {
         });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const results = await client.listOpenPRs([userFilter]);
+      const results = await client.listOpenPRs([USER_FILTER]);
 
       expect(results).toHaveLength(101);
       expect(results[100]).toStrictEqual({
@@ -632,7 +632,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const results = await client.listOpenPRs([userFilter]);
+      const results = await client.listOpenPRs([USER_FILTER]);
 
       expect(results).toStrictEqual([
         {
