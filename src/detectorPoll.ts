@@ -58,27 +58,27 @@ export class PollDetector extends IntervalService {
       let earliestNextReview: Date | undefined;
 
       for (const c of comments) {
-        const { owner, repo } = splitRepo(c.repo_full_name);
-        const body = await this.github.fetchComment(owner, repo, c.comment_id);
+        const { owner, repo } = splitRepo(c.repoFullName);
+        const { body } = await this.github.fetchComment(owner, repo, c.commentId);
 
         if (!hasRateLimitMarker(body)) {
-          this.log.debug({ ...logCtx, owner, repo, commentId: c.comment_id }, 'Skipping comment without rate-limit marker');
+          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment without rate-limit marker');
           continue;
         }
 
         if (hasOwnRetriggerMarker(body)) {
-          this.log.debug({ ...logCtx, owner, repo, commentId: c.comment_id }, 'Skipping comment with own retrigger marker');
+          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with own retrigger marker');
           continue;
         }
 
         const waitSeconds = parseWaitSeconds(body);
         const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
-        const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MS_PER_SECOND);
+        const candidate = new Date(new Date(c.updatedAt).getTime() + effectiveWait * MS_PER_SECOND);
         if (!earliestNextReview || candidate < earliestNextReview) {
           earliestNextReview = candidate;
         }
 
-        await this.onDetected(c, effectiveWait);
+        await this.onDetected({ ...c, body }, effectiveWait);
       }
 
       try {

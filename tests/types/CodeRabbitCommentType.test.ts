@@ -9,6 +9,7 @@ describe('CodeRabbitCommentType', () => {
       review_skipped: 'review_skipped',
       review_approved: 'review_approved',
       review_changes_suggested: 'review_changes_suggested',
+      unknown: 'unknown',
     });
   });
 });

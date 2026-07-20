@@ -4,6 +4,7 @@ import type {
   BypassedPayload,
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
+  CoderabbitReviewSkippedPayload,
   DetectedPayload,
   EnqueuedPayload,
   EventMetadata,
@@ -32,6 +33,7 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.bypassed; payload: BypassedPayload })
   | (NewEventBase & { type: EventType.coderabbit_review_approved; payload: CoderabbitReviewApprovedPayload })
   | (NewEventBase & { type: EventType.coderabbit_review_changes_suggested; payload: CoderabbitReviewChangesSuggestedPayload })
+  | (NewEventBase & { type: EventType.coderabbit_review_skipped; payload: CoderabbitReviewSkippedPayload })
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
 export interface EventRepository {

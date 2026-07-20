@@ -38,6 +38,7 @@ export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
 });
 
 export const CoderabbitReviewSkippedPayloadSchema = z.object({
+  source_ts: z.coerce.date(),
   comment_url: COMMENT_URL_SCHEMA,
   skip_reason: z.string(),
 });

@@ -1,5 +1,6 @@
 import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
+import { classifyCoderabbitComment } from './github/classifyCoderabbitComment.js';
 import type { PRStateFetcher } from './github/PRStateFetcher.js';
 import { isPRClosedWithoutMerge, isPRMerged } from './github/prStateUtils.js';
 import type { ObservationContextProvider } from './observability/observationContext.js';
@@ -34,16 +35,16 @@ export class EnqueueService {
 
     const probe = this.probes.createDetectedProbe(
       {
-        repo_full_name: comment.repo_full_name,
-        pr_number: comment.pr_number,
-        source_ts: new Date(comment.created_at),
+        repo_full_name: comment.repoFullName,
+        pr_number: comment.prNumber,
+        source_ts: new Date(comment.createdAt),
         source_comment_url: comment.url,
       },
       obs,
     );
     await probe.detected();
 
-    const prState = await this.fetcher.fetch(comment.repo_full_name, comment.pr_number, 'EnqueueService.handle');
+    const prState = await this.fetcher.fetch(comment.repoFullName, comment.prNumber, 'EnqueueService.handle');
 
     await this.prisma.$transaction(async (tx) => {
       if (prState !== undefined && isPRMerged(prState)) {
@@ -51,19 +52,48 @@ export class EnqueueService {
       } else if (prState !== undefined && isPRClosedWithoutMerge(prState)) {
         await probe.prClosedWithoutMerge(tx);
       } else {
+        const classification = classifyCoderabbitComment(comment.body);
+
+        if (classification === 'review_skipped') {
+          const existing = await this.queue.findBySourceCommentId(comment.commentId, tx);
+          if (existing) {
+            probe.alreadySkipped(existing.status);
+            return;
+          }
+          const { id: pullRequestId } = await this.pullRequests.upsert(
+            comment.repoFullName,
+            comment.prNumber,
+            { prTitle: comment.prTitle, reviewLimitAt: new Date() },
+            tx,
+          );
+          await this.queue.createSkipped(
+            {
+              repo: comment.repoFullName,
+              pr: comment.prNumber,
+              prTitle: comment.prTitle,
+              sourceCommentUrl: comment.url,
+              sourceCommentId: comment.commentId,
+              pullRequestId,
+            },
+            tx,
+          );
+          await probe.skipped(tx);
+          return;
+        }
+
         const { id: pullRequestId } = await this.pullRequests.upsert(
-          comment.repo_full_name,
-          comment.pr_number,
-          { prTitle: comment.pr_title, reviewLimitAt: new Date() },
+          comment.repoFullName,
+          comment.prNumber,
+          { prTitle: comment.prTitle, reviewLimitAt: new Date() },
           tx,
         );
         const { created } = await this.queue.enqueue(
           {
-            repo: comment.repo_full_name,
-            pr: comment.pr_number,
-            prTitle: comment.pr_title,
+            repo: comment.repoFullName,
+            pr: comment.prNumber,
+            prTitle: comment.prTitle,
             sourceCommentUrl: comment.url,
-            sourceCommentId: comment.comment_id,
+            sourceCommentId: comment.commentId,
             newWait: waitSeconds,
             pullRequestId,
           },

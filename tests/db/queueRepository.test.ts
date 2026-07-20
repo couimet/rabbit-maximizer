@@ -384,8 +384,8 @@ describe('QueueRepositoryImpl', () => {
 
   describe('markReviewedByUuid', () => {
     it('finds by UUID, marks the row reviewed, and logs the event', async () => {
-      const COMMENT_URL = 'https://gh/c/retriggered-123';
-      const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: COMMENT_URL });
+      const commentUrl = 'https://gh/c/retriggered-123';
+      const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: commentUrl });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
@@ -577,11 +577,11 @@ describe('QueueRepositoryImpl', () => {
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getOldestPending', found: true }, 'Fetched oldest pending item');
     });
 
-    it('returns null when no pending items exist', async () => {
+    it('returns undefined when no pending items exist', async () => {
       const { prisma } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
       const result = await sut.getOldestPending();
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getOldestPending', found: false }, 'Fetched oldest pending item');
     });
   });
@@ -827,6 +827,65 @@ describe('QueueRepositoryImpl', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeReviewed: false, count: 1, total: 1 },
         'Fetched triggered queue',
+      );
+    });
+  });
+
+  describe('findBySourceCommentId', () => {
+    it('returns the QueueItem when a matching row exists', async () => {
+      const row = makeRow();
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      const result = await sut.findBySourceCommentId(row.source_comment_id);
+
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { source_comment_id: row.source_comment_id } });
+      expect(result).toStrictEqual(toExpectedItem(row));
+    });
+
+    it('returns undefined when no matching row exists', async () => {
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+      const commentId = getUniqueInt();
+
+      const result = await sut.findBySourceCommentId(commentId);
+
+      expect(result).toBeUndefined();
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { source_comment_id: commentId } });
+    });
+  });
+
+  describe('createSkipped', () => {
+    it('creates a row with coderabbit_skipped status and returns the QueueItem', async () => {
+      const row = makeRow({ status: 'coderabbit_skipped' });
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { create: createResolvedMock(row) } });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+      const data = {
+        repo: row.repo_full_name,
+        pr: row.pr_number,
+        prTitle: row.pr_title,
+        sourceCommentUrl: row.source_comment_url,
+        sourceCommentId: row.source_comment_id,
+        pullRequestId: row.pull_request_id!,
+      };
+
+      const result = await sut.createSkipped(data, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.create).toHaveBeenCalledWith({
+        data: {
+          pull_request_id: data.pullRequestId,
+          repo_full_name: data.repo,
+          pr_number: data.pr,
+          pr_title: data.prTitle,
+          source_comment_url: data.sourceCommentUrl,
+          source_comment_id: data.sourceCommentId,
+          status: 'coderabbit_skipped',
+        },
+      });
+      expect(result).toStrictEqual(toExpectedItem(row));
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.createSkipped', repo: data.repo, pr: data.pr, commentId: data.sourceCommentId },
+        'Created coderabbit skipped entry',
       );
     });
   });

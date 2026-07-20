@@ -1,3 +1,3 @@
-const APPROVAL_SIGNAL = 'No actionable comments were generated in the recent review.';
+import { REVIEW_BOT_NO_ACTIONABLE_SIGNAL } from '../types/coderabbit.js';
 
-export const isApprovalReviewSignal = (body: string): boolean => body.includes(APPROVAL_SIGNAL);
+export const isApprovalReviewSignal = (body: string): boolean => body.includes(REVIEW_BOT_NO_ACTIONABLE_SIGNAL);

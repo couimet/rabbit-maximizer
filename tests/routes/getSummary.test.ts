@@ -62,7 +62,7 @@ describe('getSummary', () => {
 
     const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
-      queueCounts: { pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
+      queueCounts: { coderabbit_skipped: 0, pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
       eventCounts: { detected, enqueued, retriggered, failed },
       oldestPending: apiJson(queueItemMapper.mapToQueueItemResponse(item)),
     });
@@ -74,7 +74,7 @@ describe('getSummary', () => {
 
     const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
-      queueCounts: { pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
+      queueCounts: { coderabbit_skipped: 0, pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       oldestPending: null,
     });
@@ -114,7 +114,7 @@ describe('getSummary', () => {
 
     const json = await getJson(port, '/api/summary');
     expect(json).toStrictEqual({
-      queueCounts: { pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
+      queueCounts: { coderabbit_skipped: 0, pending: 0, retriggered: 0, reviewed: 0, failed: 0 },
       eventCounts: { detected, enqueued, retriggered, failed },
       oldestPending: null,
     });

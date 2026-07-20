@@ -1,6 +1,7 @@
 import pkg from '../../package.json' with { type: 'json' };
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/coderabbitGitHubClient.js';
 import { TYPES } from '../../src/inversify-types.js';
+import { CodeRabbitCommentType } from '../../src/types/CodeRabbitCommentType.js';
 import { TriggerSource } from '../../src/types/index.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
 import type { MockIssuesRest, MockPullsRest, MockSearchRest } from '../helpers/index.js';
@@ -169,39 +170,157 @@ describe('client', () => {
   });
 
   describe('fetchComment', () => {
-    it('returns the comment body from the API response', async () => {
+    it('returns the comment body and updatedAt from the API response', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const bodyText = getRandomString();
+      const updatedAt = getUniqueDate();
       issues.getComment.mockResolvedValue({
-        data: { body: bodyText },
+        data: { body: bodyText, updated_at: updatedAt.toISOString() },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const body = await client.fetchComment(owner, repo, fetchCommentId);
+      const result = await client.fetchComment(owner, repo, fetchCommentId);
 
       expect(issues.getComment).toHaveBeenCalledWith({
         owner,
         repo,
         comment_id: fetchCommentId,
       });
-      expect(body).toBe(bodyText);
+      expect(result).toStrictEqual({ body: bodyText, updatedAt: updatedAt.toISOString() });
 
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'fetchComment', owner, repo, commentId: fetchCommentId }, 'Fetching comment body');
     });
 
-    it('returns empty string when the comment body is null', async () => {
+    it('returns empty body when the comment body is null', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
+      const updatedAt = getUniqueDate();
       issues.getComment.mockResolvedValue({
-        data: { body: null },
+        data: { body: null, updated_at: updatedAt.toISOString() },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
-      const body = await client.fetchComment(owner, repo, fetchCommentId);
-      expect(body).toBe('');
+      const result = await client.fetchComment(owner, repo, fetchCommentId);
+      expect(result).toStrictEqual({ body: '<EMPTY_BODY>', updatedAt: updatedAt.toISOString() });
 
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'fetchComment', owner, repo, commentId: fetchCommentId }, 'Fetching comment body');
+    });
+  });
+
+  describe('listComments', () => {
+    it('returns ListedComment objects for comments with a body', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const issueNumber = getUniqueInt();
+      const commentId = getUniqueInt();
+      const body = getRandomString();
+      const updatedAt = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          {
+            id: commentId,
+            body,
+            updated_at: updatedAt.toISOString(),
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.listComments(owner, repo, issueNumber);
+
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: 100,
+        page: 1,
+      });
+      expect(result).toStrictEqual([{ body, id: commentId, updatedAt }]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'listComments', owner, repo, issueNumber }, 'Listing issue comments');
+    });
+
+    it('uses <EMPTY_BODY> fallback for comments with null or undefined body', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const issueNumber = getUniqueInt();
+      const commentId = getUniqueInt();
+      const body = getRandomString();
+      const updatedAt = getUniqueDate();
+      const nullId = getUniqueInt();
+      const nullUpdatedAt = getUniqueDate();
+      const undefinedId = getUniqueInt();
+      const undefinedUpdatedAt = getUniqueDate();
+
+      issues.listComments.mockResolvedValue({
+        data: [
+          { id: nullId, body: null, updated_at: nullUpdatedAt.toISOString() },
+          { id: undefinedId, body: undefined, updated_at: undefinedUpdatedAt.toISOString() },
+          { id: commentId, body, updated_at: updatedAt.toISOString() },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.listComments(owner, repo, issueNumber);
+
+      expect(result).toStrictEqual([
+        { body: '<EMPTY_BODY>', id: nullId, updatedAt: nullUpdatedAt },
+        { body: '<EMPTY_BODY>', id: undefinedId, updatedAt: undefinedUpdatedAt },
+        { body, id: commentId, updatedAt },
+      ]);
+    });
+
+    it('paginates to retrieve all comments', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const issueNumber = getUniqueInt();
+      const firstPageIds = [getUniqueInt(), getUniqueInt()];
+      const secondPageId = getUniqueInt();
+      const firstPageDate = getUniqueDate();
+      const secondPageDate = getUniqueDate();
+      const reviewsPerPage = 100;
+
+      issues.listComments
+        .mockResolvedValueOnce({
+          data: Array.from({ length: reviewsPerPage }, (_, i) => ({
+            id: firstPageIds[i] ?? getUniqueInt(),
+            body: `comment-${i}`,
+            updated_at: firstPageDate.toISOString(),
+          })),
+        })
+        .mockResolvedValueOnce({
+          data: [{ id: secondPageId, body: 'second-page-comment', updated_at: secondPageDate.toISOString() }],
+        });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.listComments(owner, repo, issueNumber);
+
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: 100,
+        page: 1,
+      });
+      expect(issues.listComments).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: 100,
+        page: 2,
+      });
+      expect(result).toHaveLength(101);
+      expect(result[100]).toStrictEqual({ body: 'second-page-comment', id: secondPageId, updatedAt: secondPageDate });
+    });
+
+    it('returns empty array when there are no comments', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const issueNumber = getUniqueInt();
+
+      issues.listComments.mockResolvedValue({ data: [] });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.listComments(owner, repo, issueNumber);
+
+      expect(result).toStrictEqual([]);
     });
   });
 
@@ -302,13 +421,15 @@ describe('client', () => {
 
       expect(results).toStrictEqual([
         {
-          repo_full_name: 'couimet/my-repo',
-          pr_number: prNumber,
-          pr_title: prTitle,
-          comment_id: matchingCommentId,
+          repoFullName: 'couimet/my-repo',
+          prNumber,
+          prTitle,
+          body: matchingBody,
+          commentType: CodeRabbitCommentType.review_limited,
+          commentId: matchingCommentId,
           url: matchingCommentUrl,
-          created_at: matchingCreatedAt,
-          updated_at: matchingUpdatedAt,
+          createdAt: matchingCreatedAt,
+          updatedAt: matchingUpdatedAt,
         },
       ]);
 
@@ -841,12 +962,12 @@ describe('client', () => {
         per_page: 100,
       });
       expect(result).toStrictEqual({
-        repo_full_name: `${owner}/${repo}`,
-        pr_number: prNumber,
-        comment_id: rateLimitCommentId,
+        repoFullName: `${owner}/${repo}`,
+        prNumber,
+        commentId: rateLimitCommentId,
         url: htmlUrl,
-        created_at,
-        updated_at,
+        createdAt: created_at,
+        updatedAt: updated_at,
       });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'findLatestReviewLimitComment', owner, repo, pr: prNumber, commentId: rateLimitCommentId, url: htmlUrl },

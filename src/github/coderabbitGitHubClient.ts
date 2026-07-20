@@ -6,9 +6,10 @@ import type { RepoFilter } from '../types/RepoFilter.js';
 import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
 import type { TriggerSource } from '../types/TriggerSource.js';
 
-import type { CoderabbitReview, CompletedReview, RetriggerComment } from './types/index.js';
+import type { CoderabbitReview, CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
 import { buildCommentBody } from './buildCommentBody.js';
 import { buildSearchQuery } from './buildSearchQuery.js';
+import { classifyCoderabbitComment } from './classifyCoderabbitComment.js';
 import { extractRepoFullName } from './extractRepoFullName.js';
 import { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
 import { hasRateLimitMarker } from './hasRateLimitMarker.js';
@@ -16,6 +17,7 @@ import { isAcknowledgementComment } from './isAcknowledgementComment.js';
 import { isApprovalReviewSignal } from './isApprovalReviewSignal.js';
 import { isMatchingCoderabbitReview } from './isMatchingCoderabbitReview.js';
 import { isMatchingCompletedReview } from './isMatchingCompletedReview.js';
+import { normalizeCommentBody } from './normalizeCommentBody.js';
 import { splitRepo } from './splitRepo.js';
 import { toReviewState } from './toReviewState.js';
 
@@ -30,7 +32,9 @@ const COMMENTS_FETCH_PER_PAGE = 100;
 export interface CoderabbitGitHubClient {
   searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]>;
 
-  fetchComment(owner: string, repo: string, commentId: number): Promise<string>;
+  fetchComment(owner: string, repo: string, commentId: number): Promise<FetchCommentResult>;
+
+  listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]>;
 
   postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment>;
 
@@ -90,13 +94,15 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
 
         if (rateLimitComment && rateLimitComment.body) {
           results.push({
-            repo_full_name: repoFullName,
-            pr_number: item.number,
-            pr_title: item.title,
-            comment_id: rateLimitComment.id,
+            repoFullName,
+            prNumber: item.number,
+            prTitle: item.title,
+            body: rateLimitComment.body,
+            commentType: classifyCoderabbitComment(rateLimitComment.body),
+            commentId: rateLimitComment.id,
             url: rateLimitComment.html_url,
-            created_at: rateLimitComment.created_at,
-            updated_at: rateLimitComment.updated_at,
+            createdAt: rateLimitComment.created_at,
+            updatedAt: rateLimitComment.updated_at,
           });
         }
       }
@@ -107,7 +113,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return results;
   }
 
-  async fetchComment(owner: string, repo: string, commentId: number): Promise<string> {
+  async fetchComment(owner: string, repo: string, commentId: number): Promise<FetchCommentResult> {
     this.log.debug({ fn: 'fetchComment', owner, repo, commentId }, 'Fetching comment body');
 
     const response = await this.octokit.rest.issues.getComment({
@@ -116,7 +122,30 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       comment_id: commentId,
     });
 
-    return response.data.body ?? '';
+    return { body: normalizeCommentBody(response.data.body), updatedAt: response.data.updated_at };
+  }
+
+  async listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]> {
+    this.log.debug({ fn: 'listComments', owner, repo, issueNumber }, 'Listing issue comments');
+
+    const results: ListedComment[] = [];
+    for (let page = 1; ; page++) {
+      const response = await this.octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: COMMENTS_FETCH_PER_PAGE,
+        page,
+      });
+
+      for (const c of response.data) {
+        results.push({ body: normalizeCommentBody(c.body), id: c.id, updatedAt: new Date(c.updated_at) });
+      }
+
+      if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
+    }
+
+    return results;
   }
 
   async postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment> {
@@ -223,12 +252,12 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         'Found latest rate-limit comment',
       );
       return {
-        repo_full_name: `${owner}/${repo}`,
-        pr_number: pr,
-        comment_id: rateLimitComment.id,
+        repoFullName: `${owner}/${repo}`,
+        prNumber: pr,
+        commentId: rateLimitComment.id,
         url: rateLimitComment.html_url,
-        created_at: rateLimitComment.created_at,
-        updated_at: rateLimitComment.updated_at,
+        createdAt: rateLimitComment.created_at,
+        updatedAt: rateLimitComment.updated_at,
       };
     }
 

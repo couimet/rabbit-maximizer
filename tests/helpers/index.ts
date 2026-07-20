@@ -17,6 +17,7 @@ export * from './createMockSystemStateRepository.js';
 export * from './createMockVite.js';
 export * from './createResolvedMock.js';
 export * from './drainMicrotasks.js';
+export * from './makeDetectedComment.js';
 export * from './makeEventEntry.js';
 export * from './makeQueueItem.js';
 export * from './postJson.js';

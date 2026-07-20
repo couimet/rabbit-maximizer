@@ -1,9 +1,5 @@
-export interface EnqueueData {
-  readonly repo: string;
-  readonly pr: number;
-  readonly prTitle: string;
-  readonly sourceCommentUrl: string;
-  readonly sourceCommentId: number;
+import type { CreateSkippedData } from './CreateSkippedData.js';
+
+export interface EnqueueData extends CreateSkippedData {
   readonly newWait: number;
-  readonly pullRequestId: number;
 }
