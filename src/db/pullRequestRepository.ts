@@ -1,6 +1,7 @@
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
 import { TYPES } from '../inversify-types.js';
 import type { PendingAcknowledgement } from '../types/PendingAcknowledgement.js';
+import type { UpsertPullRequestData } from '../types/UpsertPullRequestData.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -19,18 +20,17 @@ const FIND_PENDING_ACKNOWLEDGEMENT_SQL = `
 `;
 
 export interface PullRequestRepository {
-  upsert(
-    repoFullName: string,
-    prNumber: number,
-    data: { prTitle?: string; reviewLimitAt?: Date },
-    tx?: Prisma.TransactionClient,
-  ): Promise<{ id: number; created: boolean }>;
+  upsert(repoFullName: string, prNumber: number, data: UpsertPullRequestData, tx?: Prisma.TransactionClient): Promise<{ id: number; created: boolean }>;
   findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<{ id: number } | null>;
-  updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
-  incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
-  recordReview(id: number, tx: Prisma.TransactionClient): Promise<void>;
+  findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
   findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
+  getAcknowledgedAtMap(ids: number[], tx?: Prisma.TransactionClient): Promise<Map<number, Date | undefined>>;
+  getPrStateMap(ids: number[], tx?: Prisma.TransactionClient): Promise<Map<number, string>>;
+  incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
   recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void>;
+  recordReview(id: number, tx: Prisma.TransactionClient): Promise<void>;
+  recordReviewLimitDetection(id: number, reviewLimitAt: Date, tx: Prisma.TransactionClient): Promise<void>;
+  updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
 }
 
 @injectable()
@@ -42,28 +42,23 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
   /* c8 ignore stop */
 
   // eslint-disable-next-line require-await
-  async upsert(
-    repoFullName: string,
-    prNumber: number,
-    data: { prTitle?: string; reviewLimitAt?: Date },
-    tx?: Prisma.TransactionClient,
-  ): Promise<{ id: number; created: boolean }> {
+  async upsert(repoFullName: string, prNumber: number, data: UpsertPullRequestData, tx?: Prisma.TransactionClient): Promise<{ id: number; created: boolean }> {
     return this.enforceTx(tx, async (db) => {
       const existing = await db.pullRequest.findUnique({
         where: { repo_full_name_pr_number: { repo_full_name: repoFullName, pr_number: prNumber } },
-        select: { id: true, first_review_limit_at: true },
+        select: { id: true },
       });
 
       if (existing) {
         const updateData: Record<string, unknown> = {};
-        if (data.reviewLimitAt) {
-          updateData.last_review_limit_at = data.reviewLimitAt;
-          if (existing.first_review_limit_at === null) {
-            updateData.first_review_limit_at = data.reviewLimitAt;
-          }
-        }
         if (data.prTitle !== undefined) {
           updateData.title = data.prTitle;
+        }
+        if (data.prState !== undefined) {
+          updateData.pr_state = data.prState;
+        }
+        if (data.authorLogin !== undefined) {
+          updateData.author_login = data.authorLogin;
         }
         if (Object.keys(updateData).length > 0) {
           await this.withPrismaErrorHandling(() => db.pullRequest.update({ where: { id: existing.id }, data: updateData }), 'PullRequestRepositoryImpl.upsert');
@@ -77,10 +72,9 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
           repo_full_name: repoFullName,
           pr_number: prNumber,
           title: data.prTitle ?? '<unknown>',
-          author_login: '<unknown>',
+          author_login: data.authorLogin ?? '<unknown>',
+          pr_state: data.prState,
           first_seen_at: new Date(),
-          first_review_limit_at: data.reviewLimitAt ?? null,
-          last_review_limit_at: data.reviewLimitAt ?? null,
         },
       });
       this.log.debug({ fn: 'PullRequestRepositoryImpl.upsert', repoFullName, prNumber, id: row.id }, 'Created PullRequest');
@@ -158,5 +152,55 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       );
       this.log.debug({ fn: 'PullRequestRepositoryImpl.recordAcknowledgement', id }, 'Recorded CodeRabbit acknowledgement on PullRequest');
     });
+  }
+
+  // eslint-disable-next-line require-await
+  async findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>> {
+    return this.enforceTx(tx, (db) =>
+      db.pullRequest.findMany({
+        where: { pr_state: prState },
+        select: { id: true, repo_full_name: true, pr_number: true },
+      }),
+    );
+  }
+
+  async getAcknowledgedAtMap(ids: number[], tx?: Prisma.TransactionClient): Promise<Map<number, Date | undefined>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.enforceTx(tx, (db) =>
+      db.pullRequest.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, last_coderabbit_acknowledged_at: true },
+      }),
+    );
+    return new Map(rows.map((r) => [r.id, r.last_coderabbit_acknowledged_at ?? undefined]));
+  }
+
+  async getPrStateMap(ids: number[], tx?: Prisma.TransactionClient): Promise<Map<number, string>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.enforceTx(tx, (db) =>
+      db.pullRequest.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, pr_state: true },
+      }),
+    );
+    return new Map(rows.map((r) => [r.id, r.pr_state]));
+  }
+
+  async recordReviewLimitDetection(id: number, reviewLimitAt: Date, tx: Prisma.TransactionClient): Promise<void> {
+    await this.enforceTx(tx, async (db) => {
+      const existing = await db.pullRequest.findUnique({
+        where: { id },
+        select: { first_review_limit_at: true },
+      });
+      const updateData: Record<string, unknown> = { last_review_limit_at: reviewLimitAt };
+      if (existing && existing.first_review_limit_at === null) {
+        updateData.first_review_limit_at = reviewLimitAt;
+      }
+      await this.withPrismaErrorHandling(
+        () => db.pullRequest.update({ where: { id }, data: updateData }),
+        'PullRequestRepositoryImpl.recordReviewLimitDetection',
+      );
+    });
+    this.log.debug({ fn: 'PullRequestRepositoryImpl.recordReviewLimitDetection', id }, 'Recorded review limit detection on PullRequest');
   }
 }

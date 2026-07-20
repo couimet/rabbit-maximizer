@@ -8,6 +8,7 @@ import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
 import { EnqueueProbe } from '../../src/probes/EnqueueProbe.js';
 import { MarkQueueItemReviewedProbe } from '../../src/probes/MarkQueueItemReviewedProbe.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
+import { PrScannerProbe } from '../../src/probes/PrScannerProbe.js';
 import { PrunerProbe } from '../../src/probes/PrunerProbe.js';
 import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
 import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
@@ -76,6 +77,13 @@ describe('ProbeFactory', () => {
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createPrunerProbe();
     expect(probe).toBeInstanceOf(PrunerProbe);
+  });
+
+  it('creates a PrScannerProbe', () => {
+    const { eventRepository, logger } = makeMocks();
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const probe = factory.createPrScannerProbe();
+    expect(probe).toBeInstanceOf(PrScannerProbe);
   });
 
   it('creates a ReviewDetectorProbe', () => {

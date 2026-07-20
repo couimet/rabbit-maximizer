@@ -1,5 +1,4 @@
 import { EnqueueService } from '../src/EnqueueService.js';
-import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
 import type { ObservationContextProvider } from '../src/observability/observationContext.js';
 import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
 import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
@@ -21,7 +20,6 @@ describe('EnqueueService', () => {
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
   let probe: ReturnType<typeof createMockDetectedProbe>;
-  let fetcher: PRStateFetcher;
   let mockPullRequests: ReturnType<typeof createMockPullRequestRepo>;
 
   beforeEach(() => {
@@ -41,17 +39,13 @@ describe('EnqueueService', () => {
     observation = {
       current: jest.fn().mockReturnValue({ correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' }),
     } as unknown as ObservationContextProvider;
-
-    fetcher = {
-      fetch: jest.fn<any>().mockResolvedValue({ state: 'open', merged_at: null }),
-    } as unknown as PRStateFetcher;
   });
 
-  const createService = () => new EnqueueService(queue, mockPullRequests, prisma, probes, observation, fetcher);
+  const createService = () => new EnqueueService(queue, mockPullRequests, prisma, probes, observation);
 
   describe('handle', () => {
-    it('bypasses via probe when PR is already merged', async () => {
-      (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: '2026-06-22T10:00:00Z' });
+    it('bypasses via probe when PR is not yet registered by the scanner', async () => {
+      mockPullRequests.findByRepoAndPr.mockResolvedValue(null);
       const svc = createService();
       const comment = makeDetectedComment();
 
@@ -59,31 +53,18 @@ describe('EnqueueService', () => {
 
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(probe.prMerged).toHaveBeenCalledWith(tx);
+      expect(mockPullRequests.findByRepoAndPr).toHaveBeenCalledWith(comment.repoFullName, comment.prNumber, tx);
+      expect(probe.prNotRegistered).toHaveBeenCalledWith(tx);
       expect(queue.enqueue).not.toHaveBeenCalled();
       expect(probe.enqueued).not.toHaveBeenCalled();
     });
 
-    it('bypasses via probe when PR is closed without merge', async () => {
-      (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: null });
-      const svc = createService();
-      const comment = makeDetectedComment();
-
-      await svc.handle(comment, 330);
-
-      expect(probe.detected).toHaveBeenCalled();
-      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(probe.prClosedWithoutMerge).toHaveBeenCalledWith(tx);
-      expect(queue.enqueue).not.toHaveBeenCalled();
-      expect(probe.enqueued).not.toHaveBeenCalled();
-    });
-
-    it('creates probe, enqueues, and completes probe in a transaction when PR is open', async () => {
+    it('creates probe, enqueues, and completes probe in a transaction when PR is found', async () => {
       const svc = createService();
       const comment = makeDetectedComment();
       const waitSeconds = 330;
       const pullRequestId = getUniqueInt();
-      mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
+      mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       await svc.handle(comment, waitSeconds);
 
@@ -93,6 +74,8 @@ describe('EnqueueService', () => {
       );
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(mockPullRequests.findByRepoAndPr).toHaveBeenCalledWith(comment.repoFullName, comment.prNumber, tx);
+      expect(mockPullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, new Date(), tx);
       expect(queue.enqueue).toHaveBeenCalledWith(
         {
           repo: comment.repoFullName,
@@ -107,21 +90,7 @@ describe('EnqueueService', () => {
         tx,
       );
       expect(probe.enqueued).toHaveBeenCalledWith(tx);
-      expect(probe.prMerged).not.toHaveBeenCalled();
-    });
-
-    it('proceeds with enqueue when getPRState fails', async () => {
-      (fetcher.fetch as jest.Mock<any>).mockResolvedValue(undefined);
-      const svc = createService();
-      const comment = makeDetectedComment();
-      const waitSeconds = 330;
-
-      await svc.handle(comment, waitSeconds);
-
-      expect(probe.detected).toHaveBeenCalled();
-      expect(queue.enqueue).toHaveBeenCalled();
-      expect(probe.enqueued).toHaveBeenCalledWith(tx);
-      expect(probe.prMerged).not.toHaveBeenCalled();
+      expect(probe.prNotRegistered).not.toHaveBeenCalled();
     });
 
     it('skips enqueued when enqueue returns created: false', async () => {
@@ -129,6 +98,8 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = makeDetectedComment();
       const waitSeconds = 330;
+      const pullRequestId = getUniqueInt();
+      mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       await svc.handle(comment, waitSeconds);
 
@@ -137,7 +108,7 @@ describe('EnqueueService', () => {
       expect(queue.enqueue).toHaveBeenCalled();
       expect(probe.enqueued).not.toHaveBeenCalled();
       expect(probe.alreadyQueued).toHaveBeenCalled();
-      expect(probe.prMerged).not.toHaveBeenCalled();
+      expect(probe.prNotRegistered).not.toHaveBeenCalled();
     });
 
     it('schedules the enqueue based on comment.updated_at and wait', async () => {
@@ -145,7 +116,7 @@ describe('EnqueueService', () => {
       const comment = makeDetectedComment();
       const waitSeconds = 120;
       const pullRequestId = getUniqueInt();
-      mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
+      mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       await svc.handle(comment, waitSeconds);
 
@@ -165,22 +136,18 @@ describe('EnqueueService', () => {
     });
 
     describe('skip path', () => {
-      it('creates skipped entry when comment classifies as review_skipped and PR is open', async () => {
+      it('creates skipped entry when comment classifies as review_skipped and PR is found', async () => {
         const svc = createService();
         const comment = makeDetectedComment({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
-        mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
+        mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
         (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: {}, created: true });
 
         await svc.handle(comment, 330);
 
         expect(probe.detected).toHaveBeenCalled();
-        expect(mockPullRequests.upsert).toHaveBeenCalledWith(
-          comment.repoFullName,
-          comment.prNumber,
-          { prTitle: comment.prTitle, reviewLimitAt: new Date('2026-06-22T12:00:00Z') },
-          tx,
-        );
+        expect(mockPullRequests.findByRepoAndPr).toHaveBeenCalledWith(comment.repoFullName, comment.prNumber, tx);
+        expect(mockPullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, new Date(), tx);
         expect(queue.createSkipped).toHaveBeenCalledWith(
           {
             repo: comment.repoFullName,
@@ -196,32 +163,12 @@ describe('EnqueueService', () => {
         expect(queue.enqueue).not.toHaveBeenCalled();
       });
 
-      it('bypasses merged PR even when comment is review_skipped', async () => {
-        (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: '2026-06-22T10:00:00Z' });
-        const svc = createService();
-        const comment = makeDetectedComment({ body: FOR_TEST_SKIP_BODY });
-
-        await svc.handle(comment, 330);
-
-        expect(probe.prMerged).toHaveBeenCalledWith(tx);
-        expect(queue.createSkipped).not.toHaveBeenCalled();
-      });
-
-      it('bypasses closed PR even when comment is review_skipped', async () => {
-        (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: null });
-        const svc = createService();
-        const comment = makeDetectedComment({ body: FOR_TEST_SKIP_BODY });
-
-        await svc.handle(comment, 330);
-
-        expect(probe.prClosedWithoutMerge).toHaveBeenCalledWith(tx);
-        expect(queue.createSkipped).not.toHaveBeenCalled();
-      });
-
       it('calls alreadySkipped when createSkipped returns created: false', async () => {
         (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: { status: 'coderabbit_skipped' }, created: false });
         const svc = createService();
         const comment = makeDetectedComment({ body: FOR_TEST_SKIP_BODY });
+        const pullRequestId = getUniqueInt();
+        mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
         await svc.handle(comment, 330);
 

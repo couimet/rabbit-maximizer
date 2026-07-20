@@ -23,6 +23,7 @@ describe('ConfigSchema', () => {
       PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
       POLL_INTERVAL_SEC: 90,
+      PR_SCANNER_INTERVAL_SEC: 300,
       REVIEW_LIMIT_BUFFER_SEC: 60,
       REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
@@ -107,6 +108,14 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('defaults PR_SCANNER_INTERVAL_SEC to 300', () => {
+    const result = ConfigSchema.safeParse(BASE);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.PR_SCANNER_INTERVAL_SEC).toBe(300);
+    }
+  });
+
   // -- Failure cases -----------------------------------------------------------
 
   it('rejects an invalid DETECTION_MODE', () => {
@@ -128,6 +137,10 @@ describe('ConfigSchema', () => {
 
   it('rejects negative POLL_INTERVAL_SEC', () => {
     expect(ConfigSchema.safeParse({ ...BASE, POLL_INTERVAL_SEC: -5 }).success).toBe(false);
+  });
+
+  it('rejects negative PR_SCANNER_INTERVAL_SEC', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, PR_SCANNER_INTERVAL_SEC: -5 }).success).toBe(false);
   });
 
   it('rejects empty REPO_FILTER array', () => {

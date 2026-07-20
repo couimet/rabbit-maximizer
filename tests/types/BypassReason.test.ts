@@ -5,8 +5,9 @@ import { describe, expect, it } from '@jest/globals';
 describe('BypassReason', () => {
   it('has the correct values', () => {
     expect(BypassReason).toStrictEqual({
-      prMerged: 'prMerged',
       prClosedWithoutMerge: 'prClosedWithoutMerge',
+      prMerged: 'prMerged',
+      prNotRegistered: 'prNotRegistered',
       other: 'other',
     });
   });

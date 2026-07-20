@@ -1,6 +1,7 @@
 import { TYPES } from '../inversify-types.js';
 import type { AcknowledgementResult } from '../types/AcknowledgementResult.js';
 import type { DetectedComment } from '../types/DetectedComment.js';
+import type { DiscoveredPR } from '../types/DiscoveredPR.js';
 import type { PRState } from '../types/PRState.js';
 import type { RepoFilter } from '../types/RepoFilter.js';
 import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
@@ -8,6 +9,7 @@ import type { TriggerSource } from '../types/TriggerSource.js';
 
 import type { CoderabbitReview, CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
 import { buildCommentBody } from './buildCommentBody.js';
+import { buildOpenPRSearchQuery } from './buildOpenPRSearchQuery.js';
 import { buildSearchQuery } from './buildSearchQuery.js';
 import { classifyCoderabbitComment } from './classifyCoderabbitComment.js';
 import { extractRepoFullName } from './extractRepoFullName.js';
@@ -28,6 +30,8 @@ import { inject, injectable } from 'inversify';
 const SEARCH_PER_PAGE = 100;
 const SEARCH_MAX_PAGES = 3;
 const COMMENTS_FETCH_PER_PAGE = 100;
+const OPEN_PR_SEARCH_PER_PAGE = 100;
+const OPEN_PR_SEARCH_MAX_PAGES = 3;
 
 export interface CoderabbitGitHubClient {
   searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]>;
@@ -35,6 +39,8 @@ export interface CoderabbitGitHubClient {
   fetchComment(owner: string, repo: string, commentId: number): Promise<FetchCommentResult>;
 
   listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]>;
+
+  listOpenPRs(repoFilter: readonly RepoFilter[]): Promise<DiscoveredPR[]>;
 
   postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment>;
 
@@ -143,6 +149,37 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       }
 
       if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
+    }
+
+    return results;
+  }
+
+  async listOpenPRs(repoFilter: readonly RepoFilter[]): Promise<DiscoveredPR[]> {
+    const query = buildOpenPRSearchQuery(repoFilter);
+    this.log.debug({ fn: 'listOpenPRs', query }, 'Searching for open PRs');
+
+    const results: DiscoveredPR[] = [];
+    for (let page = 1; page <= OPEN_PR_SEARCH_MAX_PAGES; page++) {
+      const response = await this.octokit.rest.search.issuesAndPullRequests({
+        q: query,
+        sort: 'created',
+        order: 'desc',
+        per_page: OPEN_PR_SEARCH_PER_PAGE,
+        page,
+      });
+
+      if (response.data.items.length === 0) break;
+
+      for (const item of response.data.items) {
+        results.push({
+          repoFullName: extractRepoFullName(item.repository_url),
+          prNumber: item.number,
+          prTitle: item.title,
+          authorLogin: item.user?.login ?? '<unknown>',
+        });
+      }
+
+      if (response.data.items.length < OPEN_PR_SEARCH_PER_PAGE) break;
     }
 
     return results;

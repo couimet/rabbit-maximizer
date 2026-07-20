@@ -30,6 +30,7 @@ describe('PullRequestRepositoryImpl', () => {
         pr_number: prNumber,
         title: 'Test PR title',
         author_login: 'test-author',
+        pr_state: 'open',
         first_seen_at: new Date(),
         first_review_limit_at: null,
         last_review_limit_at: null,
@@ -40,14 +41,13 @@ describe('PullRequestRepositoryImpl', () => {
         created_at: new Date(),
         updated_at: new Date(),
       };
-      const reviewLimitAt = new Date();
 
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: createResolvedMock(row) },
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', reviewLimitAt });
+      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', prState: 'open' });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
       expect(logger.debug).toHaveBeenCalledWith(
@@ -64,6 +64,7 @@ describe('PullRequestRepositoryImpl', () => {
         pr_number: prNumber,
         title: '<unknown>',
         author_login: '<unknown>',
+        pr_state: 'open',
         first_seen_at: new Date(),
         first_review_limit_at: null,
         last_review_limit_at: null,
@@ -80,7 +81,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, {});
+      const result = await sut.upsert(repoFullName, prNumber, { prState: 'open' });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
     });
@@ -93,50 +94,19 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, {});
+      const result = await sut.upsert(repoFullName, prNumber, { prState: 'open' });
 
       expect(pullRequest.findUnique).toHaveBeenCalled();
       expect(pullRequest.create).not.toHaveBeenCalled();
-      expect(pullRequest.update).not.toHaveBeenCalled();
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id: existing.id },
+        data: { pr_state: 'open' },
+      });
       expect(result).toStrictEqual({ id: existing.id, created: false });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: existing.id },
         'PullRequest already exists',
       );
-    });
-
-    it('updates reviewLimitAt on existing PR', async () => {
-      const reviewLimitAt = new Date();
-      const existing = { id: getUniqueInt() };
-
-      const { prisma, pullRequest } = createMockPrismaClient({
-        pullRequest: { findUnique: createResolvedMock(existing) },
-      });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
-
-      await sut.upsert(repoFullName, prNumber, { reviewLimitAt });
-
-      expect(pullRequest.update).toHaveBeenCalledWith({
-        where: { id: existing.id },
-        data: { last_review_limit_at: reviewLimitAt },
-      });
-    });
-
-    it('sets first_review_limit_at on existing PR when it was previously null', async () => {
-      const reviewLimitAt = new Date();
-      const existing = { id: getUniqueInt(), first_review_limit_at: null };
-
-      const { prisma, pullRequest } = createMockPrismaClient({
-        pullRequest: { findUnique: createResolvedMock(existing) },
-      });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
-
-      await sut.upsert(repoFullName, prNumber, { reviewLimitAt });
-
-      expect(pullRequest.update).toHaveBeenCalledWith({
-        where: { id: existing.id },
-        data: { first_review_limit_at: reviewLimitAt, last_review_limit_at: reviewLimitAt },
-      });
     });
 
     it('updates title on existing PR when prTitle is provided', async () => {
@@ -148,11 +118,11 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prTitle });
+      await sut.upsert(repoFullName, prNumber, { prTitle, prState: 'open' });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
-        data: { title: prTitle },
+        data: { title: prTitle, pr_state: 'open' },
       });
     });
 
@@ -164,7 +134,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test' })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test', prState: 'open' })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'PullRequest'",
         functionName: 'PullRequestRepositoryImpl.upsert',
         details: { tableName: 'PullRequest' },
@@ -174,6 +144,70 @@ describe('PullRequestRepositoryImpl', () => {
         { fn: 'PullRequestRepositoryImpl.upsert', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
       );
+    });
+
+    it('creates with prState on create', async () => {
+      const row = { id: getUniqueInt() };
+      const mockCreate = jest.fn<any>().mockResolvedValue(row);
+
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(null), create: mockCreate },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.upsert(repoFullName, prNumber, { prState: 'closed' });
+
+      expect(mockCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({ pr_state: 'closed' }),
+      });
+    });
+
+    it('creates with authorLogin on create', async () => {
+      const row = { id: getUniqueInt() };
+      const authorLogin = getUniqueString();
+      const mockCreate = jest.fn<any>().mockResolvedValue(row);
+
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(null), create: mockCreate },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.upsert(repoFullName, prNumber, { prState: 'open', authorLogin });
+
+      expect(mockCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({ author_login: authorLogin }),
+      });
+    });
+
+    it('updates prState on existing PR', async () => {
+      const existing = { id: getUniqueInt() };
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(existing) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.upsert(repoFullName, prNumber, { prState: 'merged' });
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id: existing.id },
+        data: { pr_state: 'merged' },
+      });
+    });
+
+    it('updates authorLogin on existing PR', async () => {
+      const authorLogin = getUniqueString();
+      const existing = { id: getUniqueInt() };
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(existing) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.upsert(repoFullName, prNumber, { prState: 'open', authorLogin });
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id: existing.id },
+        data: { pr_state: 'open', author_login: authorLogin },
+      });
     });
   });
 
@@ -356,6 +390,137 @@ describe('PullRequestRepositoryImpl', () => {
         { fn: 'PullRequestRepositoryImpl.recordReview', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
       );
+    });
+  });
+
+  describe('findByPrState', () => {
+    it('returns matching PRs when found', async () => {
+      const rows = [
+        { id: getUniqueInt(), repo_full_name: repoFullName, pr_number: prNumber },
+        { id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() },
+      ];
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findMany: createResolvedMock(rows) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.findByPrState('open');
+
+      expect(result).toStrictEqual(rows);
+    });
+
+    it('returns empty array when none match', async () => {
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findMany: createResolvedMock([]) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.findByPrState('merged');
+
+      expect(result).toStrictEqual([]);
+    });
+  });
+
+  describe('getPrStateMap', () => {
+    it('returns empty map when ids is empty', async () => {
+      const { prisma } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.getPrStateMap([]);
+
+      expect(result).toStrictEqual(new Map());
+    });
+
+    it('returns map with pr_state values', async () => {
+      const rows = [
+        { id: 10, pr_state: 'open' },
+        { id: 20, pr_state: 'merged' },
+      ];
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findMany: createResolvedMock(rows) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.getPrStateMap([10, 20]);
+
+      expect(result).toStrictEqual(
+        new Map([
+          [10, 'open'],
+          [20, 'merged'],
+        ]),
+      );
+    });
+  });
+
+  describe('getAcknowledgedAtMap', () => {
+    it('returns empty map when ids is empty', async () => {
+      const { prisma } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.getAcknowledgedAtMap([]);
+
+      expect(result).toStrictEqual(new Map());
+    });
+
+    it('returns map with acknowledged_at values including null', async () => {
+      const acknowledgedAt = new Date();
+      const rows = [
+        { id: 10, last_coderabbit_acknowledged_at: acknowledgedAt },
+        { id: 20, last_coderabbit_acknowledged_at: null },
+      ];
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findMany: createResolvedMock(rows) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.getAcknowledgedAtMap([10, 20]);
+
+      expect(result).toStrictEqual(
+        new Map([
+          [10, acknowledgedAt],
+          [20, undefined],
+        ]),
+      );
+    });
+  });
+
+  describe('recordReviewLimitDetection', () => {
+    it('sets both timestamps when first is null', async () => {
+      const id = getUniqueInt();
+      const reviewLimitAt = getUniqueDate();
+      const existing = { id, first_review_limit_at: null };
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(existing) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.recordReviewLimitDetection(id, reviewLimitAt, prisma);
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id },
+        data: { first_review_limit_at: reviewLimitAt, last_review_limit_at: reviewLimitAt },
+      });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.recordReviewLimitDetection', id },
+        'Recorded review limit detection on PullRequest',
+      );
+    });
+
+    it('sets only last when first exists', async () => {
+      const id = getUniqueInt();
+      const reviewLimitAt = getUniqueDate();
+      const existing = { id, first_review_limit_at: new Date() };
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(existing) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.recordReviewLimitDetection(id, reviewLimitAt, prisma);
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id },
+        data: { last_review_limit_at: reviewLimitAt },
+      });
     });
   });
 });
