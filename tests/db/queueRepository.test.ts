@@ -3,7 +3,13 @@ import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/co
 import { TYPES } from '../../src/inversify-types.js';
 import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
 import { QueueStatus, TriggerSource } from '../../src/types/index.js';
-import { createMockObservationContextProvider, createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
+import {
+  createMockObservationContextProvider,
+  createMockPrismaClient,
+  createResolvedMock,
+  makeCreateSkippedData,
+  makeReviewQueueRow as makeRow,
+} from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -11,46 +17,6 @@ import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
-
-interface RowOverrides {
-  id?: number;
-  repo_full_name?: string;
-  pr_number?: number;
-  pr_title?: string;
-  status?: string;
-  attempts?: number;
-  source_comment_url?: string;
-  source_comment_id?: number;
-  trigger_source?: string | null;
-  retrigger_comment_url?: string | null;
-  retriggered_at?: Date | null;
-  failed_at?: Date | null;
-  reviewed_at?: Date | null;
-  pull_request_id?: number | null;
-}
-
-const makeRow = (over: RowOverrides = {}) => {
-  const commentId = getUniqueInt();
-  return {
-    id: over.id ?? getUniqueInt(),
-    uuid: getUuid(),
-    repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
-    pr_number: over.pr_number ?? getUniqueInt(),
-    pr_title: over.pr_title ?? 'Test PR title',
-    status: over.status ?? 'pending',
-    attempts: over.attempts ?? 0,
-    source_comment_url: over.source_comment_url ?? `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`,
-    source_comment_id: over.source_comment_id ?? commentId,
-    trigger_source: over.trigger_source ?? null,
-    retrigger_comment_url: over.retrigger_comment_url ?? null,
-    retriggered_at: over.retriggered_at ?? null,
-    failed_at: over.failed_at ?? null,
-    reviewed_at: over.reviewed_at ?? null,
-    pull_request_id: over.pull_request_id ?? getUniqueInt(),
-    created_at: getUniqueDate(),
-    updated_at: getUniqueDate(),
-  };
-};
 
 const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
   id: row.id,
@@ -853,21 +819,31 @@ describe('QueueRepositoryImpl', () => {
       expect(result).toBeUndefined();
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { source_comment_id: commentId } });
     });
+
+    it('maps null timestamps to undefined', async () => {
+      const row = makeRow({ retriggered_at: null, failed_at: null, reviewed_at: null });
+      const { prisma } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+
+      const result = await sut.findBySourceCommentId(row.source_comment_id);
+
+      expect(result).toStrictEqual(toExpectedItem(row));
+    });
   });
 
   describe('createSkipped', () => {
-    it('creates a row with coderabbit_skipped status and returns the QueueItem', async () => {
+    it('creates a row with coderabbit_skipped status and returns item with created: true', async () => {
       const row = makeRow({ status: 'coderabbit_skipped' });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { create: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
-      const data = {
+      const data = makeCreateSkippedData({
         repo: row.repo_full_name,
         pr: row.pr_number,
         prTitle: row.pr_title,
         sourceCommentUrl: row.source_comment_url,
         sourceCommentId: row.source_comment_id,
         pullRequestId: row.pull_request_id!,
-      };
+      });
 
       const result = await sut.createSkipped(data, prisma as unknown as Prisma.TransactionClient);
 
@@ -882,10 +858,60 @@ describe('QueueRepositoryImpl', () => {
           status: 'coderabbit_skipped',
         },
       });
-      expect(result).toStrictEqual(toExpectedItem(row));
+      expect(result).toStrictEqual({ item: toExpectedItem(row), created: true });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.createSkipped', repo: data.repo, pr: data.pr, commentId: data.sourceCommentId },
         'Created coderabbit skipped entry',
+      );
+    });
+
+    it('returns existing row with created: false on unique constraint violation', async () => {
+      const existingRow = makeRow({ status: 'coderabbit_skipped' });
+      const prismaError = new Prisma.PrismaClientKnownRequestError('Unique constraint violation', {
+        code: 'P2002',
+        clientVersion: '7.8.0',
+        meta: { target: ['source_comment_id'] },
+      });
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          create: jest.fn<any>().mockRejectedValue(prismaError),
+          findFirst: createResolvedMock(existingRow),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+      const data = makeCreateSkippedData({
+        repo: existingRow.repo_full_name,
+        pr: existingRow.pr_number,
+        prTitle: existingRow.pr_title,
+        sourceCommentUrl: existingRow.source_comment_url,
+        sourceCommentId: existingRow.source_comment_id,
+        pullRequestId: existingRow.pull_request_id!,
+      });
+
+      const result = await sut.createSkipped(data, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { source_comment_id: data.sourceCommentId } });
+      expect(result).toStrictEqual({ item: toExpectedItem(existingRow), created: false });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.createSkipped', repo: data.repo, pr: data.pr, commentId: data.sourceCommentId, status: existingRow.status },
+        'Skipped entry already exists for this source comment',
+      );
+    });
+
+    it('rethrows errors that are not unique constraint violations', async () => {
+      const error = new Error('connection lost');
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: {
+          create: jest.fn<any>().mockRejectedValue(error),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
+      const data = makeCreateSkippedData();
+
+      await expect(sut.createSkipped(data, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow('connection lost');
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.createSkipped', repo: data.repo, pr: data.pr, error },
+        'Create skipped failed; rethrowing',
       );
     });
   });

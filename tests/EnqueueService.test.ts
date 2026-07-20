@@ -170,11 +170,11 @@ describe('EnqueueService', () => {
         const comment = makeDetectedComment({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
         mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
+        (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: {}, created: true });
 
         await svc.handle(comment, 330);
 
         expect(probe.detected).toHaveBeenCalled();
-        expect(queue.findBySourceCommentId).toHaveBeenCalledWith(comment.commentId, tx);
         expect(mockPullRequests.upsert).toHaveBeenCalledWith(
           comment.repoFullName,
           comment.prNumber,
@@ -218,15 +218,14 @@ describe('EnqueueService', () => {
         expect(queue.createSkipped).not.toHaveBeenCalled();
       });
 
-      it('skips creating duplicate when comment was already recorded as skipped', async () => {
-        (queue.findBySourceCommentId as jest.Mock<any>).mockResolvedValue({ status: 'coderabbit_skipped' });
+      it('calls alreadySkipped when createSkipped returns created: false', async () => {
+        (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: { status: 'coderabbit_skipped' }, created: false });
         const svc = createService();
         const comment = makeDetectedComment({ body: FOR_TEST_SKIP_BODY });
 
         await svc.handle(comment, 330);
 
         expect(probe.alreadySkipped).toHaveBeenCalledWith('coderabbit_skipped');
-        expect(queue.createSkipped).not.toHaveBeenCalled();
         expect(probe.skipped).not.toHaveBeenCalled();
       });
     });

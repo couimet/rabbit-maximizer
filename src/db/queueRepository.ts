@@ -28,7 +28,7 @@ export interface QueueRepository {
   backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   findBySourceCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
-  createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<ActivityListItem>>;
@@ -218,25 +218,42 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
   }
 
-  async createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
     const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId, pullRequestId } = data;
-    const row = await this.withPrismaErrorHandling(
-      () =>
-        this.client(tx).reviewQueue.create({
-          data: {
-            pull_request_id: pullRequestId,
-            repo_full_name: repo,
-            pr_number: pr,
-            pr_title: prTitle,
-            source_comment_url: sourceCommentUrl,
-            source_comment_id: sourceCommentId,
-            status: QueueStatus.coderabbit_skipped,
-          },
-        }),
-      'QueueRepositoryImpl.createSkipped',
-    );
-    this.log.debug({ fn: 'QueueRepositoryImpl.createSkipped', repo, pr, commentId: sourceCommentId }, 'Created coderabbit skipped entry');
-    return this.toQueueItem(row);
+    try {
+      const row = await this.withPrismaErrorHandling(
+        () =>
+          this.client(tx).reviewQueue.create({
+            data: {
+              pull_request_id: pullRequestId,
+              repo_full_name: repo,
+              pr_number: pr,
+              pr_title: prTitle,
+              source_comment_url: sourceCommentUrl,
+              source_comment_id: sourceCommentId,
+              status: QueueStatus.coderabbit_skipped,
+            },
+          }),
+        'QueueRepositoryImpl.createSkipped',
+      );
+      this.log.debug({ fn: 'QueueRepositoryImpl.createSkipped', repo, pr, commentId: sourceCommentId }, 'Created coderabbit skipped entry');
+      return { item: this.toQueueItem(row), created: true };
+    } catch (err) {
+      if (err instanceof PrismaUniqueConstraintViolationError) {
+        const existing = await this.client(tx).reviewQueue.findFirst({
+          where: { source_comment_id: sourceCommentId },
+        });
+        if (existing) {
+          this.log.debug(
+            { fn: 'QueueRepositoryImpl.createSkipped', repo, pr, commentId: sourceCommentId, status: existing.status },
+            'Skipped entry already exists for this source comment',
+          );
+          return { item: this.toQueueItem(existing), created: false };
+        }
+      }
+      this.log.warn({ fn: 'QueueRepositoryImpl.createSkipped', repo, pr, error: err }, 'Create skipped failed; rethrowing');
+      throw err;
+    }
   }
 
   // eslint-disable-next-line require-await

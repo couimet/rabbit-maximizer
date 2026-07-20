@@ -54,19 +54,15 @@ export class EnqueueService {
       } else {
         const classification = classifyCoderabbitComment(comment.body);
 
+        const { id: pullRequestId } = await this.pullRequests.upsert(
+          comment.repoFullName,
+          comment.prNumber,
+          { prTitle: comment.prTitle, reviewLimitAt: new Date() },
+          tx,
+        );
+
         if (classification === 'review_skipped') {
-          const existing = await this.queue.findBySourceCommentId(comment.commentId, tx);
-          if (existing) {
-            probe.alreadySkipped(existing.status);
-            return;
-          }
-          const { id: pullRequestId } = await this.pullRequests.upsert(
-            comment.repoFullName,
-            comment.prNumber,
-            { prTitle: comment.prTitle, reviewLimitAt: new Date() },
-            tx,
-          );
-          await this.queue.createSkipped(
+          const { item, created } = await this.queue.createSkipped(
             {
               repo: comment.repoFullName,
               pr: comment.prNumber,
@@ -77,16 +73,14 @@ export class EnqueueService {
             },
             tx,
           );
-          await probe.skipped(tx);
+          if (created) {
+            await probe.skipped(tx);
+          } else {
+            probe.alreadySkipped(item.status);
+          }
           return;
         }
 
-        const { id: pullRequestId } = await this.pullRequests.upsert(
-          comment.repoFullName,
-          comment.prNumber,
-          { prTitle: comment.prTitle, reviewLimitAt: new Date() },
-          tx,
-        );
         const { created } = await this.queue.enqueue(
           {
             repo: comment.repoFullName,

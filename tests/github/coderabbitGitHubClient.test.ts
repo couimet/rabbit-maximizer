@@ -1,7 +1,6 @@
 import pkg from '../../package.json' with { type: 'json' };
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/coderabbitGitHubClient.js';
 import { TYPES } from '../../src/inversify-types.js';
-import { CodeRabbitCommentType } from '../../src/types/CodeRabbitCommentType.js';
 import { TriggerSource } from '../../src/types/index.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
 import type { MockIssuesRest, MockPullsRest, MockSearchRest } from '../helpers/index.js';
@@ -425,7 +424,7 @@ describe('client', () => {
           prNumber,
           prTitle,
           body: matchingBody,
-          commentType: CodeRabbitCommentType.review_limited,
+          commentType: 'review_limited',
           commentId: matchingCommentId,
           url: matchingCommentUrl,
           createdAt: matchingCreatedAt,
