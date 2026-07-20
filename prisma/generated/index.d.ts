@@ -4450,7 +4450,7 @@ export namespace Prisma {
         uuid: string;
         ts: Date;
         /**
-         * Max 25; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed' (CHECK in the init + bypass migration).
+         * Max 40; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'failed' | 'coderabbit_review_approved' | 'coderabbit_review_changes_suggested' | 'coderabbit_review_skipped' (CHECK in the init + bypass + fix migration).
          */
         type: string;
         pull_request_id: number | null;
