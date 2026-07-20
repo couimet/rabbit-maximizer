@@ -56,7 +56,8 @@ export class ReviewTrigger {
 
     let storedBody: string;
     try {
-      storedBody = await this.github.fetchComment(owner, repo, item.source_comment_id);
+      const result = await this.github.fetchComment(owner, repo, item.source_comment_id);
+      storedBody = result.body;
     } catch (err: unknown) {
       const error = err as { status?: number };
       if (error.status === StatusCodes.NOT_FOUND || error.status === StatusCodes.GONE) {
@@ -85,11 +86,12 @@ export class ReviewTrigger {
 
     let latestBody: string;
     try {
-      latestBody = await this.github.fetchComment(owner, repo, latest.comment_id);
+      const result = await this.github.fetchComment(owner, repo, latest.commentId);
+      latestBody = result.body;
     } catch (err: unknown) {
       const error = err as { status?: number };
       if (error.status === StatusCodes.NOT_FOUND || error.status === StatusCodes.GONE) {
-        probe.staleCommentReplacementDeleted(latest.comment_id);
+        probe.staleCommentReplacementDeleted(latest.commentId);
         return RabbitResult.err(
           new RabbitMaximizerError({
             code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED,
@@ -102,7 +104,7 @@ export class ReviewTrigger {
     }
 
     const waitSeconds = (parseWaitSeconds(latestBody) ?? this.fallbackWaitSeconds) + this.bufferSeconds;
-    const rescheduleEarliest = new Date(new Date(latest.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
+    const rescheduleEarliest = new Date(new Date(latest.updatedAt).getTime() + waitSeconds * MS_PER_SECOND);
 
     probe.staleCommentRescheduled(rescheduleEarliest);
     return RabbitResult.err(
@@ -110,7 +112,7 @@ export class ReviewTrigger {
         code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE,
         message: 'Source comment was replaced; item must be rescheduled',
         functionName: 'ReviewTrigger.trigger',
-        details: { rescheduleEarliest: rescheduleEarliest.toISOString(), sourceComment: { commentId: latest.comment_id, commentUrl: latest.url } },
+        details: { rescheduleEarliest: rescheduleEarliest.toISOString(), sourceComment: { commentId: latest.commentId, commentUrl: latest.url } },
       }),
     );
   }

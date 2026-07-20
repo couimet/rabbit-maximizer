@@ -21,6 +21,8 @@ export interface MockDetectedProbe {
   prMerged: jest.Mock<() => Promise<unknown>>;
   prClosedWithoutMerge: jest.Mock<() => Promise<unknown>>;
   alreadyQueued: jest.Mock;
+  skipped: jest.Mock<() => Promise<unknown>>;
+  alreadySkipped: jest.Mock;
 }
 export const createMockDetectedProbe = (): MockDetectedProbe => ({
   detected: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -28,6 +30,8 @@ export const createMockDetectedProbe = (): MockDetectedProbe => ({
   prMerged: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   prClosedWithoutMerge: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadyQueued: jest.fn(),
+  skipped: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
+  alreadySkipped: jest.fn(),
 });
 
 export interface MockReviewDetectorProbe {

@@ -8,4 +8,6 @@ export enum CodeRabbitCommentType {
   review_approved = 'review_approved',
   /** CodeRabbit reviewed and suggested changes (advisory, not blocking). */
   review_changes_suggested = 'review_changes_suggested',
+  /** Comment body did not match any known marker. */
+  unknown = 'unknown',
 }

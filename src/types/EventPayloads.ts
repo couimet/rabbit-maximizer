@@ -27,6 +27,7 @@ export interface CoderabbitReviewChangesSuggestedPayload {
 }
 
 export interface CoderabbitReviewSkippedPayload {
+  readonly source_ts: Date;
   readonly comment_url: string;
   readonly skip_reason: string;
 }

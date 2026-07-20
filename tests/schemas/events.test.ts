@@ -131,15 +131,17 @@ describe('parseEventRow', () => {
   it('parses a coderabbit_review_skipped event', () => {
     const commentUrl = getUniqueString();
     const skipReason = getUniqueString();
+    const sourceTs = getUniqueDate();
     const row = baseRow({
       type: 'coderabbit_review_skipped',
-      payload: JSON.stringify({ comment_url: commentUrl, skip_reason: skipReason }),
+      payload: JSON.stringify({ source_ts: sourceTs.toISOString(), comment_url: commentUrl, skip_reason: skipReason }),
     });
 
     const result = parseEventRow(row);
 
     expect(result.type).toBe('coderabbit_review_skipped');
     expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
       comment_url: commentUrl,
       skip_reason: skipReason,
     });

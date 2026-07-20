@@ -1,5 +1,6 @@
 export * from './buildCommentBody.js';
 export * from './buildSearchQuery.js';
+export * from './classifyCoderabbitComment.js';
 export * from './coderabbitGitHubClient.js';
 export * from './extractRepoFullName.js';
 export * from './hasOwnRetriggerMarker.js';
@@ -7,6 +8,7 @@ export * from './hasRateLimitMarker.js';
 export * from './isAcknowledgementComment.js';
 export * from './isCompletedReview.js';
 export * from './isMatchingCompletedReview.js';
+export * from './normalizeCommentBody.js';
 export * from './parseGitHubRateLimitError.js';
 export * from './parseWaitSeconds.js';
 export * from './PRStateFetcher.js';

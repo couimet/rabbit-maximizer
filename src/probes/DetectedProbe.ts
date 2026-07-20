@@ -10,8 +10,8 @@ import type { Prisma } from '@prisma/client';
 export interface DetectedProbeContext {
   readonly repo_full_name: string;
   readonly pr_number: number;
-  readonly source_ts?: Date;
-  readonly source_comment_url?: string;
+  readonly source_ts: Date;
+  readonly source_comment_url: string;
 }
 
 export class DetectedProbe {
@@ -79,5 +79,30 @@ export class DetectedProbe {
 
   alreadyQueued(): void {
     this.log.info(this.loggingCtx, 'Review-limit comment already queued; skipping');
+  }
+
+  async skipped(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+    const event = await this.eventRepository.record(
+      {
+        type: EventType.coderabbit_review_skipped,
+        repo_full_name: this.context.repo_full_name,
+        pr_number: this.context.pr_number,
+        correlation_id: this.observation.correlationId,
+        request_id: this.observation.requestId,
+        version: this.observation.version,
+        payload: {
+          source_ts: this.context.source_ts,
+          comment_url: this.context.source_comment_url,
+          skip_reason: 'CodeRabbit explicitly skipped this review',
+        },
+      },
+      tx,
+    );
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit skipped review event recorded');
+    return event;
+  }
+
+  alreadySkipped(existingStatus: string): void {
+    this.log.warn({ ...this.loggingCtx, existingStatus }, 'Skipped comment already recorded; skipping');
   }
 }

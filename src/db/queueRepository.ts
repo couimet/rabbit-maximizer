@@ -4,7 +4,16 @@ import { TYPES } from '../inversify-types.js';
 import type { ObservationContext } from '../observability/observationContext.js';
 import type { ProbeFactory } from '../probes/ProbeFactory.js';
 import type { ActivityListItem } from '../types/ActivityListItem.js';
-import { type CommentDetails, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
+import {
+  type CommentDetails,
+  type CreateSkippedData,
+  type EnqueueData,
+  type EnqueueResult,
+  type PaginatedResult,
+  type QueueItem,
+  QueueStatus,
+  TriggerSource,
+} from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
@@ -18,10 +27,12 @@ export interface QueueRepository {
   reschedule(id: number, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markFailed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  findBySourceCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
+  createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getTriggered(since: Date, skip: number, take: number, includeReviewed: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<ActivityListItem>>;
-  getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null>;
+  getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
 }
@@ -197,6 +208,55 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
 
   // eslint-disable-next-line require-await
+  async findBySourceCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined> {
+    return this.enforceTx(tx, async (db) => {
+      const row = await db.reviewQueue.findFirst({
+        where: { source_comment_id: commentId },
+      });
+      this.log.debug({ fn: 'QueueRepositoryImpl.findBySourceCommentId', commentId, found: row !== null }, 'Searched by source comment ID');
+      return row ? this.toQueueItem(row) : undefined;
+    });
+  }
+
+  async createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
+    const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId, pullRequestId } = data;
+    try {
+      const row = await this.withPrismaErrorHandling(
+        () =>
+          this.client(tx).reviewQueue.create({
+            data: {
+              pull_request_id: pullRequestId,
+              repo_full_name: repo,
+              pr_number: pr,
+              pr_title: prTitle,
+              source_comment_url: sourceCommentUrl,
+              source_comment_id: sourceCommentId,
+              status: QueueStatus.coderabbit_skipped,
+            },
+          }),
+        'QueueRepositoryImpl.createSkipped',
+      );
+      this.log.debug({ fn: 'QueueRepositoryImpl.createSkipped', repo, pr, commentId: sourceCommentId }, 'Created coderabbit skipped entry');
+      return { item: this.toQueueItem(row), created: true };
+    } catch (err) {
+      if (err instanceof PrismaUniqueConstraintViolationError) {
+        const existing = await this.client(tx).reviewQueue.findFirst({
+          where: { source_comment_id: sourceCommentId },
+        });
+        if (existing) {
+          this.log.debug(
+            { fn: 'QueueRepositoryImpl.createSkipped', repo, pr, commentId: sourceCommentId, status: existing.status },
+            'Skipped entry already exists for this source comment',
+          );
+          return { item: this.toQueueItem(existing), created: false };
+        }
+      }
+      this.log.warn({ fn: 'QueueRepositoryImpl.createSkipped', repo, pr, error: err }, 'Create skipped failed; rethrowing');
+      throw err;
+    }
+  }
+
+  // eslint-disable-next-line require-await
   async getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
     return this.enforceTx(tx, async (db) => {
       const rows = await db.reviewQueue.findMany({
@@ -254,14 +314,14 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
 
   // eslint-disable-next-line require-await
-  async getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | null> {
+  async getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | undefined> {
     return this.enforceTx(tx, async (db) => {
       const row = await db.reviewQueue.findFirst({
         where: { status: QueueStatus.pending },
         orderBy: { id: 'asc' },
       });
       this.log.debug({ fn: 'QueueRepositoryImpl.getOldestPending', found: row !== null }, 'Fetched oldest pending item');
-      return row ? this.toQueueItem(row) : null;
+      return row ? this.toQueueItem(row) : undefined;
     });
   }
 
