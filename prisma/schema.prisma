@@ -119,7 +119,7 @@ model Event {
   /// Max 36 (UUID v4).
   uuid           String   @unique @default(uuid())
   ts             DateTime @default(now())
-  /// Max 25; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'completed' | 'failed' (CHECK in the init + bypass migration).
+  /// Max 40; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'failed' | 'coderabbit_review_approved' | 'coderabbit_review_changes_suggested' | 'coderabbit_review_skipped' (CHECK in the init + bypass + fix migration).
   type           String
   pull_request_id Int?
   /// Max 140: GitHub owner/org + "/" + repo. See review_queue / init migration for sources.
