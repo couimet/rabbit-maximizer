@@ -1,36 +1,72 @@
-export * from './apiJson.js';
-export * from './CoderabbitCommentTestSupport.js';
-export * from './createMockCoderabbitCommentRepo.js';
-export * from './createMockCoderabbitGitHubClient.js';
-export * from './createMockEventRepo.js';
-export * from './createMockFetch.js';
-export * from './createMockOctokit.js';
-export * from './createMockOnDetectedCallback.js';
-export * from './createMockPrismaClient.js';
-export * from './createMockProbeFactory.js';
-export * from './createMockProbes.js';
-export * from './createMockPruner.js';
-export * from './createMockPullRequestRepo.js';
-export * from './createMockQueueOrderRepo.js';
-export * from './createMockQueueRepo.js';
-export * from './createMockSystemStateRepository.js';
-export * from './createMockVite.js';
-export * from './createResolvedMock.js';
-export * from './DetectedCommentTestSupport.js';
-export * from './drainMicrotasks.js';
-export * from './EventLogEntryTestSupport.js';
-export * from './makeCreateSkippedData.js';
-export * from './makeDetectedComment.js';
-export * from './makeEventEntry.js';
-export * from './makeQueueItem.js';
-export * from './makeReviewQueueRow.js';
-export * from './ObservationContextProviderTestSupport.js';
-export * from './ObservationContextTestSupport.js';
-export * from './postJson.js';
-export * from './PullRequestTestSupport.js';
-export * from './QueueItemTestSupport.js';
-export * from './QueueOrderTestSupport.js';
-export * from './ReviewCandidateTestSupport.js';
-export * from './ReviewQueueTestSupport.js';
-export * from './ReviewRefTestSupport.js';
-export * from './SkippedDataTestSupport.js';
+/* c8 ignore start — barrel file, no runtime code */
+export { apiJson } from './apiJson.js';
+export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
+export { createMockCoderabbitCommentRepo } from './createMockCoderabbitCommentRepo.js';
+export { createMockCoderabbitGitHubClient } from './createMockCoderabbitGitHubClient.js';
+export { createMockEventRepo } from './createMockEventRepo.js';
+export { createMockFetch } from './createMockFetch.js';
+export {
+  createMockOctokit,
+  type MockIssuesRest,
+  type MockOctokitOptions,
+  type MockOctokitResult,
+  type MockPullsRest,
+  type MockSearchRest,
+} from './createMockOctokit.js';
+export { createMockOnDetectedCallback } from './createMockOnDetectedCallback.js';
+export {
+  createMockPrismaClient,
+  type MockCoderabbitCommentDelegate,
+  type MockEventDelegate,
+  type MockPrismaOptions,
+  type MockPrismaResult,
+  type MockPullRequestDelegate,
+  type MockQueueOrderDelegate,
+  type MockReviewQueueDelegate,
+  type MockSystemStateDelegate,
+} from './createMockPrismaClient.js';
+export { createMockProbeFactory } from './createMockProbeFactory.js';
+export {
+  createMockDetectedProbe,
+  createMockEnqueueProbe,
+  createMockMarkQueueItemReviewedProbe,
+  createMockPrScannerProbe,
+  createMockPrunerProbe,
+  createMockReviewDetectorProbe,
+  createMockReviewRetriggerProbe,
+  createMockSchedulerProbe,
+  type MockDetectedProbe,
+  type MockEnqueueProbe,
+  type MockMarkQueueItemReviewedProbe,
+  type MockPrScannerProbe,
+  type MockPrunerProbe,
+  type MockReviewDetectorProbe,
+  type MockReviewRetriggerProbe,
+  type MockSchedulerProbe,
+} from './createMockProbes.js';
+export { createMockPruner } from './createMockPruner.js';
+export { createMockPullRequestRepo } from './createMockPullRequestRepo.js';
+export { createMockQueueOrderRepo } from './createMockQueueOrderRepo.js';
+export { createMockQueueRepo } from './createMockQueueRepo.js';
+export { createMockSystemStateRepository } from './createMockSystemStateRepository.js';
+export { createMockVite } from './createMockVite.js';
+export { createResolvedMock } from './createResolvedMock.js';
+export { generateDetectedCommentHydrationData } from './DetectedCommentTestSupport.js';
+export { drainMicrotasks } from './drainMicrotasks.js';
+export { generateEventLogEntryHydrationData } from './EventLogEntryTestSupport.js';
+export { makeCreateSkippedData } from './makeCreateSkippedData.js';
+export { makeDetectedComment } from './makeDetectedComment.js';
+export { makeEventEntry } from './makeEventEntry.js';
+export { makeQueueItem } from './makeQueueItem.js';
+export { makeReviewQueueRow } from './makeReviewQueueRow.js';
+export { createMockObservationContextProvider } from './ObservationContextProviderTestSupport.js';
+export { generateObservationContextHydrationData } from './ObservationContextTestSupport.js';
+export { postJson } from './postJson.js';
+export { generatePullRequestHydrationData } from './PullRequestTestSupport.js';
+export { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
+export { generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from './QueueOrderTestSupport.js';
+export { generateReviewCandidateHydrationData } from './ReviewCandidateTestSupport.js';
+export { generateReviewQueueHydrationData } from './ReviewQueueTestSupport.js';
+export { buildCommentUrl, generateReviewRef, type ReviewRef, type ReviewRefInput } from './ReviewRefTestSupport.js';
+export { generateCreateSkippedData } from './SkippedDataTestSupport.js';
+/* c8 ignore stop */
