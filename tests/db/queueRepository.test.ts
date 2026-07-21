@@ -40,7 +40,7 @@ const toExpectedItem = (row: ReturnType<typeof makeRow>) => ({
 
 describe('QueueRepositoryImpl', () => {
   let frozenNow: Date;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let observation: ReturnType<typeof createMockObservationContextProvider>;
   let observationContext: ReturnType<ReturnType<typeof createMockObservationContextProvider>['current']>;
   let probeEvents: { record: jest.Mock<any>; listForPr: jest.Mock<any> };

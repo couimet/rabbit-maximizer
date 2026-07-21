@@ -6,14 +6,13 @@ import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
 import { apiJson, createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository, generateQueueItemHydrationData } from '../helpers/index.js';
 
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
 describe('getDashboardState', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
 
@@ -202,7 +201,7 @@ describe('getDashboardState', () => {
     const res = await fetchResponse(port, '/api/dashboard-state');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get dashboard state' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: repoError }, 'Failed to get dashboard state');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: repoError }, 'Failed to get dashboard state');
   });
 
   it('returns 500 and logs error on countByType failure', async () => {
@@ -216,6 +215,6 @@ describe('getDashboardState', () => {
     const res = await fetchResponse(port, '/api/dashboard-state');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get dashboard state' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: eventError }, 'Failed to get dashboard state');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: eventError }, 'Failed to get dashboard state');
   });
 });

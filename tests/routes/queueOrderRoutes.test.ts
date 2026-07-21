@@ -17,7 +17,6 @@ import { apiJson, createMockQueueOrderRepo, createMockQueueRepo, createMockSyste
 import { postJson } from '../helpers/postJson.js';
 
 import { getUuid } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
@@ -33,7 +32,7 @@ const UUID_D = getUuid();
 
 describe('queueOrderRoutes', () => {
   let server: Server;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let port: number;
 
   beforeEach(() => {

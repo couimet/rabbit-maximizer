@@ -7,7 +7,6 @@ import { getJson } from '../helpers/getJson.js';
 import { apiJson, createMockEventRepo, createMockQueueRepo, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
@@ -17,7 +16,7 @@ const queueItemMapper = new QueueItemMapper();
 const eventCountsMapper = new EventCountsMapper();
 
 describe('getSummary', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
 
@@ -88,7 +87,7 @@ describe('getSummary', () => {
     const res = await fetchResponse(port, '/api/summary');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get summary' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
   });
 
   it('response omits bypassed, coderabbit_review_approved, and coderabbit_review_changes_suggested from eventCounts', async () => {

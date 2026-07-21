@@ -2,9 +2,8 @@ import type { Config } from '../../src/config.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { createGetConfigHandler } from '../../src/routes/getConfig.js';
 
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, describe, expect, it } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
@@ -32,7 +31,7 @@ const makeConfig = (overrides?: Partial<Config>): Config => ({
 });
 
 describe('getConfig', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
 
@@ -92,6 +91,6 @@ describe('getConfig', () => {
     const res = await fetch(`http://[::1]:${port}/api/config`);
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get config' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.config', error: expect.any(Error) }, 'Failed to get config');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.config', error: expect.any(Error) }, 'Failed to get config');
   });
 });

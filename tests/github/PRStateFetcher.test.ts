@@ -4,13 +4,12 @@ import type { PRState } from '../../src/types/PRState.js';
 import { createMockCoderabbitGitHubClient } from '../helpers/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('PRStateFetcher', () => {
   let github: jest.Mocked<CoderabbitGitHubClient>;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
 
   beforeEach(() => {
     github = createMockCoderabbitGitHubClient();

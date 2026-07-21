@@ -31,7 +31,7 @@ class TestRepo extends BasePrismaRepository {
 }
 
 describe('BasePrismaRepository', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let repo: TestRepo;
 
   beforeEach(() => {

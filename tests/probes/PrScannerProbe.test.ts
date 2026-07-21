@@ -2,7 +2,7 @@ import { PrScannerProbe } from '../../src/probes/PrScannerProbe.js';
 
 import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('PrScannerProbe', () => {
   let logger: ReturnType<typeof createMockLogger>;
@@ -23,7 +23,7 @@ describe('PrScannerProbe', () => {
     it('logs info when scan starts', () => {
       createProbe().scanStarted();
 
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PrScannerProbe.scanStarted' }, 'PR scan started');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'PrScannerProbe.scanStarted' }, 'PR scan started');
     });
   });
 
@@ -32,7 +32,7 @@ describe('PrScannerProbe', () => {
       const elapsedMs = getUniqueInt();
       createProbe().skipped(elapsedMs);
 
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PrScannerProbe.skipped', elapsedMs }, 'Skipping scan; within interval');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PrScannerProbe.skipped', elapsedMs }, 'Skipping scan; within interval');
     });
   });
 
@@ -42,7 +42,7 @@ describe('PrScannerProbe', () => {
       const updated = getUniqueInt();
       createProbe().discovered(opened, updated);
 
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PrScannerProbe.discovered', opened, updated }, 'PRs discovered from scan');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'PrScannerProbe.discovered', opened, updated }, 'PRs discovered from scan');
     });
   });
 
@@ -51,7 +51,7 @@ describe('PrScannerProbe', () => {
       const count = getUniqueInt();
       createProbe().detectedClosures(count);
 
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PrScannerProbe.detectedClosures', count }, 'Closed PRs detected during scan');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'PrScannerProbe.detectedClosures', count }, 'Closed PRs detected during scan');
     });
   });
 
@@ -62,7 +62,7 @@ describe('PrScannerProbe', () => {
       const err = new Error('API error');
       createProbe().caughtError(repo, pr, err);
 
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PrScannerProbe.caughtError', repo, pr, error: err }, 'Error processing PR during scan');
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'PrScannerProbe.caughtError', repo, pr, error: err }, 'Error processing PR during scan');
     });
   });
 
@@ -71,7 +71,7 @@ describe('PrScannerProbe', () => {
       const err = new Error('GitHub API unreachable');
       createProbe().failed(err);
 
-      expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PrScannerProbe.failed', error: err }, 'PR scan failed');
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'PrScannerProbe.failed', error: err }, 'PR scan failed');
     });
   });
 
@@ -80,10 +80,7 @@ describe('PrScannerProbe', () => {
       const err = new Error('DB write failed');
       createProbe().failedToPersistLastScanAt(err);
 
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'PrScannerProbe.failedToPersistLastScanAt', error: err },
-        'Failed to persist lastScanAt; continuing',
-      );
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'PrScannerProbe.failedToPersistLastScanAt', error: err }, 'Failed to persist lastScanAt; continuing');
     });
   });
 
@@ -94,7 +91,7 @@ describe('PrScannerProbe', () => {
       const closed = getUniqueInt();
       createProbe().completed(opened, updated, closed);
 
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PrScannerProbe.completed', opened, updated, closed }, 'PR scan completed');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'PrScannerProbe.completed', opened, updated, closed }, 'PR scan completed');
     });
   });
 });

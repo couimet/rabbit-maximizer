@@ -6,7 +6,6 @@ import { getJson } from '../helpers/getJson.js';
 import { apiJson, createMockQueueRepo, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
@@ -15,7 +14,7 @@ import { StatusCodes } from 'http-status-codes';
 describe('getTriggered', () => {
   let server: Server;
   let port: number;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let since: string;
 
   afterEach(async () => {
