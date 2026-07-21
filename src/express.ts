@@ -106,7 +106,6 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
     const result = await startServer(app, port);
     server = result.server;
     actualPort = result.port;
-    /* c8 ignore next 4 — defensive: only entered on listen errors like EADDRINUSE */
   } catch (err: unknown) {
     logger.error({ fn: 'setupExpress', port, error: err }, 'Failed to start server.');
     throw err;

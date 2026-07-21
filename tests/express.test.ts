@@ -3,6 +3,7 @@ import { EventEntryMapper } from '../src/mappers/EventEntryMapper.js';
 import { QueueItemMapper } from '../src/mappers/QueueItemMapper.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import express from 'express';
 
 const { createMockVite } = await import('./helpers/index.js');
 
@@ -86,5 +87,36 @@ describe('setupExpress', () => {
     await fetchResponse(port, '/api/summary');
 
     expect(logger.info).toHaveBeenCalledWith({ fn: 'http.request' }, expect.stringMatching(/^GET \/api\/summary 200 \d+\.\d+ ms$/));
+  });
+
+  it('logs and rethrows when the port is already in use', async () => {
+    const blocker = express().listen(0);
+    const blockedPort = (blocker.address() as { port: number }).port;
+    stop = async () => {}; // setupExpress won't return, so afterEach needs a no-op
+
+    const logger = createMockLogger();
+    try {
+      await expect(
+        setupExpress({
+          config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
+          eventCountsMapper: new EventCountsMapper(),
+          eventEntryMapper: new EventEntryMapper(),
+          queueItemMapper: new QueueItemMapper(),
+          queueRepo: createMockQueueRepo(),
+          queueOrderRepo: createMockQueueOrderRepo(),
+          eventRepo: createMockEventRepo(),
+          pullRequestRepo: {} as any,
+          prisma: {} as any,
+          reviewTrigger: { trigger: jest.fn() } as any,
+          systemStateRepo: createMockSystemStateRepository(),
+          logger,
+          port: blockedPort,
+        }),
+      ).rejects.toThrow();
+    } finally {
+      await new Promise<void>((resolve) => blocker.close(() => resolve()));
+    }
+
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'setupExpress', port: blockedPort, error: expect.any(Object) }, 'Failed to start server.');
   });
 });
