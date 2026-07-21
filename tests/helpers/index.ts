@@ -60,7 +60,6 @@ export { postJson } from './postJson.js';
 export { generatePullRequestHydrationData } from './PullRequestTestSupport.js';
 export { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
 export { generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from './QueueOrderTestSupport.js';
-export { generateReviewCandidateHydrationData } from './ReviewCandidateTestSupport.js';
 export { generateReviewQueueHydrationData } from './ReviewQueueTestSupport.js';
 export { buildCommentUrl, generateReviewRef, type ReviewRef, type ReviewRefInput } from './ReviewRefTestSupport.js';
 export { generateCreateSkippedData } from './SkippedDataTestSupport.js';

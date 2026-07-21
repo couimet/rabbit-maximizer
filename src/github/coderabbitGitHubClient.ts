@@ -8,6 +8,7 @@ import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
 import type { TriggerSource } from '../types/TriggerSource.js';
 
 import type { CoderabbitReview, CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
+import { SubmittedComment, SubmittedReview } from './types/index.js';
 import { buildCommentBody } from './buildCommentBody.js';
 import { buildOpenPRSearchQuery } from './buildOpenPRSearchQuery.js';
 import { buildSearchQuery } from './buildSearchQuery.js';
@@ -227,7 +228,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         page,
       });
 
-      const completedReview = response.data.find((r) => isMatchingCompletedReview(r, since));
+      const completedReview = response.data.find((r) => isMatchingCompletedReview(SubmittedReview.from(r), since));
 
       if (completedReview) {
         this.log.info(
@@ -255,7 +256,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         page,
       });
 
-      const review = response.data.find((r) => isMatchingCoderabbitReview(r, since));
+      const review = response.data.find((r) => isMatchingCoderabbitReview(SubmittedReview.from(r), since));
 
       if (review) {
         const state = toReviewState(review.state);
@@ -316,7 +317,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         page,
       });
 
-      const ackComment = response.data.find((c) => isAcknowledgementComment(c));
+      const ackComment = response.data.find((c) => isAcknowledgementComment(SubmittedComment.from(c)));
 
       if (ackComment) {
         this.log.debug(
