@@ -5,7 +5,7 @@ import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 
 import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
 import { createMockDetectedProbe } from './helpers/createMockProbes.js';
-import { createMockPullRequestRepo, createMockQueueRepo, makeDetectedComment } from './helpers/index.js';
+import { createMockPullRequestRepo, createMockQueueRepo, generateDetectedCommentHydrationData } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -49,7 +49,7 @@ describe('EnqueueService', () => {
     it('bypasses via probe when PR is not yet registered by the scanner', async () => {
       mockPullRequests.findByRepoAndPr.mockResolvedValue(null);
       const svc = createService();
-      const comment = makeDetectedComment();
+      const comment = generateDetectedCommentHydrationData();
 
       await svc.handle(comment, 330);
 
@@ -63,7 +63,7 @@ describe('EnqueueService', () => {
 
     it('creates probe, enqueues, and completes probe in a transaction when PR is found', async () => {
       const svc = createService();
-      const comment = makeDetectedComment();
+      const comment = generateDetectedCommentHydrationData();
       const waitSeconds = 330;
       const pullRequestId = getUniqueInt();
       mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
@@ -98,7 +98,7 @@ describe('EnqueueService', () => {
     it('skips enqueued when enqueue returns created: false', async () => {
       (queue.enqueue as jest.Mock<any>).mockResolvedValue({ item: {}, created: false });
       const svc = createService();
-      const comment = makeDetectedComment();
+      const comment = generateDetectedCommentHydrationData();
       const waitSeconds = 330;
       const pullRequestId = getUniqueInt();
       mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
@@ -115,7 +115,7 @@ describe('EnqueueService', () => {
 
     it('schedules the enqueue based on comment.updated_at and wait', async () => {
       const svc = createService();
-      const comment = makeDetectedComment();
+      const comment = generateDetectedCommentHydrationData();
       const waitSeconds = 120;
       const pullRequestId = getUniqueInt();
       mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
@@ -140,7 +140,7 @@ describe('EnqueueService', () => {
     describe('skip path', () => {
       it('creates skipped entry when comment classifies as review_skipped and PR is found', async () => {
         const svc = createService();
-        const comment = makeDetectedComment({ body: FOR_TEST_SKIP_BODY });
+        const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
         mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
         (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: {}, created: true });
@@ -168,7 +168,7 @@ describe('EnqueueService', () => {
       it('calls alreadySkipped when createSkipped returns created: false', async () => {
         (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: { status: 'coderabbit_skipped' }, created: false });
         const svc = createService();
-        const comment = makeDetectedComment({ body: FOR_TEST_SKIP_BODY });
+        const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
         mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 

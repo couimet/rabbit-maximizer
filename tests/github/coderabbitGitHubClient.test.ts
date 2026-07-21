@@ -26,7 +26,7 @@ describe('client', () => {
   let issues: MockIssuesRest;
   let pulls: MockPullsRest;
   let search: MockSearchRest;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
 
   let frozenDate: Date;
   let prNumber: number;

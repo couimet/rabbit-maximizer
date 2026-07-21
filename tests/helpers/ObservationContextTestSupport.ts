@@ -2,7 +2,7 @@ import type { ObservationContext } from '../../src/observability/observationCont
 
 import { getUuid } from '@couimet/dynamic-testing';
 
-export const createMockObservationContext = (overrides?: Partial<ObservationContext>): ObservationContext => ({
+export const generateObservationContextHydrationData = (overrides?: Partial<ObservationContext>): ObservationContext => ({
   correlationId: getUuid(),
   requestId: getUuid(),
   version: '1.0.0',

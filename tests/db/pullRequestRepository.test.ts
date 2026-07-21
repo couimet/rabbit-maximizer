@@ -1,5 +1,5 @@
 import { PullRequestRepositoryImpl } from '../../src/db/pullRequestRepository.js';
-import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock, generatePullRequestHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -23,24 +23,12 @@ describe('PullRequestRepositoryImpl', () => {
 
   describe('upsert', () => {
     it('creates a new pull_request when it does not exist', async () => {
-      const row = {
-        id: getUniqueInt(),
-        uuid: getUniqueString(),
+      const row = generatePullRequestHydrationData({
         repo_full_name: repoFullName,
         pr_number: prNumber,
         title: 'Test PR title',
         author_login: 'test-author',
-        pr_state: 'open',
-        first_seen_at: new Date(),
-        first_review_limit_at: null,
-        last_review_limit_at: null,
-        last_review_requested_at: null,
-        last_coderabbit_review_at: null,
-        retrigger_count: 0,
-        review_count: 0,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+      });
 
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: createResolvedMock(row) },
@@ -57,24 +45,12 @@ describe('PullRequestRepositoryImpl', () => {
     });
 
     it('creates a new pull_request with fallback title and author when not provided', async () => {
-      const row = {
-        id: getUniqueInt(),
-        uuid: getUniqueString(),
+      const row = generatePullRequestHydrationData({
         repo_full_name: repoFullName,
         pr_number: prNumber,
         title: '<unknown>',
         author_login: '<unknown>',
-        pr_state: 'open',
-        first_seen_at: new Date(),
-        first_review_limit_at: null,
-        last_review_limit_at: null,
-        last_review_requested_at: null,
-        last_coderabbit_review_at: null,
-        retrigger_count: 0,
-        review_count: 0,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
+      });
 
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: createResolvedMock(row) },

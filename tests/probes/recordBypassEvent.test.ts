@@ -1,35 +1,27 @@
 import type { EventRepository } from '../../src/db/eventRepository.js';
-import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { recordBypassEvent } from '../../src/probes/recordBypassEvent.js';
 import { BypassReason } from '../../src/types/index.js';
+import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
+import { generateObservationContextHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it, jest } from '@jest/globals';
-import type { Prisma } from '@prisma/client';
-
-const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
 
 describe('recordBypassEvent', () => {
   it('records a bypassed event with the correct shape for prMerged', async () => {
     const events = {
       record: jest.fn<any>(),
     } as unknown as EventRepository;
-    const tx = makeTx();
-    const observation: ObservationContext = {
-      correlationId: getUuid(),
-      requestId: getUuid(),
-      version: '1.0.0',
-    };
-    const repo = getUniqueGitHubRepoRef().fullName;
-    const pr = getUniqueInt();
+    const tx = createMockTx();
+    const observation = generateObservationContextHydrationData();
+    const ref = generateReviewRef();
 
-    await recordBypassEvent({ events, tx, reason: BypassReason.prMerged, observation, repo_full_name: repo, pr_number: pr });
+    await recordBypassEvent({ events, tx, reason: BypassReason.prMerged, observation, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
 
     expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
       {
         type: 'bypassed',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: observation.correlationId,
         request_id: observation.requestId,
         version: observation.version,
@@ -43,22 +35,17 @@ describe('recordBypassEvent', () => {
     const events = {
       record: jest.fn<any>(),
     } as unknown as EventRepository;
-    const tx = makeTx();
-    const observation: ObservationContext = {
-      correlationId: getUuid(),
-      requestId: getUuid(),
-      version: '1.0.0',
-    };
-    const repo = getUniqueGitHubRepoRef().fullName;
-    const pr = getUniqueInt();
+    const tx = createMockTx();
+    const observation = generateObservationContextHydrationData();
+    const ref = generateReviewRef();
 
-    await recordBypassEvent({ events, tx, reason: BypassReason.prClosedWithoutMerge, observation, repo_full_name: repo, pr_number: pr });
+    await recordBypassEvent({ events, tx, reason: BypassReason.prClosedWithoutMerge, observation, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
 
     expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
       {
         type: 'bypassed',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: observation.correlationId,
         request_id: observation.requestId,
         version: observation.version,

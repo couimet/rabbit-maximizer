@@ -178,6 +178,8 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,
       trigger_source: row.trigger_source as TriggerSource,
+      /* c8 ignore next 4 — unreachable: pending items never have non-null resolved timestamps */
+      // TODO [2026-08-20]: #229 — remove c8 ignore after extracting toQueueItem into injectable ReviewQueueToQueueItemMapper
       retriggered_at: row.retriggered_at ?? undefined,
       failed_at: row.failed_at ?? undefined,
       reviewed_at: row.reviewed_at ?? undefined,

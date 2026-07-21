@@ -2,18 +2,13 @@ import type { QueueRepository } from '../src/db/queueRepository.js';
 import { RabbitMaximizerError } from '../src/errors/RabbitMaximizerError.js';
 import type { PruneEvaluator } from '../src/PruneEvaluator.js';
 import { PrunerImpl } from '../src/Pruner.js';
-import type { QueueItem } from '../src/types/index.js';
 
-import { createMockProbeFactory, createMockPrunerProbe } from './helpers/index.js';
+import { createMockProbeFactory, createMockPrunerProbe, generateQueueItemHydrationData } from './helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
-
-const makeItem = (): QueueItem =>
-  ({ id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() }) as unknown as QueueItem;
 
 describe('Pruner', () => {
   let log: Logger;
@@ -40,8 +35,8 @@ describe('Pruner', () => {
 
   describe('prune', () => {
     it('evaluates pending items and applies prune decisions in a transaction', async () => {
-      const mergedItem = makeItem();
-      const closedItem = makeItem();
+      const mergedItem = generateQueueItemHydrationData();
+      const closedItem = generateQueueItemHydrationData();
       (queue.getPendingQueue as jest.Mock<any>).mockResolvedValue([mergedItem, closedItem]);
       (pruneEvaluator.evaluate as jest.Mock<any>).mockResolvedValue([
         { item: mergedItem, outcome: 'merged' },
@@ -65,7 +60,7 @@ describe('Pruner', () => {
     });
 
     it('delegates to probe when evaluate returns no enriched items', async () => {
-      (queue.getPendingQueue as jest.Mock<any>).mockResolvedValue([makeItem()]);
+      (queue.getPendingQueue as jest.Mock<any>).mockResolvedValue([generateQueueItemHydrationData()]);
       (pruneEvaluator.evaluate as jest.Mock<any>).mockResolvedValue([]);
       await createPruner().prune();
       expect(mockProbe.noItemsToPrune).toHaveBeenCalled();
@@ -73,8 +68,8 @@ describe('Pruner', () => {
     });
 
     it('delegates caught errors to probe and continues with remaining items', async () => {
-      const item1 = makeItem();
-      const item2 = makeItem();
+      const item1 = generateQueueItemHydrationData();
+      const item2 = generateQueueItemHydrationData();
       const pruneError = new Error('probe failure');
       (queue.getPendingQueue as jest.Mock<any>).mockResolvedValue([item1, item2]);
       (pruneEvaluator.evaluate as jest.Mock<any>).mockResolvedValue([
@@ -89,7 +84,7 @@ describe('Pruner', () => {
     });
 
     it('throws for an unexpected prune outcome', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       (queue.getPendingQueue as jest.Mock<any>).mockResolvedValue([item]);
       (pruneEvaluator.evaluate as jest.Mock<any>).mockResolvedValue([{ item, outcome: 'bad' as any }]);
       await createPruner().prune();

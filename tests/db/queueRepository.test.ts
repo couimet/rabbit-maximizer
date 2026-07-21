@@ -7,8 +7,8 @@ import {
   createMockObservationContextProvider,
   createMockPrismaClient,
   createResolvedMock,
-  makeCreateSkippedData,
-  makeReviewQueueRow as makeRow,
+  generateCreateSkippedData,
+  generateReviewQueueHydrationData as makeRow,
 } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
@@ -836,7 +836,7 @@ describe('QueueRepositoryImpl', () => {
       const row = makeRow({ status: 'coderabbit_skipped' });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { create: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
-      const data = makeCreateSkippedData({
+      const data = generateCreateSkippedData({
         repo: row.repo_full_name,
         pr: row.pr_number,
         prTitle: row.pr_title,
@@ -879,7 +879,7 @@ describe('QueueRepositoryImpl', () => {
         },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
-      const data = makeCreateSkippedData({
+      const data = generateCreateSkippedData({
         repo: existingRow.repo_full_name,
         pr: existingRow.pr_number,
         prTitle: existingRow.pr_title,
@@ -906,7 +906,7 @@ describe('QueueRepositoryImpl', () => {
         },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, logger);
-      const data = makeCreateSkippedData();
+      const data = generateCreateSkippedData();
 
       await expect(sut.createSkipped(data, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow('connection lost');
       expect(logger.warn).toHaveBeenCalledWith(

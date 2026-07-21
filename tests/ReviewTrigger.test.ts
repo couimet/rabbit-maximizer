@@ -3,7 +3,7 @@ import { ReviewTrigger } from '../src/ReviewTrigger.js';
 import { TriggerSource } from '../src/types/index.js';
 
 import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
-import { createMockPullRequestRepo, createMockQueueRepo, makeQueueItem } from './helpers/index.js';
+import { createMockPullRequestRepo, createMockQueueRepo, generateQueueItemHydrationData } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -46,7 +46,7 @@ describe('ReviewTrigger', () => {
 
   it('returns ok with retriggeredCommentUrl when source comment is valid', async () => {
     const { github, probeFactory, logger, reviewTrigger, queue, pullRequests } = setup();
-    const item = makeQueueItem({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
     github.fetchComment.mockResolvedValue({ body: 'rate limited by coderabbit.ai', updatedAt: getUniqueDate().toISOString() });
     github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
     const probe = {
@@ -71,7 +71,7 @@ describe('ReviewTrigger', () => {
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
-    const item = makeQueueItem({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
     github.fetchComment.mockResolvedValue({ body: 'stale body without rate-limit marker', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue(undefined);
     const probe = {
@@ -91,7 +91,7 @@ describe('ReviewTrigger', () => {
 
   it('returns err with RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED when replacement is deleted', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
-    const item = makeQueueItem({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
       commentId: newCommentId,
@@ -119,7 +119,7 @@ describe('ReviewTrigger', () => {
 
   it('returns err with RETRIGGER_STALE_COMMENT_RESCHEDULE when source comment was replaced', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
-    const item = makeQueueItem({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
       commentId: newCommentId,
@@ -147,7 +147,7 @@ describe('ReviewTrigger', () => {
 
   it('returns err when stored comment was deleted (404)', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
-    const item = makeQueueItem({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
     github.fetchComment.mockRejectedValueOnce({ status: 404 });
     github.findLatestReviewLimitComment.mockResolvedValue(undefined);
     const probe = {
@@ -166,7 +166,7 @@ describe('ReviewTrigger', () => {
 
   it('throws when fetchComment fails with non-terminal error', async () => {
     const { github, reviewTrigger } = setup();
-    const item = makeQueueItem({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
     github.fetchComment.mockRejectedValue({ status: 500 });
 
     await expect(reviewTrigger.trigger(item, TriggerSource.scheduler)).rejects.toStrictEqual({ status: 500 });
@@ -174,7 +174,7 @@ describe('ReviewTrigger', () => {
 
   it('throws when replacement comment fetch fails with non-terminal error', async () => {
     const { github, reviewTrigger } = setup();
-    const item = makeQueueItem({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
       commentId: newCommentId,

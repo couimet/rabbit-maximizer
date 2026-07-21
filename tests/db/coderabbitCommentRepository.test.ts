@@ -1,7 +1,7 @@
-import { CoderabbitCommentRepositoryImpl, type UpsertCommentData } from '../../src/db/coderabbitCommentRepository.js';
+import { CoderabbitCommentRepositoryImpl } from '../../src/db/coderabbitCommentRepository.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { CodeRabbitCommentType } from '../../src/types/CodeRabbitCommentType.js';
-import { createMockPrismaClient } from '../helpers/createMockPrismaClient.js';
+import { createMockPrismaClient, generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from '../helpers/index.js';
 
 import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -21,36 +21,10 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     jest.setSystemTime(frozenNow);
   });
 
-  const makeData = (overrides?: Partial<UpsertCommentData>): UpsertCommentData => ({
-    comment_id: getUniqueInt(),
-    pull_request_id: getUniqueInt(),
-    url: getUniqueString(),
-    comment_type: getRandomEnumValue(CodeRabbitCommentType),
-    body: getUniqueString(),
-    gh_created_at: getUniqueDate(),
-    gh_updated_at: getUniqueDate(),
-    ...overrides,
-  });
-
-  const makeRow = (overrides?: Record<string, unknown>) => ({
-    id: getUniqueInt(),
-    uuid: getUniqueString(),
-    pull_request_id: getUniqueInt(),
-    comment_id: getUniqueInt(),
-    url: getUniqueString(),
-    comment_type: getRandomEnumValue(CodeRabbitCommentType),
-    last_body_preview: getUniqueString(),
-    gh_created_at: getUniqueDate(),
-    gh_updated_at: getUniqueDate(),
-    first_seen_at: getUniqueDate(),
-    last_seen_at: getUniqueDate(),
-    ...overrides,
-  });
-
   describe('upsert', () => {
     it('creates a new coderabbit_comment row when none exists', async () => {
-      const data = makeData();
-      const created = makeRow();
+      const data = generateCoderabbitCommentCreationData();
+      const created = generateCoderabbitCommentHydrationData();
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(created) },
       });
@@ -80,8 +54,8 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     });
 
     it('updates an existing active row when matched on comment_id', async () => {
-      const data = makeData();
-      const existing = makeRow({ comment_id: data.comment_id });
+      const data = generateCoderabbitCommentCreationData();
+      const existing = generateCoderabbitCommentHydrationData({ comment_id: data.comment_id });
       const updated = { ...existing, url: data.url };
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(existing), update: jest.fn<any>().mockResolvedValue(updated) },
@@ -108,8 +82,8 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     });
 
     it('preserves empty string as empty string', async () => {
-      const data = makeData({ body: '' });
-      const createdRow = makeRow();
+      const data = generateCoderabbitCommentCreationData({ body: '' });
+      const createdRow = generateCoderabbitCommentHydrationData();
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(createdRow) },
       });
@@ -138,8 +112,8 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     });
 
     it('sets last_body_preview to null when body is null', async () => {
-      const data = makeData({ body: null });
-      const createdRow = makeRow();
+      const data = generateCoderabbitCommentCreationData({ body: null });
+      const createdRow = generateCoderabbitCommentHydrationData();
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(createdRow) },
       });
@@ -169,8 +143,8 @@ describe('CoderabbitCommentRepositoryImpl', () => {
 
     it('truncates body to EXPECTED_BODY_PREVIEW_MAX_LENGTH', async () => {
       const longBody = getUniqueString({ maxLength: EXPECTED_BODY_PREVIEW_MAX_LENGTH + 100 });
-      const data = makeData({ body: longBody });
-      const created = makeRow();
+      const data = generateCoderabbitCommentCreationData({ body: longBody });
+      const created = generateCoderabbitCommentHydrationData();
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(created) },
       });
@@ -195,8 +169,8 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError on update', async () => {
-      const data = makeData();
-      const existing = makeRow({ comment_id: data.comment_id });
+      const data = generateCoderabbitCommentCreationData();
+      const existing = generateCoderabbitCommentHydrationData({ comment_id: data.comment_id });
       const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
       const { prisma } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(existing), update: jest.fn<any>().mockRejectedValue(p2025) },
@@ -216,9 +190,9 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     });
 
     it('recovers from concurrent create by updating the winning row', async () => {
-      const data = makeData();
+      const data = generateCoderabbitCommentCreationData();
       const p2002 = new PrismaUniqueConstraintViolationError({ tableName: 'CoderabbitComment' });
-      const winningRow = makeRow({ comment_id: data.comment_id, id: getUniqueInt() });
+      const winningRow = generateCoderabbitCommentHydrationData({ comment_id: data.comment_id, id: getUniqueInt() });
       const updated = { ...winningRow, url: data.url };
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: {
@@ -251,7 +225,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     });
 
     it('rethrows PrismaUniqueConstraintViolationError when no winning row found', async () => {
-      const data = makeData();
+      const data = generateCoderabbitCommentCreationData();
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint violation', { code: 'P2002', clientVersion: '7.8.0' });
       const { prisma } = createMockPrismaClient({
         coderabbitComment: {
@@ -293,7 +267,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
   describe('findByPr', () => {
     it('returns active comments for a PR ordered by gh_created_at DESC', async () => {
       const pullRequestId = getUniqueInt();
-      const rows = [makeRow(), makeRow()];
+      const rows = [generateCoderabbitCommentHydrationData(), generateCoderabbitCommentHydrationData()];
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findMany: jest.fn<any>().mockResolvedValue(rows) },
       });
@@ -324,7 +298,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     it('returns the most recent active comment of a given type', async () => {
       const pullRequestId = getUniqueInt();
       const commentType = getRandomEnumValue(CodeRabbitCommentType);
-      const row = makeRow({ comment_type: commentType });
+      const row = generateCoderabbitCommentHydrationData({ comment_type: commentType });
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(row) },
       });

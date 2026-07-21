@@ -350,6 +350,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
   }
 
+  // TODO [2026-08-20]: #229 — extract into injectable ReviewQueueToQueueItemMapper.fromReviewQueue
   private toQueueItem(row: ReviewQueue): QueueItem {
     return {
       id: row.id,

@@ -3,7 +3,7 @@ import { EventEntryMapper } from '../../src/mappers/EventEntryMapper.js';
 import { createGetEventsHandler } from '../../src/routes/getEvents.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, makeEventEntry } from '../helpers/index.js';
+import { apiJson, createMockEventRepo, generateEventLogEntryHydrationData } from '../helpers/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -32,7 +32,7 @@ describe('getEvents', () => {
   };
 
   it('returns 200 with paginated events', async () => {
-    const eventEntries = [makeEventEntry(), makeEventEntry()];
+    const eventEntries = [generateEventLogEntryHydrationData(), generateEventLogEntryHydrationData()];
     startServer({ listRecent: jest.fn<any>().mockResolvedValue({ items: eventEntries, total: 2 }) });
 
     const json = await getJson(port, '/api/events');
@@ -54,7 +54,9 @@ describe('getEvents', () => {
 
   it('custom pageSize query param still works', async () => {
     const TS = new Date('2026-06-25T10:00:00.000Z');
-    const eventEntries = [makeEventEntry({ id: 3, uuid: 'evt-custom', ts: TS, repo_full_name: 'o/r', pr_number: 99, correlation_id: 'corr-003' })];
+    const eventEntries = [
+      generateEventLogEntryHydrationData({ id: 3, uuid: 'evt-custom', ts: TS, repo_full_name: 'o/r', pr_number: 99, correlation_id: 'corr-003' }),
+    ];
     startServer({ listRecent: jest.fn<any>().mockResolvedValue({ items: eventEntries, total: 10 }) });
 
     const json = await getJson(port, '/api/events?pageSize=5');

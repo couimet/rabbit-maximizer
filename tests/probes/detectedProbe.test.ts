@@ -2,13 +2,11 @@ import type { EventRepository } from '../../src/db/eventRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
 import type { EventLogEntry } from '../../src/types/index.js';
+import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it, jest } from '@jest/globals';
-import type { Prisma } from '@prisma/client';
-
-const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
 
 const makeEventRepository = (entry: EventLogEntry): { eventRepository: EventRepository; record: jest.Mock<any> } => {
   const record = jest.fn<any>().mockResolvedValue(entry);
@@ -26,7 +24,7 @@ describe('DetectedProbe', () => {
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const entryUuid = getUuid();
-    const tx = makeTx();
+    const tx = createMockTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
@@ -69,7 +67,7 @@ describe('DetectedProbe', () => {
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
     const logger = createMockLogger();
-    const tx = makeTx();
+    const tx = createMockTx();
 
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
@@ -104,7 +102,7 @@ describe('DetectedProbe', () => {
     const requestId = getUuid();
     const version = getUniqueString({ prefix: 'v' });
     const entryUuid = getUuid();
-    const tx = makeTx();
+    const tx = createMockTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
@@ -143,7 +141,7 @@ describe('DetectedProbe', () => {
     const requestId = getUuid();
     const version = getUniqueString({ prefix: 'v' });
     const entryUuid = getUuid();
-    const tx = makeTx();
+    const tx = createMockTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
@@ -182,7 +180,7 @@ describe('DetectedProbe', () => {
     const requestId = getUuid();
     const version = getUniqueString({ prefix: 'v' });
     const entryUuid = getUuid();
-    const tx = makeTx();
+    const tx = createMockTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
@@ -244,7 +242,7 @@ describe('DetectedProbe', () => {
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const entryUuid = getUuid();
-    const tx = makeTx();
+    const tx = createMockTx();
 
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);

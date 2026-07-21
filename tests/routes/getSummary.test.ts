@@ -4,7 +4,7 @@ import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, createMockQueueRepo, makeQueueItem } from '../helpers/index.js';
+import { apiJson, createMockEventRepo, createMockQueueRepo, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -38,7 +38,7 @@ describe('getSummary', () => {
 
   it('returns 200 with event counts and oldest pending', async () => {
     logger = createMockLogger();
-    const item = makeQueueItem();
+    const item = generateQueueItemHydrationData();
     const detected = getUniqueInt();
     const enqueued = getUniqueInt();
     const retriggered = getUniqueInt();
