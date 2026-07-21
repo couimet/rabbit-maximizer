@@ -24,8 +24,8 @@ describe('setupExpress', () => {
     if (stop) await stop();
   });
 
-  const start = (logger = createMockLogger()) => {
-    const app = setupExpress({
+  const start = async (logger = createMockLogger()) => {
+    const app = await setupExpress({
       config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
       eventCountsMapper: new EventCountsMapper(),
       eventEntryMapper: new EventEntryMapper(),
@@ -46,7 +46,7 @@ describe('setupExpress', () => {
   };
 
   it('responds 200 on all API endpoints', async () => {
-    start();
+    await start();
     const [summaryRes, queueRes, eventsRes, dashboardRes] = await Promise.all([
       fetchResponse(port, '/api/summary'),
       fetchResponse(port, '/api/queue'),
@@ -64,7 +64,7 @@ describe('setupExpress', () => {
     const prev = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
     try {
-      start();
+      await start();
       const res = await fetchResponse(port, '/api/summary');
       expect(res.status).toBe(200);
       expect(viteMock.createServer).not.toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe('setupExpress', () => {
   });
 
   it('rejects stop() when server is already closed', async () => {
-    start();
+    await start();
     await stop();
     await expect(stop()).rejects.toThrow();
     stop = async () => {}; // Prevent afterEach from re-closing
@@ -82,7 +82,7 @@ describe('setupExpress', () => {
 
   it('logs API requests via morgan with http.request context', async () => {
     const logger = createMockLogger();
-    start(logger);
+    await start(logger);
     await fetchResponse(port, '/api/summary');
 
     expect(logger.info).toHaveBeenCalledWith({ fn: 'http.request' }, expect.stringMatching(/^GET \/api\/summary 200 \d+\.\d+ ms$/));

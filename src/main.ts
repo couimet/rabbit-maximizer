@@ -67,7 +67,7 @@ const eventEntryMapper = container.get<EventEntryMapper>(TYPES.EventEntryMapper)
 const queueItemMapper = container.get<QueueItemMapper>(TYPES.QueueItemMapper);
 const appLogger = container.get<Logger>(TYPES.Logger);
 
-const { stop: stopServer } = setupExpress({
+const { stop: stopServer } = await setupExpress({
   config,
   eventCountsMapper,
   eventEntryMapper,

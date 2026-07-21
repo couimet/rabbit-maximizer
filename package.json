@@ -23,6 +23,7 @@
     "db:restore": "bash scripts/db/restore.sh",
     "db:studio": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" prisma studio",
     "dev": "pnpm db:migrate:backup && prisma generate && pnpm local",
+    "dev:kill": "lsof -ti :3000 | xargs kill -9",
     "fix": "pnpm lint:fix && pnpm format:fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
@@ -68,7 +69,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@couimet/detailed-error-testing": "^0.1.1",
+    "@couimet/detailed-error-testing": "^0.1.5",
     "@couimet/dynamic-testing": "^0.4.0",
     "@couimet/eslint-config": "^0.6.0",
     "@couimet/logger-contract-testing": "^1.0.1",

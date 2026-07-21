@@ -3,9 +3,8 @@ import type { PullRequestRepository } from './db/pullRequestRepository.js';
 import type { QueueOrderRepository } from './db/queueOrderRepository.js';
 import type { QueueRepository } from './db/queueRepository.js';
 import type { SystemStateRepository } from './db/systemStateRepository.js';
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
 import { createExpressApp } from './external-deps/couimet/express-tools/createExpressApp.js';
+import { startServer } from './external-deps/couimet/express-tools/startServer.js';
 import type { EventCountsMapper } from './mappers/index.js';
 import type { EventEntryMapper } from './mappers/index.js';
 import type { QueueItemMapper } from './mappers/index.js';
@@ -58,7 +57,7 @@ export interface ExpressApp {
   stop(): Promise<void>;
 }
 
-export const setupExpress = (deps: ExpressDeps): ExpressApp => {
+export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   const {
     config,
     eventCountsMapper,
@@ -100,19 +99,18 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
     trySetupVite(app, logger, port, DASHBOARD_DIR);
   }
 
-  const server = app.listen(port);
-  const address = server.address();
-  /* c8 ignore start — defensive: numeric ports always return an address object */
-  if (!address || typeof address === 'string') {
-    throw new RabbitMaximizerError({
-      code: RabbitMaximizerErrorCodes.SERVER_ADDRESS_NOT_AVAILABLE,
-      functionName: 'setupExpress',
-      message: 'Server did not bind to a TCP port',
-      details: { port },
-    });
+  let server: ReturnType<typeof app.listen>;
+  let actualPort: number;
+
+  try {
+    const result = await startServer(app, port);
+    server = result.server;
+    actualPort = result.port;
+    /* c8 ignore next 4 — defensive: only entered on listen errors like EADDRINUSE */
+  } catch (err: unknown) {
+    logger.error({ fn: 'setupExpress', port, error: err }, 'Failed to start server.');
+    throw err;
   }
-  /* c8 ignore stop */
-  const actualPort = address.port;
 
   return {
     port: actualPort,
