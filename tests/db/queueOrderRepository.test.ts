@@ -1,60 +1,16 @@
 import { type QueueOrderRepository, QueueOrderRepositoryImpl } from '../../src/db/queueOrderRepository.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { type QueueItem, QueueStatus, TriggerSource } from '../../src/types/index.js';
-import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock, generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
-interface MakeRowOverrides {
-  id?: number;
-  repo_full_name?: string;
-  pr_number?: number;
-  pr_title?: string;
-  status?: string;
-  attempts?: number;
-  source_comment_url?: string;
-  source_comment_id?: number;
-  trigger_source?: string | null;
-  retriggered_at?: Date | null;
-  failed_at?: Date | null;
-  reviewed_at?: Date | null;
-}
-
-const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: number | null } = {}) => {
-  const commentId = getUniqueInt();
-  return {
-    id: over.id ?? getUniqueInt(),
-    uuid: getUuid(),
-    repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
-    pr_number: over.pr_number ?? getUniqueInt(),
-    pr_title: over.pr_title ?? 'Test PR title',
-    status: over.status ?? 'pending',
-    attempts: over.attempts ?? 0,
-    source_comment_url: over.source_comment_url ?? `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`,
-    source_comment_id: over.source_comment_id ?? commentId,
-    trigger_source: over.trigger_source ?? null,
-    retriggered_at: over.retriggered_at ?? null,
-    failed_at: over.failed_at ?? null,
-    reviewed_at: over.reviewed_at ?? null,
-    pull_request_id: getUniqueInt(),
-    created_at: getUniqueDate(),
-    updated_at: getUniqueDate(),
-    queueOrder: {
-      id: qoOver.id ?? getUniqueInt(),
-      queue_item_id: over.id ?? 0,
-      position: qoOver.position ?? null,
-      created_at: getUniqueDate(),
-      updated_at: getUniqueDate(),
-    },
-  };
-};
-
-const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
+const toExpectedItem = (row: ReturnType<typeof generateReviewQueueWithOrderHydrationData>): QueueItem => ({
   id: row.id,
   uuid: row.uuid,
   repo_full_name: row.repo_full_name,
@@ -86,9 +42,9 @@ describe('QueueOrderRepositoryImpl', () => {
 
   describe('getEffectiveOrder', () => {
     it('returns explicit-position items before unordered items, and unordered items sorted by queue_order id ASC', async () => {
-      const itemOrdered = makeRow({}, { position: 2 });
-      const itemNoPos1 = makeRow({}, { position: null, id: 5 });
-      const itemNoPos2 = makeRow({}, { position: null, id: 3 });
+      const itemOrdered = generateReviewQueueWithOrderHydrationData({}, { position: 2 });
+      const itemNoPos1 = generateReviewQueueWithOrderHydrationData({}, { position: null, id: 5 });
+      const itemNoPos2 = generateReviewQueueWithOrderHydrationData({}, { position: null, id: 3 });
       const rows = [itemNoPos1, itemOrdered, itemNoPos2];
 
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
@@ -115,8 +71,8 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('filters out rows with null pull_request_id and logs a warning', async () => {
-      const valid = makeRow();
-      const nullPR = { ...makeRow(), pull_request_id: null };
+      const valid = generateReviewQueueWithOrderHydrationData();
+      const nullPR = { ...generateReviewQueueWithOrderHydrationData(), pull_request_id: null };
       const rows = [valid, nullPR];
 
       const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
@@ -132,7 +88,7 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('returns all pending items', async () => {
-      const rows = [makeRow(), makeRow()];
+      const rows = [generateReviewQueueWithOrderHydrationData(), generateReviewQueueWithOrderHydrationData()];
       const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const sut = new QueueOrderRepositoryImpl(prisma, logger);
 
@@ -143,7 +99,8 @@ describe('QueueOrderRepositoryImpl', () => {
   });
 
   describe('moveItems', () => {
-    const makeMoveRow = (id: number, position?: number | null) => makeRow({ id }, { position: position ?? null, id: getUniqueInt() });
+    const makeMoveRow = (id: number, position?: number | null) =>
+      generateReviewQueueWithOrderHydrationData({ id }, { position: position ?? null, id: getUniqueInt() });
 
     const setupMoveMocks = (mockItems: ReturnType<typeof makeMoveRow>[], finalItems: ReturnType<typeof makeMoveRow>[]) => {
       const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
@@ -351,8 +308,8 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('creates queue_order rows for items that lack them (pre-migration backfill)', async () => {
-      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
-      const itemB = { ...makeRow({ id: 2 }), queueOrder: null as unknown as ReturnType<typeof makeRow>['queueOrder'] };
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const itemB = { ...generateReviewQueueWithOrderHydrationData({ id: 2 }), queueOrder: null as unknown as ReviewQueueWithOrder['queueOrder'] };
 
       const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
         reviewQueue: {
@@ -379,9 +336,9 @@ describe('QueueOrderRepositoryImpl', () => {
 
   describe('moveToTop', () => {
     it('moves item to top from middle of the queue', async () => {
-      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
-      const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
-      const itemC = makeRow({ id: 3 }, { position: 3, id: getUniqueInt() });
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const itemB = generateReviewQueueWithOrderHydrationData({ id: 2 }, { position: 2, id: getUniqueInt() });
+      const itemC = generateReviewQueueWithOrderHydrationData({ id: 3 }, { position: 3, id: getUniqueInt() });
 
       const { prisma, queueOrder } = createMockPrismaClient({
         reviewQueue: {
@@ -414,8 +371,8 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('keeps item at position 1 when already at top', async () => {
-      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
-      const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const itemB = generateReviewQueueWithOrderHydrationData({ id: 2 }, { position: 2, id: getUniqueInt() });
 
       const { prisma, queueOrder } = createMockPrismaClient({
         reviewQueue: {
@@ -456,7 +413,7 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('throws when item is not pending', async () => {
-      const itemA = makeRow({ id: 1, status: 'reviewed' }, { position: 1, id: getUniqueInt() });
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1, status: 'reviewed' }, { position: 1, id: getUniqueInt() });
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
@@ -474,7 +431,7 @@ describe('QueueOrderRepositoryImpl', () => {
 
     it('throws when findUnique succeeds but the item is absent from the effective order', async () => {
       const UUID = '00000000-0000-0000-0000-000000000999';
-      const otherItem = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const otherItem = generateReviewQueueWithOrderHydrationData({ id: 1 }, { position: 1, id: getUniqueInt() });
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {

@@ -1,27 +1,20 @@
 import { ObservationContext } from '../../src/observability/index.js';
 import { PrunerProbe } from '../../src/probes/PrunerProbe.js';
-import type { QueueItem } from '../../src/types/index.js';
-import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
+import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
+import { createMockEventRepo, generateObservationContextHydrationData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { Prisma } from '@prisma/client';
-
-const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
-const makeItem = (repo: string, pr: number): QueueItem =>
-  ({ id: getUniqueInt(), repo_full_name: repo, pr_number: pr, source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }) }) as unknown as QueueItem;
 
 describe('PrunerProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let observation: ObservationContext;
 
   beforeEach(() => {
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = createMockObservationContext();
+    observation = generateObservationContextHydrationData();
   });
 
   const createProbe = () => new PrunerProbe(events, observation, logger);
@@ -30,24 +23,23 @@ describe('PrunerProbe', () => {
     it('logs info when no items to prune', () => {
       const probe = createProbe();
       probe.noItemsToPrune();
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PrunerProbe.noItemsToPrune' }, 'No items to prune');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'PrunerProbe.noItemsToPrune' }, 'No items to prune');
     });
   });
 
   describe('prMerged', () => {
     it('records bypassed event and logs', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
-      const tx = makeTx();
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
       await probe.prMerged(tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'bypassed',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
@@ -55,8 +47,8 @@ describe('PrunerProbe', () => {
         },
         tx,
       );
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'PrunerProbe.prMerged', repo, pr, queueId: item.id },
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'PrunerProbe.prMerged', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
         'Merged before retrigger; marked reviewed',
       );
     });
@@ -64,18 +56,17 @@ describe('PrunerProbe', () => {
 
   describe('prClosedWithoutMerge', () => {
     it('records bypassed event and logs', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
-      const tx = makeTx();
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
       await probe.prClosedWithoutMerge(tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'bypassed',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
@@ -83,8 +74,8 @@ describe('PrunerProbe', () => {
         },
         tx,
       );
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'PrunerProbe.prClosedWithoutMerge', repo, pr, queueId: item.id },
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'PrunerProbe.prClosedWithoutMerge', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
         'PR closed before retrigger; marked failed',
       );
     });
@@ -92,15 +83,14 @@ describe('PrunerProbe', () => {
 
   describe('caughtError', () => {
     it('logs warn with item context and error', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const tickError = new Error('prune failure');
       const probe = createProbe();
       probe.withItem(item);
       probe.caughtError(tickError);
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'PrunerProbe.caughtError', repo, pr, queueId: item.id, error: tickError },
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'PrunerProbe.caughtError', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, error: tickError },
         'Failed to prune item; continuing',
       );
     });

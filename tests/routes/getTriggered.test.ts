@@ -3,7 +3,7 @@ import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetTriggeredHandler } from '../../src/routes/getTriggered.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockQueueRepo, makeQueueItem } from '../helpers/index.js';
+import { apiJson, createMockQueueRepo, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -38,7 +38,7 @@ describe('getTriggered', () => {
   };
 
   it('returns 200 with paginated triggered items', async () => {
-    const queueItems = [makeQueueItem(), makeQueueItem()];
+    const queueItems = [generateQueueItemHydrationData(), generateQueueItemHydrationData()];
     startServer({ getTriggered: jest.fn<any>().mockResolvedValue({ items: queueItems, total: 2 }) });
 
     const json = await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}`);

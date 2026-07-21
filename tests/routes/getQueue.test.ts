@@ -3,7 +3,7 @@ import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetQueueHandler } from '../../src/routes/getQueue.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockQueueRepo, makeQueueItem } from '../helpers/index.js';
+import { apiJson, createMockQueueRepo, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -32,7 +32,7 @@ describe('getQueue', () => {
   };
 
   it('returns 200 with paginated queue items', async () => {
-    const queueItems = [makeQueueItem(), makeQueueItem()];
+    const queueItems = [generateQueueItemHydrationData(), generateQueueItemHydrationData()];
     startServer({ getAll: jest.fn<any>().mockResolvedValue({ items: queueItems, total: 2 }) });
 
     const json = await getJson(port, '/api/queue');

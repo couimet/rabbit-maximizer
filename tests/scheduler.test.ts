@@ -5,8 +5,6 @@ import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
 import type { Pruner } from '../src/Pruner.js';
 import { ReviewTrigger } from '../src/ReviewTrigger.js';
 import { Scheduler } from '../src/scheduler.js';
-import { TriggerSource } from '../src/types/index.js';
-import { QueueStatus } from '../src/types/QueueStatus.js';
 import { RabbitResult } from '../src/types/RabbitResult.js';
 
 import {
@@ -18,10 +16,10 @@ import {
   createMockSchedulerProbe,
   createMockSystemStateRepository,
   drainMicrotasks,
+  generateQueueItemHydrationData,
 } from './helpers/index.js';
 
-import { getRandomEnumValue } from '@couimet/dynamic-testing';
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -30,22 +28,6 @@ import { type Prisma, type PrismaClient } from '@prisma/client';
 const TICK_INTERVAL_MS = 10_000;
 const SHORT_DRAIN = 5;
 const BASE_BACKOFF_MS = 60_000;
-
-interface QueueItemStub {
-  id: number;
-  uuid: string;
-  repo_full_name: string;
-  pr_number: number;
-  pr_title: string;
-  status: QueueStatus;
-  attempts: number;
-  source_comment_url: string;
-  source_comment_id: number;
-  trigger_source: TriggerSource;
-  pull_request_id: number;
-  created_at: Date;
-  updated_at: Date;
-}
 
 interface MockSchedulerDeps {
   config: Config;
@@ -61,25 +43,6 @@ interface MockSchedulerDeps {
   systemState: ReturnType<typeof createMockSystemStateRepository>;
   pullRequests: ReturnType<typeof createMockPullRequestRepo>;
 }
-
-const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
-  const commentId = getUniqueInt();
-  return {
-    id: over.id ?? getUniqueInt(),
-    uuid: over.uuid ?? getUuid(),
-    repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
-    pr_number: over.pr_number ?? getUniqueInt(),
-    pr_title: over.pr_title ?? getUniqueString({ prefix: 'pr-title-' }),
-    status: over.status ?? getRandomEnumValue(QueueStatus),
-    attempts: over.attempts ?? 0,
-    source_comment_url: over.source_comment_url ?? `https://github.com/test-owner/test-repo/pull/${getUniqueInt()}#issuecomment-${commentId}`,
-    source_comment_id: over.source_comment_id ?? commentId,
-    trigger_source: over.trigger_source ?? getRandomEnumValue(TriggerSource),
-    pull_request_id: over.pull_request_id ?? getUniqueInt(),
-    created_at: over.created_at ?? getUniqueDate(),
-    updated_at: over.updated_at ?? getUniqueDate(),
-  };
-};
 
 const setup = (): MockSchedulerDeps => {
   const queueOrder = createMockQueueOrderRepo();
@@ -154,12 +117,12 @@ describe('Scheduler', () => {
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
   describe('tick', () => {
-    const TRIGGER_OK = RabbitResult.ok({ retriggeredCommentUrl: 'https://gh/c/retriggered' });
+    const makeTriggerOk = () => RabbitResult.ok({ retriggeredCommentUrl: getUniqueString() });
 
     it('delegates to ReviewTrigger on success', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(TRIGGER_OK);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -172,13 +135,13 @@ describe('Scheduler', () => {
     });
 
     it('reschedules when ReviewTrigger returns stale reschedule', async () => {
-      const item = makeItem();
-      const newComment = { commentId: 999, commentUrl: 'https://gh/c/new' };
+      const item = generateQueueItemHydrationData();
+      const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
       const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
         code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
         message: 'stale',
         functionName: 'test',
-        details: { rescheduleEarliest: new Date(Date.now() + 60_000).toISOString(), sourceComment: newComment },
+        details: { rescheduleEarliest: new Date(frozenNow.getTime() + 60_000).toISOString(), sourceComment: newComment },
       });
       const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
@@ -196,7 +159,7 @@ describe('Scheduler', () => {
     });
 
     it('backs off when ReviewTrigger returns stale skip', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
         code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
         message: 'gone',
@@ -218,7 +181,7 @@ describe('Scheduler', () => {
     });
 
     it('backs off when ReviewTrigger returns stale replacement deleted', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
         code: 'RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED' as any,
         message: 'gone',
@@ -240,7 +203,7 @@ describe('Scheduler', () => {
     });
 
     it('backs off on unexpected error code from ReviewTrigger', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       const unexpectedErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
         code: 'UNKNOWN_CODE' as any,
         message: 'unexpected',
@@ -262,7 +225,7 @@ describe('Scheduler', () => {
     });
 
     it('marks failed and records failed event on HTTP 404 from trigger', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       const notFoundError = { status: 404 };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(notFoundError);
@@ -279,7 +242,7 @@ describe('Scheduler', () => {
     });
 
     it('marks failed on HTTP 410 from trigger', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       const goneError = { status: 410 };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(goneError);
@@ -296,7 +259,7 @@ describe('Scheduler', () => {
     });
 
     it('backs off on unknown error from trigger', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       const networkError = new Error('Network timeout');
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
@@ -326,7 +289,7 @@ describe('Scheduler', () => {
     });
 
     it('skips processing when scheduler is paused', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.systemState.isSchedulerPaused.mockResolvedValue(true);
 
@@ -370,10 +333,10 @@ describe('Scheduler', () => {
     });
 
     it('proceeds normally when schedulerStatus is running', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.systemState.isSchedulerPaused.mockResolvedValue(false);
-      deps.reviewTrigger.trigger.mockResolvedValue(TRIGGER_OK);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();

@@ -1,17 +1,15 @@
 import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
 import { PruneEvaluatorImpl } from '../src/PruneEvaluator.js';
-import type { QueueItem } from '../src/types/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
+import { generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
+
+import { getUniqueDate } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const makeItem = (repo: string, pr: number): QueueItem => ({ id: getUniqueInt(), repo_full_name: repo, pr_number: pr }) as unknown as QueueItem;
-
 describe('PruneEvaluator', () => {
   let fetcher: PRStateFetcher;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
 
   beforeEach(() => {
     fetcher = {
@@ -25,10 +23,9 @@ describe('PruneEvaluator', () => {
 
   describe('evaluate', () => {
     it('returns merged outcome for merged PRs', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
-      (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: '2026-01-01T00:00:00Z' });
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: getUniqueDate().toISOString() });
 
       const evaluator = createEvaluator();
       const result = await evaluator.evaluate([item]);
@@ -37,9 +34,8 @@ describe('PruneEvaluator', () => {
     });
 
     it('returns closed outcome for closed-without-merge PRs', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: null });
 
       const evaluator = createEvaluator();
@@ -49,22 +45,23 @@ describe('PruneEvaluator', () => {
     });
 
     it('skips open PRs', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'open', merged_at: null });
 
       const evaluator = createEvaluator();
       const result = await evaluator.evaluate([item]);
 
       expect(result).toStrictEqual([]);
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'PruneEvaluator.evaluate', repo, pr, queueId: item.id }, 'PR still open; skipping');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PruneEvaluator.evaluate', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
+        'PR still open; skipping',
+      );
     });
 
     it('skips items where fetch returns undefined', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       (fetcher.fetch as jest.Mock<any>).mockResolvedValue(undefined);
 
       const evaluator = createEvaluator();
@@ -82,19 +79,16 @@ describe('PruneEvaluator', () => {
     });
 
     it('evaluates multiple items concurrently', async () => {
-      const { fullName: repo1 } = getUniqueGitHubRepoRef();
-      const { fullName: repo2 } = getUniqueGitHubRepoRef();
-      const { fullName: repo3 } = getUniqueGitHubRepoRef();
-      const pr1 = getUniqueInt();
-      const pr2 = getUniqueInt();
-      const pr3 = getUniqueInt();
+      const ref1 = generateReviewRef();
+      const ref2 = generateReviewRef();
+      const ref3 = generateReviewRef();
 
-      const item1 = makeItem(repo1, pr1);
-      const item2 = makeItem(repo2, pr2);
-      const item3 = makeItem(repo3, pr3);
+      const item1 = generateQueueItemHydrationData({ repo_full_name: ref1.repoFullName, pr_number: ref1.prNumber });
+      const item2 = generateQueueItemHydrationData({ repo_full_name: ref2.repoFullName, pr_number: ref2.prNumber });
+      const item3 = generateQueueItemHydrationData({ repo_full_name: ref3.repoFullName, pr_number: ref3.prNumber });
 
       (fetcher.fetch as jest.Mock<any>)
-        .mockResolvedValueOnce({ state: 'closed', merged_at: '2026-01-01T00:00:00Z' }) // merged
+        .mockResolvedValueOnce({ state: 'closed', merged_at: getUniqueDate().toISOString() }) // merged
         .mockResolvedValueOnce({ state: 'closed', merged_at: null }) // closed without merge
         .mockResolvedValueOnce({ state: 'open', merged_at: null }); // open → skipped
 
@@ -105,8 +99,8 @@ describe('PruneEvaluator', () => {
         { item: item1, outcome: 'merged' },
         { item: item2, outcome: 'closed-without-merge' },
       ]);
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'PruneEvaluator.evaluate', repo: repo3, pr: pr3, queueId: item3.id },
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PruneEvaluator.evaluate', repo: ref3.repoFullName, pr: ref3.prNumber, queueId: item3.id },
         'PR still open; skipping',
       );
     });

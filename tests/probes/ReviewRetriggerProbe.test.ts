@@ -2,22 +2,21 @@ import type { EventRepository } from '../../src/db/eventRepository.js';
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
 import { EventType, type QueueItem } from '../../src/types/index.js';
+import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo } from '../helpers/index.js';
-import { makeQueueItem } from '../helpers/makeQueueItem.js';
+import { generateQueueItemHydrationData } from '../helpers/QueueItemTestSupport.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import type { Prisma } from '@prisma/client';
 
-const TX = {} as Prisma.TransactionClient;
+const tx = createMockTx();
 
-const LOGGING_CTX = (item: QueueItem) => (fn: string) => ({ fn, repo: item.repo_full_name, pr: item.pr_number, queueId: item.id });
+const loggingCtx = (item: QueueItem) => (fn: string) => ({ fn, repo: item.repo_full_name, pr: item.pr_number, queueId: item.id });
 
 describe('ReviewRetriggerProbe', () => {
   let events: jest.Mocked<EventRepository>;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let observation: ObservationContext;
 
   beforeEach(() => {
@@ -33,12 +32,12 @@ describe('ReviewRetriggerProbe', () => {
   const createProbe = (item: QueueItem) => new ReviewRetriggerProbe(item, events, observation, logger);
 
   it('records event, and logs on reviewRetriggered', async () => {
-    const item = makeQueueItem() as QueueItem;
+    const item = generateQueueItemHydrationData();
     const cooldownUntil = getUniqueDate();
     const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
     const probe = createProbe(item);
-    await probe.reviewRetriggered(retriggeredCommentUrl, cooldownUntil, TX);
+    await probe.reviewRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
 
     expect(events.record).toHaveBeenCalledWith(
       {
@@ -53,42 +52,42 @@ describe('ReviewRetriggerProbe', () => {
           retriggered_comment_url: retriggeredCommentUrl,
         },
       },
-      TX,
+      tx,
     );
-    expect(logger.info).toHaveBeenCalledWith(LOGGING_CTX(item)('ReviewRetriggerProbe.reviewRetriggered'), 'Review retriggered');
+    expect(logger.info).toHaveBeenCalledWith(loggingCtx(item)('ReviewRetriggerProbe.reviewRetriggered'), 'Review retriggered');
   });
 
   it('logs on staleCommentRescheduled', () => {
-    const item = makeQueueItem() as QueueItem;
+    const item = generateQueueItemHydrationData();
     const cooldownUntil = getUniqueDate();
 
     const probe = createProbe(item);
     probe.staleCommentRescheduled(cooldownUntil);
 
     expect(logger.info).toHaveBeenCalledWith(
-      { ...LOGGING_CTX(item)('ReviewRetriggerProbe.staleCommentRescheduled'), cooldownUntil },
+      { ...loggingCtx(item)('ReviewRetriggerProbe.staleCommentRescheduled'), cooldownUntil },
       'Stale source comment replaced; rescheduled with updated cooldown time',
     );
   });
 
   it('logs on staleCommentSkipped', () => {
-    const item = makeQueueItem() as QueueItem;
+    const item = generateQueueItemHydrationData();
 
     const probe = createProbe(item);
     probe.staleCommentSkipped();
 
-    expect(logger.warn).toHaveBeenCalledWith(LOGGING_CTX(item)('ReviewRetriggerProbe.staleCommentSkipped'), 'No replacement rate-limit comment found');
+    expect(logger.warn).toHaveBeenCalledWith(loggingCtx(item)('ReviewRetriggerProbe.staleCommentSkipped'), 'No replacement rate-limit comment found');
   });
 
   it('logs on staleCommentReplacementDeleted', () => {
-    const item = makeQueueItem() as QueueItem;
-    const REPLACEMENT_ID = getUniqueInt();
+    const item = generateQueueItemHydrationData();
+    const replacementId = getUniqueInt();
 
     const probe = createProbe(item);
-    probe.staleCommentReplacementDeleted(REPLACEMENT_ID);
+    probe.staleCommentReplacementDeleted(replacementId);
 
     expect(logger.warn).toHaveBeenCalledWith(
-      { ...LOGGING_CTX(item)('ReviewRetriggerProbe.staleCommentReplacementDeleted'), commentId: REPLACEMENT_ID },
+      { ...loggingCtx(item)('ReviewRetriggerProbe.staleCommentReplacementDeleted'), commentId: replacementId },
       'Replacement comment was deleted before fetch',
     );
   });

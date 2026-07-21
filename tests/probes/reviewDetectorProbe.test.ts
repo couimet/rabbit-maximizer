@@ -1,27 +1,22 @@
 import type { ObservationContext } from '../../src/observability/observationContext.js';
 import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
-import { EventType, type QueueItem } from '../../src/types/index.js';
-import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
+import { EventType } from '../../src/types/index.js';
+import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
+import { createMockEventRepo, generateObservationContextHydrationData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
+import { getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { Prisma } from '@prisma/client';
-
-const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
-const makeItem = (repo: string, pr: number): QueueItem =>
-  ({ id: getUniqueInt(), repo_full_name: repo, pr_number: pr, source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }) }) as unknown as QueueItem;
 
 describe('ReviewDetectorProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let observation: ObservationContext;
 
   beforeEach(() => {
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = createMockObservationContext();
+    observation = generateObservationContextHydrationData();
   });
 
   const createProbe = () => new ReviewDetectorProbe(events, observation, logger);
@@ -30,20 +25,19 @@ describe('ReviewDetectorProbe', () => {
     it('logs info when no retriggered items exist', () => {
       const probe = createProbe();
       probe.noRetriggeredItemFound();
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'ReviewDetectorProbe.noRetriggeredItemFound' }, 'No retriggered items to check');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'ReviewDetectorProbe.noRetriggeredItemFound' }, 'No retriggered items to check');
     });
   });
 
   describe('noCompletedReviewFound', () => {
     it('logs debug when no completed review is found', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const probe = createProbe();
       probe.withItem(item);
       probe.noCompletedReviewFound();
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'ReviewDetectorProbe.noCompletedReviewFound', repo, pr, queueId: item.id },
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.noCompletedReviewFound', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
         'No completed review found; will retry on next tick',
       );
     });
@@ -51,19 +45,18 @@ describe('ReviewDetectorProbe', () => {
 
   describe('reviewed', () => {
     it('records coderabbit_review_approved event with coderabbit_comment_url and logs info', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const commentUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
-      const tx = makeTx();
+      const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
       await probe.reviewed(EventType.coderabbit_review_approved, commentUrl, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'coderabbit_review_approved',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
@@ -71,8 +64,8 @@ describe('ReviewDetectorProbe', () => {
         },
         tx,
       );
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'ReviewDetectorProbe.reviewed', repo, pr, queueId: item.id, eventType: 'coderabbit_review_approved', commentUrl },
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.reviewed', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, eventType: 'coderabbit_review_approved', commentUrl },
         'Review detected',
       );
     });
@@ -80,15 +73,14 @@ describe('ReviewDetectorProbe', () => {
 
   describe('caughtError', () => {
     it('logs warn with item context and error', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const tickError = new Error('API unavailable');
       const probe = createProbe();
       probe.withItem(item);
       probe.caughtError(tickError);
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'ReviewDetectorProbe.caughtError', repo, pr, queueId: item.id, error: tickError },
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.caughtError', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, error: tickError },
         'Review detection tick failed; will retry on next interval',
       );
     });

@@ -1,24 +1,22 @@
 import { ObservationContext } from '../../src/observability/index.js';
 import { EnqueueProbe } from '../../src/probes/EnqueueProbe.js';
-import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
+import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
+import { createMockEventRepo, generateObservationContextHydrationData } from '../helpers/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma } from '@prisma/client';
 
-const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
-
 describe('EnqueueProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let observation: ObservationContext;
 
   beforeEach(() => {
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = createMockObservationContext();
+    observation = generateObservationContextHydrationData();
   });
 
   const createProbe = (tx: Prisma.TransactionClient) => new EnqueueProbe(events, observation, tx, logger);
@@ -27,25 +25,22 @@ describe('EnqueueProbe', () => {
     it('logs debug when PR was recently retriggered', () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
-      const probe = createProbe(makeTx());
+      const probe = createProbe(createMockTx());
       probe.recentlyRetriggered(repo, pr);
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'EnqueueProbe.recentlyRetriggered', repo, pr },
-        'PR was recently retriggered; skipping',
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EnqueueProbe.recentlyRetriggered', repo, pr }, 'PR was recently retriggered; skipping');
     });
   });
 
   describe('enqueued', () => {
-    const EVENT_UUID = getUuid();
+    const eventUuid = getUuid();
     it('records enqueued event and logs info with event uuid', async () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
-      const NEW_WAIT = getUniqueInt();
-      const tx = makeTx();
+      const newWait = getUniqueInt();
+      const tx = createMockTx();
       const probe = createProbe(tx);
-      (events.record as jest.Mock<any>).mockResolvedValue({ uuid: EVENT_UUID });
-      await probe.enqueued({ repo, pr, newWait: NEW_WAIT });
+      (events.record as jest.Mock<any>).mockResolvedValue({ uuid: eventUuid });
+      await probe.enqueued({ repo, pr, newWait: newWait });
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'enqueued',
@@ -54,11 +49,11 @@ describe('EnqueueProbe', () => {
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
-          payload: { new_wait: NEW_WAIT },
+          payload: { new_wait: newWait },
         },
         tx,
       );
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'EnqueueProbe.enqueued', repo, pr, eventUuid: EVENT_UUID }, 'Queue item enqueued');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'EnqueueProbe.enqueued', repo, pr, eventUuid: eventUuid }, 'Queue item enqueued');
     });
   });
 
@@ -66,13 +61,10 @@ describe('EnqueueProbe', () => {
     it('logs debug when PR is already queued', () => {
       const { fullName: repo } = getUniqueGitHubRepoRef();
       const pr = getUniqueInt();
-      const STATUS = getUniqueString({ prefix: 'status-' });
-      const probe = createProbe(makeTx());
-      probe.alreadyQueued(repo, pr, STATUS);
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'EnqueueProbe.alreadyQueued', repo, pr, status: STATUS },
-        'Already queued; returning existing row',
-      );
+      const status = getUniqueString({ prefix: 'status-' });
+      const probe = createProbe(createMockTx());
+      probe.alreadyQueued(repo, pr, status);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EnqueueProbe.alreadyQueued', repo, pr, status: status }, 'Already queued; returning existing row');
     });
   });
 });

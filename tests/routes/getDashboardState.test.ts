@@ -4,7 +4,7 @@ import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
 import { createGetDashboardStateHandler } from '../../src/routes/getDashboardState.js';
 import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository, makeQueueItem } from '../helpers/index.js';
+import { apiJson, createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -48,7 +48,7 @@ describe('getDashboardState', () => {
 
   it('returns null for nextReviewAvailableAt regardless of pending items', async () => {
     logger = createMockLogger();
-    const items = [makeQueueItem({ id: 1 }), makeQueueItem({ id: 2 }), makeQueueItem({ id: 3 })];
+    const items = [generateQueueItemHydrationData({ id: 1 }), generateQueueItemHydrationData({ id: 2 }), generateQueueItemHydrationData({ id: 3 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
       {
@@ -88,7 +88,7 @@ describe('getDashboardState', () => {
 
   it('returns pendingItems as the array from getEffectiveOrder', async () => {
     logger = createMockLogger();
-    const items = [makeQueueItem({ id: 1 }), makeQueueItem({ id: 2, repo_full_name: 'a/b', pr_number: 99 })];
+    const items = [generateQueueItemHydrationData({ id: 1 }), generateQueueItemHydrationData({ id: 2, repo_full_name: 'a/b', pr_number: 99 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
       {
@@ -208,7 +208,10 @@ describe('getDashboardState', () => {
   it('returns 500 and logs error on countByType failure', async () => {
     const eventError = new Error('DB down');
     logger = createMockLogger();
-    startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([makeQueueItem()]) }, { countByType: jest.fn<any>().mockRejectedValue(eventError) });
+    startServer(
+      { getEffectiveOrder: jest.fn<any>().mockResolvedValue([generateQueueItemHydrationData()]) },
+      { countByType: jest.fn<any>().mockRejectedValue(eventError) },
+    );
 
     const res = await fetchResponse(port, '/api/dashboard-state');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
