@@ -5,7 +5,6 @@ import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
 import { apiJson, createMockQueueRepo, generateQueueItemHydrationData } from '../helpers/index.js';
 
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
@@ -14,7 +13,7 @@ import { StatusCodes } from 'http-status-codes';
 describe('getQueue', () => {
   let server: Server;
   let port: number;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
 
   afterEach(async () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -65,6 +64,6 @@ describe('getQueue', () => {
     const res = await fetchResponse(port, '/api/queue');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get queue' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getQueue', error: repoError }, 'Failed to get queue');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.getQueue', error: repoError }, 'Failed to get queue');
   });
 });

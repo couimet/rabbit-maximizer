@@ -30,7 +30,7 @@ const toExpectedItem = (row: ReturnType<typeof generateReviewQueueWithOrderHydra
 });
 
 describe('QueueOrderRepositoryImpl', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let frozenNow: Date;
 
   beforeEach(() => {

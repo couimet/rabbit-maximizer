@@ -3,7 +3,6 @@ import type { RepoFilter } from '../src/types/RepoFilter.js';
 import { validateGitHubToken } from '../src/validateGitHubToken.js';
 
 import { getUniqueGitHubRepoRef, getUniqueString } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Octokit } from '@octokit/rest';
@@ -26,7 +25,7 @@ const createMockOctokit = (): { octokit: Octokit; rest: MockOctokitRest } => {
 describe('validateGitHubToken', () => {
   let octokit: Octokit;
   let rest: MockOctokitRest;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let userLogin: string;
 
   beforeEach(() => {
@@ -49,8 +48,8 @@ describe('validateGitHubToken', () => {
 
       await validateGitHubToken({ octokit, repoFilter, log: logger });
 
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, login: userLogin }, 'GitHub token authenticated');
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 2 }, 'Resolved 2 repos from filter');
+      expect(logger.info).toHaveBeenCalledWith({ fn: FUNCTION_NAME, login: userLogin }, 'GitHub token authenticated');
+      expect(logger.info).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 2 }, 'Resolved 2 repos from filter');
     });
 
     it('expands user-scope wildcards via listForUser', async () => {
@@ -70,7 +69,7 @@ describe('validateGitHubToken', () => {
         sort: 'updated',
         type: 'owner',
       });
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 1 }, 'Resolved 1 repos from filter');
+      expect(logger.info).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 1 }, 'Resolved 1 repos from filter');
     });
 
     it('paginates listForUser when results span multiple pages', async () => {
@@ -85,7 +84,7 @@ describe('validateGitHubToken', () => {
       await validateGitHubToken({ octokit, repoFilter, log: logger });
 
       expect(rest.repos.listForUser).toHaveBeenCalledTimes(2);
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 150 }, 'Resolved 150 repos from filter');
+      expect(logger.info).toHaveBeenCalledWith({ fn: FUNCTION_NAME, repoCount: 150 }, 'Resolved 150 repos from filter');
     });
   });
 

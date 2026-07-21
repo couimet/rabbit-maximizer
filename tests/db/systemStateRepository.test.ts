@@ -10,7 +10,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
 describe('SystemStateRepositoryImpl', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
 
   beforeEach(() => {
     logger = createMockLogger();

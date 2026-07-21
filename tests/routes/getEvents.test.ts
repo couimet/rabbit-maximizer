@@ -5,7 +5,6 @@ import { fetchResponse } from '../helpers/fetchResponse.js';
 import { getJson } from '../helpers/getJson.js';
 import { apiJson, createMockEventRepo, generateEventLogEntryHydrationData } from '../helpers/index.js';
 
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
@@ -14,7 +13,7 @@ import { StatusCodes } from 'http-status-codes';
 describe('getEvents', () => {
   let server: Server;
   let port: number;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
 
   afterEach(async () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -70,6 +69,6 @@ describe('getEvents', () => {
     const res = await fetchResponse(port, '/api/events');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get events' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getEvents', error: repoError }, 'Failed to get events');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.getEvents', error: repoError }, 'Failed to get events');
   });
 });
