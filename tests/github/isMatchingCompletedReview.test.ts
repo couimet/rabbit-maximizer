@@ -1,5 +1,4 @@
-import { isMatchingCompletedReview } from '../../src/github/isMatchingCompletedReview.js';
-import { SubmittedReview } from '../../src/github/types/index.js';
+import { isMatchingCompletedReview, SubmittedReview } from '../../src/github/index.js';
 
 import { getUniqueDate } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';

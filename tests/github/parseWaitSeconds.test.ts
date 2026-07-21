@@ -1,4 +1,4 @@
-import { parseWaitSeconds } from '../../src/github/parseWaitSeconds.js';
+import { parseWaitSeconds } from '../../src/github/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

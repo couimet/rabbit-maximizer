@@ -1,4 +1,4 @@
-import { SubmittedComment } from '../../../src/github/types/SubmittedComment.js';
+import { SubmittedComment } from '../../../src/github/SubmittedComment.js';
 
 import { describe, expect, it } from '@jest/globals';
 

@@ -135,12 +135,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 <rule id="C012" priority="critical">
   <title>Cross-directory imports go through the target directory's barrel; barrels use explicit named exports only</title>
   <do>Import symbols through the target directory's barrel when importing across directory boundaries</do>
-  <do>Import directly from sibling files within the same directory</do>
+  <do>Import from the directory's own barrel (`./index.js`) for same-directory imports — the barrel consolidates sibling imports into a single source</do>
   <do>Use explicit named exports in every barrel file — every re-exported symbol is listed individually</do>
-  <never>Use `export *` in any barrel file — wildcard re-exports make the public API invisible</never>
+  <do>Use `export *` when a parent barrel forwards exports from a child barrel that itself uses explicit named exports — the child barrel IS the contract; the parent just carries it upstream</do>
+  <never>Use `export *` in any barrel file — except for parent-to-child-barrel forwarding as described above</never>
+  <never>Use `export *` from a non-barrel source file — only barrel files may be wildcard-forwarded</never>
   <never>Use `export *` from an external package — named re-exports from external packages are allowed</never>
   <never>Import a symbol from across a directory boundary without going through that directory's barrel</never>
-  <rationale>Each directory's barrel is its public API contract. Explicit named exports make the contract visible and intentional — adding a file to a directory does not silently expose it to the rest of the codebase. Cross-directory imports through barrels prepare for #201 (removing redundant folder segments from import paths). The `export *` from external packages restriction prevents accidental wholesale re-exposure of third-party APIs.</rationale>
+  <rationale>Each directory's barrel is its public API contract. Explicit named exports make the contract visible and intentional — adding a file to a directory does not silently expose it to the rest of the codebase. Same-directory imports through the barrel keep imports consolidated and consistent; ESM live bindings handle the circular reference between the barrel and its source files safely. Parent-to-child-barrel forwarding is the exception for `export *`: the child barrel already defines an explicit contract, and the parent merely re-exposes it; requiring every parent to re-list every child export duplicates the contract without adding safety. Cross-directory imports through barrels prepare for #201 (removing redundant folder segments from import paths). The `export *` from external packages restriction prevents accidental wholesale re-exposure of third-party APIs.</rationale>
 </rule>
 
 <rule id="T001" priority="critical">

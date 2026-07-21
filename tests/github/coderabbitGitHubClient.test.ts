@@ -1,5 +1,5 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/coderabbitGitHubClient.js';
+import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/index.js';
 import { TYPES } from '../../src/inversify-types.js';
 import { TriggerSource } from '../../src/types/index.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
