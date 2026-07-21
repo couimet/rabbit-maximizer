@@ -133,12 +133,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 </rule>
 
 <rule id="C012" priority="critical">
-  <title>Every import comes from the source file or a same-directory barrel</title>
-  <do>Import symbols from the file that defines them, or from a same-directory barrel file that only re-exports its sibling files</do>
-  <do>Use barrel files to aggregate exports within a single directory, providing a shorter import path for consumers</do>
-  <never>Re-export a symbol from one directory or package through a barrel file in a different directory (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
-  <never>Import a symbol through a barrel that lives outside the symbol's defining directory</never>
-  <rationale>Cross-directory re-exports create invisible coupling, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Same-directory barrels are fine — they act as namespace indexes for their own directory's exports, reduce import path verbosity, and make future linting rules (removing redundant folder segments) possible.</rationale>
+  <title>Cross-directory imports go through the target directory's barrel; barrels use explicit named exports only</title>
+  <do>Import symbols through the target directory's barrel when importing across directory boundaries</do>
+  <do>Import directly from sibling files within the same directory</do>
+  <do>Use explicit named exports in every barrel file — every re-exported symbol is listed individually</do>
+  <never>Use `export *` in any barrel file — wildcard re-exports make the public API invisible</never>
+  <never>Use `export *` from an external package — named re-exports from external packages are allowed</never>
+  <never>Import a symbol from across a directory boundary without going through that directory's barrel</never>
+  <rationale>Each directory's barrel is its public API contract. Explicit named exports make the contract visible and intentional — adding a file to a directory does not silently expose it to the rest of the codebase. Cross-directory imports through barrels prepare for #201 (removing redundant folder segments from import paths). The `export *` from external packages restriction prevents accidental wholesale re-exposure of third-party APIs.</rationale>
 </rule>
 
 <rule id="T001" priority="critical">
