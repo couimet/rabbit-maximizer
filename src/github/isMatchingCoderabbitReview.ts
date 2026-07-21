@@ -1,12 +1,7 @@
 import { REVIEW_BOT_LOGIN } from '../types/coderabbit.js';
 
+import { SubmittedReview } from './types/index.js';
 import { hasKnownReviewState } from './toReviewState.js';
 
-export interface CoderabbitReviewCandidate {
-  readonly user?: { readonly login?: string } | null;
-  readonly submitted_at?: string | null;
-  readonly state?: string;
-}
-
-export const isMatchingCoderabbitReview = (review: CoderabbitReviewCandidate, since: Date): boolean =>
-  review.user?.login === REVIEW_BOT_LOGIN && review.submitted_at != null && new Date(review.submitted_at) > since && hasKnownReviewState(review.state ?? '');
+export const isMatchingCoderabbitReview = (review: SubmittedReview, since: Date): boolean =>
+  review.userLogin === REVIEW_BOT_LOGIN && review.submittedAt !== undefined && new Date(review.submittedAt) > since && hasKnownReviewState(review.state ?? '');
