@@ -1,4 +1,4 @@
-import { buildOpenPRSearchQuery } from '../../src/github/buildOpenPRSearchQuery.js';
+import { buildOpenPRSearchQuery } from '../../src/github/index.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
 
 import { describe, expect, it } from '@jest/globals';

@@ -1,4 +1,4 @@
-import { isPRClosedWithoutMerge, isPRMerged } from '../../src/github/prStateUtils.js';
+import { isPRClosedWithoutMerge, isPRMerged } from '../../src/github/index.js';
 import type { PRState } from '../../src/types/PRState.js';
 
 import { describe, expect, it } from '@jest/globals';

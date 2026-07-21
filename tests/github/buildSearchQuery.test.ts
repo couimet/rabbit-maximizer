@@ -1,4 +1,4 @@
-import { buildSearchQuery } from '../../src/github/buildSearchQuery.js';
+import { buildSearchQuery } from '../../src/github/index.js';
 import type { RepoFilter } from '../../src/types/RepoFilter.js';
 
 import { describe, expect, it } from '@jest/globals';

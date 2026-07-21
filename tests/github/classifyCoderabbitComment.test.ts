@@ -1,4 +1,4 @@
-import { classifyCoderabbitComment } from '../../src/github/classifyCoderabbitComment.js';
+import { classifyCoderabbitComment } from '../../src/github/index.js';
 
 import { getRandomString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';

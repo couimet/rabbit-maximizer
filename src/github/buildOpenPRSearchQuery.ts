@@ -1,6 +1,6 @@
 import type { RepoFilter } from '../types/RepoFilter.js';
 
-import { buildRepoQualifierClause } from './buildRepoQualifierClause.js';
+import { buildRepoQualifierClause } from './index.js';
 
 /**
  * Build a GitHub issue search query for open PRs in monitored repos.

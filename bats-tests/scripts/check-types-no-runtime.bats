@@ -2,6 +2,13 @@
 
 load test_helper
 
+setup() {
+  cd "$BATS_TEST_TMPDIR" || return
+  [ -d src ] && chmod -R 755 src 2>/dev/null || true
+  [ -d tests ] && chmod -R 755 tests 2>/dev/null || true
+  rm -rf prisma src tests
+}
+
 @test "passes when types/ files only have export interface and export type" {
   mkdir -p src/types
   echo "export interface Foo { bar: string }" > src/types/foo.ts
@@ -98,4 +105,39 @@ load test_helper
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"No types/ files found"* ]]
+}
+
+@test "fails when a types/ file has a bare value re-export" {
+  mkdir -p src/types
+  echo "export { Foo } from './foo.js';" > src/types/re-export.ts
+
+  run bash "$SCRIPT_DIR/check-types-no-runtime.sh"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"ERROR: Runtime exports found"* ]]
+  [[ "$output" == *"export { Foo }"* ]]
+}
+
+@test "fails when a types/ file has a mixed re-export with runtime and type symbols" {
+  mkdir -p src/types
+  echo "export { Foo, type Bar } from './foo.js';" > src/types/re-export.ts
+
+  run bash "$SCRIPT_DIR/check-types-no-runtime.sh"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"ERROR: Runtime exports found"* ]]
+  [[ "$output" == *"export { Foo, type Bar }"* ]]
+}
+
+@test "fails on find error with non-zero exit" {
+  mkdir -p src/types
+  mkdir -p tests
+  chmod 000 src
+
+  run bash "$SCRIPT_DIR/check-types-no-runtime.sh"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"ERROR"* ]]
+
+  chmod 755 src
 }

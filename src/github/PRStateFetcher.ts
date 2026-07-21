@@ -1,7 +1,7 @@
 import { TYPES } from '../inversify-types.js';
 import type { PRState } from '../types/PRState.js';
 
-import type { CoderabbitGitHubClient } from './coderabbitGitHubClient.js';
+import type { CoderabbitGitHubClient } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';

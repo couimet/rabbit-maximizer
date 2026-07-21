@@ -1,5 +1,4 @@
-import { isMatchingCoderabbitReview } from '../../src/github/isMatchingCoderabbitReview.js';
-import { SubmittedReview } from '../../src/github/types/index.js';
+import { isMatchingCoderabbitReview, SubmittedReview } from '../../src/github/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 
