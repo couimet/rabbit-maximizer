@@ -171,8 +171,16 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
     columns: readonly C[],
     tx?: Prisma.TransactionClient,
   ): Promise<{ [K in C]: Map<number, PullRequestColumnTypes[K]> }> {
-    if (ids.length === 0 || columns.length === 0) {
+    if (columns.length === 0) {
       return {} as { [K in C]: Map<number, PullRequestColumnTypes[K]> };
+    }
+
+    if (ids.length === 0) {
+      const result = {} as { [K in C]: Map<number, PullRequestColumnTypes[K]> };
+      for (const col of columns) {
+        (result as Record<string, unknown>)[col as string] = new Map();
+      }
+      return result;
     }
 
     const select = { id: true } as Record<string, boolean>;

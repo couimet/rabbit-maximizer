@@ -1,4 +1,4 @@
-import { getPrStateFromGitHubValue, PrState } from '../../src/PrState.js';
+import { getPrStateFromGitHubValue, PrState } from '../../src/domain.js';
 
 import { describe, expect, it } from '@jest/globals';
 

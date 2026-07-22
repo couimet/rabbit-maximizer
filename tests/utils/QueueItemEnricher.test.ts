@@ -1,3 +1,4 @@
+import { PrState } from '../../src/domain.js';
 import { QueueItemEnricher } from '../../src/utils/QueueItemEnricher.js';
 import { createMockPullRequestRepo, generateQueueItemHydrationData } from '../helpers/index.js';
 
@@ -23,6 +24,8 @@ describe('QueueItemEnricher', () => {
 
     expect(result).toStrictEqual([]);
     expect(pullRequests.getColumnMaps).not.toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
   });
 
   it('enriches items with pr_state from repository', async () => {
@@ -36,6 +39,8 @@ describe('QueueItemEnricher', () => {
 
     expect(result).toStrictEqual([{ ...item, pr_state: 'merged', last_coderabbit_acknowledged_at: undefined }]);
     expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_acknowledged_at']);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
   });
 
   it('enriches items with last_coderabbit_acknowledged_at from repository', async () => {
@@ -49,6 +54,8 @@ describe('QueueItemEnricher', () => {
     const result = await enricher.enrich([item]);
 
     expect(result).toStrictEqual([{ ...item, last_coderabbit_acknowledged_at: acknowledgedAt }]);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
   });
 
   it('converts null last_coderabbit_acknowledged_at to undefined', async () => {
@@ -61,6 +68,8 @@ describe('QueueItemEnricher', () => {
     const result = await enricher.enrich([item]);
 
     expect(result).toStrictEqual([{ ...item, last_coderabbit_acknowledged_at: undefined }]);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
   });
 
   it('keeps placeholder pr_state when not found in map', async () => {
@@ -73,12 +82,14 @@ describe('QueueItemEnricher', () => {
     const result = await enricher.enrich([item]);
 
     expect(result).toStrictEqual([{ ...item, last_coderabbit_acknowledged_at: undefined }]);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
   });
 
   it('deduplicates pull_request_ids across items', async () => {
     const sharedId = getUniqueInt();
-    const item1 = generateQueueItemHydrationData({ pull_request_id: sharedId, pr_state: 'open' });
-    const item2 = generateQueueItemHydrationData({ pull_request_id: sharedId, pr_state: 'open' });
+    const item1 = generateQueueItemHydrationData({ pull_request_id: sharedId, pr_state: PrState.open });
+    const item2 = generateQueueItemHydrationData({ pull_request_id: sharedId, pr_state: PrState.open });
     (pullRequests.getColumnMaps as any).mockResolvedValue({
       pr_state: new Map([[sharedId, 'merged']]),
       last_coderabbit_acknowledged_at: new Map(),
@@ -91,6 +102,8 @@ describe('QueueItemEnricher', () => {
       { ...item1, pr_state: 'merged', last_coderabbit_acknowledged_at: undefined },
       { ...item2, pr_state: 'merged', last_coderabbit_acknowledged_at: undefined },
     ]);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
   });
 
   it('calls getColumnMaps with unique ids', async () => {
@@ -98,6 +111,8 @@ describe('QueueItemEnricher', () => {
     await enricher.enrich([item]);
 
     expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_acknowledged_at']);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
   });
 
   it('filters out null pull_request_id before calling getColumnMaps', async () => {
@@ -114,17 +129,8 @@ describe('QueueItemEnricher', () => {
     expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([validId], ['pr_state', 'last_coderabbit_acknowledged_at']);
     expect(result[0].pr_state).toBeUndefined();
     expect(result[1].pr_state).toBe('merged');
-  });
-
-  it('logs WARN with nullCount when null pull_request_id values are encountered', async () => {
-    const validId = getUniqueInt();
-    const itemWithNull = generateQueueItemHydrationData({ pull_request_id: null as unknown as number });
-    const itemWithId = generateQueueItemHydrationData({ pull_request_id: validId });
-
-    await enricher.enrich([itemWithNull, itemWithNull, itemWithId]);
-
     expect(logger.warn).toHaveBeenCalledWith(
-      { fn: 'QueueItemEnricher.enrich', nullCount: 2, totalItemCount: 3 },
+      { fn: 'QueueItemEnricher.enrich', nullCount: 1, totalItemCount: 2 },
       'Skipping enrichment for items with null pull_request_id',
     );
   });
@@ -137,6 +143,10 @@ describe('QueueItemEnricher', () => {
 
     expect(pullRequests.getColumnMaps).not.toHaveBeenCalled();
     expect(result).toStrictEqual([item1, item2]);
+    expect(logger.warn).toHaveBeenCalledWith(
+      { fn: 'QueueItemEnricher.enrich', nullCount: 2, totalItemCount: 2 },
+      'Skipping enrichment for items with null pull_request_id',
+    );
     expect(logger.debug).toHaveBeenCalledWith(
       { fn: 'QueueItemEnricher.enrich', itemCount: 2 },
       'All items have null pull_request_id; enrichment skipped entirely',

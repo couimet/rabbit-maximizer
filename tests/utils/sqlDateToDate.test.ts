@@ -1,4 +1,4 @@
-import { sqlDateToDate } from '../../src/utils/sqlDateToDate.js';
+import { sqlDateToDate } from '../../src/utils/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

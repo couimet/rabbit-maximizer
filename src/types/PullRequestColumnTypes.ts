@@ -1,3 +1,5 @@
+import type { PrState } from '../domain.js';
+
 /** Maps `pull_request` column names to their TypeScript types. Used by {@link PullRequestRepository.getColumnMaps} to enforce type-safe column selection. */
 export interface PullRequestColumnTypes {
   id: number;
@@ -5,7 +7,7 @@ export interface PullRequestColumnTypes {
   pr_number: number;
   title: string;
   author_login: string;
-  pr_state: string;
+  pr_state: PrState;
   last_coderabbit_acknowledged_at: Date | null;
   last_review_requested_at: Date | null;
   last_review_limit_at: Date | null;

@@ -435,7 +435,7 @@ describe('PullRequestRepositoryImpl', () => {
 
       const result = await sut.getColumnMaps([], ['pr_state']);
 
-      expect(result).toStrictEqual({});
+      expect(result).toStrictEqual({ pr_state: new Map() });
     });
 
     it('returns empty result when columns array is empty', async () => {
@@ -448,46 +448,58 @@ describe('PullRequestRepositoryImpl', () => {
     });
 
     it('returns a map per column populated from the database rows', async () => {
+      const id1 = getUniqueInt();
+      const id2 = getUniqueInt();
       const rows = [
-        { id: 10, pr_state: 'open' },
-        { id: 20, pr_state: 'merged' },
+        { id: id1, pr_state: 'open' },
+        { id: id2, pr_state: 'merged' },
       ];
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.getColumnMaps([10, 20], ['pr_state']);
+      const result = await sut.getColumnMaps([id1, id2], ['pr_state']);
 
+      expect(prisma.pullRequest.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [id1, id2] } },
+        select: { id: true, pr_state: true },
+      });
       expect(result).toStrictEqual({
         pr_state: new Map([
-          [10, 'open'],
-          [20, 'merged'],
+          [id1, 'open'],
+          [id2, 'merged'],
         ]),
       });
     });
 
     it('handles multiple ids and multiple columns', async () => {
-      const acknowledgedAt = new Date();
+      const id1 = getUniqueInt();
+      const id2 = getUniqueInt();
+      const acknowledgedAt = getUniqueDate();
       const rows = [
-        { id: 10, pr_state: 'open', last_coderabbit_acknowledged_at: acknowledgedAt },
-        { id: 20, pr_state: 'merged', last_coderabbit_acknowledged_at: null },
+        { id: id1, pr_state: 'open', last_coderabbit_acknowledged_at: acknowledgedAt },
+        { id: id2, pr_state: 'merged', last_coderabbit_acknowledged_at: null },
       ];
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.getColumnMaps([10, 20], ['pr_state', 'last_coderabbit_acknowledged_at']);
+      const result = await sut.getColumnMaps([id1, id2], ['pr_state', 'last_coderabbit_acknowledged_at']);
 
+      expect(prisma.pullRequest.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [id1, id2] } },
+        select: { id: true, pr_state: true, last_coderabbit_acknowledged_at: true },
+      });
       expect(result).toStrictEqual({
         pr_state: new Map([
-          [10, 'open'],
-          [20, 'merged'],
+          [id1, 'open'],
+          [id2, 'merged'],
         ]),
         last_coderabbit_acknowledged_at: new Map([
-          [10, acknowledgedAt],
-          [20, null],
+          [id1, acknowledgedAt],
+          [id2, null],
         ]),
       });
     });

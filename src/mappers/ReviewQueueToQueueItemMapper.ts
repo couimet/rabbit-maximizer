@@ -27,6 +27,7 @@ export class ReviewQueueToQueueItemMapper {
       retriggered_at: sqlDateToDate(row.retriggered_at),
       failed_at: sqlDateToDate(row.failed_at),
       reviewed_at: sqlDateToDate(row.reviewed_at),
+      // TODO[2026-08-22]: #79 - remove ! once pull_request_id backfill is complete
       pull_request_id: row.pull_request_id!,
       created_at: row.created_at,
       updated_at: row.updated_at,

@@ -1,14 +1,15 @@
-import { nullableDateToISOString } from '../../src/utils/nullableDateToISOString.js';
+import { nullableDateToISOString } from '../../src/utils/index.js';
 
+import { getUniqueDate } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 
 describe('nullableDateToISOString', () => {
   it('returns ISO string for a valid date', () => {
-    const date = new Date('2026-07-21T01:48:19.888Z');
+    const date = getUniqueDate();
 
     const result = nullableDateToISOString(date);
 
-    expect(result).toBe('2026-07-21T01:48:19.888Z');
+    expect(result).toBe(date.toISOString());
   });
 
   it('returns null for undefined', () => {

@@ -227,8 +227,11 @@ export interface components {
       repo_full_name: string;
       pr_number: number;
       pr_title: string;
-      /** @description PR state from GitHub (open, merged, closed) */
-      pr_state?: string | null;
+      /**
+       * @description PR state from GitHub (open, merged, closed)
+       * @enum {string|null}
+       */
+      pr_state?: 'open' | 'merged' | 'closed' | null;
       status: components['schemas']['QueueStatus'];
       attempts: number;
       source_comment_url?: string;

@@ -1,8 +1,8 @@
-import { QueueStatus, TriggerSource } from '../../src/domain.js';
+import { PrState, QueueStatus, TriggerSource } from '../../src/domain.js';
 import { QueueItemMapper } from '../../src/mappers/index.js';
 import { buildCommentUrl, createMockQueueItemMapper, generateQueueItemHydrationData } from '../helpers/index.js';
 
-import { getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('QueueItemMapper', () => {
@@ -82,6 +82,18 @@ describe('QueueItemMapper', () => {
       const result = mapper.mapToQueueItemResponse(input);
 
       expect(result.retrigger_comment_url).toBeNull();
+    });
+
+    it('preserves pr_state and last_coderabbit_acknowledged_at', () => {
+      const acknowledgedAt = getUniqueDate();
+      const input = generateQueueItemHydrationData({
+        pr_state: PrState.merged,
+        last_coderabbit_acknowledged_at: acknowledgedAt,
+      });
+      const result = mapper.mapToQueueItemResponse(input);
+
+      expect(result.pr_state).toBe('merged');
+      expect(result.last_coderabbit_acknowledged_at).toBe(acknowledgedAt.toISOString());
     });
   });
 

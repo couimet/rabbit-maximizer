@@ -1,6 +1,7 @@
-import type { PullRequestRepository } from '../db/pullRequestRepository.js';
+import type { PullRequestRepository } from '../db/index.js';
+import type { PrState } from '../domain.js';
 import { TYPES } from '../inversify-types.js';
-import type { QueueItem } from '../types/QueueItem.js';
+import type { QueueItem } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -43,7 +44,7 @@ export class QueueItemEnricher {
       if (pid == null) {
         return item;
       }
-      const prState = prStateMap.get(pid) ?? item.pr_state;
+      const prState = (prStateMap.get(pid) as PrState | undefined) ?? item.pr_state;
       const ackLookup = ackMap.get(pid);
       const ackValue: Date | undefined = ackLookup !== undefined ? (ackLookup ?? undefined) : item.last_coderabbit_acknowledged_at;
       return { ...item, pr_state: prState, last_coderabbit_acknowledged_at: ackValue };

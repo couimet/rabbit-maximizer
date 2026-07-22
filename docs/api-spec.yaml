@@ -397,6 +397,7 @@ components:
           type: string
           nullable: true
           description: PR state from GitHub (open, merged, closed)
+          enum: [open, merged, closed]
         status:
           $ref: '#/components/schemas/QueueStatus'
         attempts:
