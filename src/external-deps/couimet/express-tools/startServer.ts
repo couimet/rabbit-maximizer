@@ -33,7 +33,7 @@ export const startServer = (app: Application, port: number): Promise<StartServer
     try {
       server.listen(port);
     } catch (err: unknown) {
-      const originalCode = typeof err === 'object' && err !== null && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+      const originalCode = (err as NodeJS.ErrnoException).code;
 
       reject(
         new DetailedError({
