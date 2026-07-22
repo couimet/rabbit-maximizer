@@ -1,4 +1,4 @@
-import type { CoderabbitGitHubClient } from '../../src/github/coderabbitGitHubClient.js';
+import type { CoderabbitGitHubClient } from '../../src/github/index.js';
 
 import { jest } from '@jest/globals';
 

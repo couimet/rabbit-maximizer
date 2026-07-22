@@ -5,5 +5,3 @@ export type { FetchCommentResult } from './FetchCommentResult.js';
 export type { ListedComment } from './ListedComment.js';
 export type { RateLimitInfo } from './RateLimitInfo.js';
 export type { RetriggerComment } from './RetriggerComment.js';
-export { SubmittedComment } from './SubmittedComment.js';
-export { SubmittedReview } from './SubmittedReview.js';

@@ -1,5 +1,5 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { buildCommentBody } from '../../src/github/buildCommentBody.js';
+import { buildCommentBody } from '../../src/github/index.js';
 import { TriggerSource } from '../../src/types/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';

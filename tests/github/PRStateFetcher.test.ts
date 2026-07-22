@@ -1,5 +1,4 @@
-import type { CoderabbitGitHubClient } from '../../src/github/coderabbitGitHubClient.js';
-import { PRStateFetcherImpl } from '../../src/github/PRStateFetcher.js';
+import { type CoderabbitGitHubClient, PRStateFetcherImpl } from '../../src/github/index.js';
 import type { PRState } from '../../src/types/PRState.js';
 import { createMockCoderabbitGitHubClient } from '../helpers/index.js';
 

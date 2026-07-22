@@ -1,4 +1,4 @@
-import { toReviewState } from '../../src/github/toReviewState.js';
+import { toReviewState } from '../../src/github/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 
