@@ -1,4 +1,4 @@
-import { TYPES } from '../domain.js';
+import { PrState, TYPES } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
 import type { PendingAcknowledgement, PullRequestColumnTypes, UpsertPullRequestData } from '../types/index.js';
 
@@ -21,7 +21,7 @@ const FIND_PENDING_ACKNOWLEDGEMENT_SQL = `
 export interface PullRequestRepository {
   upsert(repoFullName: string, prNumber: number, data: UpsertPullRequestData, tx?: Prisma.TransactionClient): Promise<{ id: number; created: boolean }>;
   findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<{ id: number } | null>;
-  findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
+  findByPrState(prState: PrState, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
   findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
   getColumnMaps<C extends keyof PullRequestColumnTypes>(
     ids: number[],
@@ -157,7 +157,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
   }
 
   // eslint-disable-next-line require-await
-  async findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>> {
+  async findByPrState(prState: PrState, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>> {
     return this.enforceTx(tx, (db) =>
       db.pullRequest.findMany({
         where: { pr_state: prState },
