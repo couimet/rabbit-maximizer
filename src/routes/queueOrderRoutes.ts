@@ -15,7 +15,7 @@ export const createGetQueueOrderHandler = (queueOrderRepo: QueueOrderRepository,
   return async (_req: Request, res: Response): Promise<void> => {
     try {
       const items = await queueOrderRepo.getEffectiveOrder();
-      const data = queueItemMapper.mapToQueueItemResponseList(items);
+      const data = await queueItemMapper.mapToQueueItemResponseList(items);
       res.json({ data });
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.get', error }, 'Failed to get queue order');
@@ -52,7 +52,7 @@ export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository
       }
 
       const updatedOrder = await queueOrderRepo.moveItems(queueItemUuids, direction);
-      const data = queueItemMapper.mapToQueueItemResponseList(updatedOrder);
+      const data = await queueItemMapper.mapToQueueItemResponseList(updatedOrder);
 
       res.json({ data });
     } catch (error) {

@@ -101,7 +101,7 @@ describe('buildCommentBody', () => {
     const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
     const invoke = () => buildCommentBody(triggerUrl, runId, 'bogus' as TriggerSource);
 
-    expect(invoke).toThrowDetailedError('UNEXPECTED_CODE_PATH', {
+    expect(invoke).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
       message: 'Unexpected triggerSource: "bogus"',
       functionName: 'buildCommentBody',
       details: { unexpectedValue: 'bogus' },

@@ -1,12 +1,16 @@
 import { QueueStatus, TriggerSource } from '../../src/domain.js';
 import { QueueItemMapper } from '../../src/mappers/index.js';
-import { buildCommentUrl, generateQueueItemHydrationData } from '../helpers/index.js';
+import { buildCommentUrl, createMockQueueItemMapper, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
-import { describe, expect, it } from '@jest/globals';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('QueueItemMapper', () => {
-  const mapper = new QueueItemMapper();
+  let mapper: QueueItemMapper;
+
+  beforeEach(() => {
+    mapper = createMockQueueItemMapper();
+  });
 
   describe('mapToQueueItemResponse', () => {
     it('maps all scalar fields', () => {
@@ -64,35 +68,35 @@ describe('QueueItemMapper', () => {
       expect(Object.keys(result)).not.toContain('source_comment_id');
     });
 
-    it('returns undefined for optional Date fields when absent', () => {
+    it('returns null for optional Date fields when absent', () => {
       const input = generateQueueItemHydrationData();
       const result = mapper.mapToQueueItemResponse(input);
 
-      expect(result.retriggered_at).toBeUndefined();
-      expect(result.failed_at).toBeUndefined();
-      expect(result.reviewed_at).toBeUndefined();
+      expect(result.retriggered_at).toBeNull();
+      expect(result.failed_at).toBeNull();
+      expect(result.reviewed_at).toBeNull();
     });
 
-    it('returns undefined for retrigger_comment_url when absent', () => {
+    it('returns null for retrigger_comment_url when absent', () => {
       const input = generateQueueItemHydrationData();
       const result = mapper.mapToQueueItemResponse(input);
 
-      expect(result.retrigger_comment_url).toBeUndefined();
+      expect(result.retrigger_comment_url).toBeNull();
     });
   });
 
   describe('mapToQueueItemResponseList', () => {
-    it('maps all items through mapToQueueItemResponse', () => {
+    it('maps all items through mapToQueueItemResponse', async () => {
       const items = [generateQueueItemHydrationData(), generateQueueItemHydrationData()];
-      const result = mapper.mapToQueueItemResponseList(items);
+      const result = await mapper.mapToQueueItemResponseList(items);
 
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe(items[0].id);
       expect(result[1].id).toBe(items[1].id);
     });
 
-    it('returns empty array for empty input', () => {
-      expect(mapper.mapToQueueItemResponseList([])).toStrictEqual([]);
+    it('returns empty array for empty input', async () => {
+      expect(await mapper.mapToQueueItemResponseList([])).toStrictEqual([]);
     });
   });
 });

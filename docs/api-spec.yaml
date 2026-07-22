@@ -393,6 +393,10 @@ components:
           type: integer
         pr_title:
           type: string
+        pr_state:
+          type: string
+          nullable: true
+          description: PR state from GitHub (open, merged, closed)
         status:
           $ref: '#/components/schemas/QueueStatus'
         attempts:

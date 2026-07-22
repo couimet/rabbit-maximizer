@@ -427,17 +427,26 @@ describe('PullRequestRepositoryImpl', () => {
     });
   });
 
-  describe('getPrStateMap', () => {
-    it('returns empty map when ids is empty', async () => {
+  describe('getColumnMaps', () => {
+    it('returns empty result when ids array is empty', async () => {
       const { prisma } = createMockPrismaClient();
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.getPrStateMap([]);
+      const result = await sut.getColumnMaps([], ['pr_state']);
 
-      expect(result).toStrictEqual(new Map());
+      expect(result).toStrictEqual({});
     });
 
-    it('returns map with pr_state values', async () => {
+    it('returns empty result when columns array is empty', async () => {
+      const { prisma } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.getColumnMaps([1], []);
+
+      expect(result).toStrictEqual({});
+    });
+
+    it('returns a map per column populated from the database rows', async () => {
       const rows = [
         { id: 10, pr_state: 'open' },
         { id: 20, pr_state: 'merged' },
@@ -447,46 +456,39 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.getPrStateMap([10, 20]);
+      const result = await sut.getColumnMaps([10, 20], ['pr_state']);
 
-      expect(result).toStrictEqual(
-        new Map([
+      expect(result).toStrictEqual({
+        pr_state: new Map([
           [10, 'open'],
           [20, 'merged'],
         ]),
-      );
-    });
-  });
-
-  describe('getAcknowledgedAtMap', () => {
-    it('returns empty map when ids is empty', async () => {
-      const { prisma } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
-
-      const result = await sut.getAcknowledgedAtMap([]);
-
-      expect(result).toStrictEqual(new Map());
+      });
     });
 
-    it('returns map with acknowledged_at values including null', async () => {
+    it('handles multiple ids and multiple columns', async () => {
       const acknowledgedAt = new Date();
       const rows = [
-        { id: 10, last_coderabbit_acknowledged_at: acknowledgedAt },
-        { id: 20, last_coderabbit_acknowledged_at: null },
+        { id: 10, pr_state: 'open', last_coderabbit_acknowledged_at: acknowledgedAt },
+        { id: 20, pr_state: 'merged', last_coderabbit_acknowledged_at: null },
       ];
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.getAcknowledgedAtMap([10, 20]);
+      const result = await sut.getColumnMaps([10, 20], ['pr_state', 'last_coderabbit_acknowledged_at']);
 
-      expect(result).toStrictEqual(
-        new Map([
-          [10, acknowledgedAt],
-          [20, undefined],
+      expect(result).toStrictEqual({
+        pr_state: new Map([
+          [10, 'open'],
+          [20, 'merged'],
         ]),
-      );
+        last_coderabbit_acknowledged_at: new Map([
+          [10, acknowledgedAt],
+          [20, null],
+        ]),
+      });
     });
   });
 

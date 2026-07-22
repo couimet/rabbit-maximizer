@@ -25,7 +25,8 @@ export const createGetSummaryHandler = (
       ]);
 
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
-      const mappedPending = oldestPending ? queueItemMapper.mapToQueueItemResponse(oldestPending) : null;
+      const [enrichedPending] = oldestPending ? await queueItemMapper.mapToQueueItemResponseList([oldestPending]) : [];
+      const mappedPending = enrichedPending ?? null;
 
       const response: SummaryResponse = { queueCounts, eventCounts: activeEventCounts, oldestPending: mappedPending };
       res.json(response);

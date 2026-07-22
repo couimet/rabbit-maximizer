@@ -1,12 +1,11 @@
 import { ObservationContext } from '../../src/observability/index.js';
 import { EnqueueProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
-import { createMockEventRepo, generateObservationContextHydrationData } from '../helpers/index.js';
+import { createMockEventRepo, generateObservationContextHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { Prisma } from '@prisma/client';
 
 describe('EnqueueProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
@@ -19,33 +18,34 @@ describe('EnqueueProbe', () => {
     observation = generateObservationContextHydrationData();
   });
 
-  const createProbe = (tx: Prisma.TransactionClient) => new EnqueueProbe(events, observation, tx, logger);
+  const createProbe = (tx: ReturnType<typeof createMockTx>) => new EnqueueProbe(events, observation, tx, logger);
 
   describe('recentlyRetriggered', () => {
     it('logs debug when PR was recently retriggered', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const probe = createProbe(createMockTx());
-      probe.recentlyRetriggered(repo, pr);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EnqueueProbe.recentlyRetriggered', repo, pr }, 'PR was recently retriggered; skipping');
+      probe.recentlyRetriggered(ref.repoFullName, ref.prNumber);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'EnqueueProbe.recentlyRetriggered', repo: ref.repoFullName, pr: ref.prNumber },
+        'PR was recently retriggered; skipping',
+      );
     });
   });
 
   describe('enqueued', () => {
     const eventUuid = getUuid();
     it('records enqueued event and logs info with event uuid', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const newWait = getUniqueInt();
       const tx = createMockTx();
       const probe = createProbe(tx);
       (events.record as jest.Mock<any>).mockResolvedValue({ uuid: eventUuid });
-      await probe.enqueued({ repo, pr, newWait: newWait });
+      await probe.enqueued({ repo: ref.repoFullName, pr: ref.prNumber, newWait: newWait });
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'enqueued',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
@@ -53,18 +53,23 @@ describe('EnqueueProbe', () => {
         },
         tx,
       );
-      expect(logger.info).toHaveBeenCalledWith({ fn: 'EnqueueProbe.enqueued', repo, pr, eventUuid: eventUuid }, 'Queue item enqueued');
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'EnqueueProbe.enqueued', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: eventUuid },
+        'Queue item enqueued',
+      );
     });
   });
 
   describe('alreadyQueued', () => {
     it('logs debug when PR is already queued', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const status = getUniqueString({ prefix: 'status-' });
+      const ref = generateReviewRef();
+      const statusValue = getUniqueString({ prefix: 'status-' });
       const probe = createProbe(createMockTx());
-      probe.alreadyQueued(repo, pr, status);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EnqueueProbe.alreadyQueued', repo, pr, status: status }, 'Already queued; returning existing row');
+      probe.alreadyQueued(ref.repoFullName, ref.prNumber, statusValue);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'EnqueueProbe.alreadyQueued', repo: ref.repoFullName, pr: ref.prNumber, status: statusValue },
+        'Already queued; returning existing row',
+      );
     });
   });
 });

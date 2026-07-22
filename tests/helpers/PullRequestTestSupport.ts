@@ -1,4 +1,4 @@
-import { PR_STATE } from '../../src/PrStateValue.js';
+import { PrState } from '../../src/domain.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
 
@@ -18,7 +18,7 @@ export const generatePullRequestHydrationData = (overrideValues?: Partial<PullRe
     pr_number: ref.prNumber,
     title: getUniqueString({ prefix: 'pr-title-' }),
     author_login: getUniqueString({ prefix: 'author-' }),
-    pr_state: getRandomEnumValue(PR_STATE),
+    pr_state: getRandomEnumValue(PrState),
     first_seen_at: getUniqueDate(),
     first_review_limit_at: getUniqueDate(),
     last_review_limit_at: getUniqueDate(),

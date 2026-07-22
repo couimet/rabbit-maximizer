@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@couimet/detailed-error':
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^1.0.0
+        version: 1.0.0
       '@couimet/detailed-result':
         specifier: ^0.1.1
-        version: 0.1.1(@couimet/detailed-error@0.2.0)
+        version: 0.1.1(@couimet/detailed-error@1.0.0)
       '@couimet/logger-contract':
         specifier: ^1.0.0
         version: 1.0.0
@@ -83,10 +83,10 @@ importers:
     devDependencies:
       '@couimet/detailed-error-testing':
         specifier: ^0.1.5
-        version: 0.1.5(@couimet/detailed-error@0.2.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
+        version: 0.1.5(@couimet/detailed-error@1.0.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
       '@couimet/dynamic-testing':
         specifier: ^0.4.0
-        version: 0.4.0(@couimet/detailed-error@0.2.0)(decimal.js@10.6.0)
+        version: 0.4.0(@couimet/detailed-error@1.0.0)(decimal.js@10.6.0)
       '@couimet/eslint-config':
         specifier: ^0.6.0
         version: 0.6.0(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-prettier@5.5.6(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(prettier@3.8.4))(eslint-plugin-simple-import-sort@13.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unicorn@70.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(globals@17.7.0)(prettier@3.8.4)
@@ -357,8 +357,8 @@ packages:
       '@jest/expect':
         optional: true
 
-  '@couimet/detailed-error@0.2.0':
-    resolution: {integrity: sha512-YQctP5mVbA66c9MlhDizEoR6pbspA2Mz0wAlq4KHw0jo8sV+m5dqo/M1Y25q3SlRjF4Zft9FDlFWfimfjGbqEQ==}
+  '@couimet/detailed-error@1.0.0':
+    resolution: {integrity: sha512-ksnDR9N0AOGnImfZ6mu+cNjW2TNdbCzUnkrtsG36+feAFBDrm7oVmsRregU8TuFNeYQoLsJh0PzEUoWWhEQrkQ==}
 
   '@couimet/detailed-result@0.1.1':
     resolution: {integrity: sha512-opp8960EFhpy62PdxR/o9XYLw/glyRM2VF/8Anmq3zob9GHeAAtbF3VYJaVgwDWWnEpRYeffs1cSbEvwb6K0NQ==}
@@ -4287,23 +4287,23 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@couimet/detailed-error-testing@0.1.5(@couimet/detailed-error@0.2.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))':
+  '@couimet/detailed-error-testing@0.1.5(@couimet/detailed-error@1.0.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))':
     dependencies:
-      '@couimet/detailed-error': 0.2.0
+      '@couimet/detailed-error': 1.0.0
       '@jest/globals': 30.4.1
       jest: 30.4.2(@types/node@26.0.0)
     optionalDependencies:
       '@jest/expect': 30.4.1
 
-  '@couimet/detailed-error@0.2.0': {}
+  '@couimet/detailed-error@1.0.0': {}
 
-  '@couimet/detailed-result@0.1.1(@couimet/detailed-error@0.2.0)':
+  '@couimet/detailed-result@0.1.1(@couimet/detailed-error@1.0.0)':
     dependencies:
-      '@couimet/detailed-error': 0.2.0
+      '@couimet/detailed-error': 1.0.0
 
-  '@couimet/dynamic-testing@0.4.0(@couimet/detailed-error@0.2.0)(decimal.js@10.6.0)':
+  '@couimet/dynamic-testing@0.4.0(@couimet/detailed-error@1.0.0)(decimal.js@10.6.0)':
     dependencies:
-      '@couimet/detailed-error': 0.2.0
+      '@couimet/detailed-error': 1.0.0
       uuid: 11.1.1
     optionalDependencies:
       decimal.js: 10.6.0

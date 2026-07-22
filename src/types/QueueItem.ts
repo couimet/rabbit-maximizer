@@ -16,6 +16,8 @@ export interface QueueItem {
   readonly failed_at?: Date;
   readonly reviewed_at?: Date;
   readonly pull_request_id: number;
+  readonly pr_state?: string;
+  readonly last_coderabbit_acknowledged_at?: Date;
   readonly created_at: Date;
   readonly updated_at: Date;
 }

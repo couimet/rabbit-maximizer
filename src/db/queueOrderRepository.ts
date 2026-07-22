@@ -1,11 +1,12 @@
-import { QueueStatus, TriggerSource, TYPES } from '../domain.js';
+import { QueueStatus, TYPES } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import { BasePrismaRepository, PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
+import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
 import type { QueueItem } from '../types/index.js';
 import { findByUuid, resolveUuidsToIds } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
-import { Prisma, type PrismaClient, type QueueOrder, type ReviewQueue } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
 export type MoveDirection = 'up' | 'down';
@@ -18,9 +19,15 @@ export interface QueueOrderRepository {
 
 @injectable()
 export class QueueOrderRepositoryImpl extends BasePrismaRepository implements QueueOrderRepository {
-  constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
+  /* c8 ignore start — decorator emit branches */
+  constructor(
+    @inject(TYPES.PrismaClient) prisma: PrismaClient,
+    @inject(TYPES.ReviewQueueToQueueItemMapper) private readonly mapper: ReviewQueueToQueueItemMapper,
+    @inject(TYPES.Logger) log: Logger,
+  ) {
     super(prisma, Prisma.ModelName.QueueOrder, log);
   }
+  /* c8 ignore stop */
 
   getEffectiveOrder(): Promise<QueueItem[]> {
     return this.readEffectiveOrder(undefined);
@@ -42,7 +49,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
         );
       }
       this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length }, 'Fetched effective order');
-      return validRows.map((row) => this.toQueueItem(row));
+      return validRows.map((row) => this.mapper.fromReviewQueue(row));
     });
   }
 
@@ -162,29 +169,5 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     }
 
     this.log.debug({ fn: 'QueueOrderRepositoryImpl.normalizePositionsToOrder', count: orderedIds.length }, 'Normalized queue positions');
-  }
-
-  private toQueueItem(row: ReviewQueue & { queueOrder: QueueOrder | null }): QueueItem {
-    return {
-      id: row.id,
-      uuid: row.uuid,
-      repo_full_name: row.repo_full_name,
-      pr_number: row.pr_number,
-      pr_title: row.pr_title,
-      status: row.status as QueueStatus,
-      attempts: row.attempts,
-      source_comment_url: row.source_comment_url,
-      source_comment_id: row.source_comment_id,
-      trigger_source: row.trigger_source as TriggerSource,
-      /* c8 ignore next 4 — unreachable: pending items never have non-null resolved timestamps */
-      // TODO [2026-08-20]: #229 — remove c8 ignore after extracting toQueueItem into injectable ReviewQueueToQueueItemMapper
-      retriggered_at: row.retriggered_at ?? undefined,
-      failed_at: row.failed_at ?? undefined,
-      reviewed_at: row.reviewed_at ?? undefined,
-      // Guaranteed non-null by the filter in readEffectiveOrder
-      pull_request_id: row.pull_request_id!,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    };
   }
 }

@@ -1,7 +1,6 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { QueueItemMapper } from '../../src/mappers/index.js';
 import { createGetTriggeredHandler } from '../../src/routes/index.js';
-import { apiJson, createMockQueueRepo, fetchResponse, generateQueueItemHydrationData, getJson } from '../helpers/index.js';
+import { apiJson, createMockQueueItemMapper, createMockQueueRepo, fetchResponse, generateQueueItemHydrationData, getJson } from '../helpers/index.js';
 
 import { getUniqueDate } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -14,15 +13,15 @@ describe('getTriggered', () => {
   let port: number;
   let logger: ReturnType<typeof createMockLogger>;
   let since: string;
-
-  afterEach(async () => {
-    if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
-  });
-
-  const queueItemMapper = new QueueItemMapper();
+  let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
 
   beforeEach(() => {
     since = getUniqueDate().toISOString();
+    queueItemMapper = createMockQueueItemMapper();
+  });
+
+  afterEach(async () => {
+    if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   const startServer = (over = {}) => {
@@ -39,7 +38,7 @@ describe('getTriggered', () => {
     startServer({ getTriggered: jest.fn<any>().mockResolvedValue({ items: queueItems, total: 2 }) });
 
     const json = await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}`);
-    expect(json).toStrictEqual(apiJson({ data: queueItemMapper.mapToQueueItemResponseList(queueItems), total: 2, page: 1, pageSize: 50 }));
+    expect(json).toStrictEqual(apiJson({ data: await queueItemMapper.mapToQueueItemResponseList(queueItems), total: 2, page: 1, pageSize: 50 }));
   });
 
   it('returns empty data when no items exist', async () => {

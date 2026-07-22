@@ -1,21 +1,33 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { EventCountsMapper, QueueItemMapper } from '../../src/mappers/index.js';
+import { EventCountsMapper } from '../../src/mappers/index.js';
 import { createGetSummaryHandler } from '../../src/routes/index.js';
-import { apiJson, createMockEventRepo, createMockQueueRepo, fetchResponse, generateQueueItemHydrationData, getJson } from '../helpers/index.js';
+import {
+  apiJson,
+  createMockEventRepo,
+  createMockQueueItemMapper,
+  createMockQueueRepo,
+  fetchResponse,
+  generateQueueItemHydrationData,
+  getJson,
+} from '../helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
-
-const queueItemMapper = new QueueItemMapper();
-const eventCountsMapper = new EventCountsMapper();
 
 describe('getSummary', () => {
   let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
+  let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
+  let eventCountsMapper: EventCountsMapper;
+
+  beforeEach(() => {
+    queueItemMapper = createMockQueueItemMapper();
+    eventCountsMapper = new EventCountsMapper();
+  });
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));

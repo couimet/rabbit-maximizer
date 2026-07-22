@@ -1,5 +1,4 @@
 export type { AcknowledgementResult } from './AcknowledgementResult.js';
-export type { ActivityListItem } from './ActivityListItem.js';
 export type {
   DashboardStateResponse,
   EventCountsResponse,
@@ -37,6 +36,7 @@ export type { PaginatedResult } from './PaginatedResult.js';
 export type { PendingAcknowledgement } from './PendingAcknowledgement.js';
 export type { PRState } from './PRState.js';
 export type { PruneOutcome } from './PruneOutcome.js';
+export type { PullRequestColumnTypes } from './PullRequestColumnTypes.js';
 export type { QueueItem } from './QueueItem.js';
 export type { ReEnqueueAction } from './ReEnqueueAction.js';
 export type { ReEnqueueDecision } from './ReEnqueueDecision.js';
