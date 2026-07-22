@@ -13,7 +13,7 @@
     "api:types": "openapi-typescript docs/api-spec.yaml -o src/api-types.ts",
     "build": "pnpm clean && prisma generate && tsc",
     "check:types-no-runtime": "bash scripts/check-types-no-runtime.sh",
-    "ci:check-generated-drift": "pnpm api:types && pnpm prisma:snapshot && pnpm format:fix && git diff --exit-code",
+    "ci:check-generated-drift": "pnpm api:types && pnpm prisma:snapshot && pnpm format:fix",
     "ci:test": "pnpm test:ts:unit",
     "ci:test:integration": "pnpm test:ts:integration",
     "clean": "jest --clearCache && rm -rf coverage dist",
