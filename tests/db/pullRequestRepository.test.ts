@@ -1,4 +1,5 @@
 import { PullRequestRepositoryImpl } from '../../src/db/index.js';
+import { PrState } from '../../src/domain.js';
 import { createMockPrismaClient, createResolvedMock, generatePullRequestHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
@@ -35,7 +36,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', prState: 'open' });
+      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', prState: PrState.open });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
       expect(logger.debug).toHaveBeenCalledWith(
@@ -57,7 +58,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prState: 'open' });
+      const result = await sut.upsert(repoFullName, prNumber, { prState: PrState.open });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
     });
@@ -70,7 +71,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prState: 'open' });
+      const result = await sut.upsert(repoFullName, prNumber, { prState: PrState.open });
 
       expect(pullRequest.findUnique).toHaveBeenCalled();
       expect(pullRequest.create).not.toHaveBeenCalled();
@@ -94,7 +95,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prTitle, prState: 'open' });
+      await sut.upsert(repoFullName, prNumber, { prTitle, prState: PrState.open });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -110,7 +111,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test', prState: 'open' })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test', prState: PrState.open })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'PullRequest'",
         functionName: 'PullRequestRepositoryImpl.upsert',
         details: { tableName: 'PullRequest' },
@@ -131,7 +132,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: 'closed' });
+      await sut.upsert(repoFullName, prNumber, { prState: PrState.closed });
 
       expect(mockCreate).toHaveBeenCalledWith({
         data: {
@@ -159,7 +160,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: 'open', authorLogin });
+      await sut.upsert(repoFullName, prNumber, { prState: PrState.open, authorLogin });
 
       expect(mockCreate).toHaveBeenCalledWith({
         data: {
@@ -184,7 +185,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: 'merged' });
+      await sut.upsert(repoFullName, prNumber, { prState: PrState.merged });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -204,7 +205,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: 'open', authorLogin });
+      await sut.upsert(repoFullName, prNumber, { prState: PrState.open, authorLogin });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -410,7 +411,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.findByPrState('open');
+      const result = await sut.findByPrState(PrState.open);
 
       expect(result).toStrictEqual(rows);
     });
@@ -421,7 +422,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.findByPrState('merged');
+      const result = await sut.findByPrState(PrState.merged);
 
       expect(result).toStrictEqual([]);
     });
