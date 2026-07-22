@@ -1,6 +1,5 @@
 import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
-import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
-import { createExpressApp } from './external-deps/couimet/express-tools/index.js';
+import { createExpressApp, startServer } from './external-deps/couimet/express-tools/index.js';
 import type { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
 import {
   createGetConfigHandler,
@@ -50,7 +49,7 @@ export interface ExpressApp {
   stop(): Promise<void>;
 }
 
-export const setupExpress = (deps: ExpressDeps): ExpressApp => {
+export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   const {
     config,
     eventCountsMapper,
@@ -92,19 +91,17 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
     trySetupVite(app, logger, port, DASHBOARD_DIR);
   }
 
-  const server = app.listen(port);
-  const address = server.address();
-  /* c8 ignore start — defensive: numeric ports always return an address object */
-  if (!address || typeof address === 'string') {
-    throw new RabbitMaximizerError({
-      code: RabbitMaximizerErrorCodes.SERVER_ADDRESS_NOT_AVAILABLE,
-      functionName: 'setupExpress',
-      message: 'Server did not bind to a TCP port',
-      details: { port },
-    });
+  let server: ReturnType<typeof app.listen>;
+  let actualPort: number;
+
+  try {
+    const result = await startServer(app, port);
+    server = result.server;
+    actualPort = result.port;
+  } catch (err: unknown) {
+    logger.error({ fn: 'setupExpress', port, error: err }, 'Failed to start server.');
+    throw err;
   }
-  /* c8 ignore stop */
-  const actualPort = address.port;
 
   return {
     port: actualPort,
