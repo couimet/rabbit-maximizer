@@ -1,3 +1,3 @@
-import type { DetectedComment } from './DetectedComment.js';
+import type { DetectedComment } from './index.js';
 
 export type OnDetectedCallback = (comment: DetectedComment, waitSeconds: number) => Promise<void>;

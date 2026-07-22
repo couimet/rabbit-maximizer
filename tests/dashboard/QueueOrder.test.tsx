@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
-import QueueOrder from '../../dashboard/src/components/QueueOrder.js';
-import { QueueStatus, TriggerSource } from '../../src/types/index.js';
+import { QueueOrder } from '../../dashboard/src/components/index.js';
+import { QueueStatus, TriggerSource } from '../../src/domain.js';
 import { createMockFetch } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';

@@ -1,10 +1,8 @@
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
-import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
-import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
-import { TYPES } from '../inversify-types.js';
-import { type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
-import { findByUuid, resolveUuidsToIds } from '../utils/uuidLookup.js';
+import { QueueStatus, TriggerSource, TYPES } from '../domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import { BasePrismaRepository, PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
+import type { QueueItem } from '../types/index.js';
+import { findByUuid, resolveUuidsToIds } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type QueueOrder, type ReviewQueue } from '@prisma/client';

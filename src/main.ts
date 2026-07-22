@@ -1,22 +1,13 @@
-import type { EventRepository } from './db/eventRepository.js';
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueOrderRepository } from './db/queueOrderRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import type { SystemStateRepository } from './db/systemStateRepository.js';
-import type { EventCountsMapper } from './mappers/index.js';
-import type { EventEntryMapper } from './mappers/index.js';
-import type { QueueItemMapper } from './mappers/index.js';
-import { describeDatabaseUrl } from './utils/describeDatabaseUrl.js';
+import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import type { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
+import { describeDatabaseUrl } from './utils/index.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
-import type { PollDetector } from './detectorPoll.js';
+import { TYPES } from './domain.js';
 import { setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
-import { TYPES } from './inversify-types.js';
 import { initLogger } from './logger.js';
-import type { ReviewDetector } from './ReviewDetector.js';
-import { ReviewTrigger } from './ReviewTrigger.js';
-import type { Scheduler } from './scheduler.js';
+import { type PollDetector, type ReviewDetector, ReviewTrigger, type Scheduler } from './services.js';
 import { validateGitHubToken } from './validateGitHubToken.js';
 
 import 'reflect-metadata';

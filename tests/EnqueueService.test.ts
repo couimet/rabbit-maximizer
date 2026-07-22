@@ -1,11 +1,14 @@
-import { EnqueueService } from '../src/EnqueueService.js';
-import type { ObservationContextProvider } from '../src/observability/observationContext.js';
-import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
-import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
+import type { ObservationContextProvider } from '../src/observability/index.js';
+import type { DetectedProbe, ProbeFactory } from '../src/probes/index.js';
+import { EnqueueService } from '../src/services.js';
 
-import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
-import { createMockDetectedProbe } from './helpers/createMockProbes.js';
-import { createMockPullRequestRepo, createMockQueueRepo, generateDetectedCommentHydrationData } from './helpers/index.js';
+import {
+  createMockDetectedProbe,
+  createMockProbeFactory,
+  createMockPullRequestRepo,
+  createMockQueueRepo,
+  generateDetectedCommentHydrationData,
+} from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';

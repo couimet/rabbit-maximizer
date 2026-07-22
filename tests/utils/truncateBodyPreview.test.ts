@@ -1,4 +1,4 @@
-import { truncateBodyPreview } from '../../src/utils/truncateBodyPreview.js';
+import { truncateBodyPreview } from '../../src/utils/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';

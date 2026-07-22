@@ -1,6 +1,5 @@
-import { parseEventRow } from '../../src/schemas/events.js';
-import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from '../../src/schemas/lengths.js';
-import { EventType } from '../../src/types/index.js';
+import { EventType } from '../../src/domain.js';
+import { COMMENT_URL_MAX_LENGTH, parseEventRow, REASON_MAX_LENGTH } from '../../src/schemas/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';

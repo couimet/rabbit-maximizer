@@ -1,4 +1,4 @@
-import { QueueStatus } from '../../src/types/QueueStatus.js';
+import { QueueStatus } from '../../src/domain.js';
 
 import { describe, expect, it } from '@jest/globals';
 

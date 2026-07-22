@@ -1,11 +1,9 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import { StateKey, type SystemStateRepository } from './db/systemStateRepository.js';
-import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
-import { isPRClosedWithoutMerge, isPRMerged } from './github/prStateUtils.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
-import { MS_PER_SECOND } from './utils/durations.js';
+import { type PullRequestRepository, StateKey, type SystemStateRepository } from './db/index.js';
+import { type CoderabbitGitHubClient, isPRClosedWithoutMerge, isPRMerged } from './github/index.js';
+import type { ProbeFactory } from './probes/index.js';
+import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { TYPES } from './inversify-types.js';
+import { TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';

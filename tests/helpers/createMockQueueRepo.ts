@@ -1,4 +1,4 @@
-import type { QueueRepository } from '../../src/db/queueRepository.js';
+import type { QueueRepository } from '../../src/db/index.js';
 
 import { jest } from '@jest/globals';
 

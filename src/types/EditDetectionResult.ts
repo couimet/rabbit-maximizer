@@ -1,6 +1,5 @@
 import type { CoderabbitComment } from '../db/coderabbitCommentRepository.js';
-
-import { CodeRabbitCommentType } from './CodeRabbitCommentType.js';
+import { CodeRabbitCommentType } from '../github/index.js';
 
 export interface EditDetectionResult {
   readonly wasEdited: boolean;

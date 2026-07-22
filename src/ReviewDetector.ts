@@ -1,14 +1,9 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
-import { splitRepo } from './github/splitRepo.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
-import { EventType } from './types/index.js';
-import { MS_PER_SECOND } from './utils/durations.js';
-import { reviewStateToEventType } from './utils/reviewStateToEventType.js';
+import type { PullRequestRepository, QueueRepository } from './db/index.js';
+import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
+import type { ProbeFactory } from './probes/index.js';
+import { MS_PER_SECOND, reviewStateToEventType } from './utils/index.js';
 import type { Config } from './config.js';
-import { IntervalService } from './IntervalService.js';
-import { TYPES } from './inversify-types.js';
+import { EventType, IntervalService, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';

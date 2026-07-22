@@ -1,6 +1,6 @@
-import type { ObservationContext } from '../../src/observability/observationContext.js';
-import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
-import { EventType } from '../../src/types/index.js';
+import { EventType } from '../../src/domain.js';
+import type { ObservationContext } from '../../src/observability/index.js';
+import { ReviewDetectorProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateObservationContextHydrationData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 

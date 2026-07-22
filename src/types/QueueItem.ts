@@ -1,5 +1,4 @@
-import type { QueueStatus } from './QueueStatus.js';
-import type { TriggerSource } from './TriggerSource.js';
+import type { QueueStatus, TriggerSource } from '../domain.js';
 
 export interface QueueItem {
   readonly id: number;

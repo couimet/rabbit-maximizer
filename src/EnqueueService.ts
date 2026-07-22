@@ -1,10 +1,9 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import { classifyCoderabbitComment } from './github/classifyCoderabbitComment.js';
-import type { ObservationContextProvider } from './observability/observationContext.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
+import type { PullRequestRepository, QueueRepository } from './db/index.js';
+import { classifyCoderabbitComment } from './github/index.js';
+import type { ObservationContextProvider } from './observability/index.js';
+import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
-import { TYPES } from './inversify-types.js';
+import { TYPES } from './domain.js';
 
 import { type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';

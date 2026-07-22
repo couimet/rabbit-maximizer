@@ -3,6 +3,8 @@ export { CoderabbitCommentRepositoryImpl } from './coderabbitCommentRepository.j
 export type { EventRepository, NewEvent } from './eventRepository.js';
 export { EventRepositoryImpl } from './eventRepository.js';
 export { createPrismaClient } from './prismaClientFactory.js';
+export type { PullRequestRepository } from './pullRequestRepository.js';
+export { PullRequestRepositoryImpl } from './pullRequestRepository.js';
 export type { MoveDirection, QueueOrderRepository } from './queueOrderRepository.js';
 export { QueueOrderRepositoryImpl } from './queueOrderRepository.js';
 export type { QueueRepository } from './queueRepository.js';

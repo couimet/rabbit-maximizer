@@ -1,9 +1,9 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
-import type { ObservationContext } from '../observability/observationContext.js';
-import { EventType, type QueueItem } from '../types/index.js';
-import { computeSchedulerBackoff } from '../utils/computeSchedulerBackoff.js';
+import type { EventRepository } from '../db/index.js';
+import { EventType } from '../domain.js';
+import { type RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import type { ObservationContext } from '../observability/index.js';
+import type { QueueItem } from '../types/index.js';
+import { computeSchedulerBackoff } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';

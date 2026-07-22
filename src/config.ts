@@ -1,8 +1,7 @@
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
-import { type Config, ConfigSchema } from './schemas/config.js';
-import { RabbitResult } from './types/RabbitResult.js';
-import { type RepoFilter } from './types/RepoFilter.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
+import { type Config, ConfigSchema } from './schemas/index.js';
+import { type RepoFilter } from './types/index.js';
+import { RabbitResult } from './domain.js';
 
 import dotenv from 'dotenv';
 

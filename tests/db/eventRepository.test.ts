@@ -1,6 +1,5 @@
-import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/eventRepository.js';
-import { TYPES } from '../../src/inversify-types.js';
-import { EventType } from '../../src/types/index.js';
+import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/index.js';
+import { EventType, TYPES } from '../../src/domain.js';
 import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';

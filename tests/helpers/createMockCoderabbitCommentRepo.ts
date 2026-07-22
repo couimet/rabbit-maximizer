@@ -1,4 +1,4 @@
-import type { CoderabbitCommentRepository } from '../../src/db/coderabbitCommentRepository.js';
+import type { CoderabbitCommentRepository } from '../../src/db/index.js';
 
 import { jest } from '@jest/globals';
 

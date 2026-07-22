@@ -1,8 +1,7 @@
-import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/queueRepository.js';
+import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/index.js';
+import { QueueStatus, TriggerSource, TYPES } from '../../src/domain.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
-import { TYPES } from '../../src/inversify-types.js';
-import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
-import { QueueStatus, TriggerSource } from '../../src/types/index.js';
+import { ProbeFactory } from '../../src/probes/index.js';
 import {
   createMockObservationContextProvider,
   createMockPrismaClient,

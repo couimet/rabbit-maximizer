@@ -1,4 +1,4 @@
-import type { OnDetectedCallback } from '../../src/types/OnDetectedCallback.js';
+import type { OnDetectedCallback } from '../../src/types/index.js';
 
 import { jest } from '@jest/globals';
 

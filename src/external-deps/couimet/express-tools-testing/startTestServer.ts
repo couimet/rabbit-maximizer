@@ -1,4 +1,4 @@
-import { createExpressApp } from '../express-tools/createExpressApp.js';
+import { createExpressApp } from '../express-tools/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Application } from 'express';

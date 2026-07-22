@@ -1,4 +1,4 @@
-import type { ReEnqueueAction } from './ReEnqueueAction.js';
+import type { ReEnqueueAction } from './index.js';
 
 export interface ReEnqueueDecision {
   readonly action: ReEnqueueAction;

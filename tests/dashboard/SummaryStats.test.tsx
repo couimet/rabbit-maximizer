@@ -1,14 +1,13 @@
 /** @jest-environment jsdom */
 
-import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
+import { SummaryStats } from '../../dashboard/src/components/index.js';
 import { TimezoneProvider } from '../../dashboard/src/timezone.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactElement } from 'react';
-import { StrictMode } from 'react';
+import { type ReactElement, StrictMode } from 'react';
 
 const renderSummaryStats = (ui?: ReactElement) => render(<TimezoneProvider>{ui ?? <SummaryStats />}</TimezoneProvider>);
 

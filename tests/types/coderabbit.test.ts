@@ -4,7 +4,7 @@ import {
   REVIEW_BOT_SELF_MARKER_PREFIX,
   REVIEW_BOT_SKIP_MARKER,
   REVIEW_STACK_MARKER,
-} from '../../src/types/coderabbit.js';
+} from '../../src/github/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

@@ -1,4 +1,4 @@
-import { PullRequestRepositoryImpl } from '../../src/db/pullRequestRepository.js';
+import { PullRequestRepositoryImpl } from '../../src/db/index.js';
 import { createMockPrismaClient, createResolvedMock, generatePullRequestHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';

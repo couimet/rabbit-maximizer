@@ -1,6 +1,7 @@
-import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
-import { ReviewDetector } from '../src/ReviewDetector.js';
-import { type QueueItem, QueueStatus, TriggerSource } from '../src/types/index.js';
+import { QueueStatus, TriggerSource } from '../src/domain.js';
+import type { CoderabbitGitHubClient } from '../src/github/index.js';
+import { ReviewDetector } from '../src/services.js';
+import { type QueueItem } from '../src/types/index.js';
 
 import { createMockCoderabbitGitHubClient, createMockProbeFactory, createMockQueueRepo, createMockReviewDetectorProbe } from './helpers/index.js';
 

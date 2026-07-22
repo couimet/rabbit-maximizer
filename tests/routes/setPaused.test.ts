@@ -1,8 +1,7 @@
-import type { SystemStateRepository } from '../../src/db/systemStateRepository.js';
+import type { SystemStateRepository } from '../../src/db/index.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { createSetPausedHandler } from '../../src/routes/setPaused.js';
-import { createMockSystemStateRepository } from '../helpers/index.js';
-import { postJson } from '../helpers/postJson.js';
+import { createSetPausedHandler } from '../../src/routes/index.js';
+import { createMockSystemStateRepository, postJson } from '../helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';

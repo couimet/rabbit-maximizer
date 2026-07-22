@@ -1,9 +1,8 @@
-import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
-import { ReviewTrigger } from '../src/ReviewTrigger.js';
-import { TriggerSource } from '../src/types/index.js';
+import { TriggerSource } from '../src/domain.js';
+import type { CoderabbitGitHubClient } from '../src/github/index.js';
+import { ReviewTrigger } from '../src/services.js';
 
-import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
-import { createMockPullRequestRepo, createMockQueueRepo, generateQueueItemHydrationData } from './helpers/index.js';
+import { createMockProbeFactory, createMockPullRequestRepo, createMockQueueRepo, generateQueueItemHydrationData } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';

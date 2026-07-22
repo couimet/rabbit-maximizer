@@ -1,4 +1,11 @@
 export type { DetectedProbeContext } from './DetectedProbe.js';
 export { DetectedProbe } from './DetectedProbe.js';
+export { EnqueueProbe } from './EnqueueProbe.js';
+export { MarkQueueItemReviewedProbe } from './MarkQueueItemReviewedProbe.js';
 export { ProbeFactory } from './ProbeFactory.js';
+export { PrScannerProbe } from './PrScannerProbe.js';
+export { PrunerProbe } from './PrunerProbe.js';
+export { recordBypassEvent } from './recordBypassEvent.js';
+export { ReviewDetectorProbe } from './ReviewDetectorProbe.js';
 export { ReviewRetriggerProbe } from './ReviewRetriggerProbe.js';
+export { type CreateSchedulerProbeParams, SchedulerProbe } from './SchedulerProbe.js';

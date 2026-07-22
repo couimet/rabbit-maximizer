@@ -1,7 +1,4 @@
-import { REVIEW_BOT_SKIP_MARKER } from '../types/coderabbit.js';
-import { CodeRabbitCommentType } from '../types/CodeRabbitCommentType.js';
-
-import { hasRateLimitMarker, isApprovalReviewSignal, isCompletedReview } from './index.js';
+import { CodeRabbitCommentType, hasRateLimitMarker, isApprovalReviewSignal, isCompletedReview, REVIEW_BOT_SKIP_MARKER } from './index.js';
 
 export const classifyCoderabbitComment = (body: string): CodeRabbitCommentType => {
   if (hasRateLimitMarker(body)) return CodeRabbitCommentType.review_limited;

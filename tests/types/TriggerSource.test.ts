@@ -1,4 +1,4 @@
-import { TriggerSource } from '../../src/types/TriggerSource.js';
+import { TriggerSource } from '../../src/domain.js';
 
 import { describe, expect, it } from '@jest/globals';
 
