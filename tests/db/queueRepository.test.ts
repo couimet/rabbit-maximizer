@@ -22,7 +22,6 @@ describe('QueueRepositoryImpl', () => {
   let frozenNow: Date;
   let logger: ReturnType<typeof createMockLogger>;
   let observation: ReturnType<typeof createMockObservationContextProvider>;
-  let observationContext: ReturnType<ReturnType<typeof createMockObservationContextProvider>['current']>;
   let probeEvents: { record: jest.Mock<any>; listForPr: jest.Mock<any> };
   let probeFactory: ProbeFactory;
   let mapper: ReviewQueueToQueueItemMapper;
@@ -31,7 +30,6 @@ describe('QueueRepositoryImpl', () => {
     frozenNow = getUniqueDate();
     logger = createMockLogger();
     observation = createMockObservationContextProvider();
-    observationContext = observation.current();
     probeEvents = { record: jest.fn<any>().mockResolvedValue({ uuid: getUuid() }), listForPr: jest.fn<any>() };
     probeFactory = new ProbeFactory(probeEvents as any, observation as any, logger);
     mapper = new ReviewQueueToQueueItemMapper();
@@ -48,7 +46,6 @@ describe('QueueRepositoryImpl', () => {
       const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
       const pullRequestId = getUniqueInt();
-      const obs = observationContext;
       const row = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_url: sourceUrl });
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
@@ -58,7 +55,6 @@ describe('QueueRepositoryImpl', () => {
 
       const { item: result, created } = await sut.enqueue(
         { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId },
-        obs,
         prisma as unknown as Prisma.TransactionClient,
       );
 
@@ -105,7 +101,6 @@ describe('QueueRepositoryImpl', () => {
           newWait,
           pullRequestId: getUniqueInt(),
         },
-        observationContext,
         prisma as unknown as Prisma.TransactionClient,
       );
 
@@ -130,7 +125,6 @@ describe('QueueRepositoryImpl', () => {
 
       const { item: result, created } = await sut.enqueue(
         { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId: getUniqueInt() },
-        observationContext,
         prisma as unknown as Prisma.TransactionClient,
       );
 
@@ -158,7 +152,6 @@ describe('QueueRepositoryImpl', () => {
       const pullRequestId = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
         { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId },
-        observationContext,
         prisma as unknown as Prisma.TransactionClient,
       );
 
@@ -551,7 +544,6 @@ describe('QueueRepositoryImpl', () => {
       await expect(() =>
         sut.enqueue(
           { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId: getUniqueInt() },
-          observationContext,
           prisma as unknown as Prisma.TransactionClient,
         ),
       ).rejects.toThrow('Connection lost');
@@ -575,7 +567,6 @@ describe('QueueRepositoryImpl', () => {
       await expect(() =>
         sut.enqueue(
           { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId: getUniqueInt() },
-          observationContext,
           prisma as unknown as Prisma.TransactionClient,
         ),
       ).rejects.toThrow('Unique constraint');

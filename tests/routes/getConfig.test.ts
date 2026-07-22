@@ -79,7 +79,7 @@ describe('getConfig', () => {
 
   it('returns 500 and logs error on unexpected failure', async () => {
     const throwingConfig = new Proxy<Config>(makeConfig(), {
-      get(_target, prop) {
+      get(_target: Config, prop: string | symbol) {
         if (prop === 'PAUSE_NOTIFICATION_INITIAL_DELAY_SEC' || prop === 'PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC') {
           throw new Error('Unexpected error');
         }

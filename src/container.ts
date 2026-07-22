@@ -13,7 +13,7 @@ import {
   type SystemStateRepository,
   SystemStateRepositoryImpl,
 } from './db/index.js';
-import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/softDeleteExtension.js';
+import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/index.js';
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl, type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
 import { EventCountsMapper, EventEntryMapper, QueueItemMapper, ReviewQueueToQueueItemMapper } from './mappers/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/index.js';

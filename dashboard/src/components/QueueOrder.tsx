@@ -1,4 +1,4 @@
-import type { QueueItemResponse } from '../../../src/types/api.js';
+import type { QueueItemResponse } from '../../../src/types/index.js';
 import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 

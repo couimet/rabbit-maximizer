@@ -1,4 +1,4 @@
-import { SoftDeleteConfig } from '../prisma-extension-soft-delete/src/SoftDeleteConfig.js';
+import { SoftDeleteConfig } from '../prisma-extension-soft-delete/src/index.js';
 
 import { PrismaFieldTypeMismatchError } from './PrismaFieldTypeMismatchError.js';
 import { PrismaRecordNotFoundError } from './PrismaRecordNotFoundError.js';

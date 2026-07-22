@@ -1,4 +1,4 @@
-import type { DashboardStateResponse, EventEntryResponse, PublicConfigResponse, QueueItemResponse, SummaryResponse } from '../../src/types/api.js';
+import type { DashboardStateResponse, EventEntryResponse, PublicConfigResponse, QueueItemResponse, SummaryResponse } from '../../src/types/index.js';
 
 import { buildQueryString } from './queryParams.js';
 

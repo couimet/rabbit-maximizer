@@ -1,6 +1,6 @@
-import { MS_PER_SECOND } from '../../../src/utils/durations.js';
+import { MS_PER_SECOND } from '../../../src/utils/index.js';
 import { fetchConfig } from '../api.js';
-import { diagLog } from '../utils/diagLog.js';
+import { diagLog } from '../utils/index.js';
 
 import { useEffect, useRef } from 'react';
 

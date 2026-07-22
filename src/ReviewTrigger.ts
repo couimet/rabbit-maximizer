@@ -126,7 +126,7 @@ export class ReviewTrigger {
     await this.prisma.$transaction(async (tx) => {
       await this.queue.markRetriggered(item.id, cooldownUntil, retriggeredCommentUrl, tx);
       await this.pullRequests.incrementRetriggerCount(item.pull_request_id, tx);
-      await probe.reviewRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
+      await probe.reviewRetriggered(retriggeredCommentUrl, tx);
     });
 
     return RabbitResult.ok({ retriggeredCommentUrl });

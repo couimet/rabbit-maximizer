@@ -81,7 +81,6 @@ export class EnqueueService {
           newWait: waitSeconds,
           pullRequestId,
         },
-        obs,
         tx,
       );
       if (created) {

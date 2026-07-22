@@ -1,4 +1,4 @@
-import type { CoderabbitComment } from '../db/coderabbitCommentRepository.js';
+import type { CoderabbitComment } from '../db/index.js';
 import { CodeRabbitCommentType } from '../github/index.js';
 
 export interface EditDetectionResult {
