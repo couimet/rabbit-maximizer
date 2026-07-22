@@ -74,7 +74,12 @@ describe('EnqueueService', () => {
       await svc.handle(comment, waitSeconds);
 
       expect(probes.createDetectedProbe).toHaveBeenCalledWith(
-        { repo_full_name: comment.repoFullName, pr_number: comment.prNumber, source_ts: new Date(comment.createdAt), source_comment_url: comment.url },
+        {
+          repo_full_name: comment.repoFullName,
+          pr_number: comment.prNumber,
+          source_ts: new Date(comment.createdAt),
+          source_comment_url: comment.url,
+        },
         observation.current(),
       );
       expect(probe.detected).toHaveBeenCalled();
@@ -91,7 +96,6 @@ describe('EnqueueService', () => {
           newWait: waitSeconds,
           pullRequestId,
         },
-        observation.current(),
         tx,
       );
       expect(probe.enqueued).toHaveBeenCalledWith(tx);
@@ -135,7 +139,6 @@ describe('EnqueueService', () => {
           newWait: waitSeconds,
           pullRequestId,
         },
-        observation.current(),
         tx,
       );
     });

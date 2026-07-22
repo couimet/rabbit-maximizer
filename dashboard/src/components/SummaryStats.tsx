@@ -1,5 +1,5 @@
-import type { DashboardStateResponse } from '../../../src/types/api.js';
-import { DEFAULT_DURATION, type Duration } from '../../../src/utils/resolveDurationSince.js';
+import type { DashboardStateResponse } from '../../../src/types/index.js';
+import { DEFAULT_DURATION, type Duration } from '../../../src/utils/index.js';
 import { fetchDashboardState, setPaused } from '../api.js';
 
 import DurationSelect from './DurationSelect.js';

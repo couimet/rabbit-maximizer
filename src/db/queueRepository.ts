@@ -1,7 +1,6 @@
 import { QueueStatus, TriggerSource, TYPES } from '../domain.js';
 import { BasePrismaRepository, PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
-import type { ObservationContext } from '../observability/index.js';
 import type { ProbeFactory } from '../probes/index.js';
 import { type CommentDetails, type CreateSkippedData, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem } from '../types/index.js';
 
@@ -10,7 +9,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
 export interface QueueRepository {
-  enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
+  enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markReviewed(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markReviewedByUuid(uuid: string, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
@@ -40,7 +39,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
   /* c8 ignore stop */
 
-  async enqueue(data: EnqueueData, observation: ObservationContext, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
+  async enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
     const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId, newWait } = data;
     const probe = this.probeFactory.createEnqueueProbe(tx);
     const db = this.client(tx);

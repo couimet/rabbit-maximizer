@@ -127,7 +127,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <never>Prefix probe method names with `record` — the caller describes the outcome, not the mechanism</never>
   <never>Duplicate a business-outcome log in both the caller and the probe</never>
   <never>Pass `ObservationContext` into a factory method — the factory calls `this.observation.current()` internally</never>
-  <exception>When the SAME observation context instance must be shared between a probe and other code in the same flow (e.g. both the probe and `queue.enqueue()` receive `obs`), extract it once in the caller and pass to both. This is the only valid reason for a factory method to accept `ObservationContext`. See `EnqueueService.handle`: `obs` is shared with `createDetectedProbe(context, obs)` and `queue.enqueue(data, obs, tx)`.</exception>
+  <exception>When the SAME observation context instance must be shared between a probe and other code in the same flow (e.g. both the probe and `createDetectedProbe()` receive `obs`), extract it once in the caller and pass to both. This is the only valid reason for a factory method to accept `ObservationContext`. See `EnqueueService.handle`: `obs` is shared with `createDetectedProbe(context, obs)` and the detection probe.</exception>
   <rationale>A probe represents one business process end-to-end. It owns every observable trace — events AND logs — so callers stay focused on control flow and their own entity. See `src/probes/README.md` for the full decision framework.</rationale>
   <see>src/probes/README.md</see>
 </rule>

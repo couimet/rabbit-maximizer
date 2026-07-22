@@ -1,9 +1,11 @@
-import { BODY_PREVIEW_MAX_LENGTH, COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from '../../src/schemas/index.js';
 import {
+  BODY_PREVIEW_MAX_LENGTH,
+  COMMENT_URL_MAX_LENGTH,
   CORRELATION_ID_MAX_LENGTH,
   EVENT_TYPE_MAX_LENGTH,
   METADATA_MAX_LENGTH,
   PAYLOAD_MAX_LENGTH,
+  REASON_MAX_LENGTH,
   REPO_FULL_NAME_MAX_LENGTH,
   REQUEST_ID_MAX_LENGTH,
   REVIEW_STATE_MAX_LENGTH,
@@ -12,7 +14,7 @@ import {
   STATUS_MAX_LENGTH,
   UUID_MAX_LENGTH,
   VERSION_MAX_LENGTH,
-} from '../../src/schemas/lengths.js';
+} from '../../src/schemas/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

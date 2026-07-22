@@ -1,4 +1,4 @@
-import type { SystemStateRepository } from '../db/systemStateRepository.js';
+import type { SystemStateRepository } from '../db/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';

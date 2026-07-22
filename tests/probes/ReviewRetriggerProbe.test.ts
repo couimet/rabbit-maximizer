@@ -33,11 +33,10 @@ describe('ReviewRetriggerProbe', () => {
 
   it('records event, and logs on reviewRetriggered', async () => {
     const item = generateQueueItemHydrationData();
-    const cooldownUntil = getUniqueDate();
     const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
     const probe = createProbe(item);
-    await probe.reviewRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
+    await probe.reviewRetriggered(retriggeredCommentUrl, tx);
 
     expect(events.record).toHaveBeenCalledWith(
       {

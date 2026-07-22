@@ -1,4 +1,4 @@
-import { isValidTimezone } from '../../src/utils/isValidTimezone.js';
+import { isValidTimezone } from '../../src/utils/index.js';
 
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 

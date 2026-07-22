@@ -35,7 +35,7 @@ export class ReviewRetriggerProbe {
     );
   }
 
-  async reviewRetriggered(retriggeredCommentUrl: string, cooldownUntil: Date, tx: Prisma.TransactionClient): Promise<void> {
+  async reviewRetriggered(retriggeredCommentUrl: string, tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {
         type: EventType.retriggered,
