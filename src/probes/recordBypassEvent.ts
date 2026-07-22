@@ -1,6 +1,6 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { ObservationContext } from '../observability/observationContext.js';
-import { BypassReason, EventType } from '../types/index.js';
+import type { EventRepository } from '../db/index.js';
+import { BypassReason, EventType } from '../domain.js';
+import type { ObservationContext } from '../observability/index.js';
 
 import type { Prisma } from '@prisma/client';
 

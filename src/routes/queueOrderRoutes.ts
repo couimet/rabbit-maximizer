@@ -1,14 +1,10 @@
-import type { PullRequestRepository } from '../db/pullRequestRepository.js';
-import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
-import type { QueueRepository } from '../db/queueRepository.js';
-import type { SystemStateRepository } from '../db/systemStateRepository.js';
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
-import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
+import type { PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
+import { QueueStatus, TriggerSource } from '../domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
 import type { QueueItemMapper } from '../mappers/index.js';
-import { ReviewTrigger } from '../ReviewTrigger.js';
-import { QueueStatus, TriggerSource } from '../types/index.js';
-import { isValidUuid } from '../utils/uuidLookup.js';
+import { ReviewTrigger } from '../services.js';
+import { isValidUuid } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';

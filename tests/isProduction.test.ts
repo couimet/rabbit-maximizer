@@ -1,4 +1,4 @@
-import { isProduction } from '../src/isProduction.js';
+import { isProduction } from '../src/domain.js';
 
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 

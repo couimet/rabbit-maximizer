@@ -1,4 +1,4 @@
-import { SchedulerStatus } from '../../src/types/SchedulerStatus.js';
+import { SchedulerStatus } from '../../src/domain.js';
 
 import { describe, expect, it } from '@jest/globals';
 

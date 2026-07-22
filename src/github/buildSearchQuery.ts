@@ -1,7 +1,6 @@
-import { REVIEW_BOT_RATE_LIMIT_SEARCH_TEXTS } from '../types/coderabbit.js';
-import type { RepoFilter } from '../types/RepoFilter.js';
+import type { RepoFilter } from '../types/index.js';
 
-import { buildRepoQualifierClause } from './index.js';
+import { buildRepoQualifierClause, REVIEW_BOT_RATE_LIMIT_SEARCH_TEXTS } from './index.js';
 
 /**
  * Build the GitHub issue search query from a list of repo filter entries.

@@ -1,5 +1,4 @@
-import EventHistory from './components/EventHistory.js';
-import SummaryStats from './components/SummaryStats.js';
+import { EventHistory, SummaryStats } from './components/index.js';
 import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone } from './timezone.js';
 
 import { useMemo, useState } from 'react';

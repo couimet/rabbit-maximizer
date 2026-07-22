@@ -1,4 +1,4 @@
-import type { QueueItem } from './QueueItem.js';
+import type { QueueItem } from './index.js';
 
 /**
  * API contract for the Activity List dashboard view.

@@ -1,5 +1,5 @@
-import { TYPES } from '../inversify-types.js';
-import { parseEventRow } from '../schemas/events.js';
+import { EventType, TYPES } from '../domain.js';
+import { parseEventRow } from '../schemas/index.js';
 import type {
   BypassedPayload,
   CoderabbitReviewApprovedPayload,
@@ -7,11 +7,12 @@ import type {
   CoderabbitReviewSkippedPayload,
   DetectedPayload,
   EnqueuedPayload,
+  EventLogEntry,
   EventMetadata,
   FailedPayload,
+  PaginatedResult,
   RetriggeredPayload,
-} from '../types/EventPayloads.js';
-import { type EventLogEntry, EventType, type PaginatedResult } from '../types/index.js';
+} from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type Prisma, type PrismaClient } from '@prisma/client';

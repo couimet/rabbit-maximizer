@@ -1,5 +1,4 @@
-import type { QueueItemResponse } from '../types/api.js';
-import type { QueueItem } from '../types/QueueItem.js';
+import type { QueueItem, QueueItemResponse } from '../types/index.js';
 
 import { injectable } from 'inversify';
 

@@ -1,4 +1,4 @@
-import { computeSchedulerBackoff } from '../../src/utils/computeSchedulerBackoff.js';
+import { computeSchedulerBackoff } from '../../src/utils/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

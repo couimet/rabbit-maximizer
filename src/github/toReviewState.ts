@@ -1,6 +1,6 @@
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
+import { RabbitMaximizerError } from '../errors/index.js';
 
-import { CODERABBIT_REVIEW_APPROVED, CODERABBIT_REVIEW_CHANGES_REQUESTED, type CoderabbitReviewState } from './types/CoderabbitReview.js';
+import { CODERABBIT_REVIEW_APPROVED, CODERABBIT_REVIEW_CHANGES_REQUESTED, type CoderabbitReviewState } from './index.js';
 
 const GITHUB_REVIEW_STATE_TO_DOMAIN: Record<string, CoderabbitReviewState> = {
   APPROVED: CODERABBIT_REVIEW_APPROVED,

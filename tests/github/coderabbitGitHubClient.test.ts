@@ -1,10 +1,8 @@
 import pkg from '../../package.json' with { type: 'json' };
+import { TriggerSource, TYPES } from '../../src/domain.js';
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/index.js';
-import { TYPES } from '../../src/inversify-types.js';
-import { TriggerSource } from '../../src/types/index.js';
-import type { RepoFilter } from '../../src/types/RepoFilter.js';
-import type { MockIssuesRest, MockPullsRest, MockSearchRest } from '../helpers/index.js';
-import { createMockOctokit } from '../helpers/index.js';
+import type { RepoFilter } from '../../src/types/index.js';
+import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockSearchRest } from '../helpers/index.js';
 
 import { getRandomString, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';

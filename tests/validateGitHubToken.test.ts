@@ -1,5 +1,5 @@
-import { splitRepo } from '../src/github/splitRepo.js';
-import type { RepoFilter } from '../src/types/RepoFilter.js';
+import { splitRepo } from '../src/github/index.js';
+import type { RepoFilter } from '../src/types/index.js';
 import { validateGitHubToken } from '../src/validateGitHubToken.js';
 
 import { getUniqueGitHubRepoRef, getUniqueString } from '@couimet/dynamic-testing';

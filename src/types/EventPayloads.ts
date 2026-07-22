@@ -1,3 +1,5 @@
+import type { BypassReason } from '../BypassReason.js';
+
 /**
  * Type-specific payloads for each event type. These are persisted as the JSON
  * `payload` column on the events table; the envelope columns live on
@@ -34,13 +36,6 @@ export interface CoderabbitReviewSkippedPayload {
 
 export interface FailedPayload {
   readonly reason: string;
-}
-
-export enum BypassReason {
-  prClosedWithoutMerge = 'prClosedWithoutMerge',
-  prMerged = 'prMerged',
-  prNotRegistered = 'prNotRegistered',
-  other = 'other',
 }
 
 export interface BypassedPayload {

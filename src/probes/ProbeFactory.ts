@@ -1,16 +1,20 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import { TYPES } from '../inversify-types.js';
-import type { ObservationContext, ObservationContextProvider } from '../observability/observationContext.js';
+import type { EventRepository } from '../db/index.js';
+import { TYPES } from '../domain.js';
+import type { ObservationContext, ObservationContextProvider } from '../observability/index.js';
 import type { QueueItem } from '../types/index.js';
 
-import { DetectedProbe, type DetectedProbeContext } from './DetectedProbe.js';
-import { EnqueueProbe } from './EnqueueProbe.js';
-import { MarkQueueItemReviewedProbe } from './MarkQueueItemReviewedProbe.js';
-import { PrScannerProbe } from './PrScannerProbe.js';
-import { PrunerProbe } from './PrunerProbe.js';
-import { ReviewDetectorProbe } from './ReviewDetectorProbe.js';
-import { ReviewRetriggerProbe } from './ReviewRetriggerProbe.js';
-import { type CreateSchedulerProbeParams, SchedulerProbe } from './SchedulerProbe.js';
+import {
+  type CreateSchedulerProbeParams,
+  DetectedProbe,
+  type DetectedProbeContext,
+  EnqueueProbe,
+  MarkQueueItemReviewedProbe,
+  PrScannerProbe,
+  PrunerProbe,
+  ReviewDetectorProbe,
+  ReviewRetriggerProbe,
+  SchedulerProbe,
+} from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';

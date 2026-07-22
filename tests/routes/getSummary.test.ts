@@ -1,10 +1,7 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
-import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
-import { createGetSummaryHandler } from '../../src/routes/getSummary.js';
-import { fetchResponse } from '../helpers/fetchResponse.js';
-import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, createMockQueueRepo, generateQueueItemHydrationData } from '../helpers/index.js';
+import { EventCountsMapper, QueueItemMapper } from '../../src/mappers/index.js';
+import { createGetSummaryHandler } from '../../src/routes/index.js';
+import { apiJson, createMockEventRepo, createMockQueueRepo, fetchResponse, generateQueueItemHydrationData, getJson } from '../helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';

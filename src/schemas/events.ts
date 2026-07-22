@@ -1,7 +1,6 @@
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import type { EventEnvelope, EventLogEntry } from '../types/EventLogEntry.js';
-import { EventType } from '../types/EventType.js';
-import { BypassReason } from '../types/index.js';
+import { BypassReason, EventType } from '../domain.js';
+import { RabbitMaximizerError } from '../errors/index.js';
+import type { EventEnvelope, EventLogEntry } from '../types/index.js';
 
 import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from './lengths.js';
 

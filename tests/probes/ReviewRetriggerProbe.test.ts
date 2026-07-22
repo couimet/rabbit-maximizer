@@ -1,10 +1,10 @@
-import type { EventRepository } from '../../src/db/eventRepository.js';
-import type { ObservationContext } from '../../src/observability/observationContext.js';
-import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
-import { EventType, type QueueItem } from '../../src/types/index.js';
+import type { EventRepository } from '../../src/db/index.js';
+import { EventType } from '../../src/domain.js';
+import type { ObservationContext } from '../../src/observability/index.js';
+import { ReviewRetriggerProbe } from '../../src/probes/index.js';
+import { type QueueItem } from '../../src/types/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
-import { createMockEventRepo } from '../helpers/index.js';
-import { generateQueueItemHydrationData } from '../helpers/QueueItemTestSupport.js';
+import { createMockEventRepo, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';

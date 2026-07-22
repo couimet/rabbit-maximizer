@@ -1,7 +1,6 @@
 import type { EventEntryResponse } from '../../../src/types/api.js';
 import { formatDate } from '../../../src/utils/formatDate.js';
-import type { PaginatedResponse } from '../api.js';
-import { fetchEvents } from '../api.js';
+import { fetchEvents, type PaginatedResponse } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 

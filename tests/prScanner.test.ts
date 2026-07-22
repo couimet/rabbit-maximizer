@@ -1,14 +1,19 @@
 import type { Config } from '../src/config.js';
-import type { PullRequestRepository } from '../src/db/pullRequestRepository.js';
-import type { SystemStateRepository } from '../src/db/systemStateRepository.js';
+import type { PullRequestRepository, SystemStateRepository } from '../src/db/index.js';
 import { getUniqueStringsNamed } from '../src/external-deps/couimet/dynamic-testing/unique.js';
-import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
-import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
-import { PrScannerImpl } from '../src/prScanner.js';
-import type { DiscoveredPR } from '../src/types/DiscoveredPR.js';
+import type { CoderabbitGitHubClient } from '../src/github/index.js';
+import type { ProbeFactory } from '../src/probes/index.js';
+import { PrScannerImpl } from '../src/services.js';
+import type { DiscoveredPR } from '../src/types/index.js';
 
-import { createMockPrScannerProbe, type MockPrScannerProbe } from './helpers/createMockProbes.js';
-import { createMockCoderabbitGitHubClient, createMockProbeFactory, createMockPullRequestRepo, createMockSystemStateRepository } from './helpers/index.js';
+import {
+  createMockCoderabbitGitHubClient,
+  createMockProbeFactory,
+  createMockPrScannerProbe,
+  createMockPullRequestRepo,
+  createMockSystemStateRepository,
+  type MockPrScannerProbe,
+} from './helpers/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';

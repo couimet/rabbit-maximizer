@@ -1,4 +1,4 @@
-import type { PullRequestRepository } from '../../src/db/pullRequestRepository.js';
+import type { PullRequestRepository } from '../../src/db/index.js';
 
 import { jest } from '@jest/globals';
 

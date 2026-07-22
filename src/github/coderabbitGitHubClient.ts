@@ -1,18 +1,13 @@
-import { TYPES } from '../inversify-types.js';
-import type { AcknowledgementResult } from '../types/AcknowledgementResult.js';
-import type { DetectedComment } from '../types/DetectedComment.js';
-import type { DiscoveredPR } from '../types/DiscoveredPR.js';
-import type { PRState } from '../types/PRState.js';
-import type { RepoFilter } from '../types/RepoFilter.js';
-import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
-import type { TriggerSource } from '../types/TriggerSource.js';
+import { type TriggerSource, TYPES } from '../domain.js';
+import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, ReviewLimitComment } from '../types/index.js';
 
-import type { CoderabbitReview, CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
+import type { CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
 import {
   buildCommentBody,
   buildOpenPRSearchQuery,
   buildSearchQuery,
   classifyCoderabbitComment,
+  type CoderabbitReview,
   extractRepoFullName,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,

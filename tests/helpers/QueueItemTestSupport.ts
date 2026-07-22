@@ -1,6 +1,5 @@
-import type { QueueItem } from '../../src/types/QueueItem.js';
-import { QueueStatus } from '../../src/types/QueueStatus.js';
-import { TriggerSource } from '../../src/types/TriggerSource.js';
+import { QueueStatus, TriggerSource } from '../../src/domain.js';
+import type { QueueItem } from '../../src/types/index.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
 

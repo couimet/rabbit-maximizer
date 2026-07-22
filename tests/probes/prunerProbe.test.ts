@@ -1,5 +1,5 @@
 import { ObservationContext } from '../../src/observability/index.js';
-import { PrunerProbe } from '../../src/probes/PrunerProbe.js';
+import { PrunerProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateObservationContextHydrationData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 

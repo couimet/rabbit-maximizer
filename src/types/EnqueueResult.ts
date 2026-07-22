@@ -1,4 +1,4 @@
-import type { QueueItem } from './QueueItem.js';
+import type { QueueItem } from './index.js';
 
 /** Returned by QueueRepository.enqueue() — signals whether a new row was created. */
 export interface EnqueueResult {

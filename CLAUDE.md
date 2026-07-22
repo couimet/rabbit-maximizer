@@ -133,16 +133,25 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 </rule>
 
 <rule id="C012" priority="critical">
-  <title>Cross-directory imports go through the target directory's barrel; barrels use explicit named exports only</title>
-  <do>Import symbols through the target directory's barrel when importing across directory boundaries</do>
-  <do>Import from the directory's own barrel (`./index.js`) for same-directory imports — the barrel consolidates sibling imports into a single source</do>
-  <do>Use explicit named exports in every barrel file — every re-exported symbol is listed individually</do>
-  <do>Use `export *` when a parent barrel forwards exports from a child barrel that itself uses explicit named exports — the child barrel IS the contract; the parent just carries it upstream</do>
-  <never>Use `export *` in any barrel file — except for parent-to-child-barrel forwarding as described above</never>
-  <never>Use `export *` from a non-barrel source file — only barrel files may be wildcard-forwarded</never>
-  <never>Use `export *` from an external package — named re-exports from external packages are allowed</never>
-  <never>Import a symbol from across a directory boundary without going through that directory's barrel</never>
-  <rationale>Each directory's barrel is its public API contract. Explicit named exports make the contract visible and intentional — adding a file to a directory does not silently expose it to the rest of the codebase. Same-directory imports through the barrel keep imports consolidated and consistent; ESM live bindings handle the circular reference between the barrel and its source files safely. Parent-to-child-barrel forwarding is the exception for `export *`: the child barrel already defines an explicit contract, and the parent merely re-exposes it; requiring every parent to re-list every child export duplicates the contract without adding safety. Cross-directory imports through barrels prepare for #201 (removing redundant folder segments from import paths). The `export *` from external packages restriction prevents accidental wholesale re-exposure of third-party APIs.</rationale>
+  <title>Every import comes from the source file or a same-directory barrel</title>
+  <do>Import symbols from the file that defines them, or from a same-directory barrel file that only re-exports its sibling files</do>
+  <do>Use barrel files to aggregate exports within a single directory, providing a shorter import path for consumers</do>
+  <do>Only re-export the directory's public API through the barrel — symbols exported solely for testing (e.g., internal lookup tables, column mappers) belong to the source file and must not appear in the barrel</do>
+  <never>Re-export a symbol from one directory or package through a barrel file in a different directory (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
+  <never>Import a symbol through a barrel that lives outside the symbol's defining directory</never>
+  <rationale>Cross-directory re-exports create invisible coupling, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Same-directory barrels are fine — they act as namespace indexes for their own directory's exports, reduce import path verbosity, and make future linting rules (removing redundant folder segments) possible. Barrels are the public API of a directory — testing-only exports are imported directly from the source file, keeping the barrel surface intentional.</rationale>
+  <good-example>
+    ```typescript
+    // GOOD: test imports testing-only export directly from the source file
+    import { VALUE_SETTER } from '../../src/db/systemStateRepository.js';
+    ```
+  </good-example>
+  <bad-example>
+    ```typescript
+    // BAD: VALUE_SETTER is exported for testing only — not part of the public API
+    export { VALUE_SETTER } from './systemStateRepository.js';
+    ```
+  </bad-example>
 </rule>
 
 <rule id="T001" priority="critical">

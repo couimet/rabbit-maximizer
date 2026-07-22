@@ -1,4 +1,4 @@
-import { BypassReason } from '../../src/types/EventPayloads.js';
+import { BypassReason } from '../../src/domain.js';
 
 import { describe, expect, it } from '@jest/globals';
 

@@ -1,5 +1,5 @@
-import type { EventLogEntry } from '../../src/types/EventLogEntry.js';
-import { EventType } from '../../src/types/EventType.js';
+import { EventType } from '../../src/domain.js';
+import type { EventLogEntry } from '../../src/types/index.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
 

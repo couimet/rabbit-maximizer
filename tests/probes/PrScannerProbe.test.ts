@@ -1,4 +1,4 @@
-import { PrScannerProbe } from '../../src/probes/PrScannerProbe.js';
+import { PrScannerProbe } from '../../src/probes/index.js';
 
 import { getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';

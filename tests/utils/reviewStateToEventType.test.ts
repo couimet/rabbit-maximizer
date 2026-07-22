@@ -1,4 +1,4 @@
-import { reviewStateToEventType } from '../../src/utils/reviewStateToEventType.js';
+import { reviewStateToEventType } from '../../src/utils/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

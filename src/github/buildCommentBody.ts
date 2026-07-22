@@ -1,7 +1,8 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { REVIEW_BOT_RETRIGGER_COMMAND } from '../types/coderabbit.js';
-import { TriggerSource } from '../types/TriggerSource.js';
+import { TriggerSource } from '../domain.js';
+import { RabbitMaximizerError } from '../errors/index.js';
+
+import { REVIEW_BOT_RETRIGGER_COMMAND } from './index.js';
 
 const { version } = pkg;
 const repoUrl = pkg.repository.url;

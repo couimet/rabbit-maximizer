@@ -1,4 +1,4 @@
-import type { Pruner } from '../../src/Pruner.js';
+import type { Pruner } from '../../src/services.js';
 
 import { jest } from '@jest/globals';
 

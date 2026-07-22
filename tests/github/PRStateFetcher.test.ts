@@ -1,5 +1,5 @@
 import { type CoderabbitGitHubClient, PRStateFetcherImpl } from '../../src/github/index.js';
-import type { PRState } from '../../src/types/PRState.js';
+import type { PRState } from '../../src/types/index.js';
 import { createMockCoderabbitGitHubClient } from '../helpers/index.js';
 
 import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';

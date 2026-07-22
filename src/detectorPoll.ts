@@ -1,17 +1,16 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { SystemStateRepository } from './db/systemStateRepository.js';
-import { StateKey } from './db/systemStateRepository.js';
-import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
-import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
-import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
-import { parseGitHubRateLimitError } from './github/parseGitHubRateLimitError.js';
-import { parseWaitSeconds } from './github/parseWaitSeconds.js';
-import { splitRepo } from './github/splitRepo.js';
+import { type PullRequestRepository, StateKey, type SystemStateRepository } from './db/index.js';
+import {
+  type CoderabbitGitHubClient,
+  hasOwnRetriggerMarker,
+  hasRateLimitMarker,
+  parseGitHubRateLimitError,
+  parseWaitSeconds,
+  splitRepo,
+} from './github/index.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { MS_PER_SECOND } from './utils/durations.js';
+import { MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
-import { IntervalService } from './IntervalService.js';
-import { TYPES } from './inversify-types.js';
+import { IntervalService, TYPES } from './domain.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';

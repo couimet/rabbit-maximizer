@@ -1,4 +1,4 @@
-import { PR_STATE } from '../../src/types/PrStateValue.js';
+import { PR_STATE } from '../../src/PrStateValue.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
 

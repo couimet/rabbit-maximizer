@@ -1,18 +1,17 @@
-import { type EventRepository, EventRepositoryImpl } from '../../src/db/eventRepository.js';
-import type { PullRequestRepository } from '../../src/db/pullRequestRepository.js';
-import type { QueueRepository } from '../../src/db/queueRepository.js';
-import { TYPES } from '../../src/inversify-types.js';
-import type { ObservationContextProvider } from '../../src/observability/observationContext.js';
-import { UuidObservationContextProvider } from '../../src/observability/observationContext.js';
-import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
-import { EnqueueProbe } from '../../src/probes/EnqueueProbe.js';
-import { MarkQueueItemReviewedProbe } from '../../src/probes/MarkQueueItemReviewedProbe.js';
-import { ProbeFactory } from '../../src/probes/ProbeFactory.js';
-import { PrScannerProbe } from '../../src/probes/PrScannerProbe.js';
-import { PrunerProbe } from '../../src/probes/PrunerProbe.js';
-import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
-import { ReviewRetriggerProbe } from '../../src/probes/ReviewRetriggerProbe.js';
-import { SchedulerProbe } from '../../src/probes/SchedulerProbe.js';
+import { type EventRepository, EventRepositoryImpl, type PullRequestRepository, type QueueRepository } from '../../src/db/index.js';
+import { TYPES } from '../../src/domain.js';
+import { type ObservationContextProvider, UuidObservationContextProvider } from '../../src/observability/index.js';
+import {
+  DetectedProbe,
+  EnqueueProbe,
+  MarkQueueItemReviewedProbe,
+  ProbeFactory,
+  PrScannerProbe,
+  PrunerProbe,
+  ReviewDetectorProbe,
+  ReviewRetriggerProbe,
+  SchedulerProbe,
+} from '../../src/probes/index.js';
 import type { QueueItem } from '../../src/types/index.js';
 import { createMockEventRepo, createMockObservationContextProvider, createMockPrismaClient } from '../helpers/index.js';
 

@@ -1,5 +1,5 @@
-import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
-import { PruneEvaluatorImpl } from '../src/PruneEvaluator.js';
+import type { PRStateFetcher } from '../src/github/index.js';
+import { PruneEvaluatorImpl } from '../src/services.js';
 
 import { generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
 

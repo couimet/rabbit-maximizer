@@ -1,7 +1,7 @@
-import { EventEntryMapper } from '../../src/mappers/EventEntryMapper.js';
-import type { EventLogEntry } from '../../src/types/EventLogEntry.js';
-import { BypassReason, type DetectedPayload, type EnqueuedPayload, type FailedPayload, type RetriggeredPayload } from '../../src/types/EventPayloads.js';
-import { EventType } from '../../src/types/EventType.js';
+import { BypassReason, EventType } from '../../src/domain.js';
+import { EventEntryMapper } from '../../src/mappers/index.js';
+import { type DetectedPayload, type EnqueuedPayload, type FailedPayload, type RetriggeredPayload } from '../../src/types/EventPayloads.js';
+import type { EventLogEntry } from '../../src/types/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';

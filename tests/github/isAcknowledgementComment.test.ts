@@ -1,5 +1,4 @@
-import { isAcknowledgementComment, SubmittedComment } from '../../src/github/index.js';
-import { REVIEW_BOT_ACKNOWLEDGEMENT_MARKER, REVIEW_BOT_LOGIN } from '../../src/types/coderabbit.js';
+import { isAcknowledgementComment, REVIEW_BOT_ACKNOWLEDGEMENT_MARKER, REVIEW_BOT_LOGIN, SubmittedComment } from '../../src/github/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';

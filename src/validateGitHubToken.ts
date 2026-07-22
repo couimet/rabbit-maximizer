@@ -1,7 +1,6 @@
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
-import { splitRepo } from './github/splitRepo.js';
-import type { RepoFilter } from './types/RepoFilter.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
+import { splitRepo } from './github/index.js';
+import type { RepoFilter } from './types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Octokit } from '@octokit/rest';

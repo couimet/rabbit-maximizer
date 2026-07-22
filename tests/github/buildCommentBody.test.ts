@@ -1,6 +1,6 @@
 import pkg from '../../package.json' with { type: 'json' };
+import { TriggerSource } from '../../src/domain.js';
 import { buildCommentBody } from '../../src/github/index.js';
-import { TriggerSource } from '../../src/types/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';

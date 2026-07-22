@@ -1,4 +1,4 @@
-import type { ProbeFactory } from '../../src/probes/ProbeFactory.js';
+import type { ProbeFactory } from '../../src/probes/index.js';
 
 import {
   createMockDetectedProbe,

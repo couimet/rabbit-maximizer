@@ -1,9 +1,6 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
-import type { SystemStateRepository } from '../db/systemStateRepository.js';
-import type { EventCountsMapper } from '../mappers/index.js';
-import type { QueueItemMapper } from '../mappers/index.js';
-import { resolveDurationSince } from '../utils/resolveDurationSince.js';
+import type { EventRepository, QueueOrderRepository, SystemStateRepository } from '../db/index.js';
+import type { EventCountsMapper, QueueItemMapper } from '../mappers/index.js';
+import { resolveDurationSince } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';

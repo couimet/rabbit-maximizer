@@ -1,5 +1,5 @@
 import { ObservationContext } from '../../src/observability/index.js';
-import { EnqueueProbe } from '../../src/probes/EnqueueProbe.js';
+import { EnqueueProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateObservationContextHydrationData } from '../helpers/index.js';
 

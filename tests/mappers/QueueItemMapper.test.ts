@@ -1,5 +1,5 @@
-import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
-import { QueueStatus, TriggerSource } from '../../src/types/index.js';
+import { QueueStatus, TriggerSource } from '../../src/domain.js';
+import { QueueItemMapper } from '../../src/mappers/index.js';
 import { buildCommentUrl, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueInt } from '@couimet/dynamic-testing';

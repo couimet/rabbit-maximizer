@@ -1,8 +1,9 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { ObservationContext } from '../observability/observationContext.js';
-import { BypassReason, type EventLogEntry, EventType } from '../types/index.js';
+import type { EventRepository } from '../db/index.js';
+import { BypassReason, EventType } from '../domain.js';
+import type { ObservationContext } from '../observability/index.js';
+import type { EventLogEntry } from '../types/index.js';
 
-import { recordBypassEvent } from './recordBypassEvent.js';
+import { recordBypassEvent } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';

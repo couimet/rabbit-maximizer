@@ -1,4 +1,4 @@
-import { describeDatabaseUrl } from '../../src/utils/describeDatabaseUrl.js';
+import { describeDatabaseUrl } from '../../src/utils/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

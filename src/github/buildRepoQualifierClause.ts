@@ -1,4 +1,4 @@
-import type { RepoFilter } from '../types/RepoFilter.js';
+import type { RepoFilter } from '../types/index.js';
 
 /**
  * Build the repo qualifier portion of a GitHub search query from repo filter entries.

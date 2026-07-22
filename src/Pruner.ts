@@ -1,8 +1,8 @@
-import type { QueueRepository } from './db/queueRepository.js';
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
-import { TYPES } from './inversify-types.js';
-import type { PruneEvaluator } from './PruneEvaluator.js';
+import type { QueueRepository } from './db/index.js';
+import { RabbitMaximizerError } from './errors/index.js';
+import type { ProbeFactory } from './probes/index.js';
+import { TYPES } from './domain.js';
+import type { PruneEvaluator } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';

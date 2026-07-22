@@ -1,11 +1,8 @@
 import type { Config } from '../src/config.js';
-import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
-import type { QueueRepository } from '../src/db/queueRepository.js';
-import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
-import type { Pruner } from '../src/Pruner.js';
-import { ReviewTrigger } from '../src/ReviewTrigger.js';
-import { Scheduler } from '../src/scheduler.js';
-import { RabbitResult } from '../src/types/RabbitResult.js';
+import type { QueueOrderRepository, QueueRepository } from '../src/db/index.js';
+import { RabbitResult } from '../src/domain.js';
+import type { ProbeFactory } from '../src/probes/index.js';
+import { type Pruner, ReviewTrigger, Scheduler } from '../src/services.js';
 
 import {
   createMockProbeFactory,

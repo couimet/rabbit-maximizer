@@ -1,6 +1,6 @@
-import { RabbitMaximizerError } from '../../src/errors/RabbitMaximizerError.js';
-import type { ObservationContext } from '../../src/observability/observationContext.js';
-import { SchedulerProbe } from '../../src/probes/SchedulerProbe.js';
+import { RabbitMaximizerError } from '../../src/errors/index.js';
+import type { ObservationContext } from '../../src/observability/index.js';
+import { SchedulerProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateObservationContextHydrationData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 

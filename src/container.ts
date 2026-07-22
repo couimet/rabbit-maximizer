@@ -1,29 +1,40 @@
-import { type CoderabbitCommentRepository, CoderabbitCommentRepositoryImpl } from './db/coderabbitCommentRepository.js';
-import { type EventRepository, EventRepositoryImpl } from './db/eventRepository.js';
-import { createPrismaClient } from './db/prismaClientFactory.js';
-import { type PullRequestRepository, PullRequestRepositoryImpl } from './db/pullRequestRepository.js';
-import { type QueueOrderRepository, QueueOrderRepositoryImpl } from './db/queueOrderRepository.js';
-import { type QueueRepository, QueueRepositoryImpl } from './db/queueRepository.js';
-import { type SystemStateRepository, SystemStateRepositoryImpl } from './db/systemStateRepository.js';
+import {
+  type CoderabbitCommentRepository,
+  CoderabbitCommentRepositoryImpl,
+  createPrismaClient,
+  type EventRepository,
+  EventRepositoryImpl,
+  type PullRequestRepository,
+  PullRequestRepositoryImpl,
+  type QueueOrderRepository,
+  QueueOrderRepositoryImpl,
+  type QueueRepository,
+  QueueRepositoryImpl,
+  type SystemStateRepository,
+  SystemStateRepositoryImpl,
+} from './db/index.js';
 import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/softDeleteExtension.js';
-import type { CoderabbitGitHubClient } from './github/index.js';
-import { CoderabbitGitHubClientImpl } from './github/index.js';
-import { type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
+import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl, type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
 import { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
-import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/observationContext.js';
-import { ProbeFactory } from './probes/ProbeFactory.js';
+import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/index.js';
+import { ProbeFactory } from './probes/index.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { MS_PER_SECOND } from './utils/durations.js';
+import { MS_PER_SECOND } from './utils/index.js';
 import { type Config, config } from './config.js';
-import { PollDetector } from './detectorPoll.js';
-import { EnqueueService } from './EnqueueService.js';
-import { TYPES } from './inversify-types.js';
-import { type PrScanner, PrScannerImpl } from './prScanner.js';
-import { type PruneEvaluator, PruneEvaluatorImpl } from './PruneEvaluator.js';
-import { type Pruner, PrunerImpl } from './Pruner.js';
-import { ReviewDetector } from './ReviewDetector.js';
-import { ReviewTrigger } from './ReviewTrigger.js';
-import { Scheduler } from './scheduler.js';
+import { TYPES } from './domain.js';
+import {
+  EnqueueService,
+  PollDetector,
+  type PrScanner,
+  PrScannerImpl,
+  type PruneEvaluator,
+  PruneEvaluatorImpl,
+  type Pruner,
+  PrunerImpl,
+  ReviewDetector,
+  ReviewTrigger,
+  Scheduler,
+} from './services.js';
 
 import 'reflect-metadata';
 import { getLogger, type Logger } from '@couimet/logger-contract';

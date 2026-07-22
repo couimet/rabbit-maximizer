@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
-import { usePauseNotification } from '../../dashboard/src/components/usePauseNotification.js';
-import { MS_PER_SECOND } from '../../src/utils/durations.js';
+import { usePauseNotification } from '../../dashboard/src/components/index.js';
+import { MS_PER_SECOND } from '../../src/utils/index.js';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';

@@ -1,4 +1,4 @@
-import { QueueStatus, TriggerSource } from '../../src/types/index.js';
+import { QueueStatus, TriggerSource } from '../../src/domain.js';
 
 import { buildCommentUrl, generateReviewRef } from './ReviewRefTestSupport.js';
 
