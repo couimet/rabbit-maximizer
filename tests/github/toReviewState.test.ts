@@ -12,7 +12,7 @@ describe('toReviewState', () => {
   });
 
   it('throws for unknown state via forUnexpectedSwitchDefault', () => {
-    expect(() => toReviewState('COMMENTED')).toThrowDetailedError('UNEXPECTED_CODE_PATH', {
+    expect(() => toReviewState('COMMENTED')).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
       message: 'Unexpected GitHub review state: "COMMENTED"',
       functionName: 'toReviewState',
       details: { unexpectedValue: 'COMMENTED' },

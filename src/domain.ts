@@ -11,7 +11,7 @@ export { EventType } from './EventType.js';
 export { IntervalService } from './IntervalService.js';
 export { TYPES } from './inversify-types.js';
 export { isProduction } from './isProduction.js';
-export type { PrStateValue } from './PrStateValue.js';
+export { getPrStateFromGitHubValue, PrState } from './PrState.js';
 export { QueueStatus } from './QueueStatus.js';
 export { RabbitResult } from './RabbitResult.js';
 export { SchedulerStatus } from './SchedulerStatus.js';

@@ -176,7 +176,7 @@ describe('parseEventRow', () => {
 
   it('throws on an unexpected event type', () => {
     const row = baseRow({ type: 'bogus', payload: '{}' });
-    expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_CODE_PATH', {
+    expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
       message: 'Unexpected event type: "bogus"',
       functionName: 'parseEventRow',
       details: { unexpectedValue: 'bogus' },

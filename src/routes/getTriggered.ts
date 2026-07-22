@@ -29,7 +29,7 @@ export const createGetTriggeredHandler = (queueRepo: QueueRepository, queueItemM
       const skip = (page - 1) * pageSize;
 
       const { items, total } = await queueRepo.getTriggered(since, skip, pageSize, includeReviewed);
-      const data = queueItemMapper.mapToQueueItemResponseList(items);
+      const data = await queueItemMapper.mapToQueueItemResponseList(items);
 
       res.json({ data, total, page, pageSize });
     } catch (error) {

@@ -24,7 +24,7 @@ export const createGetDashboardStateHandler = (
         systemStateRepo.isSchedulerPaused(),
       ]);
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
-      const pendingItems = queueItemMapper.mapToQueueItemResponseList(items);
+      const pendingItems = await queueItemMapper.mapToQueueItemResponseList(items);
 
       const nextReviewAvailableAt: string | null = null;
 

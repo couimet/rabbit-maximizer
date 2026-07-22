@@ -1,10 +1,9 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { QueueItemMapper } from '../../src/mappers/index.js';
 import { createGetQueueHandler } from '../../src/routes/index.js';
-import { apiJson, createMockQueueRepo, fetchResponse, generateQueueItemHydrationData, getJson } from '../helpers/index.js';
+import { apiJson, createMockQueueItemMapper, createMockQueueRepo, fetchResponse, generateQueueItemHydrationData, getJson } from '../helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
@@ -12,12 +11,15 @@ describe('getQueue', () => {
   let server: Server;
   let port: number;
   let logger: ReturnType<typeof createMockLogger>;
+  let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
+
+  beforeEach(() => {
+    queueItemMapper = createMockQueueItemMapper();
+  });
 
   afterEach(async () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   });
-
-  const queueItemMapper = new QueueItemMapper();
 
   const startServer = (over = {}) => {
     logger = createMockLogger();
@@ -33,7 +35,7 @@ describe('getQueue', () => {
     startServer({ getAll: jest.fn<any>().mockResolvedValue({ items: queueItems, total: 2 }) });
 
     const json = await getJson(port, '/api/queue');
-    expect(json).toStrictEqual(apiJson({ data: queueItemMapper.mapToQueueItemResponseList(queueItems), total: 2, page: 1, pageSize: 20 }));
+    expect(json).toStrictEqual(apiJson({ data: await queueItemMapper.mapToQueueItemResponseList(queueItems), total: 2, page: 1, pageSize: 20 }));
   });
 
   it('returns empty data when no items exist', async () => {

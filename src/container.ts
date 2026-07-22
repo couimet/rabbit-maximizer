@@ -15,11 +15,11 @@ import {
 } from './db/index.js';
 import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/softDeleteExtension.js';
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl, type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
-import { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
+import { EventCountsMapper, EventEntryMapper, QueueItemMapper, ReviewQueueToQueueItemMapper } from './mappers/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/index.js';
 import { ProbeFactory } from './probes/index.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { MS_PER_SECOND } from './utils/index.js';
+import { MS_PER_SECOND, QueueItemEnricher } from './utils/index.js';
 import { type Config, config } from './config.js';
 import { TYPES } from './domain.js';
 import {
@@ -103,6 +103,8 @@ container.bind<Scheduler>(TYPES.Scheduler).to(Scheduler).inSingletonScope();
 
 container.bind<EventCountsMapper>(TYPES.EventCountsMapper).to(EventCountsMapper).inSingletonScope();
 container.bind<EventEntryMapper>(TYPES.EventEntryMapper).to(EventEntryMapper).inSingletonScope();
+container.bind<QueueItemEnricher>(TYPES.QueueItemEnricher).to(QueueItemEnricher).inSingletonScope();
 container.bind<QueueItemMapper>(TYPES.QueueItemMapper).to(QueueItemMapper).inSingletonScope();
+container.bind<ReviewQueueToQueueItemMapper>(TYPES.ReviewQueueToQueueItemMapper).to(ReviewQueueToQueueItemMapper).inSingletonScope();
 
 export { container };

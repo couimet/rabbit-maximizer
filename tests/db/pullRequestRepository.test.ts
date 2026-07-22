@@ -1,4 +1,5 @@
 import { PullRequestRepositoryImpl } from '../../src/db/index.js';
+import { PrState } from '../../src/domain.js';
 import { createMockPrismaClient, createResolvedMock, generatePullRequestHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
@@ -35,7 +36,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', prState: 'open' });
+      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', prState: PrState.open });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
       expect(logger.debug).toHaveBeenCalledWith(
@@ -57,7 +58,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prState: 'open' });
+      const result = await sut.upsert(repoFullName, prNumber, { prState: PrState.open });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
     });
@@ -70,7 +71,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prState: 'open' });
+      const result = await sut.upsert(repoFullName, prNumber, { prState: PrState.open });
 
       expect(pullRequest.findUnique).toHaveBeenCalled();
       expect(pullRequest.create).not.toHaveBeenCalled();
@@ -94,7 +95,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prTitle, prState: 'open' });
+      await sut.upsert(repoFullName, prNumber, { prTitle, prState: PrState.open });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -110,7 +111,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test', prState: 'open' })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test', prState: PrState.open })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'PullRequest'",
         functionName: 'PullRequestRepositoryImpl.upsert',
         details: { tableName: 'PullRequest' },
@@ -131,7 +132,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: 'closed' });
+      await sut.upsert(repoFullName, prNumber, { prState: PrState.closed });
 
       expect(mockCreate).toHaveBeenCalledWith({
         data: {
@@ -159,7 +160,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: 'open', authorLogin });
+      await sut.upsert(repoFullName, prNumber, { prState: PrState.open, authorLogin });
 
       expect(mockCreate).toHaveBeenCalledWith({
         data: {
@@ -184,7 +185,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: 'merged' });
+      await sut.upsert(repoFullName, prNumber, { prState: PrState.merged });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -204,7 +205,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: 'open', authorLogin });
+      await sut.upsert(repoFullName, prNumber, { prState: PrState.open, authorLogin });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -410,7 +411,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.findByPrState('open');
+      const result = await sut.findByPrState(PrState.open);
 
       expect(result).toStrictEqual(rows);
     });
@@ -421,72 +422,86 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.findByPrState('merged');
+      const result = await sut.findByPrState(PrState.merged);
 
       expect(result).toStrictEqual([]);
     });
   });
 
-  describe('getPrStateMap', () => {
-    it('returns empty map when ids is empty', async () => {
+  describe('getColumnMaps', () => {
+    it('returns empty result when ids array is empty', async () => {
       const { prisma } = createMockPrismaClient();
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.getPrStateMap([]);
+      const result = await sut.getColumnMaps([], ['pr_state']);
 
-      expect(result).toStrictEqual(new Map());
+      expect(result).toStrictEqual({ pr_state: new Map() });
     });
 
-    it('returns map with pr_state values', async () => {
+    it('returns empty result when columns array is empty', async () => {
+      const { prisma } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.getColumnMaps([1], []);
+
+      expect(result).toStrictEqual({});
+    });
+
+    it('returns a map per column populated from the database rows', async () => {
+      const id1 = getUniqueInt();
+      const id2 = getUniqueInt();
       const rows = [
-        { id: 10, pr_state: 'open' },
-        { id: 20, pr_state: 'merged' },
+        { id: id1, pr_state: 'open' },
+        { id: id2, pr_state: 'merged' },
       ];
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.getPrStateMap([10, 20]);
+      const result = await sut.getColumnMaps([id1, id2], ['pr_state']);
 
-      expect(result).toStrictEqual(
-        new Map([
-          [10, 'open'],
-          [20, 'merged'],
+      expect(prisma.pullRequest.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [id1, id2] } },
+        select: { id: true, pr_state: true },
+      });
+      expect(result).toStrictEqual({
+        pr_state: new Map([
+          [id1, 'open'],
+          [id2, 'merged'],
         ]),
-      );
-    });
-  });
-
-  describe('getAcknowledgedAtMap', () => {
-    it('returns empty map when ids is empty', async () => {
-      const { prisma } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
-
-      const result = await sut.getAcknowledgedAtMap([]);
-
-      expect(result).toStrictEqual(new Map());
+      });
     });
 
-    it('returns map with acknowledged_at values including null', async () => {
-      const acknowledgedAt = new Date();
+    it('handles multiple ids and multiple columns', async () => {
+      const id1 = getUniqueInt();
+      const id2 = getUniqueInt();
+      const acknowledgedAt = getUniqueDate();
       const rows = [
-        { id: 10, last_coderabbit_acknowledged_at: acknowledgedAt },
-        { id: 20, last_coderabbit_acknowledged_at: null },
+        { id: id1, pr_state: 'open', last_coderabbit_acknowledged_at: acknowledgedAt },
+        { id: id2, pr_state: 'merged', last_coderabbit_acknowledged_at: null },
       ];
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.getAcknowledgedAtMap([10, 20]);
+      const result = await sut.getColumnMaps([id1, id2], ['pr_state', 'last_coderabbit_acknowledged_at']);
 
-      expect(result).toStrictEqual(
-        new Map([
-          [10, acknowledgedAt],
-          [20, undefined],
+      expect(prisma.pullRequest.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [id1, id2] } },
+        select: { id: true, pr_state: true, last_coderabbit_acknowledged_at: true },
+      });
+      expect(result).toStrictEqual({
+        pr_state: new Map([
+          [id1, 'open'],
+          [id2, 'merged'],
         ]),
-      );
+        last_coderabbit_acknowledged_at: new Map([
+          [id1, acknowledgedAt],
+          [id2, null],
+        ]),
+      });
     });
   });
 

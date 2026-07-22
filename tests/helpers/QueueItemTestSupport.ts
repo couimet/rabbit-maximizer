@@ -1,4 +1,4 @@
-import { QueueStatus, TriggerSource } from '../../src/domain.js';
+import { PrState, QueueStatus, TriggerSource } from '../../src/domain.js';
 import type { QueueItem } from '../../src/types/index.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
@@ -24,6 +24,7 @@ export const generateQueueItemHydrationData = (overrideValues?: Partial<QueueIte
     source_comment_url: ref.commentUrl,
     trigger_source: getRandomEnumValue(TriggerSource),
     pull_request_id: getUniqueInt(),
+    pr_state: getRandomEnumValue(PrState),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
     ...rest,

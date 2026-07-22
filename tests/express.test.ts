@@ -1,9 +1,9 @@
-import { EventCountsMapper, EventEntryMapper, QueueItemMapper } from '../src/mappers/index.js';
+import { EventCountsMapper, EventEntryMapper } from '../src/mappers/index.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
 
-const { createMockVite } = await import('./helpers/index.js');
+const { createMockQueueItemMapper, createMockVite } = await import('./helpers/index.js');
 
 const viteMock = createMockVite();
 
@@ -28,7 +28,7 @@ describe('setupExpress', () => {
       config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
       eventCountsMapper: new EventCountsMapper(),
       eventEntryMapper: new EventEntryMapper(),
-      queueItemMapper: new QueueItemMapper(),
+      queueItemMapper: createMockQueueItemMapper(),
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),
@@ -99,7 +99,7 @@ describe('setupExpress', () => {
           config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
           eventCountsMapper: new EventCountsMapper(),
           eventEntryMapper: new EventEntryMapper(),
-          queueItemMapper: new QueueItemMapper(),
+          queueItemMapper: createMockQueueItemMapper(),
           queueRepo: createMockQueueRepo(),
           queueOrderRepo: createMockQueueOrderRepo(),
           eventRepo: createMockEventRepo(),

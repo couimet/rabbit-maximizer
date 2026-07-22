@@ -3,7 +3,7 @@ import { type CoderabbitGitHubClient, isPRClosedWithoutMerge, isPRMerged } from 
 import type { ProbeFactory } from './probes/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { TYPES } from './domain.js';
+import { getPrStateFromGitHubValue, PrState, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -56,7 +56,11 @@ export class PrScannerImpl implements PrScanner {
       // Upsert each discovered PR
       for (const pr of discoveredPRs) {
         try {
-          const result = await this.pullRequests.upsert(pr.repoFullName, pr.prNumber, { prTitle: pr.prTitle, prState: 'open', authorLogin: pr.authorLogin });
+          const result = await this.pullRequests.upsert(pr.repoFullName, pr.prNumber, {
+            prTitle: pr.prTitle,
+            prState: PrState.open,
+            authorLogin: pr.authorLogin,
+          });
           if (result.created) {
             opened++;
           } else {
@@ -70,18 +74,19 @@ export class PrScannerImpl implements PrScanner {
       probe.discovered(opened, updated);
 
       // Detect closures: PRs in DB with pr_state='open' but not in GitHub's open list
-      const dbOpenPRs = await this.pullRequests.findByPrState('open');
+      const dbOpenPRs = await this.pullRequests.findByPrState(PrState.open);
       let closed = 0;
       for (const dbPR of dbOpenPRs) {
         const key = `${dbPR.repo_full_name}#${dbPR.pr_number}`;
         if (!discoveredKeys.has(key)) {
           try {
             const prState = await this.github.getPRState(dbPR.repo_full_name, dbPR.pr_number);
+            void getPrStateFromGitHubValue(prState.state);
             if (isPRMerged(prState)) {
-              await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: 'merged' });
+              await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: PrState.merged });
               closed++;
             } else if (isPRClosedWithoutMerge(prState)) {
-              await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: 'closed' });
+              await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: PrState.closed });
               closed++;
             }
           } catch (err: unknown) {

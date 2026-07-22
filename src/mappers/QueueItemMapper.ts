@@ -1,9 +1,15 @@
+import { TYPES } from '../domain.js';
 import type { QueueItem, QueueItemResponse } from '../types/index.js';
+import { nullableDateToISOString, nullableString, type QueueItemEnricher } from '../utils/index.js';
 
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
 @injectable()
 export class QueueItemMapper {
+  /* c8 ignore start — decorator emit branches */
+  constructor(@inject(TYPES.QueueItemEnricher) private readonly enricher: QueueItemEnricher) {}
+  /* c8 ignore stop */
+
   mapToQueueItemResponse(input: QueueItem): QueueItemResponse {
     return {
       id: input.id,
@@ -15,16 +21,19 @@ export class QueueItemMapper {
       attempts: input.attempts,
       source_comment_url: input.source_comment_url,
       trigger_source: input.trigger_source as QueueItemResponse['trigger_source'],
-      retrigger_comment_url: input.retrigger_comment_url,
-      retriggered_at: input.retriggered_at?.toISOString(),
-      failed_at: input.failed_at?.toISOString(),
-      reviewed_at: input.reviewed_at?.toISOString(),
+      retrigger_comment_url: nullableString(input.retrigger_comment_url),
+      retriggered_at: nullableDateToISOString(input.retriggered_at),
+      failed_at: nullableDateToISOString(input.failed_at),
+      reviewed_at: nullableDateToISOString(input.reviewed_at),
+      pr_state: input.pr_state as QueueItemResponse['pr_state'],
+      last_coderabbit_acknowledged_at: nullableDateToISOString(input.last_coderabbit_acknowledged_at),
       created_at: input.created_at.toISOString(),
       updated_at: input.updated_at.toISOString(),
     };
   }
 
-  mapToQueueItemResponseList(inputs: QueueItem[]): QueueItemResponse[] {
-    return inputs.map((item) => this.mapToQueueItemResponse(item));
+  async mapToQueueItemResponseList(inputs: QueueItem[]): Promise<QueueItemResponse[]> {
+    const enriched = await this.enricher.enrich(inputs);
+    return enriched.map((item) => this.mapToQueueItemResponse(item));
   }
 }

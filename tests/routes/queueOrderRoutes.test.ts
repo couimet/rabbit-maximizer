@@ -2,7 +2,6 @@ import { RabbitResult } from '../../src/domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../../src/errors/index.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { PrismaRecordNotFoundError } from '../../src/external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
-import { QueueItemMapper } from '../../src/mappers/index.js';
 import {
   createGetQueueOrderHandler,
   createMarkReviewedHandler,
@@ -12,6 +11,7 @@ import {
 } from '../../src/routes/index.js';
 import {
   apiJson,
+  createMockQueueItemMapper,
   createMockQueueOrderRepo,
   createMockQueueRepo,
   createMockSystemStateRepository,
@@ -23,12 +23,10 @@ import {
 
 import { getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
-
-const queueItemMapper = new QueueItemMapper();
 
 const UUID_A = getUuid();
 const UUID_B = getUuid();
@@ -39,9 +37,11 @@ describe('queueOrderRoutes', () => {
   let server: Server;
   let logger: ReturnType<typeof createMockLogger>;
   let port: number;
+  let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
 
   beforeEach(() => {
     logger = createMockLogger();
+    queueItemMapper = createMockQueueItemMapper();
   });
 
   afterEach(async () => {
@@ -62,7 +62,7 @@ describe('queueOrderRoutes', () => {
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
       const json = await getJson(port, '/api/queue/order');
-      expect(json).toStrictEqual({ data: apiJson(queueItemMapper.mapToQueueItemResponseList(items)) });
+      expect(json).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)) });
     });
 
     it('returns 200 with empty data when no items', async () => {
@@ -111,7 +111,7 @@ describe('queueOrderRoutes', () => {
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
-      expect(await res.json()).toStrictEqual({ data: apiJson(queueItemMapper.mapToQueueItemResponseList(moved)) });
+      expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(moved)) });
     });
 
     it('moves single item down and returns updated order', async () => {
@@ -132,7 +132,7 @@ describe('queueOrderRoutes', () => {
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'down' });
       expect(res.status).toBe(StatusCodes.OK);
-      expect(await res.json()).toStrictEqual({ data: apiJson(queueItemMapper.mapToQueueItemResponseList(moved)) });
+      expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(moved)) });
     });
 
     it('no-ops when moving item at top up', async () => {
@@ -144,7 +144,7 @@ describe('queueOrderRoutes', () => {
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
-      expect(await res.json()).toStrictEqual({ data: apiJson(queueItemMapper.mapToQueueItemResponseList(items)) });
+      expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)) });
     });
 
     it('no-ops when moving item at bottom down', async () => {
@@ -156,7 +156,7 @@ describe('queueOrderRoutes', () => {
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'down' });
       expect(res.status).toBe(StatusCodes.OK);
-      expect(await res.json()).toStrictEqual({ data: apiJson(queueItemMapper.mapToQueueItemResponseList(items)) });
+      expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)) });
     });
 
     it('moves non-adjacent items up past their respective neighbors', async () => {
@@ -179,7 +179,7 @@ describe('queueOrderRoutes', () => {
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_C, UUID_D], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
-      expect(await res.json()).toStrictEqual({ data: apiJson(queueItemMapper.mapToQueueItemResponseList(moved)) });
+      expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(moved)) });
     });
 
     it('moves adjacent items as a block up', async () => {
@@ -202,7 +202,7 @@ describe('queueOrderRoutes', () => {
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_B, UUID_C], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
-      expect(await res.json()).toStrictEqual({ data: apiJson(queueItemMapper.mapToQueueItemResponseList(moved)) });
+      expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(moved)) });
     });
 
     it('returns 400 when direction is invalid', async () => {

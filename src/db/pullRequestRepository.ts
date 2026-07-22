@@ -1,6 +1,6 @@
-import { TYPES } from '../domain.js';
+import { PrState, TYPES } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
-import type { PendingAcknowledgement, UpsertPullRequestData } from '../types/index.js';
+import type { PendingAcknowledgement, PullRequestColumnTypes, UpsertPullRequestData } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -21,10 +21,13 @@ const FIND_PENDING_ACKNOWLEDGEMENT_SQL = `
 export interface PullRequestRepository {
   upsert(repoFullName: string, prNumber: number, data: UpsertPullRequestData, tx?: Prisma.TransactionClient): Promise<{ id: number; created: boolean }>;
   findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<{ id: number } | null>;
-  findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
+  findByPrState(prState: PrState, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
   findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
-  getAcknowledgedAtMap(ids: number[], tx?: Prisma.TransactionClient): Promise<Map<number, Date | undefined>>;
-  getPrStateMap(ids: number[], tx?: Prisma.TransactionClient): Promise<Map<number, string>>;
+  getColumnMaps<C extends keyof PullRequestColumnTypes>(
+    ids: number[],
+    columns: readonly C[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ [K in C]: Map<number, PullRequestColumnTypes[K]> }>;
   incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
   recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void>;
   recordReview(id: number, tx: Prisma.TransactionClient): Promise<void>;
@@ -154,7 +157,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
   }
 
   // eslint-disable-next-line require-await
-  async findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>> {
+  async findByPrState(prState: PrState, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>> {
     return this.enforceTx(tx, (db) =>
       db.pullRequest.findMany({
         where: { pr_state: prState },
@@ -163,26 +166,43 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
     );
   }
 
-  async getAcknowledgedAtMap(ids: number[], tx?: Prisma.TransactionClient): Promise<Map<number, Date | undefined>> {
-    if (ids.length === 0) return new Map();
-    const rows = await this.enforceTx(tx, (db) =>
-      db.pullRequest.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, last_coderabbit_acknowledged_at: true },
-      }),
-    );
-    return new Map(rows.map((r) => [r.id, r.last_coderabbit_acknowledged_at ?? undefined]));
-  }
+  async getColumnMaps<C extends keyof PullRequestColumnTypes>(
+    ids: number[],
+    columns: readonly C[],
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ [K in C]: Map<number, PullRequestColumnTypes[K]> }> {
+    if (columns.length === 0) {
+      return {} as { [K in C]: Map<number, PullRequestColumnTypes[K]> };
+    }
 
-  async getPrStateMap(ids: number[], tx?: Prisma.TransactionClient): Promise<Map<number, string>> {
-    if (ids.length === 0) return new Map();
-    const rows = await this.enforceTx(tx, (db) =>
-      db.pullRequest.findMany({
-        where: { id: { in: ids } },
-        select: { id: true, pr_state: true },
-      }),
-    );
-    return new Map(rows.map((r) => [r.id, r.pr_state]));
+    if (ids.length === 0) {
+      const result = {} as { [K in C]: Map<number, PullRequestColumnTypes[K]> };
+      for (const col of columns) {
+        (result as Record<string, unknown>)[col as string] = new Map();
+      }
+      return result;
+    }
+
+    const select = { id: true } as Record<string, boolean>;
+    for (const col of columns) {
+      select[col as string] = true;
+    }
+
+    const rows = await this.enforceTx(tx, (db) => db.pullRequest.findMany({ where: { id: { in: ids } }, select }));
+
+    const result = {} as { [K in C]: Map<number, PullRequestColumnTypes[K]> };
+    for (const col of columns) {
+      (result as Record<string, unknown>)[col as string] = new Map();
+    }
+    for (const row of rows) {
+      for (const col of columns) {
+        (result as Record<string, Map<number, unknown>>)[col as string].set(
+          (row as Record<string, unknown>).id as number,
+          (row as Record<string, unknown>)[col as string],
+        );
+      }
+    }
+    return result;
   }
 
   async recordReviewLimitDetection(id: number, reviewLimitAt: Date, tx: Prisma.TransactionClient): Promise<void> {

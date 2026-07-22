@@ -1,12 +1,17 @@
 export { computeSchedulerBackoff } from './computeSchedulerBackoff.js';
+export { dateToISOString } from './dateToISOString.js';
 export { describeDatabaseUrl } from './describeDatabaseUrl.js';
 export { HOURS_PER_DAY, MINUTES_PER_HOUR, MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND, SECONDS_PER_MINUTE } from './durations.js';
 export { formatDate } from './formatDate.js';
 export { formatRelativeFuture } from './formatRelativeFuture.js';
 export { formatRelativeTime } from './formatRelativeTime.js';
 export { isValidTimezone } from './isValidTimezone.js';
+export { nullableDateToISOString } from './nullableDateToISOString.js';
+export { nullableString } from './nullableString.js';
+export { QueueItemEnricher } from './QueueItemEnricher.js';
 export type { Duration } from './resolveDurationSince.js';
 export { DEFAULT_DURATION, DURATION_OPTIONS, resolveDurationSince } from './resolveDurationSince.js';
 export { reviewStateToEventType } from './reviewStateToEventType.js';
+export { sqlDateToDate } from './sqlDateToDate.js';
 export { truncateBodyPreview } from './truncateBodyPreview.js';
 export { findByUuid, isValidUuid, resolveUuidsToIds } from './uuidLookup.js';

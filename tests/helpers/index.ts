@@ -41,6 +41,8 @@ export {
 } from './createMockProbes.js';
 export { createMockPruner } from './createMockPruner.js';
 export { createMockPullRequestRepo } from './createMockPullRequestRepo.js';
+export { createMockQueueItemEnricher } from './createMockQueueItemEnricher.js';
+export { createMockQueueItemMapper } from './createMockQueueItemMapper.js';
 export { createMockQueueOrderRepo } from './createMockQueueOrderRepo.js';
 export { createMockQueueRepo } from './createMockQueueRepo.js';
 export { createMockSystemStateRepository } from './createMockSystemStateRepository.js';

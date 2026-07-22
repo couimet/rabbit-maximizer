@@ -34,17 +34,17 @@ describe('initLogger', () => {
 
     expect(mockTransportFn).toHaveBeenCalledWith({
       targets: [
-        { target: 'pino-roll', options: { file: './logs/rabbit-maximizer.log', frequency: 'daily', mkdir: true, limit: { count: 7 } } },
-        { target: 'pino-pretty', options: { destination: 1, colorize: true } },
+        { target: 'pino-roll', options: { file: './logs/rabbit-maximizer.log', frequency: 'daily', mkdir: true, limit: { count: 7 } }, level: 'debug' },
+        { target: 'pino-pretty', options: { destination: 1, colorize: true }, level: 'debug' },
       ],
     });
 
-    expect(mockPinoFn).toHaveBeenCalledWith({ level: 'info' }, mockTransport);
+    expect(mockPinoFn).toHaveBeenCalledWith({ level: 'debug' }, mockTransport);
     expect(MockPinoAdapter).toHaveBeenCalledWith(mockPinoLogger);
     expect(mockSetLogger).toHaveBeenCalledWith(MockPinoAdapter.mock.instances[0]);
   });
 
-  it('uses LOG_LEVEL env var over the info default when set', () => {
+  it('uses LOG_LEVEL env var over the debug default when set', () => {
     const prev = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = DEBUG_LOG_LEVEL;
 

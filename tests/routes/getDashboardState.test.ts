@@ -1,9 +1,10 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { EventCountsMapper, QueueItemMapper } from '../../src/mappers/index.js';
+import { EventCountsMapper } from '../../src/mappers/index.js';
 import { createGetDashboardStateHandler } from '../../src/routes/index.js';
 import {
   apiJson,
   createMockEventRepo,
+  createMockQueueItemMapper,
   createMockQueueOrderRepo,
   createMockSystemStateRepository,
   fetchResponse,
@@ -12,7 +13,7 @@ import {
 } from '../helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
@@ -20,13 +21,17 @@ describe('getDashboardState', () => {
   let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
+  let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
+  let eventCountsMapper: EventCountsMapper;
+
+  beforeEach(() => {
+    queueItemMapper = createMockQueueItemMapper();
+    eventCountsMapper = new EventCountsMapper();
+  });
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
-
-  const queueItemMapper = new QueueItemMapper();
-  const eventCountsMapper = new EventCountsMapper();
 
   const startServer = (
     queueOrderRepoOver: Record<string, unknown> = {},
@@ -71,7 +76,7 @@ describe('getDashboardState', () => {
     const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: null,
-      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
+      pendingItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)),
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
       paused: false,
     });
@@ -111,7 +116,7 @@ describe('getDashboardState', () => {
     const json = await getJson(port, '/api/dashboard-state');
     expect(json).toStrictEqual({
       nextReviewAvailableAt: null,
-      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
+      pendingItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)),
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
