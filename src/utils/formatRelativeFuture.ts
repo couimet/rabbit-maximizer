@@ -1,4 +1,4 @@
-import { HOURS_PER_DAY, MINUTES_PER_HOUR, MS_PER_MINUTE } from './durations.js';
+import { HOURS_PER_DAY, MINUTES_PER_HOUR, MS_PER_MINUTE } from './index.js';
 
 export const formatRelativeFuture = (iso: string): string => {
   const diffMs = new Date(iso).getTime() - Date.now();

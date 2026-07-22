@@ -1,20 +1,25 @@
-import { RabbitMaximizerError } from '../../src/errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../../src/errors/RabbitMaximizerErrorCodes.js';
+import { RabbitResult } from '../../src/domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../../src/errors/index.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { PrismaRecordNotFoundError } from '../../src/external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
-import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
+import { QueueItemMapper } from '../../src/mappers/index.js';
 import {
   createGetQueueOrderHandler,
   createMarkReviewedHandler,
   createMoveQueueOrderHandler,
   createMoveToTopHandler,
   createRetriggerNowHandler,
-} from '../../src/routes/queueOrderRoutes.js';
-import { RabbitResult } from '../../src/types/RabbitResult.js';
-import { fetchResponse } from '../helpers/fetchResponse.js';
-import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository, generateQueueItemHydrationData } from '../helpers/index.js';
-import { postJson } from '../helpers/postJson.js';
+} from '../../src/routes/index.js';
+import {
+  apiJson,
+  createMockQueueOrderRepo,
+  createMockQueueRepo,
+  createMockSystemStateRepository,
+  fetchResponse,
+  generateQueueItemHydrationData,
+  getJson,
+  postJson,
+} from '../helpers/index.js';
 
 import { getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';

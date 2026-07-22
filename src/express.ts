@@ -1,12 +1,6 @@
-import type { EventRepository } from './db/eventRepository.js';
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueOrderRepository } from './db/queueOrderRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import type { SystemStateRepository } from './db/systemStateRepository.js';
+import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
 import { createExpressApp, startServer } from './external-deps/couimet/express-tools/index.js';
-import type { EventCountsMapper } from './mappers/index.js';
-import type { EventEntryMapper } from './mappers/index.js';
-import type { QueueItemMapper } from './mappers/index.js';
+import type { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
 import {
   createGetConfigHandler,
   createGetDashboardStateHandler,
@@ -20,16 +14,15 @@ import {
   createMoveToTopHandler,
   createRetriggerNowHandler,
   createSetPausedHandler,
+  trySetupVite,
 } from './routes/index.js';
-import { trySetupVite } from './routes/setupVite.js';
 import type { Config } from './config.js';
-import { isProduction } from './isProduction.js';
-import type { ReviewTrigger } from './ReviewTrigger.js';
+import { isProduction } from './domain.js';
+import type { ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
-import type { Request, Response } from 'express';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 

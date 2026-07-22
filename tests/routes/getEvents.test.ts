@@ -1,9 +1,7 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { EventEntryMapper } from '../../src/mappers/EventEntryMapper.js';
-import { createGetEventsHandler } from '../../src/routes/getEvents.js';
-import { fetchResponse } from '../helpers/fetchResponse.js';
-import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, generateEventLogEntryHydrationData } from '../helpers/index.js';
+import { EventEntryMapper } from '../../src/mappers/index.js';
+import { createGetEventsHandler } from '../../src/routes/index.js';
+import { apiJson, createMockEventRepo, fetchResponse, generateEventLogEntryHydrationData, getJson } from '../helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';

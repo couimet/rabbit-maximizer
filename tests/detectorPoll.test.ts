@@ -1,8 +1,7 @@
-import { StateKey } from '../src/db/systemStateRepository.js';
-import { PollDetector } from '../src/detectorPoll.js';
-import type { CoderabbitGitHubClient } from '../src/github/coderabbitGitHubClient.js';
-import type { DetectedComment } from '../src/types/DetectedComment.js';
-import type { OnDetectedCallback } from '../src/types/OnDetectedCallback.js';
+import { StateKey } from '../src/db/index.js';
+import type { CoderabbitGitHubClient } from '../src/github/index.js';
+import { PollDetector } from '../src/services.js';
+import type { DetectedComment, OnDetectedCallback } from '../src/types/index.js';
 
 import {
   createMockCoderabbitGitHubClient,

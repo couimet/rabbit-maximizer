@@ -1,6 +1,4 @@
-import { EventCountsMapper } from '../src/mappers/EventCountsMapper.js';
-import { EventEntryMapper } from '../src/mappers/EventEntryMapper.js';
-import { QueueItemMapper } from '../src/mappers/QueueItemMapper.js';
+import { EventCountsMapper, EventEntryMapper, QueueItemMapper } from '../src/mappers/index.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';

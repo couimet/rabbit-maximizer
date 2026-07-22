@@ -1,4 +1,4 @@
-import type { ObservationContext } from '../observability/observationContext.js';
+import type { ObservationContext } from '../observability/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 

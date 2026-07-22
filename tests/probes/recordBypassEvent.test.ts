@@ -1,6 +1,6 @@
-import type { EventRepository } from '../../src/db/eventRepository.js';
-import { recordBypassEvent } from '../../src/probes/recordBypassEvent.js';
-import { BypassReason } from '../../src/types/index.js';
+import type { EventRepository } from '../../src/db/index.js';
+import { BypassReason } from '../../src/domain.js';
+import { recordBypassEvent } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { generateObservationContextHydrationData, generateReviewRef } from '../helpers/index.js';
 

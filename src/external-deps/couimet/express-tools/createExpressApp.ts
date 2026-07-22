@@ -1,8 +1,6 @@
-import { createMorganMiddleware } from './createMorganMiddleware.js';
-import { MiddlewareIdentifier } from './middlewareIdentifiers.js';
+import { createMorganMiddleware, MiddlewareIdentifier } from './index.js';
 
-import type { Logger } from '@couimet/logger-contract';
-import { getLogger } from '@couimet/logger-contract';
+import { getLogger, type Logger } from '@couimet/logger-contract';
 import express, { type Application, type RequestHandler } from 'express';
 import helmet from 'helmet';
 

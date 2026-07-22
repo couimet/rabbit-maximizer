@@ -1,4 +1,4 @@
-import { formatRelativeFuture } from '../../src/utils/formatRelativeFuture.js';
+import { formatRelativeFuture } from '../../src/utils/index.js';
 
 import { describe, expect, it, jest } from '@jest/globals';
 

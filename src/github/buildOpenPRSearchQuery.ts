@@ -1,4 +1,4 @@
-import type { RepoFilter } from '../types/RepoFilter.js';
+import type { RepoFilter } from '../types/index.js';
 
 import { buildRepoQualifierClause } from './index.js';
 

@@ -1,4 +1,4 @@
-import { EventType } from '../../src/types/EventType.js';
+import { EventType } from '../../src/domain.js';
 
 import { describe, expect, it } from '@jest/globals';
 

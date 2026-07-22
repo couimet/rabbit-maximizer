@@ -1,4 +1,4 @@
-import type { QueueOrderRepository } from '../../src/db/queueOrderRepository.js';
+import type { QueueOrderRepository } from '../../src/db/index.js';
 import { type QueueItem } from '../../src/types/index.js';
 
 import { generateQueueItemHydrationData } from './QueueItemTestSupport.js';

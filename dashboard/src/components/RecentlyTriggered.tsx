@@ -1,6 +1,5 @@
 import type { QueueItemResponse } from '../../../src/types/api.js';
-import { formatRelativeTime } from '../../../src/utils/formatRelativeTime.js';
-import { type Duration, resolveDurationSince } from '../../../src/utils/resolveDurationSince.js';
+import { type Duration, formatRelativeTime, resolveDurationSince } from '../../../src/utils/index.js';
 import { fetchTriggered, markReviewed } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 

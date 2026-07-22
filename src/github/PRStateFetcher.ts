@@ -1,5 +1,5 @@
-import { TYPES } from '../inversify-types.js';
-import type { PRState } from '../types/PRState.js';
+import { TYPES } from '../domain.js';
+import type { PRState } from '../types/index.js';
 
 import type { CoderabbitGitHubClient } from './index.js';
 

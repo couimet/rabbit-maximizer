@@ -1,16 +1,11 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueOrderRepository } from './db/queueOrderRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import type { SystemStateRepository } from './db/systemStateRepository.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
-import { type QueueItem, TriggerSource } from './types/index.js';
+import type { PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import { RabbitMaximizerErrorCodes } from './errors/index.js';
+import type { ProbeFactory } from './probes/index.js';
+import type { QueueItem } from './types/index.js';
 import { computeSchedulerBackoff, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { IntervalService } from './IntervalService.js';
-import { TYPES } from './inversify-types.js';
-import type { Pruner } from './Pruner.js';
-import { ReviewTrigger } from './ReviewTrigger.js';
+import { IntervalService, TriggerSource, TYPES } from './domain.js';
+import { type Pruner, ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type PrismaClient } from '@prisma/client';

@@ -1,6 +1,5 @@
-import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
-import { TYPES } from '../inversify-types.js';
-import { SchedulerStatus } from '../types/SchedulerStatus.js';
+import { SchedulerStatus, TYPES } from '../domain.js';
+import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';

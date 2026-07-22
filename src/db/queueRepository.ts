@@ -1,18 +1,15 @@
-import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
-import { PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
-import { TYPES } from '../inversify-types.js';
-import type { ObservationContext } from '../observability/observationContext.js';
-import type { ProbeFactory } from '../probes/ProbeFactory.js';
-import type { ActivityListItem } from '../types/ActivityListItem.js';
+import { QueueStatus, TriggerSource, TYPES } from '../domain.js';
+import { BasePrismaRepository, PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
+import type { ObservationContext } from '../observability/index.js';
+import type { ProbeFactory } from '../probes/index.js';
 import {
+  type ActivityListItem,
   type CommentDetails,
   type CreateSkippedData,
   type EnqueueData,
   type EnqueueResult,
   type PaginatedResult,
   type QueueItem,
-  QueueStatus,
-  TriggerSource,
 } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';

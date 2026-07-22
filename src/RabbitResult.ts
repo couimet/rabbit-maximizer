@@ -1,4 +1,4 @@
-import type { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
+import type { RabbitMaximizerError } from './errors/index.js';
 
 import { DetailedResult } from '@couimet/detailed-result';
 

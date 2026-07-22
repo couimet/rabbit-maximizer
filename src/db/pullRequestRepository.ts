@@ -1,7 +1,6 @@
-import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
-import { TYPES } from '../inversify-types.js';
-import type { PendingAcknowledgement } from '../types/PendingAcknowledgement.js';
-import type { UpsertPullRequestData } from '../types/UpsertPullRequestData.js';
+import { TYPES } from '../domain.js';
+import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
+import type { PendingAcknowledgement, UpsertPullRequestData } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';

@@ -1,7 +1,6 @@
-import type { QueueRepository } from '../src/db/queueRepository.js';
-import { RabbitMaximizerError } from '../src/errors/RabbitMaximizerError.js';
-import type { PruneEvaluator } from '../src/PruneEvaluator.js';
-import { PrunerImpl } from '../src/Pruner.js';
+import type { QueueRepository } from '../src/db/index.js';
+import { RabbitMaximizerError } from '../src/errors/index.js';
+import { type PruneEvaluator, PrunerImpl } from '../src/services.js';
 
 import { createMockProbeFactory, createMockPrunerProbe, generateQueueItemHydrationData } from './helpers/index.js';
 

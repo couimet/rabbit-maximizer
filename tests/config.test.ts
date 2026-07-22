@@ -1,6 +1,5 @@
 import { type Config, config, describeRepoFilter, exitWithConfigErrors, parseConfig } from '../src/config.js';
-import { RabbitMaximizerError } from '../src/errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../src/errors/RabbitMaximizerErrorCodes.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../src/errors/index.js';
 
 import { getRandomString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';

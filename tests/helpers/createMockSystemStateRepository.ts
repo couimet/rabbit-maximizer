@@ -1,4 +1,4 @@
-import type { SystemStateRepository } from '../../src/db/systemStateRepository.js';
+import type { SystemStateRepository } from '../../src/db/index.js';
 
 import { jest } from '@jest/globals';
 

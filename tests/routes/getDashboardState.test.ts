@@ -1,10 +1,15 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
-import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
-import { createGetDashboardStateHandler } from '../../src/routes/getDashboardState.js';
-import { fetchResponse } from '../helpers/fetchResponse.js';
-import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository, generateQueueItemHydrationData } from '../helpers/index.js';
+import { EventCountsMapper, QueueItemMapper } from '../../src/mappers/index.js';
+import { createGetDashboardStateHandler } from '../../src/routes/index.js';
+import {
+  apiJson,
+  createMockEventRepo,
+  createMockQueueOrderRepo,
+  createMockSystemStateRepository,
+  fetchResponse,
+  generateQueueItemHydrationData,
+  getJson,
+} from '../helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';

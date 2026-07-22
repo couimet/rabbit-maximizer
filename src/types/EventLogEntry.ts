@@ -1,3 +1,5 @@
+import { EventType } from '../domain.js';
+
 import type {
   BypassedPayload,
   CoderabbitReviewApprovedPayload,
@@ -8,8 +10,7 @@ import type {
   EventMetadata,
   FailedPayload,
   RetriggeredPayload,
-} from './EventPayloads.js';
-import { EventType } from './EventType.js';
+} from './index.js';
 
 /** Always-present columns shared by every event, regardless of type. */
 export interface EventEnvelope {

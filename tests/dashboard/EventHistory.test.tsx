@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 
-import EventHistory from '../../dashboard/src/components/EventHistory.js';
+import { EventHistory } from '../../dashboard/src/components/index.js';
 import { TimezoneProvider } from '../../dashboard/src/timezone.js';
-import { formatDate } from '../../src/utils/formatDate.js';
+import { formatDate } from '../../src/utils/index.js';
 import { createMockFetch } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';

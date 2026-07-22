@@ -1,6 +1,6 @@
 import type { Config } from '../../src/config.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { createGetConfigHandler } from '../../src/routes/getConfig.js';
+import { createGetConfigHandler } from '../../src/routes/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it } from '@jest/globals';

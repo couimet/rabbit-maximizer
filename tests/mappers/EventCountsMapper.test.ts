@@ -1,4 +1,4 @@
-import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
+import { EventCountsMapper } from '../../src/mappers/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

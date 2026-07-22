@@ -1,4 +1,4 @@
-import type { ObservationContextProvider } from '../../src/observability/observationContext.js';
+import type { ObservationContextProvider } from '../../src/observability/index.js';
 
 import { generateObservationContextHydrationData } from './ObservationContextTestSupport.js';
 

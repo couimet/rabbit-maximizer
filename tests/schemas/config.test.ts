@@ -1,4 +1,4 @@
-import { type Config, ConfigSchema } from '../../src/schemas/config.js';
+import { type Config, ConfigSchema } from '../../src/schemas/index.js';
 
 import { getRandomString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';

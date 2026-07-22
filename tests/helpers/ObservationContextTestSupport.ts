@@ -1,4 +1,4 @@
-import type { ObservationContext } from '../../src/observability/observationContext.js';
+import type { ObservationContext } from '../../src/observability/index.js';
 
 import { getUuid } from '@couimet/dynamic-testing';
 

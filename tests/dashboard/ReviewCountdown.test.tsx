@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import ReviewCountdown from '../../dashboard/src/components/ReviewCountdown.js';
+import { ReviewCountdown } from '../../dashboard/src/components/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';

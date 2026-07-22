@@ -1,8 +1,8 @@
+import { TYPES } from '../domain.js';
 import { BasePrismaRepository, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
-import { TYPES } from '../inversify-types.js';
-import { BODY_PREVIEW_MAX_LENGTH } from '../schemas/lengths.js';
-import { CodeRabbitCommentType } from '../types/CodeRabbitCommentType.js';
-import { truncateBodyPreview } from '../utils/truncateBodyPreview.js';
+import { CodeRabbitCommentType } from '../github/index.js';
+import { BODY_PREVIEW_MAX_LENGTH } from '../schemas/index.js';
+import { truncateBodyPreview } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type CoderabbitComment, Prisma, type PrismaClient } from '@prisma/client';

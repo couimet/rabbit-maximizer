@@ -1,19 +1,11 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
-import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
-import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
-import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
-import { parseWaitSeconds } from './github/parseWaitSeconds.js';
-import { splitRepo } from './github/splitRepo.js';
-import { ProbeFactory } from './probes/ProbeFactory.js';
-import type { ReviewRetriggerProbe } from './probes/ReviewRetriggerProbe.js';
-import { type QueueItem, TriggerSource } from './types/index.js';
-import { RabbitResult } from './types/RabbitResult.js';
-import { MS_PER_SECOND } from './utils/durations.js';
+import type { PullRequestRepository, QueueRepository } from './db/index.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
+import { type CoderabbitGitHubClient, hasOwnRetriggerMarker, hasRateLimitMarker, parseWaitSeconds, splitRepo } from './github/index.js';
+import { ProbeFactory, type ReviewRetriggerProbe } from './probes/index.js';
+import type { QueueItem } from './types/index.js';
+import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { TYPES } from './inversify-types.js';
+import { RabbitResult, TriggerSource, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';

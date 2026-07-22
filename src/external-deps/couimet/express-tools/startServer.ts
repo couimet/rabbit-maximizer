@@ -2,8 +2,7 @@ import { ExpressToolsErrorCodes } from './ExpressToolsErrorCodes.js';
 
 import { DetailedError } from '@couimet/detailed-error';
 import type { Application } from 'express';
-import type { Server } from 'node:http';
-import { createServer } from 'node:http';
+import { createServer, type Server } from 'node:http';
 
 export interface StartServerResult {
   port: number;

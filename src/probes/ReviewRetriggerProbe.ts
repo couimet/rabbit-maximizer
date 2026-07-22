@@ -1,6 +1,7 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { ObservationContext } from '../observability/observationContext.js';
-import { EventType, type QueueItem } from '../types/index.js';
+import type { EventRepository } from '../db/index.js';
+import { EventType } from '../domain.js';
+import type { ObservationContext } from '../observability/index.js';
+import type { QueueItem } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';

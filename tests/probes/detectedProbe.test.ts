@@ -1,6 +1,6 @@
-import type { EventRepository } from '../../src/db/eventRepository.js';
-import type { ObservationContext } from '../../src/observability/observationContext.js';
-import { DetectedProbe } from '../../src/probes/DetectedProbe.js';
+import type { EventRepository } from '../../src/db/index.js';
+import type { ObservationContext } from '../../src/observability/index.js';
+import { DetectedProbe } from '../../src/probes/index.js';
 import type { EventLogEntry } from '../../src/types/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 

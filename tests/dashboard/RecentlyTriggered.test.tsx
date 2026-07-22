@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 
-import RecentlyTriggered from '../../dashboard/src/components/RecentlyTriggered.js';
-import { QueueStatus, TriggerSource } from '../../src/types/index.js';
+import { RecentlyTriggered } from '../../dashboard/src/components/index.js';
+import { QueueStatus, TriggerSource } from '../../src/domain.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';

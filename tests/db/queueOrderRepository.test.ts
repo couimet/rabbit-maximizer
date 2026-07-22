@@ -1,6 +1,6 @@
-import { type QueueOrderRepository, QueueOrderRepositoryImpl } from '../../src/db/queueOrderRepository.js';
-import { TYPES } from '../../src/inversify-types.js';
-import { type QueueItem, QueueStatus, TriggerSource } from '../../src/types/index.js';
+import { type QueueOrderRepository, QueueOrderRepositoryImpl } from '../../src/db/index.js';
+import { QueueStatus, TriggerSource, TYPES } from '../../src/domain.js';
+import { type QueueItem } from '../../src/types/index.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';

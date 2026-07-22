@@ -1,4 +1,4 @@
-import { IntervalService } from '../src/IntervalService.js';
+import { IntervalService } from '../src/domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';

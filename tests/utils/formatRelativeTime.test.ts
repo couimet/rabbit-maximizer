@@ -1,4 +1,4 @@
-import { formatRelativeTime } from '../../src/utils/formatRelativeTime.js';
+import { formatRelativeTime } from '../../src/utils/index.js';
 
 import { describe, expect, it, jest } from '@jest/globals';
 

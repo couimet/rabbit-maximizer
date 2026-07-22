@@ -1,4 +1,4 @@
-import type { EventRepository } from '../../src/db/eventRepository.js';
+import type { EventRepository } from '../../src/db/index.js';
 
 import { jest } from '@jest/globals';
 
