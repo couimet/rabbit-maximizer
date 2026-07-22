@@ -1,4 +1,4 @@
-import { startServer } from '../../src/external-deps/couimet/express-tools/startServer.js';
+import { startServer } from '../../src/external-deps/couimet/express-tools/index.js';
 
 import { DetailedError } from '@couimet/detailed-error';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
@@ -49,7 +49,7 @@ describe('startServer', () => {
     expect(error).toBeDetailedError('SERVER_LISTEN_FAILED', {
       message: 'Failed to start server on port -1',
       functionName: 'startServer',
-      details: { port: -1 },
+      details: { port: -1, originalCode: 'ERR_SOCKET_BAD_PORT' },
       cause: expect.any(Object),
     });
     expect((error.cause as NodeJS.ErrnoException).code).toBe('ERR_SOCKET_BAD_PORT');

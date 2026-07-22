@@ -34,12 +34,14 @@ export const startServer = (app: Application, port: number): Promise<StartServer
     try {
       server.listen(port);
     } catch (err: unknown) {
+      const originalCode = typeof err === 'object' && err !== null && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+
       reject(
         new DetailedError({
           code: ExpressToolsErrorCodes.SERVER_LISTEN_FAILED,
           message: `Failed to start server on port ${port}`,
           functionName: 'startServer',
-          details: { port },
+          details: { port, originalCode },
           cause: err,
         }),
       );

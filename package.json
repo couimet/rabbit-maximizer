@@ -23,7 +23,7 @@
     "db:restore": "bash scripts/db/restore.sh",
     "db:studio": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" prisma studio",
     "dev": "pnpm db:migrate:backup && prisma generate && pnpm local",
-    "dev:kill": "lsof -ti :3000 | xargs kill -9",
+    "dev:kill": "lsof -ti :3000 | xargs kill -9 || true",
     "fix": "pnpm lint:fix && pnpm format:fix",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",

@@ -25,7 +25,7 @@ describe('setupExpress', () => {
     if (stop) await stop();
   });
 
-  const start = async (logger = createMockLogger()) => {
+  const start = async (logger?: ReturnType<typeof createMockLogger>) => {
     const app = await setupExpress({
       config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
       eventCountsMapper: new EventCountsMapper(),
@@ -38,7 +38,7 @@ describe('setupExpress', () => {
       prisma: {} as any,
       reviewTrigger: { trigger: jest.fn() } as any,
       systemStateRepo: createMockSystemStateRepository(),
-      logger,
+      logger: logger ?? createMockLogger(),
       port: 0,
     });
     stop = app.stop;
