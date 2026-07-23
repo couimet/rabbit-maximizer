@@ -8,8 +8,6 @@ import type { Logger } from '@couimet/logger-contract';
 import { type CoderabbitComment, Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
-export type { CoderabbitComment };
-
 export interface UpsertCommentData {
   readonly comment_id: number;
   readonly pull_request_id: number;

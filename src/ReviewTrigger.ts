@@ -60,12 +60,21 @@ export class ReviewTrigger {
     }
 
     if (storedBody !== '' && hasRateLimitMarker(storedBody) && !hasOwnRetriggerMarker(storedBody)) {
-      return this.postAndRecord(item, probe, triggerSource);
+      return this.postAndRecord(item, probe, triggerSource, item.source_comment_url);
     }
 
     const latest = await this.github.findLatestReviewLimitComment(owner, repo, item.pr_number);
 
     if (!latest) {
+      if (storedBody === '') {
+        // Source comment was deleted (or is a synthetic recovery comment). Post the retrigger
+        // directly — CodeRabbit may still respond to an @coderabbitai full review request.
+        this.log.info(
+          { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
+          'No review-limit comment found; posting retrigger without a reply target',
+        );
+        return this.postAndRecord(item, probe, triggerSource, undefined);
+      }
       probe.staleCommentSkipped();
       return RabbitResult.err(
         new RabbitMaximizerError({
@@ -109,17 +118,16 @@ export class ReviewTrigger {
     );
   }
 
-  private async postAndRecord(item: QueueItem, probe: ReviewRetriggerProbe, triggerSource: TriggerSource): Promise<RabbitResult<TriggerDetails>> {
+  private async postAndRecord(
+    item: QueueItem,
+    probe: ReviewRetriggerProbe,
+    triggerSource: TriggerSource,
+    replyToCommentUrl: string | undefined,
+  ): Promise<RabbitResult<TriggerDetails>> {
     const runId = randomUUID();
     this.log.info({ fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId }, 'Posting retrigger');
 
-    const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(
-      item.repo_full_name,
-      item.pr_number,
-      item.source_comment_url,
-      runId,
-      triggerSource,
-    );
+    const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(item.repo_full_name, item.pr_number, replyToCommentUrl, runId, triggerSource);
 
     const cooldownUntil = new Date(Date.now() + this.postCooldownMs);
 

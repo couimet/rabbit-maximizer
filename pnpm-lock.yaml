@@ -18,8 +18,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       '@couimet/logger-contract-adapters':
-        specifier: ^0.1.0
-        version: 0.1.0(pino@10.3.1)
+        specifier: ^0.1.1
+        version: 0.1.1(pino@10.3.1)
       '@octokit/auth-token':
         specifier: ^6.0.0
         version: 6.0.0
@@ -89,7 +89,7 @@ importers:
         version: 0.4.0(@couimet/detailed-error@1.0.0)(decimal.js@10.6.0)
       '@couimet/eslint-config':
         specifier: ^1.0.0
-        version: 1.0.0(@couimet/eslint-plugin-barrel-imports@0.1.1-alpha.0(eslint@10.5.0(jiti@2.7.0)))(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-barrel-boundary@1.1.1(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-prettier@5.5.6(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(prettier@3.8.4))(eslint-plugin-simple-import-sort@13.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unicorn@70.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(globals@17.7.0)(prettier@3.8.4)
+        version: 1.0.0(@couimet/eslint-plugin-barrel-imports@0.1.0(eslint@10.5.0(jiti@2.7.0)))(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-barrel-boundary@1.1.1(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-prettier@5.5.6(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(prettier@3.8.4))(eslint-plugin-simple-import-sort@13.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unicorn@70.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(globals@17.7.0)(prettier@3.8.4)
       '@couimet/logger-contract-testing':
         specifier: ^1.0.1
         version: 1.0.1(@couimet/logger-contract@1.0.0)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
@@ -390,13 +390,13 @@ packages:
       globals: '>=16.0.0'
       prettier: '>=3.0.0'
 
-  '@couimet/eslint-plugin-barrel-imports@0.1.1-alpha.0':
-    resolution: {integrity: sha512-4W+sZ2R+HumYbqSCGAboJymN1klkptqLEvIt5Ct5DhePUQdTFhrhmrFLYVEpl+/HYYXmWIrURlcEowmEoY3dDg==}
+  '@couimet/eslint-plugin-barrel-imports@0.1.0':
+    resolution: {integrity: sha512-EOyy2MhaWS/WEupGxkKqLmi8WparIQvMU5tYh39vUyqFfg7/6uvmLvCMcJXzXobi3kp9xbv6VGlcP+1Gf/bUaA==}
     peerDependencies:
       eslint: '>=10.4.0'
 
-  '@couimet/logger-contract-adapters@0.1.0':
-    resolution: {integrity: sha512-ZBpsPOgksBNBHAJ2GaFhD+8S8vCk7PyKgfrUkDlX4jNkM35w7nA/we5Cf4Z00AqyaVh2JOegHK0ZtrNZNRLR3g==}
+  '@couimet/logger-contract-adapters@0.1.1':
+    resolution: {integrity: sha512-C0hO111znbmgzybLdOeNOZJNMx2zCM8Yr3o6FSy6nAM+hnKJrIktEZwukSLuJgTRl11Deyu7BKtjbQJNSCSlQA==}
     peerDependencies:
       log4js: '>=6.0.0'
       pino: '>=9.0.0'
@@ -4327,9 +4327,9 @@ snapshots:
     optionalDependencies:
       decimal.js: 10.6.0
 
-  '@couimet/eslint-config@1.0.0(@couimet/eslint-plugin-barrel-imports@0.1.1-alpha.0(eslint@10.5.0(jiti@2.7.0)))(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-barrel-boundary@1.1.1(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-prettier@5.5.6(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(prettier@3.8.4))(eslint-plugin-simple-import-sort@13.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unicorn@70.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(globals@17.7.0)(prettier@3.8.4)':
+  '@couimet/eslint-config@1.0.0(@couimet/eslint-plugin-barrel-imports@0.1.0(eslint@10.5.0(jiti@2.7.0)))(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-barrel-boundary@1.1.1(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-prettier@5.5.6(eslint-config-prettier@10.1.8(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(prettier@3.8.4))(eslint-plugin-simple-import-sort@13.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unicorn@70.0.0(eslint@10.5.0(jiti@2.7.0)))(eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0)))(eslint@10.5.0(jiti@2.7.0))(globals@17.7.0)(prettier@3.8.4)':
     dependencies:
-      '@couimet/eslint-plugin-barrel-imports': 0.1.1-alpha.0(eslint@10.5.0(jiti@2.7.0))
+      '@couimet/eslint-plugin-barrel-imports': 0.1.0(eslint@10.5.0(jiti@2.7.0))
       '@typescript-eslint/eslint-plugin': 8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3))(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3)
       '@typescript-eslint/parser': 8.61.1(eslint@10.5.0(jiti@2.7.0))(typescript@6.0.3)
       eslint: 10.5.0(jiti@2.7.0)
@@ -4343,11 +4343,11 @@ snapshots:
       prettier: 3.8.4
       prettier-plugin-packagejson: 3.0.2(prettier@3.8.4)
 
-  '@couimet/eslint-plugin-barrel-imports@0.1.1-alpha.0(eslint@10.5.0(jiti@2.7.0))':
+  '@couimet/eslint-plugin-barrel-imports@0.1.0(eslint@10.5.0(jiti@2.7.0))':
     dependencies:
       eslint: 10.5.0(jiti@2.7.0)
 
-  '@couimet/logger-contract-adapters@0.1.0(pino@10.3.1)':
+  '@couimet/logger-contract-adapters@0.1.1(pino@10.3.1)':
     dependencies:
       '@couimet/logger-contract': 1.0.0
     optionalDependencies:

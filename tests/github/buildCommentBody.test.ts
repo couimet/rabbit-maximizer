@@ -77,6 +77,25 @@ describe('buildCommentBody', () => {
     });
   });
 
+  it('uses fallback text and null metadata when source comment URL is undefined for scheduler', () => {
+    const runId = getUniqueString({ prefix: 'run-' });
+
+    const body = buildCommentBody(undefined, runId, TriggerSource.scheduler);
+
+    const lines = body.split('\n');
+    expect(lines[2]).toBe('\u{21A9} Triggered by scheduler');
+
+    const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
+    expect(jsonMatch).not.toBeNull();
+    expect(JSON.parse(jsonMatch![1])).toStrictEqual({
+      version: VERSION,
+      runId,
+      triggerSource: 'scheduler',
+      sourceCommentUrl: null,
+      timestamp: frozenDate.toISOString(),
+    });
+  });
+
   it('sanitizes --> in metadata values to prevent HTML comment termination', () => {
     const { owner, repo } = getUniqueGitHubRepoRef();
     const prNumber = getUniqueInt();

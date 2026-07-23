@@ -154,6 +154,14 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </bad-example>
 </rule>
 
+<rule id="C013" priority="critical">
+  <title>Run pnpm install after branch switches that change the lockfile</title>
+  <do>Run `pnpm install` after any `git checkout`, `git rebase`, `git pull`, or `git merge` that modifies `pnpm-lock.yaml`</do>
+  <do>Check for lockfile changes with `git diff --name-only HEAD@{1} HEAD | grep pnpm-lock.yaml` after a branch switch — if it changed, reinstall</do>
+  <never>Assume `node_modules` is current after switching to a branch with a different lockfile — stale packages cause false test failures that look like real bugs</never>
+  <rationale>Switching branches or rebasing onto a new base may bring in lockfile changes (dependency bumps, new packages). Without `pnpm install`, `node_modules` remains at the old versions. This produces false-negative test failures — matchers break, APIs change — that waste investigation time on "pre-existing" failures that are actually just stale installs. This has happened multiple times (20260722, earlier sessions).</rationale>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

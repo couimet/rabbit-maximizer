@@ -82,15 +82,14 @@ describe('PruneEvaluator', () => {
       const ref1 = generateReviewRef();
       const ref2 = generateReviewRef();
       const ref3 = generateReviewRef();
-
       const item1 = generateQueueItemHydrationData({ repo_full_name: ref1.repoFullName, pr_number: ref1.prNumber });
       const item2 = generateQueueItemHydrationData({ repo_full_name: ref2.repoFullName, pr_number: ref2.prNumber });
       const item3 = generateQueueItemHydrationData({ repo_full_name: ref3.repoFullName, pr_number: ref3.prNumber });
 
       (fetcher.fetch as jest.Mock<any>)
-        .mockResolvedValueOnce({ state: 'closed', merged_at: getUniqueDate().toISOString() }) // merged
-        .mockResolvedValueOnce({ state: 'closed', merged_at: null }) // closed without merge
-        .mockResolvedValueOnce({ state: 'open', merged_at: null }); // open → skipped
+        .mockResolvedValueOnce({ state: 'closed', merged_at: getUniqueDate().toISOString() })
+        .mockResolvedValueOnce({ state: 'closed', merged_at: null })
+        .mockResolvedValueOnce({ state: 'open', merged_at: null });
 
       const evaluator = createEvaluator();
       const result = await evaluator.evaluate([item1, item2, item3]);

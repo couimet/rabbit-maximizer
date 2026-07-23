@@ -1,6 +1,6 @@
 import { PrState, QueueStatus, TriggerSource } from '../../src/domain.js';
 import { QueueItemMapper } from '../../src/mappers/index.js';
-import { buildCommentUrl, createMockQueueItemMapper, generateQueueItemHydrationData } from '../helpers/index.js';
+import { buildCommentUrl, createMockQueueItemEnricher, generateEnrichedQueueItemData, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -9,12 +9,12 @@ describe('QueueItemMapper', () => {
   let mapper: QueueItemMapper;
 
   beforeEach(() => {
-    mapper = createMockQueueItemMapper();
+    mapper = new QueueItemMapper(createMockQueueItemEnricher());
   });
 
   describe('mapToQueueItemResponse', () => {
     it('maps all scalar fields', () => {
-      const input = generateQueueItemHydrationData({
+      const input = generateEnrichedQueueItemData({
         pr_title: 'Add retrigger dedup logic',
         attempts: 3,
         source_comment_url: buildCommentUrl('org/repo', 1, getUniqueInt()),
@@ -36,7 +36,7 @@ describe('QueueItemMapper', () => {
       const retriggeredAt = new Date('2026-07-20T10:00:00Z');
       const failedAt = new Date('2026-07-20T11:00:00Z');
       const reviewedAt = new Date('2026-07-20T12:00:00Z');
-      const input = generateQueueItemHydrationData({ retriggered_at: retriggeredAt, failed_at: failedAt, reviewed_at: reviewedAt });
+      const input = generateEnrichedQueueItemData({ retriggered_at: retriggeredAt, failed_at: failedAt, reviewed_at: reviewedAt });
       const result = mapper.mapToQueueItemResponse(input);
 
       expect(result.created_at).toBe(input.created_at.toISOString());
@@ -47,21 +47,21 @@ describe('QueueItemMapper', () => {
     });
 
     it('converts QueueStatus enum to string', () => {
-      const input = generateQueueItemHydrationData({ status: QueueStatus.reviewed });
+      const input = generateEnrichedQueueItemData({ status: QueueStatus.reviewed });
       const result = mapper.mapToQueueItemResponse(input);
 
       expect(result.status).toBe('reviewed');
     });
 
     it('converts TriggerSource enum to string', () => {
-      const input = generateQueueItemHydrationData({ trigger_source: TriggerSource.dashboard_retrigger_now });
+      const input = generateEnrichedQueueItemData({ trigger_source: TriggerSource.dashboard_retrigger_now });
       const result = mapper.mapToQueueItemResponse(input);
 
       expect(result.trigger_source).toBe('dashboard_retrigger_now');
     });
 
     it('strips pull_request_id and source_comment_id', () => {
-      const input = generateQueueItemHydrationData();
+      const input = generateEnrichedQueueItemData();
       const result = mapper.mapToQueueItemResponse(input);
 
       expect(Object.keys(result)).not.toContain('pull_request_id');
@@ -69,7 +69,7 @@ describe('QueueItemMapper', () => {
     });
 
     it('returns null for optional Date fields when absent', () => {
-      const input = generateQueueItemHydrationData();
+      const input = generateEnrichedQueueItemData();
       const result = mapper.mapToQueueItemResponse(input);
 
       expect(result.retriggered_at).toBeNull();
@@ -78,7 +78,7 @@ describe('QueueItemMapper', () => {
     });
 
     it('returns null for retrigger_comment_url when absent', () => {
-      const input = generateQueueItemHydrationData();
+      const input = generateEnrichedQueueItemData();
       const result = mapper.mapToQueueItemResponse(input);
 
       expect(result.retrigger_comment_url).toBeNull();
@@ -86,10 +86,7 @@ describe('QueueItemMapper', () => {
 
     it('preserves pr_state and last_coderabbit_acknowledged_at', () => {
       const acknowledgedAt = getUniqueDate();
-      const input = generateQueueItemHydrationData({
-        pr_state: PrState.merged,
-        last_coderabbit_acknowledged_at: acknowledgedAt,
-      });
+      const input = generateEnrichedQueueItemData({ prState: PrState.merged, lastCoderabbitAcknowledgedAt: acknowledgedAt });
       const result = mapper.mapToQueueItemResponse(input);
 
       expect(result.pr_state).toBe('merged');

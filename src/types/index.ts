@@ -19,6 +19,7 @@ export type { EditDetectionResult } from './EditDetectionResult.js';
 export type { EnqueueData } from './EnqueueData.js';
 export type { EnqueueResult } from './EnqueueResult.js';
 export type { EnrichedItem } from './EnrichedItem.js';
+export type { EnrichedQueueItem } from './EnrichedQueueItem.js';
 export type { EventEnvelope, EventLogEntry } from './EventLogEntry.js';
 export type {
   BypassedPayload,
@@ -42,5 +43,6 @@ export type { ReEnqueueAction } from './ReEnqueueAction.js';
 export type { ReEnqueueDecision } from './ReEnqueueDecision.js';
 export type { RepoFilter } from './RepoFilter.js';
 export type { ReviewLimitComment } from './ReviewLimitComment.js';
+export type { StaleOpenPR } from './StaleOpenPR.js';
 export type { TriggerDetails } from './TriggerDetails.js';
 export type { UpsertPullRequestData } from './UpsertPullRequestData.js';

@@ -36,4 +36,11 @@ export class EnqueueProbe {
   alreadyQueued(repo: string, pr: number, status: string): void {
     this.log.debug({ fn: 'EnqueueProbe.alreadyQueued', repo, pr, status }, 'Already queued; returning existing row');
   }
+
+  retriggeredReplaced(repo: string, pr: number, oldCommentId: number, newCommentId: number): void {
+    this.log.info(
+      { fn: 'EnqueueProbe.retriggeredReplaced', repo, pr, oldCommentId, newCommentId },
+      'Recycled review-limit comment replaced stale retriggered item; marking old item reviewed',
+    );
+  }
 }

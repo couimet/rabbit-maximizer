@@ -1,5 +1,5 @@
 import { TYPES } from '../domain.js';
-import type { QueueItem, QueueItemResponse } from '../types/index.js';
+import type { EnrichedQueueItem, QueueItem, QueueItemResponse } from '../types/index.js';
 import { nullableDateToISOString, nullableString, type QueueItemEnricher } from '../utils/index.js';
 
 import { inject, injectable } from 'inversify';
@@ -10,7 +10,7 @@ export class QueueItemMapper {
   constructor(@inject(TYPES.QueueItemEnricher) private readonly enricher: QueueItemEnricher) {}
   /* c8 ignore stop */
 
-  mapToQueueItemResponse(input: QueueItem): QueueItemResponse {
+  mapToQueueItemResponse(input: EnrichedQueueItem): QueueItemResponse {
     return {
       id: input.id,
       uuid: input.uuid,
@@ -25,8 +25,8 @@ export class QueueItemMapper {
       retriggered_at: nullableDateToISOString(input.retriggered_at),
       failed_at: nullableDateToISOString(input.failed_at),
       reviewed_at: nullableDateToISOString(input.reviewed_at),
-      pr_state: input.pr_state as QueueItemResponse['pr_state'],
-      last_coderabbit_acknowledged_at: nullableDateToISOString(input.last_coderabbit_acknowledged_at),
+      pr_state: nullableString(input.prState) as QueueItemResponse['pr_state'],
+      last_coderabbit_acknowledged_at: nullableDateToISOString(input.lastCoderabbitAcknowledgedAt),
       created_at: input.created_at.toISOString(),
       updated_at: input.updated_at.toISOString(),
     };

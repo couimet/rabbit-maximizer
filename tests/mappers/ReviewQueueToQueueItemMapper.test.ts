@@ -90,7 +90,7 @@ describe('ReviewQueueToQueueItemMapper', () => {
       expect(result.pull_request_id).toBe(pullRequestId);
     });
 
-    it('does not set pr_state or last_coderabbit_acknowledged_at', () => {
+    it('does not set pr_state or last_coderabbit_acknowledged_at (populated later by enricher)', () => {
       const row = generateReviewQueueHydrationData();
       const result = mapper.fromReviewQueue(row);
 

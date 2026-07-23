@@ -34,6 +34,8 @@ import {
   ReviewDetector,
   ReviewTrigger,
   Scheduler,
+  type StalePrRecoverer,
+  StalePrRecovererImpl,
 } from './services.js';
 
 import 'reflect-metadata';
@@ -88,6 +90,8 @@ container.bind<PruneEvaluator>(TYPES.PruneEvaluator).to(PruneEvaluatorImpl).inSi
 container.bind<Pruner>(TYPES.Pruner).to(PrunerImpl).inSingletonScope();
 
 container.bind<PrScanner>(TYPES.PrScanner).to(PrScannerImpl).inSingletonScope();
+
+container.bind<StalePrRecoverer>(TYPES.StalePrRecoverer).to(StalePrRecovererImpl).inSingletonScope();
 
 container.bind<EnqueueService>(TYPES.EnqueueService).to(EnqueueService).inSingletonScope();
 

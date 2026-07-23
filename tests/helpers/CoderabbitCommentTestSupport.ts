@@ -1,9 +1,10 @@
-import type { CoderabbitComment, UpsertCommentData } from '../../src/db/index.js';
+import type { UpsertCommentData } from '../../src/db/index.js';
 import { CodeRabbitCommentType } from '../../src/github/index.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
 
 import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import type { CoderabbitComment } from '@prisma/client';
 
 export const generateCoderabbitCommentCreationData = (overrideValues?: Partial<UpsertCommentData>): UpsertCommentData => {
   const ref = generateReviewRef({ commentId: overrideValues?.comment_id });

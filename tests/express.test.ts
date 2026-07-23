@@ -1,15 +1,16 @@
-import { EventCountsMapper, EventEntryMapper } from '../src/mappers/index.js';
+import { EventCountsMapper, EventEntryMapper, QueueItemMapper } from '../src/mappers/index.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
 
-const { createMockQueueItemMapper, createMockVite } = await import('./helpers/index.js');
+const { createMockVite } = await import('./helpers/index.js');
 
 const viteMock = createMockVite();
 
 jest.unstable_mockModule('vite', () => viteMock);
 
-const { createMockEventRepo, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } = await import('./helpers/index.js');
+const { createMockEventRepo, createMockQueueItemEnricher, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } =
+  await import('./helpers/index.js');
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
 const { setupExpress } = await import('../src/express.js');
@@ -28,7 +29,7 @@ describe('setupExpress', () => {
       config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
       eventCountsMapper: new EventCountsMapper(),
       eventEntryMapper: new EventEntryMapper(),
-      queueItemMapper: createMockQueueItemMapper(),
+      queueItemMapper: new QueueItemMapper(createMockQueueItemEnricher()),
       queueRepo: createMockQueueRepo(),
       queueOrderRepo: createMockQueueOrderRepo(),
       eventRepo: createMockEventRepo(),
@@ -99,7 +100,7 @@ describe('setupExpress', () => {
           config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
           eventCountsMapper: new EventCountsMapper(),
           eventEntryMapper: new EventEntryMapper(),
-          queueItemMapper: createMockQueueItemMapper(),
+          queueItemMapper: new QueueItemMapper(createMockQueueItemEnricher()),
           queueRepo: createMockQueueRepo(),
           queueOrderRepo: createMockQueueOrderRepo(),
           eventRepo: createMockEventRepo(),

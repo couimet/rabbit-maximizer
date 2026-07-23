@@ -54,12 +54,12 @@ describe('classifyCoderabbitComment', () => {
     expect(result).toBe('unknown');
   });
 
-  it("returns 'review_limited' when both rate-limit and skip markers are present (rate-limit checked first)", () => {
+  it("returns 'review_skipped' when both rate-limit and skip markers are present (skip checked before rate-limit)", () => {
     body = `rate limited by coderabbit.ai and also skip review by coderabbit.ai`;
 
     const result = classifyCoderabbitComment(body);
 
-    expect(result).toBe('review_limited');
+    expect(result).toBe('review_skipped');
   });
 
   it("returns 'review_skipped' when both skip and completion markers are present (skip checked before completion)", () => {
@@ -68,5 +68,29 @@ describe('classifyCoderabbitComment', () => {
     const result = classifyCoderabbitComment(body);
 
     expect(result).toBe('review_skipped');
+  });
+
+  it("returns 'review_changes_suggested' when the body contains review_stack_entry_start (combined review+rate-limit comment)", () => {
+    body = `rate limited by coderabbit.ai review_stack_entry_start walkthrough`;
+
+    const result = classifyCoderabbitComment(body);
+
+    expect(result).toBe('review_changes_suggested');
+  });
+
+  it('prioritises completion signals over the rate-limit marker (combined review+rate-limit comments are reviews, not rate-limit notices)', () => {
+    body = `rate limited by coderabbit.ai review_stack_entry_start some walkthrough content`;
+
+    const result = classifyCoderabbitComment(body);
+
+    expect(result).toBe('review_changes_suggested');
+  });
+
+  it("returns 'review_limited' when the rate-limit marker is present without any completion signal", () => {
+    body = `rate limited by coderabbit.ai Please wait 30 minutes`;
+
+    const result = classifyCoderabbitComment(body);
+
+    expect(result).toBe('review_limited');
   });
 });
