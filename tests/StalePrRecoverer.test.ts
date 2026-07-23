@@ -63,6 +63,49 @@ describe('StalePrRecovererImpl', () => {
       );
     });
 
+    it('catches error from onDetected and continues processing remaining PRs', async () => {
+      const error = new Error('Connection refused');
+      const pr1 = {
+        id: getUniqueInt(),
+        repoFullName: getUniqueGitHubRepoRef().fullName,
+        prNumber: getUniqueInt(),
+        title: 'PR 1',
+        lastReviewRequestedAt: getUniqueDate(),
+      };
+      const pr2 = {
+        id: getUniqueInt(),
+        repoFullName: getUniqueGitHubRepoRef().fullName,
+        prNumber: getUniqueInt(),
+        title: 'PR 2',
+        lastReviewRequestedAt: getUniqueDate(),
+      };
+      pullRequests.findStaleOpenPRs.mockResolvedValue([pr1, pr2]);
+      onDetected.mockRejectedValueOnce(error);
+
+      await recoverer.recover();
+
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'StalePrRecoverer.recover', count: 2 }, 'Recovering stale open PRs with no review-limit comment');
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'StalePrRecoverer.recover', repoFullName: pr1.repoFullName, prNumber: pr1.prNumber, prId: pr1.id, error },
+        'Failed to recover stale PR; will retry next tick',
+      );
+      expect(onDetected).toHaveBeenCalledWith(
+        {
+          url: buildPrUrl(pr2.repoFullName, pr2.prNumber),
+          repoFullName: pr2.repoFullName,
+          prNumber: pr2.prNumber,
+          commentId: -frozenNow.getTime(),
+          createdAt: frozenNow.toISOString(),
+          updatedAt: frozenNow.toISOString(),
+          prTitle: pr2.title,
+          body: 'rate limited by coderabbit.ai — recovered from deleted comment',
+          commentType: 'review_limited',
+        },
+        FALLBACK_WAIT_SECONDS,
+        pr2.id,
+      );
+    });
+
     it('processes multiple stale PRs', async () => {
       const pr1 = {
         id: getUniqueInt(),
