@@ -1,3 +1,4 @@
+import { config } from '../src/config.js';
 import { StateKey } from '../src/db/index.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import { PollDetector } from '../src/services.js';
@@ -127,6 +128,10 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, pullRequestId);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith(
+        StateKey.nextReviewAvailableAt,
+        new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND),
+      );
     });
 
     it('scans for PRs at the top of executeTick', async () => {
