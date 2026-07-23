@@ -6,7 +6,6 @@ import { describe, expect, it } from '@jest/globals';
 import type { Event as PrismaEvent } from '@prisma/client';
 
 const EXCEEDS_MAX_BY = 1;
-const DEFAULT_NEW_WAIT = 60;
 
 const baseRow = (over: Partial<PrismaEvent>): PrismaEvent =>
   ({
@@ -63,17 +62,13 @@ describe('parseEventRow', () => {
   it('parses an enqueued event', () => {
     const row = baseRow({
       type: 'enqueued',
-      payload: JSON.stringify({
-        new_wait: DEFAULT_NEW_WAIT,
-      }),
+      payload: JSON.stringify({}),
     });
 
     const result = parseEventRow(row);
 
     expect(result.type).toBe('enqueued');
-    expect(result.payload).toStrictEqual({
-      new_wait: 60,
-    });
+    expect(result.payload).toStrictEqual({});
     expect(result.request_id).toBeUndefined();
     expect(result.metadata).toBeUndefined();
   });
@@ -201,16 +196,6 @@ describe('payload length limits', () => {
       type: 'failed',
       payload: JSON.stringify({
         reason: 'a'.repeat(REASON_MAX_LENGTH + EXCEEDS_MAX_BY),
-      }),
-    });
-    expect(() => parseEventRow(row)).toThrow();
-  });
-
-  it('rejects an enqueued event whose new_wait is not a positive integer', () => {
-    const row = baseRow({
-      type: 'enqueued',
-      payload: JSON.stringify({
-        new_wait: -1,
       }),
     });
     expect(() => parseEventRow(row)).toThrow();

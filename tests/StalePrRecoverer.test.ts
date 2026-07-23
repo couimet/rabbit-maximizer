@@ -8,8 +8,6 @@ import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dy
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const FALLBACK_WAIT_SECONDS = 3600;
-
 describe('StalePrRecovererImpl', () => {
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let onDetected: jest.Mocked<OnDetectedCallback>;
@@ -58,7 +56,6 @@ describe('StalePrRecovererImpl', () => {
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
         },
-        FALLBACK_WAIT_SECONDS,
         prId,
       );
     });
@@ -101,7 +98,6 @@ describe('StalePrRecovererImpl', () => {
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
         },
-        FALLBACK_WAIT_SECONDS,
         pr2.id,
       );
     });
@@ -138,7 +134,6 @@ describe('StalePrRecovererImpl', () => {
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
         },
-        FALLBACK_WAIT_SECONDS,
         pr1.id,
       );
       expect(onDetected).toHaveBeenCalledWith(
@@ -153,7 +148,6 @@ describe('StalePrRecovererImpl', () => {
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
         },
-        FALLBACK_WAIT_SECONDS,
         pr2.id,
       );
     });

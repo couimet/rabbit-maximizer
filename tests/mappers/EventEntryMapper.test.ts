@@ -37,7 +37,7 @@ const makeEnqueuedEntry = (): EventLogEntry => ({
   pr_number: PR_NUMBER,
   correlation_id: CORRELATION_ID,
   version: VERSION,
-  payload: { new_wait: 42 } as EnqueuedPayload,
+  payload: {} as EnqueuedPayload,
 });
 
 const makeRetriggeredEntry = (): EventLogEntry => ({
@@ -136,7 +136,7 @@ describe('EventEntryMapper', () => {
       const result = mapper.mapToEventEntryResponse(input);
 
       expect(result.type).toBe('enqueued');
-      expect(result.payload).toStrictEqual({ new_wait: 42 });
+      expect(result.payload).toStrictEqual({});
     });
 
     it('handles retriggered event type', () => {

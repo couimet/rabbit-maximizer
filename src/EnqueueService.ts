@@ -25,7 +25,7 @@ export class EnqueueService {
   ) {}
   /* c8 ignore stop */
 
-  readonly handle: OnDetectedCallback = async (comment, waitSeconds, pullRequestId) => {
+  readonly handle: OnDetectedCallback = async (comment, pullRequestId) => {
     const obs = this.observation.current();
 
     const probe = this.probes.createDetectedProbe(
@@ -71,7 +71,6 @@ export class EnqueueService {
           prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
-          newWait: waitSeconds,
           pullRequestId,
         },
         tx,

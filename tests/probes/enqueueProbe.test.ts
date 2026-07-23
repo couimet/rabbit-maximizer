@@ -36,11 +36,10 @@ describe('EnqueueProbe', () => {
     const eventUuid = getUuid();
     it('records enqueued event and logs info with event uuid', async () => {
       const ref = generateReviewRef();
-      const newWait = getUniqueInt();
       const tx = createMockTx();
       const probe = createProbe(tx);
       (events.record as jest.Mock<any>).mockResolvedValue({ uuid: eventUuid });
-      await probe.enqueued({ repo: ref.repoFullName, pr: ref.prNumber, newWait: newWait });
+      await probe.enqueued({ repo: ref.repoFullName, pr: ref.prNumber });
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'enqueued',
@@ -49,7 +48,7 @@ describe('EnqueueProbe', () => {
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
-          payload: { new_wait: newWait },
+          payload: {},
         },
         tx,
       );

@@ -14,9 +14,7 @@ export const DetectedPayloadSchema = z.object({
   source_comment_url: COMMENT_URL_SCHEMA.optional(),
 });
 
-export const EnqueuedPayloadSchema = z.object({
-  new_wait: z.number().int().positive(),
-});
+export const EnqueuedPayloadSchema = z.object({});
 
 export const RetriggeredPayloadSchema = z.object({
   source_comment_url: COMMENT_URL_SCHEMA,

@@ -40,7 +40,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   /* c8 ignore stop */
 
   async enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
-    const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId, newWait } = data;
+    const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId } = data;
     const probe = this.probeFactory.createEnqueueProbe(tx);
     const db = this.client(tx);
     const recentRetriggered = await db.reviewQueue.findFirst({
@@ -81,7 +81,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       await db.queueOrder.create({ data: { queue_item_id: row.id } });
 
-      await probe.enqueued({ repo, pr, newWait });
+      await probe.enqueued({ repo, pr });
 
       return { item: this.mapper.fromReviewQueue(row), created: true };
     } catch (err) {
