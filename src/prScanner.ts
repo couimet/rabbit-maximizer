@@ -1,6 +1,7 @@
 import { type PullRequestRepository, StateKey, type SystemStateRepository } from './db/index.js';
 import { type CoderabbitGitHubClient, isPRClosedWithoutMerge, isPRMerged } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
+import type { ScannedPR, ScanResult } from './types/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
 import { getPrStateFromGitHubValue, PrState, TYPES } from './domain.js';
@@ -9,7 +10,7 @@ import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
 export interface PrScanner {
-  scan(): Promise<void>;
+  scan(): Promise<ScanResult>;
 }
 
 @injectable()
@@ -31,13 +32,14 @@ export class PrScannerImpl implements PrScanner {
   ) {}
   /* c8 ignore stop */
 
-  async scan(): Promise<void> {
+  async scan(): Promise<ScanResult> {
     const probe = this.probeFactory.createPrScannerProbe();
 
     const now = new Date();
 
     let opened = 0;
     let updated = 0;
+    const scannedPRs: ScannedPR[] = [];
 
     try {
       probe.scanStarted();
@@ -47,7 +49,7 @@ export class PrScannerImpl implements PrScanner {
         const elapsedMs = now.getTime() - lastScanAt.getTime();
         if (elapsedMs < this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND) {
           probe.skipped(elapsedMs);
-          return;
+          return { opened: 0, updated: 0, scannedPRs: [] };
         }
       }
       const discoveredPRs = await this.github.listOpenPRs(this.config.REPO_FILTER);
@@ -61,6 +63,7 @@ export class PrScannerImpl implements PrScanner {
             prState: PrState.open,
             authorLogin: pr.authorLogin,
           });
+          scannedPRs.push({ repoFullName: pr.repoFullName, prNumber: pr.prNumber, pullRequestId: result.id, prTitle: pr.prTitle });
           if (result.created) {
             opened++;
           } else {
@@ -100,8 +103,11 @@ export class PrScannerImpl implements PrScanner {
       }
 
       probe.completed(opened, updated, closed);
+
+      return { opened, updated, scannedPRs };
     } catch (err: unknown) {
       probe.failed(err);
+      return { opened: 0, updated: 0, scannedPRs: [] };
     } finally {
       try {
         await this.systemState.setState(StateKey.lastScanAt, now);

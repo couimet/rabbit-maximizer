@@ -29,8 +29,9 @@ describe('StalePrRecovererImpl', () => {
     it('does nothing when there are no stale PRs', async () => {
       pullRequests.findStaleOpenPRs.mockResolvedValue([]);
 
-      await recoverer.recover();
+      const result = await recoverer.recover();
 
+      expect(result).toStrictEqual([]);
       expect(onDetected).not.toHaveBeenCalled();
     });
 
@@ -41,8 +42,9 @@ describe('StalePrRecovererImpl', () => {
       const pr = { id: prId, repoFullName: repoFullName, prNumber: prNumber, title: 'Test PR', lastReviewRequestedAt: getUniqueDate() };
       pullRequests.findStaleOpenPRs.mockResolvedValue([pr]);
 
-      await recoverer.recover();
+      const result = await recoverer.recover();
 
+      expect(result).toStrictEqual([pr]);
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'StalePrRecoverer.recover', count: 1 }, 'Recovering stale open PRs with no review-limit comment');
       expect(onDetected).toHaveBeenCalledWith(
         {
@@ -119,8 +121,9 @@ describe('StalePrRecovererImpl', () => {
       };
       pullRequests.findStaleOpenPRs.mockResolvedValue([pr1, pr2]);
 
-      await recoverer.recover();
+      const result = await recoverer.recover();
 
+      expect(result).toStrictEqual([pr1, pr2]);
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'StalePrRecoverer.recover', count: 2 }, 'Recovering stale open PRs with no review-limit comment');
       expect(onDetected).toHaveBeenCalledWith(
         {

@@ -8,10 +8,10 @@ import {
   splitRepo,
 } from './github/index.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { MS_PER_SECOND } from './utils/index.js';
+import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
 import { IntervalService, TYPES } from './domain.js';
-import type { PrScanner, StalePrRecoverer } from './services.js';
+import type { DirectCommentChecker, PrScanner, StalePrRecoverer } from './services.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -30,6 +30,8 @@ export class PollDetector extends IntervalService {
     private readonly prScanner: PrScanner,
     @inject(TYPES.StalePrRecoverer)
     private readonly stalePrRecoverer: StalePrRecoverer,
+    @inject(TYPES.DirectCommentChecker)
+    private readonly directCommentChecker: DirectCommentChecker,
     @inject(TYPES.OnDetectedCallback)
     private readonly onDetected: OnDetectedCallback,
     @inject(TYPES.PullRequestRepository)
@@ -58,8 +60,11 @@ export class PollDetector extends IntervalService {
     const logCtx: LoggingContext = { fn: 'PollDetector.tick' };
 
     try {
-      await this.prScanner.scan();
-      await this.stalePrRecoverer.recover();
+      const { scannedPRs } = await this.prScanner.scan();
+      const stalePRs = await this.stalePrRecoverer.recover();
+
+      const mergedPRs = mergeByPullRequestId(scannedPRs, stalePRs);
+      await this.directCommentChecker.check(mergedPRs);
 
       const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;

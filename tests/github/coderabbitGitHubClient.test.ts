@@ -211,6 +211,7 @@ describe('client', () => {
       const issueNumber = getUniqueInt();
       const commentId = getUniqueInt();
       const body = getRandomString();
+      const createdAt = getUniqueDate();
       const updatedAt = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
@@ -218,6 +219,7 @@ describe('client', () => {
           {
             id: commentId,
             body,
+            created_at: createdAt.toISOString(),
             updated_at: updatedAt.toISOString(),
           },
         ],
@@ -233,7 +235,7 @@ describe('client', () => {
         per_page: 100,
         page: 1,
       });
-      expect(result).toStrictEqual([{ body, id: commentId, updatedAt }]);
+      expect(result).toStrictEqual([{ body, id: commentId, createdAt, updatedAt }]);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'listComments', owner, repo, issueNumber }, 'Listing issue comments');
     });
 
@@ -242,17 +244,20 @@ describe('client', () => {
       const issueNumber = getUniqueInt();
       const commentId = getUniqueInt();
       const body = getRandomString();
+      const createdAt = getUniqueDate();
       const updatedAt = getUniqueDate();
       const nullId = getUniqueInt();
+      const nullCreatedAt = getUniqueDate();
       const nullUpdatedAt = getUniqueDate();
       const undefinedId = getUniqueInt();
+      const undefinedCreatedAt = getUniqueDate();
       const undefinedUpdatedAt = getUniqueDate();
 
       issues.listComments.mockResolvedValue({
         data: [
-          { id: nullId, body: null, updated_at: nullUpdatedAt.toISOString() },
-          { id: undefinedId, body: undefined, updated_at: undefinedUpdatedAt.toISOString() },
-          { id: commentId, body, updated_at: updatedAt.toISOString() },
+          { id: nullId, body: null, created_at: nullCreatedAt.toISOString(), updated_at: nullUpdatedAt.toISOString() },
+          { id: undefinedId, body: undefined, created_at: undefinedCreatedAt.toISOString(), updated_at: undefinedUpdatedAt.toISOString() },
+          { id: commentId, body, created_at: createdAt.toISOString(), updated_at: updatedAt.toISOString() },
         ],
       });
 
@@ -260,9 +265,9 @@ describe('client', () => {
       const result = await client.listComments(owner, repo, issueNumber);
 
       expect(result).toStrictEqual([
-        { body: '<EMPTY_BODY>', id: nullId, updatedAt: nullUpdatedAt },
-        { body: '<EMPTY_BODY>', id: undefinedId, updatedAt: undefinedUpdatedAt },
-        { body, id: commentId, updatedAt },
+        { body: '<EMPTY_BODY>', id: nullId, createdAt: nullCreatedAt, updatedAt: nullUpdatedAt },
+        { body: '<EMPTY_BODY>', id: undefinedId, createdAt: undefinedCreatedAt, updatedAt: undefinedUpdatedAt },
+        { body, id: commentId, createdAt, updatedAt },
       ]);
     });
 
@@ -280,11 +285,12 @@ describe('client', () => {
           data: Array.from({ length: reviewsPerPage }, (_, i) => ({
             id: firstPageIds[i] ?? getUniqueInt(),
             body: `comment-${i}`,
+            created_at: firstPageDate.toISOString(),
             updated_at: firstPageDate.toISOString(),
           })),
         })
         .mockResolvedValueOnce({
-          data: [{ id: secondPageId, body: 'second-page-comment', updated_at: secondPageDate.toISOString() }],
+          data: [{ id: secondPageId, body: 'second-page-comment', created_at: secondPageDate.toISOString(), updated_at: secondPageDate.toISOString() }],
         });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
@@ -305,7 +311,7 @@ describe('client', () => {
         page: 2,
       });
       expect(result).toHaveLength(101);
-      expect(result[100]).toStrictEqual({ body: 'second-page-comment', id: secondPageId, updatedAt: secondPageDate });
+      expect(result[100]).toStrictEqual({ body: 'second-page-comment', id: secondPageId, createdAt: secondPageDate, updatedAt: secondPageDate });
     });
 
     it('returns empty array when there are no comments', async () => {

@@ -1,11 +1,12 @@
 import { config } from '../src/config.js';
 import { StateKey } from '../src/db/index.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
-import { PollDetector } from '../src/services.js';
+import { type DirectCommentChecker, PollDetector } from '../src/services.js';
 import type { DetectedComment, OnDetectedCallback } from '../src/types/index.js';
 
 import {
   createMockCoderabbitGitHubClient,
+  createMockDirectCommentChecker,
   createMockOnDetectedCallback,
   createMockPrScanner,
   createMockPullRequestRepo,
@@ -13,6 +14,7 @@ import {
   createMockSystemStateRepository,
   drainMicrotasks,
   generateDetectedCommentHydrationData,
+  generateReviewRef,
 } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
@@ -27,6 +29,7 @@ const MS_PER_SECOND = 1000;
 const MS_PER_HOUR = 60 * 60 * MS_PER_SECOND;
 const TICK_DEPTH = 20;
 interface MockDetectorDeps {
+  directCommentChecker: jest.Mocked<DirectCommentChecker>;
   github: jest.Mocked<CoderabbitGitHubClient>;
   onDetected: jest.Mocked<OnDetectedCallback>;
   prScanner: ReturnType<typeof createMockPrScanner>;
@@ -37,6 +40,7 @@ interface MockDetectorDeps {
 }
 
 const setup = (): MockDetectorDeps => {
+  const directCommentChecker = createMockDirectCommentChecker();
   const github = createMockCoderabbitGitHubClient();
 
   const onDetected = createMockOnDetectedCallback();
@@ -46,7 +50,7 @@ const setup = (): MockDetectorDeps => {
   const systemStateRepo = createMockSystemStateRepository();
   const logger = createMockLogger();
 
-  return { github, onDetected, prScanner, pullRequests, stalePrRecoverer, systemStateRepo, logger };
+  return { directCommentChecker, github, onDetected, prScanner, pullRequests, stalePrRecoverer, systemStateRepo, logger };
 };
 
 describe('PollDetector', () => {
@@ -63,7 +67,16 @@ describe('PollDetector', () => {
   });
 
   const createDetector = () =>
-    new PollDetector(deps.github, deps.prScanner, deps.stalePrRecoverer, deps.onDetected, deps.pullRequests, deps.systemStateRepo, deps.logger);
+    new PollDetector(
+      deps.github,
+      deps.prScanner,
+      deps.stalePrRecoverer,
+      deps.directCommentChecker,
+      deps.onDetected,
+      deps.pullRequests,
+      deps.systemStateRepo,
+      deps.logger,
+    );
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
@@ -263,6 +276,62 @@ describe('PollDetector', () => {
     });
   });
 
+  describe('directCommentCheck', () => {
+    it('calls directCommentChecker.check with merged scan and recover results', async () => {
+      const ref = generateReviewRef();
+      const prId = getUniqueInt();
+      deps.prScanner.scan.mockResolvedValue({
+        opened: 1,
+        updated: 0,
+        scannedPRs: [{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: prId, prTitle: ref.prTitle }],
+      });
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.directCommentChecker.check).toHaveBeenCalledWith([
+        { repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: prId, prTitle: ref.prTitle },
+      ]);
+    });
+
+    it('calls directCommentChecker.check before the broad search', async () => {
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.directCommentChecker.check.mock.invocationCallOrder[0]).toBeLessThan(deps.github.searchReviewLimitComments.mock.invocationCallOrder[0]);
+    });
+
+    it('deduplicates PRs from scan and recover', async () => {
+      const ref = generateReviewRef();
+      const sharedId = getUniqueInt();
+      deps.prScanner.scan.mockResolvedValue({
+        opened: 1,
+        updated: 0,
+        scannedPRs: [{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: sharedId, prTitle: ref.prTitle }],
+      });
+      deps.stalePrRecoverer.recover.mockResolvedValue([
+        { id: sharedId, repoFullName: ref.repoFullName, prNumber: ref.prNumber, title: ref.prTitle, lastReviewRequestedAt: getUniqueDate() },
+      ]);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.directCommentChecker.check).toHaveBeenCalledWith([
+        { repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: sharedId, prTitle: ref.prTitle },
+      ]);
+    });
+  });
+
   describe('concurrency', () => {
     it('skips tick when another tick is already in-flight', async () => {
       let resolveSearch: (value: DetectedComment[]) => void;
@@ -278,6 +347,7 @@ describe('PollDetector', () => {
 
       detector['tick']();
 
+      await Promise.resolve();
       await Promise.resolve();
 
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);

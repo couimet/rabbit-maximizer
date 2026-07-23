@@ -14,6 +14,7 @@ export type {
 export type { CommentDetails } from './CommentDetails.js';
 export type { CreateSkippedData } from './CreateSkippedData.js';
 export type { DetectedComment } from './DetectedComment.js';
+export type { DirectCheckPR } from './DirectCheckPR.js';
 export type { DiscoveredPR } from './DiscoveredPR.js';
 export type { EditDetectionResult } from './EditDetectionResult.js';
 export type { EnqueueData } from './EnqueueData.js';
@@ -43,6 +44,8 @@ export type { ReEnqueueAction } from './ReEnqueueAction.js';
 export type { ReEnqueueDecision } from './ReEnqueueDecision.js';
 export type { RepoFilter } from './RepoFilter.js';
 export type { ReviewLimitComment } from './ReviewLimitComment.js';
+export type { ScannedPR } from './ScannedPR.js';
+export type { ScanResult } from './ScanResult.js';
 export type { StaleOpenPR } from './StaleOpenPR.js';
 export type { TriggerDetails } from './TriggerDetails.js';
 export type { UpsertPullRequestData } from './UpsertPullRequestData.js';

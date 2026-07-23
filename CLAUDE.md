@@ -160,6 +160,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     export { VALUE_SETTER } from './systemStateRepository.js';
     ```
   </bad-example>
+  <bad-example>
+    ```typescript
+    // BAD: cross-directory re-export — ScannedPR is defined in src/types/ScannedPR.ts,
+    // not in src/prScanner.ts. Consumers should import from src/types/index.js directly.
+    export type { ScannedPR } from './types/index.js';
+    ```
+  </bad-example>
 </rule>
 
 <rule id="C013" priority="critical">

@@ -144,7 +144,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       });
 
       for (const c of response.data) {
-        results.push({ body: normalizeCommentBody(c.body), id: c.id, updatedAt: new Date(c.updated_at) });
+        results.push({ body: normalizeCommentBody(c.body), id: c.id, createdAt: new Date(c.created_at), updatedAt: new Date(c.updated_at) });
       }
 
       if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
