@@ -43,7 +43,14 @@ export class StalePrRecovererImpl implements StalePrRecoverer {
         body: 'rate limited by coderabbit.ai — recovered from deleted comment',
         commentType: CodeRabbitCommentType.review_limited,
       };
-      await this.onDetected(syntheticComment, config.REVIEW_LIMIT_FALLBACK_WAIT_SEC, pr.id);
+      try {
+        await this.onDetected(syntheticComment, config.REVIEW_LIMIT_FALLBACK_WAIT_SEC, pr.id);
+      } catch (err) {
+        this.log.warn(
+          { fn: 'StalePrRecoverer.recover', repoFullName: pr.repoFullName, prNumber: pr.prNumber, prId: pr.id, error: err },
+          'Failed to recover stale PR; will retry next tick',
+        );
+      }
     }
   }
 }

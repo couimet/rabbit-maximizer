@@ -1,8 +1,7 @@
 /**
  * Barrel for injectable service classes at the src/ root.
  * These are the main application services wired together by the DI container.
- * They have internal dependencies on config, domain, and each other, but none
- * import from this barrel itself, so there is no ESM cycle risk.
+ * They have internal dependencies on config, domain, and each other.
  */
 export { PollDetector } from './detectorPoll.js';
 export { EnqueueService } from './EnqueueService.js';

@@ -10,7 +10,8 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
 
 const POST_COOLDOWN_SEC = 3600;
-const POST_COOLDOWN_MS = POST_COOLDOWN_SEC * 1000;
+const MS_PER_SECOND = 1000;
+const POST_COOLDOWN_MS = POST_COOLDOWN_SEC * MS_PER_SECOND;
 
 const setup = () => {
   const github = {
@@ -94,7 +95,7 @@ describe('ReviewTrigger', () => {
   });
 
   it('posts retrigger without reply target when source comment is deleted and no replacement exists', async () => {
-    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
+    const { github, probeFactory, reviewTrigger, queue, tx, logger } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
     github.fetchComment.mockRejectedValue({ status: 404 });
     github.findLatestReviewLimitComment.mockResolvedValue(undefined);
@@ -112,6 +113,10 @@ describe('ReviewTrigger', () => {
     expect(result.success).toBe(true);
     expect(result.value).toStrictEqual({ retriggeredCommentUrl: commentUrl });
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), commentUrl, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
+      'No review-limit comment found; posting retrigger without a reply target',
+    );
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED when replacement is deleted', async () => {
@@ -168,27 +173,6 @@ describe('ReviewTrigger', () => {
     expect(result.success).toBe(false);
     expect(probe.staleCommentRescheduled).toHaveBeenCalledWith(expect.any(Date));
     expect(result.error.code).toBe('RETRIGGER_STALE_COMMENT_RESCHEDULE');
-  });
-
-  it('posts retrigger when stored comment was deleted (404) and no replacement exists', async () => {
-    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
-    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
-    github.fetchComment.mockRejectedValueOnce({ status: 404 });
-    github.findLatestReviewLimitComment.mockResolvedValue(undefined);
-    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
-    const probe = {
-      reviewRetriggered: jest.fn(),
-      staleCommentRescheduled: jest.fn(),
-      staleCommentSkipped: jest.fn(),
-      staleCommentReplacementDeleted: jest.fn(),
-    };
-    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
-
-    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
-
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({ retriggeredCommentUrl: commentUrl });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + POST_COOLDOWN_MS), commentUrl, tx);
   });
 
   it('throws when fetchComment fails with non-terminal error', async () => {

@@ -8,7 +8,7 @@ const { version } = pkg;
 const repoUrl = pkg.repository.url;
 const JSON_METADATA_INDENT_SPACES = 2;
 
-export const buildCommentBody = (sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): string => {
+export const buildCommentBody = (sourceCommentUrl: string | undefined, runId: string, triggerSource: TriggerSource): string => {
   let triggerLine: string;
   let sourceUrlForMetadata: string | null;
 
@@ -18,8 +18,8 @@ export const buildCommentBody = (sourceCommentUrl: string, runId: string, trigge
       sourceUrlForMetadata = null;
       break;
     case TriggerSource.scheduler:
-      triggerLine = `\u{21A9} Triggered by: ${sourceCommentUrl}`;
-      sourceUrlForMetadata = sourceCommentUrl;
+      triggerLine = sourceCommentUrl ? `\u{21A9} Triggered by: ${sourceCommentUrl}` : '\u{21A9} Triggered by scheduler';
+      sourceUrlForMetadata = sourceCommentUrl ?? null;
       break;
     default:
       throw RabbitMaximizerError.forUnexpectedSwitchDefault('triggerSource', triggerSource, 'buildCommentBody');

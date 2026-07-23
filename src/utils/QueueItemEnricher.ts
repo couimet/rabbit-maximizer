@@ -6,6 +6,8 @@ import type { EnrichedQueueItem, QueueItem } from '../types/index.js';
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
+const EMPTY_ENRICHMENT = { prState: undefined, lastCoderabbitAcknowledgedAt: undefined };
+
 @injectable()
 export class QueueItemEnricher {
   /* c8 ignore start — decorator emit branches */
@@ -31,7 +33,7 @@ export class QueueItemEnricher {
 
     if (validIds.length === 0) {
       this.log.debug({ fn: 'QueueItemEnricher.enrich', itemCount: items.length }, 'All items have null pull_request_id; enrichment skipped entirely');
-      return items as EnrichedQueueItem[];
+      return items.map((item) => ({ ...item, ...EMPTY_ENRICHMENT }));
     }
 
     const { pr_state: prStateMap, last_coderabbit_acknowledged_at: ackMap } = await this.pullRequests.getColumnMaps(validIds, [
@@ -42,7 +44,7 @@ export class QueueItemEnricher {
     return items.map((item) => {
       const pid = item.pull_request_id;
       if (pid == null) {
-        return { ...item, prState: undefined, lastCoderabbitAcknowledgedAt: undefined };
+        return { ...item, ...EMPTY_ENRICHMENT };
       }
       const prState = prStateMap.get(pid) as PrState | undefined;
       const ackValue = ackMap.get(pid) ?? undefined;

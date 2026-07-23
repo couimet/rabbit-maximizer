@@ -26,6 +26,7 @@ const FIND_STALE_OPEN_PRS_SQL = `
   FROM ${PULL_REQUEST_TABLE} pr
   WHERE pr.pr_state = 'open'
     AND pr.last_review_requested_at IS NOT NULL
+    AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at)
     AND NOT EXISTS (
       SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
       WHERE rq.pull_request_id = pr.id

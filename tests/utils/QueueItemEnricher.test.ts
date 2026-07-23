@@ -141,7 +141,10 @@ describe('QueueItemEnricher', () => {
     const result = await enricher.enrich([item1, item2]);
 
     expect(pullRequests.getColumnMaps).not.toHaveBeenCalled();
-    expect(result).toStrictEqual([item1, item2]);
+    expect(result).toStrictEqual([
+      { ...item1, prState: undefined, lastCoderabbitAcknowledgedAt: undefined },
+      { ...item2, prState: undefined, lastCoderabbitAcknowledgedAt: undefined },
+    ]);
     expect(logger.warn).toHaveBeenCalledWith(
       { fn: 'QueueItemEnricher.enrich', nullCount: 2, totalItemCount: 2 },
       'Skipping enrichment for items with null pull_request_id',

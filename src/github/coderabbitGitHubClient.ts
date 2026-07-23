@@ -41,7 +41,7 @@ export interface CoderabbitGitHubClient {
 
   listOpenPRs(repoFilter: readonly RepoFilter[]): Promise<DiscoveredPR[]>;
 
-  postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment>;
+  postRetrigger(repo: string, pr: number, sourceCommentUrl: string | undefined, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment>;
 
   getPRState(repo: string, pr: number): Promise<PRState>;
 
@@ -184,7 +184,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return results;
   }
 
-  async postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment> {
+  async postRetrigger(repo: string, pr: number, sourceCommentUrl: string | undefined, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment> {
     const { owner, repo: repoName } = splitRepo(repo);
     const body = buildCommentBody(sourceCommentUrl, runId, triggerSource);
 

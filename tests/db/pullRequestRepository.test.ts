@@ -532,7 +532,7 @@ describe('PullRequestRepositoryImpl', () => {
 
       expect(queryRawUnsafe).toHaveBeenCalledWith(
         expect.toEqualIgnoringWhitespace(
-          "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.last_review_requested_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered'))",
+          "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered'))",
         ),
       );
       expect(result).toStrictEqual(
@@ -544,6 +544,7 @@ describe('PullRequestRepositoryImpl', () => {
           lastReviewRequestedAt: new Date(row.last_review_requested_at),
         })),
       );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findStaleOpenPRs', count: rows.length }, 'Found stale open PRs');
     });
 
     it('returns empty array when no stale PRs exist', async () => {
@@ -553,6 +554,7 @@ describe('PullRequestRepositoryImpl', () => {
       const result = await sut.findStaleOpenPRs();
 
       expect(result).toStrictEqual([]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findStaleOpenPRs', count: 0 }, 'Found stale open PRs');
     });
   });
 

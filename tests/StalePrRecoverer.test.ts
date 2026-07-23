@@ -1,5 +1,6 @@
+import { buildPrUrl } from '../src/github/index.js';
 import { StalePrRecovererImpl } from '../src/services.js';
-import type { DetectedComment, OnDetectedCallback } from '../src/types/index.js';
+import type { OnDetectedCallback } from '../src/types/index.js';
 
 import { createMockOnDetectedCallback, createMockPullRequestRepo } from './helpers/index.js';
 
@@ -37,23 +38,28 @@ describe('StalePrRecovererImpl', () => {
 
     it('enqueues a synthetic comment for each stale PR', async () => {
       const { fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const PR_ID = getUniqueInt();
-      const PR_NUMBER = getUniqueInt();
-      const pr = { id: PR_ID, repoFullName: repoFullName, prNumber: PR_NUMBER, title: 'Test PR', lastReviewRequestedAt: getUniqueDate() };
+      const prId = getUniqueInt();
+      const prNumber = getUniqueInt();
+      const pr = { id: prId, repoFullName: repoFullName, prNumber: prNumber, title: 'Test PR', lastReviewRequestedAt: getUniqueDate() };
       pullRequests.findStaleOpenPRs.mockResolvedValue([pr]);
 
       await recoverer.recover();
 
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'StalePrRecoverer.recover', count: 1 }, 'Recovering stale open PRs with no review-limit comment');
       expect(onDetected).toHaveBeenCalledWith(
-        expect.objectContaining({
+        {
+          url: buildPrUrl(repoFullName, prNumber),
           repoFullName,
-          prNumber: PR_NUMBER,
+          prNumber,
           commentId: -frozenNow.getTime(),
+          createdAt: frozenNow.toISOString(),
+          updatedAt: frozenNow.toISOString(),
+          prTitle: pr.title,
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
-        }) as DetectedComment,
+          commentType: 'review_limited',
+        },
         FALLBACK_WAIT_SECONDS,
-        PR_ID,
+        prId,
       );
     });
 
@@ -78,12 +84,32 @@ describe('StalePrRecovererImpl', () => {
 
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'StalePrRecoverer.recover', count: 2 }, 'Recovering stale open PRs with no review-limit comment');
       expect(onDetected).toHaveBeenCalledWith(
-        expect.objectContaining({ repoFullName: pr1.repoFullName, prNumber: pr1.prNumber }) as DetectedComment,
+        {
+          url: buildPrUrl(pr1.repoFullName, pr1.prNumber),
+          repoFullName: pr1.repoFullName,
+          prNumber: pr1.prNumber,
+          commentId: -frozenNow.getTime(),
+          createdAt: frozenNow.toISOString(),
+          updatedAt: frozenNow.toISOString(),
+          prTitle: pr1.title,
+          body: 'rate limited by coderabbit.ai — recovered from deleted comment',
+          commentType: 'review_limited',
+        },
         FALLBACK_WAIT_SECONDS,
         pr1.id,
       );
       expect(onDetected).toHaveBeenCalledWith(
-        expect.objectContaining({ repoFullName: pr2.repoFullName, prNumber: pr2.prNumber }) as DetectedComment,
+        {
+          url: buildPrUrl(pr2.repoFullName, pr2.prNumber),
+          repoFullName: pr2.repoFullName,
+          prNumber: pr2.prNumber,
+          commentId: -frozenNow.getTime(),
+          createdAt: frozenNow.toISOString(),
+          updatedAt: frozenNow.toISOString(),
+          prTitle: pr2.title,
+          body: 'rate limited by coderabbit.ai — recovered from deleted comment',
+          commentType: 'review_limited',
+        },
         FALLBACK_WAIT_SECONDS,
         pr2.id,
       );

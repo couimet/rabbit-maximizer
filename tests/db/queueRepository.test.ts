@@ -206,6 +206,16 @@ describe('QueueRepositoryImpl', () => {
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
       expect(created).toBe(true);
       expect(result).toStrictEqual(mapper.fromReviewQueue(newRow));
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          fn: 'EnqueueProbe.retriggeredReplaced',
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          oldCommentId,
+          newCommentId,
+        },
+        'Recycled review-limit comment replaced stale retriggered item; marking old item reviewed',
+      );
     });
 
     it('creates a new pending row when the cooldown has expired', async () => {
