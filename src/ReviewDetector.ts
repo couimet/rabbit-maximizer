@@ -3,7 +3,7 @@ import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { MS_PER_SECOND, reviewStateToEventType } from './utils/index.js';
 import type { Config } from './config.js';
-import { EventType, IntervalService, TYPES } from './domain.js';
+import { EventType, IntervalService, PrState, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -39,10 +39,22 @@ export class ReviewDetector extends IntervalService {
       probe.noRetriggeredItemFound();
       return;
     }
+    const prIds = retriggeredItems.map((item) => item.pull_request_id);
+    const { pr_state: prStateMap } = await this.pullRequests.getColumnMaps(prIds, ['pr_state']);
     for (const item of retriggeredItems) {
       probe.withItem(item);
       try {
         if (item.retriggered_at == null) continue;
+
+        const prState = prStateMap.get(item.pull_request_id);
+        if (prState === PrState.merged || prState === PrState.closed) {
+          await this.prisma.$transaction(async (tx) => {
+            await this.queue.markReviewed(item.id, tx);
+          });
+          probe.prClosedResolved(prState);
+          continue;
+        }
+
         const { owner, repo } = splitRepo(item.repo_full_name);
 
         // Try Reviews API first for structured state, fall back to body-matched completed review

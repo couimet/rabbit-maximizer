@@ -1,4 +1,4 @@
-import { QueueStatus, TriggerSource } from '../src/domain.js';
+import { PrState, QueueStatus, TriggerSource } from '../src/domain.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import { ReviewDetector } from '../src/services.js';
 import { type QueueItem } from '../src/types/index.js';
@@ -23,7 +23,7 @@ const drainMicrotasks = async (depth: number): Promise<void> => {
 
 interface MockReviewDetectorDeps {
   queue: { getRetriggeredQueue: jest.Mock<any>; markReviewed: jest.Mock<any> };
-  pullRequests: { recordReview: jest.Mock<any> };
+  pullRequests: { recordReview: jest.Mock<any>; getColumnMaps: jest.Mock<any> };
   github: jest.Mocked<CoderabbitGitHubClient>;
   probeFactory: ReturnType<typeof createMockProbeFactory>;
   probe: ReturnType<typeof createMockReviewDetectorProbe>;
@@ -56,7 +56,7 @@ const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: numb
 
 const setup = (): MockReviewDetectorDeps => {
   const queue = createMockQueueRepo() as unknown as MockReviewDetectorDeps['queue'];
-  const pullRequests = { recordReview: jest.fn<any>() };
+  const pullRequests = { recordReview: jest.fn<any>(), getColumnMaps: jest.fn<any>().mockResolvedValue({ pr_state: new Map() }) };
   const github = createMockCoderabbitGitHubClient();
   const probe = createMockReviewDetectorProbe();
   const probeFactory = createMockProbeFactory({ createReviewDetectorProbe: jest.fn<any>().mockReturnValue(probe) });
@@ -273,6 +273,100 @@ describe('ReviewDetector', () => {
 
       resolveQueue!([]);
       await stop();
+    });
+  });
+
+  describe('pr state filtering', () => {
+    it('auto-resolves a retriggered item when PR is merged, skipping API calls', async () => {
+      const retriggeredAt = getUniqueDate();
+      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
+      const prNumber = getUniqueInt();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.merged]]) });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state']);
+      expect(deps.github.findLatestCoderabbitReview).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('merged');
+    });
+
+    it('auto-resolves a retriggered item when PR is closed, skipping API calls', async () => {
+      const retriggeredAt = getUniqueDate();
+      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
+      const prNumber = getUniqueInt();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.closed]]) });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state']);
+      expect(deps.github.findLatestCoderabbitReview).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('closed');
+    });
+
+    it('proceeds with API calls when PR is open', async () => {
+      const retriggeredAt = getUniqueDate();
+      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
+      const prNumber = getUniqueInt();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const reviewUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${getUniqueInt()}`;
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.open]]) });
+      deps.github.findLatestCoderabbitReview.mockResolvedValue({ htmlUrl: reviewUrl, state: 'approved' });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state']);
+      expect(deps.github.findLatestCoderabbitReview).toHaveBeenCalledWith(owner, repo, prNumber, retriggeredAt);
+      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
+      expect(deps.probe.prClosedResolved).not.toHaveBeenCalled();
+    });
+
+    it('resolves merged items while continuing to process open items in the same batch', async () => {
+      const retriggeredAt = getUniqueDate();
+      const mergedItem = makeRetriggeredItem({ retriggered_at: retriggeredAt, pull_request_id: 100, repo_full_name: 'org-a/repo-a', pr_number: 1 });
+      const openItem = makeRetriggeredItem({ retriggered_at: retriggeredAt, pull_request_id: 200, repo_full_name: 'org-b/repo-b', pr_number: 2 });
+      deps.queue.getRetriggeredQueue.mockResolvedValue([mergedItem, openItem]);
+
+      const prStateMap = new Map<number, PrState>();
+      prStateMap.set(mergedItem.pull_request_id, PrState.merged);
+      prStateMap.set(openItem.pull_request_id, PrState.open);
+      deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: prStateMap });
+
+      deps.github.findLatestCoderabbitReview.mockResolvedValue(undefined);
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.queue.markReviewed).toHaveBeenCalledWith(mergedItem.id, {});
+      expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('merged');
+      expect(deps.github.findLatestCoderabbitReview).toHaveBeenCalledTimes(1);
+      expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
     });
   });
 
