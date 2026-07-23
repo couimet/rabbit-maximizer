@@ -47,7 +47,7 @@
     "@couimet/detailed-error": "^1.0.0",
     "@couimet/detailed-result": "^0.1.1",
     "@couimet/logger-contract": "^1.0.0",
-    "@couimet/logger-contract-adapters": "^0.1.0",
+    "@couimet/logger-contract-adapters": "^0.1.1",
     "@octokit/auth-token": "^6.0.0",
     "@octokit/rest": "^22.0.1",
     "@prisma/adapter-better-sqlite3": "^7.8.0",

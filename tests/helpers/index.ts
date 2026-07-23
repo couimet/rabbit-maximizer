@@ -1,6 +1,5 @@
 export { apiJson } from './apiJson.js';
 export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
-export { createMockCoderabbitCommentRepo } from './createMockCoderabbitCommentRepo.js';
 export { createMockCoderabbitGitHubClient } from './createMockCoderabbitGitHubClient.js';
 export { createMockEventRepo } from './createMockEventRepo.js';
 export { createMockFetch } from './createMockFetch.js';
@@ -39,17 +38,20 @@ export {
   createMockReviewRetriggerProbe,
   createMockSchedulerProbe,
 } from './createMockProbes.js';
+export { createMockPrScanner } from './createMockPrScanner.js';
 export { createMockPruner } from './createMockPruner.js';
 export { createMockPullRequestRepo } from './createMockPullRequestRepo.js';
 export { createMockQueueItemEnricher } from './createMockQueueItemEnricher.js';
 export { createMockQueueItemMapper } from './createMockQueueItemMapper.js';
 export { createMockQueueOrderRepo } from './createMockQueueOrderRepo.js';
 export { createMockQueueRepo } from './createMockQueueRepo.js';
+export { createMockStalePrRecoverer } from './createMockStalePrRecoverer.js';
 export { createMockSystemStateRepository } from './createMockSystemStateRepository.js';
 export { createMockVite } from './createMockVite.js';
 export { createResolvedMock } from './createResolvedMock.js';
 export { generateDetectedCommentHydrationData } from './DetectedCommentTestSupport.js';
 export { drainMicrotasks } from './drainMicrotasks.js';
+export { generateEnrichedQueueItemData } from './EnrichedQueueItemTestSupport.js';
 export { generateEventLogEntryHydrationData } from './EventLogEntryTestSupport.js';
 export { fetchResponse } from './fetchResponse.js';
 export { getJson } from './getJson.js';
@@ -57,9 +59,9 @@ export { createMockObservationContextProvider } from './ObservationContextProvid
 export { generateObservationContextHydrationData } from './ObservationContextTestSupport.js';
 export { postJson } from './postJson.js';
 export { generatePullRequestHydrationData } from './PullRequestTestSupport.js';
+export { generateQueueItemResponseData } from './QueueItemResponseTestSupport.js';
 export { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
-export type { ReviewQueueWithOrder } from './QueueOrderTestSupport.js';
-export { generateReviewQueueWithOrderHydrationData } from './QueueOrderTestSupport.js';
+export { generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from './QueueOrderTestSupport.js';
 export { generateReviewQueueHydrationData } from './ReviewQueueTestSupport.js';
 export type { ReviewRef, ReviewRefInput } from './ReviewRefTestSupport.js';
 export { buildCommentUrl, generateReviewRef } from './ReviewRefTestSupport.js';

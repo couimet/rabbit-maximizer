@@ -12,3 +12,5 @@ export { type Pruner, PrunerImpl } from './Pruner.js';
 export { ReviewDetector } from './ReviewDetector.js';
 export { ReviewTrigger } from './ReviewTrigger.js';
 export { Scheduler } from './scheduler.js';
+export type { StalePrRecoverer } from './StalePrRecoverer.js';
+export { StalePrRecovererImpl } from './StalePrRecoverer.js';

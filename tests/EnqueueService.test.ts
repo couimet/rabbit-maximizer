@@ -19,19 +19,20 @@ const FOR_TEST_SKIP_BODY = 'skip review by coderabbit.ai';
 describe('EnqueueService', () => {
   let frozenNow: Date;
   let queue: ReturnType<typeof createMockQueueRepo>;
+  let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let probes: ProbeFactory;
   let observation: ObservationContextProvider;
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
   let probe: ReturnType<typeof createMockDetectedProbe>;
-  let mockPullRequests: ReturnType<typeof createMockPullRequestRepo>;
 
   beforeEach(() => {
     jest.useFakeTimers();
     frozenNow = getUniqueDate();
     jest.setSystemTime(frozenNow);
-    mockPullRequests = createMockPullRequestRepo();
     queue = createMockQueueRepo({ enqueue: jest.fn<any>().mockResolvedValue({ item: {}, created: true }) });
+
+    pullRequests = createMockPullRequestRepo();
 
     tx = {} as Prisma.TransactionClient;
     prisma = {
@@ -46,32 +47,16 @@ describe('EnqueueService', () => {
     } as unknown as ObservationContextProvider;
   });
 
-  const createService = () => new EnqueueService(queue, mockPullRequests, prisma, probes, observation);
+  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, observation);
 
   describe('handle', () => {
-    it('bypasses via probe when PR is not yet registered by the scanner', async () => {
-      mockPullRequests.findByRepoAndPr.mockResolvedValue(null);
-      const svc = createService();
-      const comment = generateDetectedCommentHydrationData();
-
-      await svc.handle(comment, 330);
-
-      expect(probe.detected).toHaveBeenCalled();
-      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(mockPullRequests.findByRepoAndPr).toHaveBeenCalledWith(comment.repoFullName, comment.prNumber, tx);
-      expect(probe.prNotRegistered).toHaveBeenCalledWith(tx);
-      expect(queue.enqueue).not.toHaveBeenCalled();
-      expect(probe.enqueued).not.toHaveBeenCalled();
-    });
-
-    it('creates probe, enqueues, and completes probe in a transaction when PR is found', async () => {
+    it('creates probe, enqueues, and completes probe in a transaction with pullRequestId', async () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData();
       const waitSeconds = 330;
       const pullRequestId = getUniqueInt();
-      mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
-      await svc.handle(comment, waitSeconds);
+      await svc.handle(comment, waitSeconds, pullRequestId);
 
       expect(probes.createDetectedProbe).toHaveBeenCalledWith(
         {
@@ -84,8 +69,7 @@ describe('EnqueueService', () => {
       );
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(mockPullRequests.findByRepoAndPr).toHaveBeenCalledWith(comment.repoFullName, comment.prNumber, tx);
-      expect(mockPullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
+      expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
       expect(queue.enqueue).toHaveBeenCalledWith(
         {
           repo: comment.repoFullName,
@@ -99,7 +83,6 @@ describe('EnqueueService', () => {
         tx,
       );
       expect(probe.enqueued).toHaveBeenCalledWith(tx);
-      expect(probe.prNotRegistered).not.toHaveBeenCalled();
     });
 
     it('skips enqueued when enqueue returns created: false', async () => {
@@ -108,16 +91,14 @@ describe('EnqueueService', () => {
       const comment = generateDetectedCommentHydrationData();
       const waitSeconds = 330;
       const pullRequestId = getUniqueInt();
-      mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
-      await svc.handle(comment, waitSeconds);
+      await svc.handle(comment, waitSeconds, pullRequestId);
 
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(queue.enqueue).toHaveBeenCalled();
       expect(probe.enqueued).not.toHaveBeenCalled();
       expect(probe.alreadyQueued).toHaveBeenCalled();
-      expect(probe.prNotRegistered).not.toHaveBeenCalled();
     });
 
     it('schedules the enqueue based on comment.updated_at and wait', async () => {
@@ -125,9 +106,8 @@ describe('EnqueueService', () => {
       const comment = generateDetectedCommentHydrationData();
       const waitSeconds = 120;
       const pullRequestId = getUniqueInt();
-      mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
-      await svc.handle(comment, waitSeconds);
+      await svc.handle(comment, waitSeconds, pullRequestId);
 
       expect(queue.enqueue).toHaveBeenCalledWith(
         {
@@ -144,18 +124,16 @@ describe('EnqueueService', () => {
     });
 
     describe('skip path', () => {
-      it('creates skipped entry when comment classifies as review_skipped and PR is found', async () => {
+      it('creates skipped entry when comment classifies as review_skipped', async () => {
         const svc = createService();
         const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
-        mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
         (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: {}, created: true });
 
-        await svc.handle(comment, 330);
+        await svc.handle(comment, 330, pullRequestId);
 
         expect(probe.detected).toHaveBeenCalled();
-        expect(mockPullRequests.findByRepoAndPr).toHaveBeenCalledWith(comment.repoFullName, comment.prNumber, tx);
-        expect(mockPullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
+        expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
         expect(queue.createSkipped).toHaveBeenCalledWith(
           {
             repo: comment.repoFullName,
@@ -176,9 +154,8 @@ describe('EnqueueService', () => {
         const svc = createService();
         const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
-        mockPullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
-        await svc.handle(comment, 330);
+        await svc.handle(comment, 330, pullRequestId);
 
         expect(probe.alreadySkipped).toHaveBeenCalledWith('coderabbit_skipped');
         expect(probe.skipped).not.toHaveBeenCalled();

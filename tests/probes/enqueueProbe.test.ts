@@ -72,4 +72,18 @@ describe('EnqueueProbe', () => {
       );
     });
   });
+
+  describe('retriggeredReplaced', () => {
+    it('logs info with old and new comment IDs', () => {
+      const ref = generateReviewRef();
+      const oldCommentId = getUniqueInt();
+      const newCommentId = getUniqueInt();
+      const probe = createProbe(createMockTx());
+      probe.retriggeredReplaced(ref.repoFullName, ref.prNumber, oldCommentId, newCommentId);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'EnqueueProbe.retriggeredReplaced', repo: ref.repoFullName, pr: ref.prNumber, oldCommentId: oldCommentId, newCommentId: newCommentId },
+        'Recycled review-limit comment replaced stale retriggered item; marking old item reviewed',
+      );
+    });
+  });
 });

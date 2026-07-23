@@ -25,7 +25,7 @@ export class EnqueueService {
   ) {}
   /* c8 ignore stop */
 
-  readonly handle: OnDetectedCallback = async (comment, waitSeconds) => {
+  readonly handle: OnDetectedCallback = async (comment, waitSeconds, pullRequestId) => {
     const obs = this.observation.current();
 
     const probe = this.probes.createDetectedProbe(
@@ -40,13 +40,6 @@ export class EnqueueService {
     await probe.detected();
 
     await this.prisma.$transaction(async (tx) => {
-      const existingPr = await this.pullRequests.findByRepoAndPr(comment.repoFullName, comment.prNumber, tx);
-      if (!existingPr) {
-        await probe.prNotRegistered(tx);
-        return;
-      }
-      const pullRequestId = existingPr.id;
-
       await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
 
       const classification = classifyCoderabbitComment(comment.body);

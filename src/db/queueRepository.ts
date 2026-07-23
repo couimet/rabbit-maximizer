@@ -51,8 +51,15 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       },
     });
     if (recentRetriggered) {
-      probe.recentlyRetriggered(repo, pr);
-      return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
+      if (recentRetriggered.source_comment_id === sourceCommentId) {
+        probe.recentlyRetriggered(repo, pr);
+        return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
+      }
+      await db.reviewQueue.update({
+        where: { id: recentRetriggered.id },
+        data: { status: QueueStatus.reviewed, reviewed_at: new Date() },
+      });
+      probe.retriggeredReplaced(repo, pr, recentRetriggered.source_comment_id, sourceCommentId);
     }
 
     try {

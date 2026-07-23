@@ -1,6 +1,6 @@
 import { PrState, TYPES } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
-import type { PendingAcknowledgement, PullRequestColumnTypes, UpsertPullRequestData } from '../types/index.js';
+import type { PendingAcknowledgement, PullRequestColumnTypes, StaleOpenPR, UpsertPullRequestData } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -8,6 +8,9 @@ import { inject, injectable } from 'inversify';
 
 /** Matches `@@map("pull_request")` in the Prisma schema. */
 const PULL_REQUEST_TABLE = 'pull_request';
+
+/** Matches `@@map("review_queue")` in the Prisma schema. */
+const REVIEW_QUEUE_TABLE = 'review_queue';
 
 const FIND_PENDING_ACKNOWLEDGEMENT_SQL = `
   SELECT id, repo_full_name, pr_number, last_review_requested_at
@@ -18,11 +21,24 @@ const FIND_PENDING_ACKNOWLEDGEMENT_SQL = `
   LIMIT 1
 `;
 
+const FIND_STALE_OPEN_PRS_SQL = `
+  SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at
+  FROM ${PULL_REQUEST_TABLE} pr
+  WHERE pr.pr_state = 'open'
+    AND pr.last_review_requested_at IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
+      WHERE rq.pull_request_id = pr.id
+        AND rq.status IN ('pending', 'retriggered')
+    )
+`;
+
 export interface PullRequestRepository {
   upsert(repoFullName: string, prNumber: number, data: UpsertPullRequestData, tx?: Prisma.TransactionClient): Promise<{ id: number; created: boolean }>;
   findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<{ id: number } | null>;
-  findByPrState(prState: PrState, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
+  findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
   findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
+  findStaleOpenPRs(): Promise<StaleOpenPR[]>;
   getColumnMaps<C extends keyof PullRequestColumnTypes>(
     ids: number[],
     columns: readonly C[],
@@ -144,6 +160,22 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       pr_number: rows[0].pr_number,
       last_review_requested_at: new Date(rows[0].last_review_requested_at),
     };
+  }
+
+  async findStaleOpenPRs(): Promise<StaleOpenPR[]> {
+    const db = this.client();
+    const rows =
+      await db.$queryRawUnsafe<Array<{ id: number; repo_full_name: string; pr_number: number; title: string; last_review_requested_at: string }>>(
+        FIND_STALE_OPEN_PRS_SQL,
+      );
+    this.log.debug({ fn: 'PullRequestRepositoryImpl.findStaleOpenPRs', count: rows.length }, 'Found stale open PRs');
+    return rows.map((row) => ({
+      id: row.id,
+      repoFullName: row.repo_full_name,
+      prNumber: row.pr_number,
+      title: row.title,
+      lastReviewRequestedAt: new Date(row.last_review_requested_at),
+    }));
   }
 
   async recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void> {

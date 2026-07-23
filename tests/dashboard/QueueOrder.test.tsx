@@ -1,11 +1,9 @@
 /** @jest-environment jsdom */
 
 import { QueueOrder } from '../../dashboard/src/components/index.js';
-import { QueueStatus, TriggerSource } from '../../src/domain.js';
-import { createMockFetch } from '../helpers/index.js';
+import { createMockFetch, generateQueueItemResponseData } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
@@ -19,21 +17,7 @@ const renderQueueOrder = (
   paused = false,
 ) => render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} paused={paused} />);
 
-const makeQueueItem = (over: Record<string, unknown> = {}) => ({
-  id: getUniqueInt(),
-  uuid: getUniqueString({ prefix: 'uuid-' }),
-  repo_full_name: `${getUniqueString({ prefix: 'owner' })}/${getUniqueString({ prefix: 'repo' })}`,
-  pr_number: getUniqueInt(),
-  pr_title: getUniqueString({ prefix: 'pr-' }),
-  status: QueueStatus.pending,
-  attempts: getUniqueInt(),
-  source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
-  trigger_source: TriggerSource.scheduler,
-  pull_request_id: getUniqueInt(),
-  created_at: getUniqueDate().toISOString(),
-  updated_at: getUniqueDate().toISOString(),
-  ...over,
-});
+const makeQueueItem = (over: Record<string, unknown> = {}) => generateQueueItemResponseData(over);
 
 describe('QueueOrder', () => {
   afterEach(() => {

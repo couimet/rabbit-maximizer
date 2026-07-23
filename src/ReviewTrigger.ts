@@ -66,6 +66,15 @@ export class ReviewTrigger {
     const latest = await this.github.findLatestReviewLimitComment(owner, repo, item.pr_number);
 
     if (!latest) {
+      if (storedBody === '') {
+        // Source comment was deleted (or is a synthetic recovery comment). Post the retrigger
+        // directly — CodeRabbit may still respond to an @coderabbitai full review request.
+        this.log.info(
+          { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
+          'No review-limit comment found; posting retrigger without a reply target',
+        );
+        return this.postAndRecord(item, probe, triggerSource);
+      }
       probe.staleCommentSkipped();
       return RabbitResult.err(
         new RabbitMaximizerError({

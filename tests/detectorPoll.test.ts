@@ -6,7 +6,9 @@ import type { DetectedComment, OnDetectedCallback } from '../src/types/index.js'
 import {
   createMockCoderabbitGitHubClient,
   createMockOnDetectedCallback,
+  createMockPrScanner,
   createMockPullRequestRepo,
+  createMockStalePrRecoverer,
   createMockSystemStateRepository,
   drainMicrotasks,
   generateDetectedCommentHydrationData,
@@ -24,11 +26,12 @@ const EXPECTED_REPO_COUNT = 1;
 const MS_PER_SECOND = 1000;
 const MS_PER_HOUR = 60 * 60 * MS_PER_SECOND;
 const TICK_DEPTH = 20;
-
 interface MockDetectorDeps {
   github: jest.Mocked<CoderabbitGitHubClient>;
   onDetected: jest.Mocked<OnDetectedCallback>;
+  prScanner: ReturnType<typeof createMockPrScanner>;
   pullRequests: ReturnType<typeof createMockPullRequestRepo>;
+  stalePrRecoverer: ReturnType<typeof createMockStalePrRecoverer>;
   systemStateRepo: ReturnType<typeof createMockSystemStateRepository>;
   logger: Logger;
 }
@@ -37,25 +40,30 @@ const setup = (): MockDetectorDeps => {
   const github = createMockCoderabbitGitHubClient();
 
   const onDetected = createMockOnDetectedCallback();
+  const prScanner = createMockPrScanner();
   const pullRequests = createMockPullRequestRepo();
+  const stalePrRecoverer = createMockStalePrRecoverer();
   const systemStateRepo = createMockSystemStateRepository();
   const logger = createMockLogger();
 
-  return { github, onDetected, pullRequests, systemStateRepo, logger };
+  return { github, onDetected, prScanner, pullRequests, stalePrRecoverer, systemStateRepo, logger };
 };
 
 describe('PollDetector', () => {
   let deps: MockDetectorDeps;
   let frozenNow: Date;
+  let pullRequestId: number;
 
   beforeEach(() => {
     deps = setup();
     frozenNow = getUniqueDate();
+    pullRequestId = getUniqueInt();
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);
   });
 
-  const createDetector = () => new PollDetector(deps.github, deps.onDetected, deps.pullRequests, deps.systemStateRepo, deps.logger);
+  const createDetector = () =>
+    new PollDetector(deps.github, deps.prScanner, deps.stalePrRecoverer, deps.onDetected, deps.pullRequests, deps.systemStateRepo, deps.logger);
 
   describe('start', () => {
     it('fires the first tick immediately and starts an interval', async () => {
@@ -63,6 +71,8 @@ describe('PollDetector', () => {
 
       const detector = createDetector();
       const { stop } = detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith(
@@ -93,6 +103,7 @@ describe('PollDetector', () => {
       const bodyText = 'some text rate limited by coderabbit.ai more text Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const expectedWaitSeconds = 5 * 60 + 30;
 
@@ -103,12 +114,51 @@ describe('PollDetector', () => {
 
       const [owner, repo] = comment.repoFullName.split('/');
       expect(deps.github.fetchComment).toHaveBeenCalledWith(owner, repo, comment.commentId);
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds);
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds, pullRequestId);
     });
 
     it('falls back to DEFAULT_FALLBACK_WAIT_SECONDS when parseWaitSeconds returns undefined', async () => {
       const comment = generateDetectedCommentHydrationData();
       const bodyText = 'rate limited by coderabbit.ai but no wait time pattern';
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, DEFAULT_FALLBACK_WAIT_SECONDS, pullRequestId);
+    });
+
+    it('scans for PRs at the top of executeTick', async () => {
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.prScanner.scan).toHaveBeenCalled();
+      expect(deps.github.searchReviewLimitComments).toHaveBeenCalled();
+      expect(deps.prScanner.scan.mock.invocationCallOrder[0]).toBeLessThan(deps.github.searchReviewLimitComments.mock.invocationCallOrder[0]);
+    });
+
+    it('calls stalePrRecoverer.recover() after scan', async () => {
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.prScanner.scan.mock.invocationCallOrder[0]).toBeLessThan(deps.stalePrRecoverer.recover.mock.invocationCallOrder[0]);
+    });
+
+    it('skips comment when PR is not registered', async () => {
+      const comment = generateDetectedCommentHydrationData();
+      const bodyText = 'rate limited by coderabbit.ai some text';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
 
@@ -117,7 +167,28 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, DEFAULT_FALLBACK_WAIT_SECONDS);
+      expect(deps.onDetected).not.toHaveBeenCalled();
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'PollDetector.tick', repo: comment.repoFullName, pr: comment.prNumber },
+        'PR not registered; skipping comment',
+      );
+    });
+
+    it('passes pullRequestId to onDetected', async () => {
+      const comment = generateDetectedCommentHydrationData();
+      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+
+      const expectedWaitSeconds = 5 * 60 + 30;
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds, pullRequestId);
     });
   });
 
@@ -259,7 +330,7 @@ describe('PollDetector', () => {
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
 
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
-      await Promise.resolve();
+      await drainMicrotasks(TICK_DEPTH);
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(2);
     });
 
@@ -300,6 +371,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const expectedWaitSeconds = 5 * 60 + 30;
       const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * MS_PER_SECOND);
@@ -312,7 +384,7 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds);
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds, pullRequestId);
     });
 
     it('updates when new comment has an earlier available time than existing state', async () => {
@@ -321,6 +393,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const expectedWaitSeconds = 5 * 60 + 30;
       const expectedDate = new Date(now + expectedWaitSeconds * 1000);
@@ -342,6 +415,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const expectedWaitSeconds = 5 * 60 + 30;
       const earlierDate = new Date(now + 60_000);
@@ -354,7 +428,7 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.systemStateRepo.setState).not.toHaveBeenCalled();
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds);
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, expectedWaitSeconds, pullRequestId);
     });
 
     it('uses correct StateKey and Date values when upserting state', async () => {
@@ -363,6 +437,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 2 minutes before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const expectedWaitSeconds = 120;
       const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * MS_PER_SECOND);
@@ -387,6 +462,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([earlyComment, laterComment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: earlyComment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const expectedWaitSeconds = 600;
       const expectedDate = new Date(new Date(earlyComment.updatedAt).getTime() + expectedWaitSeconds * 1000);

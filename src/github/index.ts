@@ -1,5 +1,6 @@
 export { buildCommentBody } from './buildCommentBody.js';
 export { buildOpenPRSearchQuery } from './buildOpenPRSearchQuery.js';
+export { buildPrUrl } from './buildPrUrl.js';
 export { buildRepoQualifierClause } from './buildRepoQualifierClause.js';
 export { buildSearchQuery } from './buildSearchQuery.js';
 export { classifyCoderabbitComment } from './classifyCoderabbitComment.js';

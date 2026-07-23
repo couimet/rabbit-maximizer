@@ -24,14 +24,14 @@ export const REVIEW_BOT_ACTIONABLE_SIGNAL = 'Actionable comments posted:';
 /** Hidden HTML marker that identifies a CodeRabbit review with no actionable comments (approval). */
 export const REVIEW_BOT_NO_ACTIONABLE_SIGNAL = 'No actionable comments were generated in the recent review.';
 
-/** Body text markers that identify a completed CodeRabbit review via the PR reviews API. Each entry is a substring match against the review body. */
-export const REVIEW_BOT_COMPLETION_SIGNALS: readonly string[] = [REVIEW_BOT_ACTIONABLE_SIGNAL, REVIEW_BOT_NO_ACTIONABLE_SIGNAL];
+/** Hidden HTML marker that identifies a CodeRabbit review stack entry start (review completion). Catches combined review+rate-limit comments where a walkthrough was generated but the standard completion signals are absent. */
+export const REVIEW_STACK_MARKER = 'review_stack_entry_start';
+
+/** Body text markers that identify a completed CodeRabbit review. Each entry is a substring match against the comment body. */
+export const REVIEW_BOT_COMPLETION_SIGNALS: readonly string[] = [REVIEW_BOT_ACTIONABLE_SIGNAL, REVIEW_BOT_NO_ACTIONABLE_SIGNAL, REVIEW_STACK_MARKER];
 
 /** Hidden HTML marker that identifies a CodeRabbit acknowledgement reply (the bot's "I'll review this" response to a retrigger). */
 export const REVIEW_BOT_ACKNOWLEDGEMENT_MARKER = 'auto-generated reply by CodeRabbit';
 
 /** Hidden HTML marker that identifies a CodeRabbit review-skipped comment. */
 export const REVIEW_BOT_SKIP_MARKER = 'skip review by coderabbit.ai';
-
-/** Hidden HTML marker that identifies a CodeRabbit review stack entry start (review completion). */
-export const REVIEW_STACK_MARKER = 'review_stack_entry_start';

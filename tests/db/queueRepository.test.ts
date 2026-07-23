@@ -4,14 +4,16 @@ import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/co
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
 import {
+  buildCommentUrl,
   createMockObservationContextProvider,
   createMockPrismaClient,
   createResolvedMock,
   generateCreateSkippedData,
-  generateReviewQueueHydrationData as makeRow,
+  generateReviewQueueHydrationData,
+  generateReviewRef,
 } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -39,14 +41,10 @@ describe('QueueRepositoryImpl', () => {
 
   describe('enqueue', () => {
     it('creates a pending row, records enqueued event, inserts queue_order, and returns it', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-
-      const commentId = getUniqueInt();
-      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
+      const ref = generateReviewRef();
       const newWait = getUniqueInt();
       const pullRequestId = getUniqueInt();
-      const row = makeRow({ repo_full_name: repo, pr_number: pr, source_comment_url: sourceUrl });
+      const row = generateReviewQueueHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_comment_url: ref.commentUrl });
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(row) },
@@ -54,18 +52,26 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
       const { item: result, created } = await sut.enqueue(
-        { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId },
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Test PR title',
+          sourceCommentUrl: ref.commentUrl,
+          sourceCommentId: ref.commentId,
+          newWait,
+          pullRequestId,
+        },
         prisma as unknown as Prisma.TransactionClient,
       );
 
       expect(reviewQueue.create).toHaveBeenCalledWith({
         data: {
           pull_request_id: pullRequestId,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           pr_title: 'Test PR title',
-          source_comment_url: sourceUrl,
-          source_comment_id: commentId,
+          source_comment_url: ref.commentUrl,
+          source_comment_id: ref.commentId,
           trigger_source: 'scheduler',
         },
       });
@@ -75,9 +81,8 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('returns the existing pending row when the PR is already queued (P2002)', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const existing = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.pending });
+      const ref = generateReviewRef();
+      const existing = generateReviewQueueHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: QueueStatus.pending });
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
 
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -88,84 +93,156 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const commentId = getUniqueInt();
-      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
         {
-          repo,
-          pr,
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
           prTitle: 'Test PR title',
-          sourceCommentUrl: sourceUrl,
-          sourceCommentId: commentId,
+          sourceCommentUrl: ref.commentUrl,
+          sourceCommentId: ref.commentId,
           newWait,
           pullRequestId: getUniqueInt(),
         },
         prisma as unknown as Prisma.TransactionClient,
       );
 
-      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: repo, pr_number: pr, status: 'pending' } });
+      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: 'pending' } });
       expect(created).toBe(false);
       expect(result).toStrictEqual(mapper.fromReviewQueue(existing));
     });
 
-    it('returns the existing retriggered item when a recent retriggered row exists (within cooldown)', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const recentRetriggered = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.retriggered });
+    it('returns the existing retriggered item when a recent retriggered row exists with the same source_comment_id', async () => {
+      const ref = generateReviewRef();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+      });
 
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const commentId = getUniqueInt();
-      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
 
       const { item: result, created } = await sut.enqueue(
-        { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId: getUniqueInt() },
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Test PR title',
+          sourceCommentUrl: ref.commentUrl,
+          sourceCommentId: ref.commentId,
+          newWait,
+          pullRequestId: getUniqueInt(),
+        },
         prisma as unknown as Prisma.TransactionClient,
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr, status: 'retriggered' },
+        where: { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: 'retriggered' },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
       expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
     });
 
+    it('marks old retriggered item as reviewed and creates a new pending item when source_comment_id differs', async () => {
+      const ref = generateReviewRef();
+      const oldCommentId = getUniqueInt();
+      const newCommentId = getUniqueInt();
+      const oldRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: oldCommentId,
+      });
+      const newRow = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.pending,
+        source_comment_id: newCommentId,
+      });
+
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(oldRetriggered), create: createResolvedMock(newRow), update: createResolvedMock({}) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
+      const newWait = getUniqueInt();
+      const pullRequestId = getUniqueInt();
+
+      const { item: result, created } = await sut.enqueue(
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Test PR title',
+          sourceCommentUrl: newCommentUrl,
+          sourceCommentId: newCommentId,
+          newWait,
+          pullRequestId,
+        },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: oldRetriggered.id },
+        data: { status: 'reviewed', reviewed_at: frozenNow },
+      });
+      expect(reviewQueue.create).toHaveBeenCalledWith({
+        data: {
+          pull_request_id: pullRequestId,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          pr_title: 'Test PR title',
+          source_comment_url: newCommentUrl,
+          source_comment_id: newCommentId,
+          trigger_source: 'scheduler',
+        },
+      });
+      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
+      expect(created).toBe(true);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(newRow));
+    });
+
     it('creates a new pending row when the cooldown has expired', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const newRow = makeRow({ repo_full_name: repo, pr_number: pr, status: QueueStatus.pending });
+      const ref = generateReviewRef();
+      const newRow = generateReviewQueueHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: QueueStatus.pending });
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(newRow) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const commentId = getUniqueInt();
-      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
       const pullRequestId = getUniqueInt();
       const { item: result, created } = await sut.enqueue(
-        { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId },
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Test PR title',
+          sourceCommentUrl: ref.commentUrl,
+          sourceCommentId: ref.commentId,
+          newWait,
+          pullRequestId,
+        },
         prisma as unknown as Prisma.TransactionClient,
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr, status: 'retriggered' },
+        where: { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: 'retriggered' },
       });
       expect(reviewQueue.create).toHaveBeenCalledWith({
         data: {
           pull_request_id: pullRequestId,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           pr_title: 'Test PR title',
-          source_comment_url: sourceUrl,
-          source_comment_id: commentId,
+          source_comment_url: ref.commentUrl,
+          source_comment_id: ref.commentId,
           trigger_source: 'scheduler',
         },
       });
@@ -180,7 +257,7 @@ describe('QueueRepositoryImpl', () => {
 
     it('updates the row to retriggered with cooldown', async () => {
       const cooldownUntil = getUniqueDate();
-      const row = makeRow({ status: QueueStatus.retriggered });
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
@@ -263,7 +340,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('markFailed', () => {
     it('updates the row to failed', async () => {
-      const row = makeRow({ status: QueueStatus.failed });
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.failed });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
       const result = await sut.markFailed(row.id, prisma as unknown as Prisma.TransactionClient);
@@ -294,7 +371,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('markReviewed', () => {
     it('updates the row to reviewed', async () => {
-      const row = makeRow({ status: QueueStatus.reviewed });
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.reviewed });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
       const result = await sut.markReviewed(row.id, prisma as unknown as Prisma.TransactionClient);
@@ -326,7 +403,7 @@ describe('QueueRepositoryImpl', () => {
   describe('markReviewedByUuid', () => {
     it('finds by UUID, marks the row reviewed, and logs the event', async () => {
       const commentUrl = 'https://gh/c/retriggered-123';
-      const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: commentUrl });
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retrigger_comment_url: commentUrl });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
@@ -347,7 +424,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('handles null retrigger_comment_url', async () => {
-      const row = makeRow({ status: QueueStatus.retriggered, retrigger_comment_url: null });
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retrigger_comment_url: null });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
@@ -387,7 +464,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('wraps in a transaction when called without tx', async () => {
-      const row = makeRow({ status: QueueStatus.retriggered });
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
       const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
       const { prisma } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
@@ -407,7 +484,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('reschedule', () => {
     it('updates attempts and source comment, logs, and returns updated item', async () => {
-      const row = makeRow();
+      const row = generateReviewQueueHydrationData();
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
@@ -453,7 +530,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('backoff', () => {
     it('increments attempts, logs, and returns updated item', async () => {
-      const row = makeRow();
+      const row = generateReviewQueueHydrationData();
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
@@ -491,7 +568,10 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getRetriggeredQueue', () => {
     it('returns all retriggered items sorted by retriggered_at', async () => {
-      const rows = [makeRow({ status: QueueStatus.retriggered }), makeRow({ status: QueueStatus.retriggered })];
+      const rows = [
+        generateReviewQueueHydrationData({ status: QueueStatus.retriggered }),
+        generateReviewQueueHydrationData({ status: QueueStatus.retriggered }),
+      ];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
       const result = await sut.getRetriggeredQueue();
@@ -506,7 +586,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getOldestPending', () => {
     it('returns the oldest pending item', async () => {
-      const row = makeRow({ status: QueueStatus.pending });
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.pending });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
       const result = await sut.getOldestPending();
@@ -529,50 +609,61 @@ describe('QueueRepositoryImpl', () => {
 
   describe('enqueue error paths', () => {
     it('logs warning and rethrows when a non-P2002 error occurs', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const networkError = new Error('Connection lost');
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: jest.fn<any>().mockRejectedValue(networkError) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const commentId = getUniqueInt();
-
-      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
       await expect(() =>
         sut.enqueue(
-          { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId: getUniqueInt() },
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            newWait,
+            pullRequestId: getUniqueInt(),
+          },
           prisma as unknown as Prisma.TransactionClient,
         ),
       ).rejects.toThrow('Connection lost');
 
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: networkError }, 'Enqueue failed; rethrowing');
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.enqueue', repo: ref.repoFullName, pr: ref.prNumber, error: networkError },
+        'Enqueue failed; rethrowing',
+      );
     });
 
     it('logs warning and rethrows when P2002 fires but no pending row exists', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2002), findFirst: createResolvedMock(null) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const commentId = getUniqueInt();
-
-      const sourceUrl = `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`;
       const newWait = getUniqueInt();
       await expect(() =>
         sut.enqueue(
-          { repo, pr, prTitle: 'Test PR title', sourceCommentUrl: sourceUrl, sourceCommentId: commentId, newWait, pullRequestId: getUniqueInt() },
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            newWait,
+            pullRequestId: getUniqueInt(),
+          },
           prisma as unknown as Prisma.TransactionClient,
         ),
       ).rejects.toThrow('Unique constraint');
 
       expect(logger.warn).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: expect.any(PrismaUniqueConstraintViolationError) },
+        { fn: 'QueueRepositoryImpl.enqueue', repo: ref.repoFullName, pr: ref.prNumber, error: expect.any(PrismaUniqueConstraintViolationError) },
         'Enqueue failed; rethrowing',
       );
     });
@@ -580,7 +671,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getPendingQueue', () => {
     it('returns pending items ordered by id', async () => {
-      const rows = [makeRow({ status: QueueStatus.pending }), makeRow({ status: QueueStatus.pending })];
+      const rows = [generateReviewQueueHydrationData({ status: QueueStatus.pending }), generateReviewQueueHydrationData({ status: QueueStatus.pending })];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
@@ -594,7 +685,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getAll', () => {
     it('returns paginated items with total count', async () => {
-      const rows = [makeRow(), makeRow()];
+      const rows = [generateReviewQueueHydrationData(), generateReviewQueueHydrationData()];
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findMany: createResolvedMock(rows), count: jest.fn<any>().mockResolvedValue(5) },
       });
@@ -663,8 +754,8 @@ describe('QueueRepositoryImpl', () => {
   describe('getTriggered', () => {
     it('returns retriggered items since date ordered by retriggered_at desc', async () => {
       const since = getUniqueDate();
-      const row1 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 1000) });
-      const row2 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 2000) });
+      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 1000) });
+      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 2000) });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row2, row1]),
@@ -693,8 +784,8 @@ describe('QueueRepositoryImpl', () => {
 
     it('includes reviewed items when includeReviewed is true', async () => {
       const since = getUniqueDate();
-      const row = makeRow({ status: QueueStatus.retriggered, retriggered_at: since });
-      const completedRow = makeRow({ status: QueueStatus.reviewed, retriggered_at: since });
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: since });
+      const completedRow = generateReviewQueueHydrationData({ status: QueueStatus.reviewed, retriggered_at: since });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row, completedRow]),
@@ -719,8 +810,8 @@ describe('QueueRepositoryImpl', () => {
 
     it('respects skip and take for pagination', async () => {
       const since = getUniqueDate();
-      const row1 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 4000) });
-      const row2 = makeRow({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 3000) });
+      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 4000) });
+      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 3000) });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row1, row2]),
@@ -746,7 +837,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('findBySourceCommentId', () => {
     it('returns the QueueItem when a matching row exists', async () => {
-      const row = makeRow();
+      const row = generateReviewQueueHydrationData();
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
@@ -768,7 +859,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('maps null timestamps to undefined', async () => {
-      const row = makeRow({ retriggered_at: null, failed_at: null, reviewed_at: null });
+      const row = generateReviewQueueHydrationData({ retriggered_at: null, failed_at: null, reviewed_at: null });
       const { prisma } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
@@ -780,7 +871,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('createSkipped', () => {
     it('creates a row with coderabbit_skipped status and returns item with created: true', async () => {
-      const row = makeRow({ status: 'coderabbit_skipped' });
+      const row = generateReviewQueueHydrationData({ status: 'coderabbit_skipped' });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { create: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
       const data = generateCreateSkippedData({
@@ -813,7 +904,7 @@ describe('QueueRepositoryImpl', () => {
     });
 
     it('returns existing row with created: false on unique constraint violation', async () => {
-      const existingRow = makeRow({ status: 'coderabbit_skipped' });
+      const existingRow = generateReviewQueueHydrationData({ status: 'coderabbit_skipped' });
       const prismaError = new Prisma.PrismaClientKnownRequestError('Unique constraint violation', {
         code: 'P2002',
         clientVersion: '7.8.0',
@@ -865,7 +956,7 @@ describe('QueueRepositoryImpl', () => {
 
   describe('toQueueItem null timestamp mapping', () => {
     it('returns existing rows with NULL timestamps', () => {
-      const row = makeRow({ retriggered_at: null, failed_at: null, reviewed_at: null });
+      const row = generateReviewQueueHydrationData({ retriggered_at: null, failed_at: null, reviewed_at: null });
       const expected = mapper.fromReviewQueue(row);
       expect(expected.retriggered_at).toBeUndefined();
       expect(expected.failed_at).toBeUndefined();

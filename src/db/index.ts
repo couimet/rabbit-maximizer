@@ -1,4 +1,4 @@
-export type { CoderabbitComment, CoderabbitCommentRepository, UpsertCommentData } from './coderabbitCommentRepository.js';
+export type { CoderabbitCommentRepository, UpsertCommentData } from './coderabbitCommentRepository.js';
 export { CoderabbitCommentRepositoryImpl } from './coderabbitCommentRepository.js';
 export type { EventRepository, NewEvent } from './eventRepository.js';
 export { EventRepositoryImpl } from './eventRepository.js';

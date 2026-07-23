@@ -1,7 +1,7 @@
 import type { QueueOrderRepository } from '../../src/db/index.js';
 import { type QueueItem } from '../../src/types/index.js';
 
-import { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
+import { generateQueueItemHydrationData } from './index.js';
 
 import { jest } from '@jest/globals';
 

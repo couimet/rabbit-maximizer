@@ -7,7 +7,7 @@ import {
   createMockQueueItemMapper,
   createMockQueueRepo,
   fetchResponse,
-  generateQueueItemHydrationData,
+  generateEnrichedQueueItemData,
   getJson,
 } from '../helpers/index.js';
 
@@ -46,7 +46,7 @@ describe('getSummary', () => {
 
   it('returns 200 with event counts and oldest pending', async () => {
     logger = createMockLogger();
-    const item = generateQueueItemHydrationData();
+    const item = generateEnrichedQueueItemData();
     const detected = getUniqueInt();
     const enqueued = getUniqueInt();
     const retriggered = getUniqueInt();

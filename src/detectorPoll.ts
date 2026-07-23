@@ -11,6 +11,7 @@ import type { OnDetectedCallback } from './types/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
 import { IntervalService, TYPES } from './domain.js';
+import type { PrScanner, StalePrRecoverer } from './services.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -25,6 +26,10 @@ export class PollDetector extends IntervalService {
   constructor(
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
+    @inject(TYPES.PrScanner)
+    private readonly prScanner: PrScanner,
+    @inject(TYPES.StalePrRecoverer)
+    private readonly stalePrRecoverer: StalePrRecoverer,
     @inject(TYPES.OnDetectedCallback)
     private readonly onDetected: OnDetectedCallback,
     @inject(TYPES.PullRequestRepository)
@@ -53,6 +58,9 @@ export class PollDetector extends IntervalService {
     const logCtx: LoggingContext = { fn: 'PollDetector.tick' };
 
     try {
+      await this.prScanner.scan();
+      await this.stalePrRecoverer.recover();
+
       const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;
 
@@ -77,7 +85,13 @@ export class PollDetector extends IntervalService {
           earliestNextReview = candidate;
         }
 
-        await this.onDetected({ ...c, body }, effectiveWait);
+        const existingPr = await this.pullRequests.findByRepoAndPr(c.repoFullName, c.prNumber);
+        if (!existingPr) {
+          this.log.warn({ ...logCtx, repo: c.repoFullName, pr: c.prNumber }, 'PR not registered; skipping comment');
+          continue;
+        }
+
+        await this.onDetected({ ...c, body }, effectiveWait, existingPr.id);
       }
 
       try {
