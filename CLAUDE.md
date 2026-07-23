@@ -137,6 +137,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Import symbols from the file that defines them, or from a same-directory barrel file that only re-exports its sibling files</do>
   <do>Use barrel files to aggregate exports within a single directory, providing a shorter import path for consumers</do>
   <do>Only re-export the directory's public API through the barrel — symbols exported solely for testing (e.g., internal lookup tables, column mappers) belong to the source file and must not appear in the barrel</do>
+  <do>The test for "same-directory barrel" is whether the barrel lives in the same directory as the symbol's defining file. The importer's location does not matter — a barrel in `src/` that re-exports files from `src/` is valid when imported from any directory, including `src/probes/`</do>
   <never>Re-export a symbol from one directory or package through a barrel file in a different directory (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
   <never>Import a symbol through a barrel that lives outside the symbol's defining directory</never>
   <rationale>Cross-directory re-exports create invisible coupling, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Same-directory barrels are fine — they act as namespace indexes for their own directory's exports, reduce import path verbosity, and make future linting rules (removing redundant folder segments) possible. Barrels are the public API of a directory — testing-only exports are imported directly from the source file, keeping the barrel surface intentional.</rationale>
@@ -145,6 +146,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     // GOOD: test imports testing-only export directly from the source file
     import { VALUE_SETTER } from '../../src/db/systemStateRepository.js';
     ```
+
+    ```typescript
+    // GOOD: importing from a same-directory barrel (src/domain.ts) from a subdirectory.
+    // domain.ts re-exports PrState from the sibling PrState.ts — both are in src/.
+    import { PrState, EventType } from '../domain.js';
+    ```
+
   </good-example>
   <bad-example>
     ```typescript

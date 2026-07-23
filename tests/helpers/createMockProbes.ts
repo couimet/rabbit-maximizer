@@ -62,6 +62,7 @@ export interface MockReviewDetectorProbe {
   noRetriggeredItemFound: jest.Mock<any>;
   noCompletedReviewFound: jest.Mock<any>;
   reviewed: jest.Mock<any>;
+  prClosedResolved: jest.Mock<any>;
   caughtError: jest.Mock<any>;
 }
 export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
@@ -69,6 +70,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   noRetriggeredItemFound: jest.fn<any>(),
   noCompletedReviewFound: jest.fn<any>(),
   reviewed: jest.fn<any>(),
+  prClosedResolved: jest.fn<any>(),
   caughtError: jest.fn<any>(),
 });
 

@@ -1,5 +1,5 @@
 import type { EventRepository } from '../db/index.js';
-import { EventType } from '../domain.js';
+import { EventType, PrState } from '../domain.js';
 import type { ObservationContext } from '../observability/index.js';
 import type { QueueItem } from '../types/index.js';
 
@@ -59,6 +59,13 @@ export class ReviewDetectorProbe {
         commentUrl,
       },
       'Review detected',
+    );
+  }
+
+  prClosedResolved(prState: PrState): void {
+    this.log.info(
+      { fn: 'ReviewDetectorProbe.prClosedResolved', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, prState },
+      'PR is closed or merged; auto-resolving retriggered queue item',
     );
   }
 
