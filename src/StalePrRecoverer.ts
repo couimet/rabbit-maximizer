@@ -1,7 +1,6 @@
 import type { PullRequestRepository } from './db/index.js';
 import { buildPrUrl, CodeRabbitCommentType } from './github/index.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { config } from './config.js';
 import { TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -44,7 +43,7 @@ export class StalePrRecovererImpl implements StalePrRecoverer {
         commentType: CodeRabbitCommentType.review_limited,
       };
       try {
-        await this.onDetected(syntheticComment, config.REVIEW_LIMIT_FALLBACK_WAIT_SEC, pr.id);
+        await this.onDetected(syntheticComment, pr.id);
       } catch (err) {
         this.log.warn(
           { fn: 'StalePrRecoverer.recover', repoFullName: pr.repoFullName, prNumber: pr.prNumber, prId: pr.id, error: err },

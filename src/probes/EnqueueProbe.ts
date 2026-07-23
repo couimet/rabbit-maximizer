@@ -17,7 +17,7 @@ export class EnqueueProbe {
     this.log.debug({ fn: 'EnqueueProbe.recentlyRetriggered', repo, pr }, 'PR was recently retriggered; skipping');
   }
 
-  async enqueued(params: { repo: string; pr: number; newWait: number }): Promise<void> {
+  async enqueued(params: { repo: string; pr: number }): Promise<void> {
     const event = await this.events.record(
       {
         type: EventType.enqueued,
@@ -26,7 +26,7 @@ export class EnqueueProbe {
         correlation_id: this.observation.correlationId,
         request_id: this.observation.requestId,
         version: this.observation.version,
-        payload: { new_wait: params.newWait },
+        payload: {},
       },
       this.tx,
     );

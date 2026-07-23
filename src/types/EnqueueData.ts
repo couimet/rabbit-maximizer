@@ -1,5 +1,4 @@
 import type { CreateSkippedData } from './index.js';
 
-export interface EnqueueData extends CreateSkippedData {
-  readonly newWait: number;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface EnqueueData extends CreateSkippedData {}

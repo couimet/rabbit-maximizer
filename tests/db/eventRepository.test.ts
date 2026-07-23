@@ -177,9 +177,7 @@ describe('EventRepositoryImpl', () => {
         correlation_id: getUuid(),
         request_id: null,
         version: getUniqueString(),
-        payload: JSON.stringify({
-          new_wait: 60,
-        }),
+        payload: JSON.stringify({}),
         metadata: null,
       };
 
@@ -220,9 +218,7 @@ describe('EventRepositoryImpl', () => {
           version: enqueuedRow.version,
           metadata: undefined,
           type: 'enqueued',
-          payload: {
-            new_wait: 60,
-          },
+          payload: {},
         },
       ]);
       expect(logger.debug).toHaveBeenCalledWith(

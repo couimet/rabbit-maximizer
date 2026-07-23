@@ -11,9 +11,8 @@ export interface DetectedPayload {
   readonly source_comment_url?: string;
 }
 
-export interface EnqueuedPayload {
-  readonly new_wait: number;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface EnqueuedPayload {}
 
 export interface RetriggeredPayload {
   readonly source_comment_url: string;

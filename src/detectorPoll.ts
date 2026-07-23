@@ -91,7 +91,7 @@ export class PollDetector extends IntervalService {
           continue;
         }
 
-        await this.onDetected({ ...c, body }, effectiveWait, existingPr.id);
+        await this.onDetected({ ...c, body }, existingPr.id);
       }
 
       try {

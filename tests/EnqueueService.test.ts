@@ -53,10 +53,9 @@ describe('EnqueueService', () => {
     it('creates probe, enqueues, and completes probe in a transaction with pullRequestId', async () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData();
-      const waitSeconds = 330;
       const pullRequestId = getUniqueInt();
 
-      await svc.handle(comment, waitSeconds, pullRequestId);
+      await svc.handle(comment, pullRequestId);
 
       expect(probes.createDetectedProbe).toHaveBeenCalledWith(
         {
@@ -77,7 +76,6 @@ describe('EnqueueService', () => {
           prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
-          newWait: waitSeconds,
           pullRequestId,
         },
         tx,
@@ -89,10 +87,9 @@ describe('EnqueueService', () => {
       (queue.enqueue as jest.Mock<any>).mockResolvedValue({ item: {}, created: false });
       const svc = createService();
       const comment = generateDetectedCommentHydrationData();
-      const waitSeconds = 330;
       const pullRequestId = getUniqueInt();
 
-      await svc.handle(comment, waitSeconds, pullRequestId);
+      await svc.handle(comment, pullRequestId);
 
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
@@ -104,10 +101,9 @@ describe('EnqueueService', () => {
     it('schedules the enqueue based on comment.updated_at and wait', async () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData();
-      const waitSeconds = 120;
       const pullRequestId = getUniqueInt();
 
-      await svc.handle(comment, waitSeconds, pullRequestId);
+      await svc.handle(comment, pullRequestId);
 
       expect(queue.enqueue).toHaveBeenCalledWith(
         {
@@ -116,7 +112,6 @@ describe('EnqueueService', () => {
           prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
-          newWait: waitSeconds,
           pullRequestId,
         },
         tx,
@@ -130,7 +125,7 @@ describe('EnqueueService', () => {
         const pullRequestId = getUniqueInt();
         (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: {}, created: true });
 
-        await svc.handle(comment, 330, pullRequestId);
+        await svc.handle(comment, pullRequestId);
 
         expect(probe.detected).toHaveBeenCalled();
         expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
@@ -155,7 +150,7 @@ describe('EnqueueService', () => {
         const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
 
-        await svc.handle(comment, 330, pullRequestId);
+        await svc.handle(comment, pullRequestId);
 
         expect(probe.alreadySkipped).toHaveBeenCalledWith('coderabbit_skipped');
         expect(probe.skipped).not.toHaveBeenCalled();
