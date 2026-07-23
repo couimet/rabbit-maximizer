@@ -1,11 +1,12 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { createMockOnDetectedCallback, createMockPullRequestRepo } from './helpers/index.js';
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
-
-import type { OnDetectedCallback } from '../src/types/index.js';
-import { StalePrRecovererImpl } from '../src/services.js';
 import { buildPrUrl } from '../src/github/index.js';
+import { StalePrRecovererImpl } from '../src/services.js';
+import type { OnDetectedCallback } from '../src/types/index.js';
+
+import { createMockOnDetectedCallback, createMockPullRequestRepo } from './helpers/index.js';
+
+import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('StalePrRecovererImpl', () => {
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
@@ -97,7 +98,6 @@ describe('StalePrRecovererImpl', () => {
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
         },
-        FALLBACK_WAIT_SECONDS,
         pr2.id,
       );
     });
