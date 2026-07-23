@@ -1,7 +1,6 @@
 /** @jest-environment jsdom */
 
-import { EventHistory } from '../../dashboard/src/components/index.js';
-import { TimezoneProvider } from '../../dashboard/src/timezone.js';
+import { EventHistory, TimezoneProvider } from '../../dashboard/src/index.js';
 import { formatDate } from '../../src/utils/index.js';
 import { createMockFetch } from '../helpers/index.js';
 

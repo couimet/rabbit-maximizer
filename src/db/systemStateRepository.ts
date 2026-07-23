@@ -10,6 +10,7 @@ export enum StateKey {
   lastPollCompletedAt = 'last_poll_completed_at',
   lastPollOutcome = 'last_poll_outcome',
   lastScanAt = 'last_scan_at',
+  lastSchedulerTickAt = 'last_scheduler_tick_at',
   schedulerStatus = 'scheduler_status',
   nextReviewAvailableAt = 'next_review_available_at',
 }
@@ -21,6 +22,7 @@ const STATE_KEY_CONFIG: Record<StateKey, { column: ValueColumn }> = {
   [StateKey.lastPollCompletedAt]: { column: 'value_datetime' },
   [StateKey.lastPollOutcome]: { column: 'value_text' },
   [StateKey.lastScanAt]: { column: 'value_datetime' },
+  [StateKey.lastSchedulerTickAt]: { column: 'value_datetime' },
   [StateKey.schedulerStatus]: { column: 'value_text' },
   [StateKey.nextReviewAvailableAt]: { column: 'value_datetime' },
 };
@@ -39,6 +41,7 @@ type StateKeyToType = {
   [StateKey.lastPollCompletedAt]: Date;
   [StateKey.lastPollOutcome]: string;
   [StateKey.lastScanAt]: Date;
+  [StateKey.lastSchedulerTickAt]: Date;
   [StateKey.schedulerStatus]: string;
   [StateKey.nextReviewAvailableAt]: Date;
 };
@@ -56,6 +59,8 @@ export interface SystemStateRepository {
   isSchedulerPaused(tx?: Prisma.TransactionClient): Promise<boolean>;
   pauseScheduler(tx?: Prisma.TransactionClient): Promise<void>;
   resumeScheduler(tx?: Prisma.TransactionClient): Promise<void>;
+  getLastSchedulerTickAt(tx?: Prisma.TransactionClient): Promise<Date | undefined>;
+  setLastSchedulerTickAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void>;
 }
 
 @injectable()
@@ -126,5 +131,14 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
 
   async resumeScheduler(tx?: Prisma.TransactionClient): Promise<void> {
     await this.setState(StateKey.schedulerStatus, SchedulerStatus.running, tx);
+  }
+
+  // eslint-disable-next-line require-await
+  async getLastSchedulerTickAt(tx?: Prisma.TransactionClient): Promise<Date | undefined> {
+    return this.getState(StateKey.lastSchedulerTickAt, tx);
+  }
+
+  async setLastSchedulerTickAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.setState(StateKey.lastSchedulerTickAt, ts, tx);
   }
 }

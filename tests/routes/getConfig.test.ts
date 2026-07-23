@@ -23,6 +23,7 @@ const makeConfig = (overrides?: Partial<Config>): Config => ({
   SCHEDULER_RETRIGGER_SPACING_SEC: 180,
   SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
   SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
+  SCHEDULER_STALE_TICK_MULTIPLIER: 4,
   SCHEDULER_TICK_INTERVAL_SEC: 10,
   TUNNEL_URL: undefined,
   WEB_PORT: 3000,
@@ -57,6 +58,7 @@ describe('getConfig', () => {
     expect(await res.json()).toStrictEqual({
       pauseNotificationInitialDelaySec: config.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       pauseNotificationRepeatIntervalSec: config.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
+      schedulerStaleThresholdMs: 4 * 10 * 1000,
     });
   });
 
@@ -74,6 +76,7 @@ describe('getConfig', () => {
     expect(await res.json()).toStrictEqual({
       pauseNotificationInitialDelaySec: customInitialDelaySec,
       pauseNotificationRepeatIntervalSec: customRepeatIntervalSec,
+      schedulerStaleThresholdMs: 4 * 10 * 1000,
     });
   });
 

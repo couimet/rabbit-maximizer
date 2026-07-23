@@ -1,0 +1,8 @@
+.scheduler-stale-banner {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  color: #856404;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}

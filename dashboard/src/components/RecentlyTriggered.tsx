@@ -1,9 +1,10 @@
 import type { QueueItemResponse } from '../../../src/types/index.js';
 import { type Duration, formatRelativeTime, resolveDurationSince } from '../../../src/utils/index.js';
 import { fetchTriggered, markReviewed } from '../api.js';
+import { useErrorContext } from '../context/index.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
-import DurationSelect from './DurationSelect.js';
+import { DurationSelect } from './index.js';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -17,8 +18,8 @@ const RecentlyTriggered = () => {
   const [items, setItems] = useState<QueueItemResponse[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { reportError, dismissError } = useErrorContext();
   const [duration, setDuration] = useState<Duration>(TRIGGERED_DEFAULT_DURATION);
   const [includeReviewed, setIncludeReviewed] = useState(false);
   const [, setTick] = useState(0);
@@ -43,7 +44,7 @@ const RecentlyTriggered = () => {
           /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
           if (!mountedRef.current) return;
           if (requestId !== requestIdRef.current) return;
-          setError(null);
+          dismissError('recently-triggered');
           setTotal(res.total);
           if (append) {
             setItems((prev) => [...prev, ...res.data]);
@@ -56,7 +57,7 @@ const RecentlyTriggered = () => {
           /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
           if (!mountedRef.current) return;
           if (requestId !== requestIdRef.current) return;
-          setError(err.message);
+          reportError('recently-triggered', err.message);
           setLoading(false);
         });
     },
@@ -88,14 +89,12 @@ const RecentlyTriggered = () => {
     /* c8 ignore next — safety fallback: total is always set when items are displayed */
     setTotal((t) => (t !== null ? t - 1 : null));
     markReviewed(uuid).catch((err: Error) => {
-      setError(err.message);
+      reportError('recently-triggered', err.message);
       fetchData(1, false);
     });
   };
 
   const hasMore = total !== null && items.length < total;
-
-  if (error && items.length === 0 && !loading) return <div className="error">Failed to load triggered items: {error}</div>;
 
   return (
     <div className="section-card">
@@ -106,8 +105,6 @@ const RecentlyTriggered = () => {
       <label className="show-reviewed-toggle">
         <input type="checkbox" checked={includeReviewed} onChange={(e) => setIncludeReviewed(e.target.checked)} /> Show reviewed
       </label>
-
-      {error && <div className="error-banner">Failed to refresh: {error}</div>}
 
       {loading && items.length === 0 ? (
         <div className="loading">Loading triggered items…</div>

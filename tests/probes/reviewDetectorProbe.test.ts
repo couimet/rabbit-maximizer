@@ -97,6 +97,32 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
+  describe('prClosedResolved', () => {
+    it('logs info with merged prState', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.prClosedResolved(PrState.merged);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.prClosedResolved', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, prState: 'merged' },
+        'PR is closed or merged; auto-resolving retriggered queue item',
+      );
+    });
+
+    it('logs info with closed prState', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.prClosedResolved(PrState.closed);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.prClosedResolved', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, prState: 'closed' },
+        'PR is closed or merged; auto-resolving retriggered queue item',
+      );
+    });
+  });
+
   describe('caughtError', () => {
     it('logs warn with item context and error', () => {
       const ref = generateReviewRef();

@@ -128,6 +128,8 @@ export class Scheduler extends IntervalService {
         await this.queue.backoff(item!.id, tx);
         await probe.backedOff(backoffMs, item!.attempts, err, tx);
       });
+    } finally {
+      await this.systemState.setLastSchedulerTickAt(new Date());
     }
   }
 }

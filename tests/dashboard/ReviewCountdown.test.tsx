@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { ReviewCountdown } from '../../dashboard/src/components/index.js';
+import { ReviewCountdown } from '../../dashboard/src/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
@@ -10,7 +10,6 @@ const DEFAULT_PROPS = { onTogglePaused: jest.fn(), toggling: false };
 
 afterEach(() => {
   cleanup();
-  jest.useRealTimers();
 });
 
 describe('ReviewCountdown', () => {

@@ -1,5 +1,6 @@
-import { EventHistory, SummaryStats } from './components/index.js';
-import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone } from './timezone.js';
+import { EventHistory, GlobalErrorBanner, SummaryStats } from './components/index.js';
+import { ErrorProvider } from './context/index.js';
+import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone } from './index.js';
 
 import { useMemo, useState } from 'react';
 
@@ -44,12 +45,15 @@ const AppContent = () => {
         </nav>
       </header>
       <main className="dashboard-content">
-        <div role="tabpanel" id="panel-summary" aria-labelledby="tab-summary" hidden={activeTab !== 'summary'}>
-          {activeTab === 'summary' && <SummaryStats />}
-        </div>
-        <div role="tabpanel" id="panel-events" aria-labelledby="tab-events" hidden={activeTab !== 'events'}>
-          {activeTab === 'events' && <EventHistory />}
-        </div>
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <div role="tabpanel" id="panel-summary" aria-labelledby="tab-summary" hidden={activeTab !== 'summary'}>
+            {activeTab === 'summary' && <SummaryStats />}
+          </div>
+          <div role="tabpanel" id="panel-events" aria-labelledby="tab-events" hidden={activeTab !== 'events'}>
+            {activeTab === 'events' && <EventHistory />}
+          </div>
+        </ErrorProvider>
       </main>
       <footer className="dashboard-footer">
         <a href="https://github.com/couimet/rabbit-maximizer" target="_blank" rel="noopener noreferrer">

@@ -1,24 +1,43 @@
-import type { DashboardStateResponse } from '../../../src/types/index.js';
+import type { DashboardStateResponse, PublicConfigResponse } from '../../../src/types/index.js';
 import { DEFAULT_DURATION, type Duration } from '../../../src/utils/index.js';
-import { fetchDashboardState, setPaused } from '../api.js';
+import { fetchConfig, fetchDashboardState, setPaused } from '../api.js';
+import { useErrorContext } from '../context/index.js';
 
-import DurationSelect from './DurationSelect.js';
-import QueueOrder from './QueueOrder.js';
-import RecentlyTriggered from './RecentlyTriggered.js';
-import ReviewCountdown from './ReviewCountdown.js';
-import { usePauseNotification } from './usePauseNotification.js';
+import { DurationSelect, QueueOrder, RecentlyTriggered, ReviewCountdown, usePauseNotification } from './index.js';
 
+import './SummaryStats.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const POLL_INTERVAL_MS = 30_000;
+const SECONDS_PER_MINUTE = 60;
+const SECONDS_PER_HOUR = 3600;
+const MS_PER_SECOND = 1000;
+
+const formatElapsed = (lastSchedulerTickAt: string | null): string | null => {
+  if (!lastSchedulerTickAt) return null;
+  const elapsedMs = Date.now() - new Date(lastSchedulerTickAt).getTime();
+  const elapsedSec = Math.floor(elapsedMs / MS_PER_SECOND);
+  if (elapsedSec < SECONDS_PER_MINUTE) return `${elapsedSec} second${elapsedSec === 1 ? '' : 's'}`;
+  if (elapsedSec < SECONDS_PER_HOUR) {
+    const minutes = Math.floor(elapsedSec / SECONDS_PER_MINUTE);
+    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  }
+  const hours = Math.floor(elapsedSec / SECONDS_PER_HOUR);
+  return `${hours} hour${hours === 1 ? '' : 's'}`;
+};
 
 const SummaryStats = () => {
   const [data, setData] = useState<DashboardStateResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState<Duration>(DEFAULT_DURATION);
+  const { reportError, dismissError } = useErrorContext();
   const [toggling, setToggling] = useState(false);
+  const [staleThresholdMs, setStaleThresholdMs] = useState(40_000);
+  const [localStale, setLocalStale] = useState(false);
 
   const mountedRef = useRef(false);
+  const lastKnownTickRef = useRef<string | null>(null);
+  const requestIdRef = useRef(0);
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -26,7 +45,12 @@ const SummaryStats = () => {
     };
   }, []);
 
-  const requestIdRef = useRef(0);
+  useEffect(() => {
+    fetchConfig().then((cfg: PublicConfigResponse) => {
+      if (!mountedRef.current) return;
+      setStaleThresholdMs(cfg.schedulerStaleThresholdMs);
+    });
+  }, []);
 
   const fetchData = useCallback(() => {
     requestIdRef.current += 1;
@@ -35,15 +59,25 @@ const SummaryStats = () => {
       .then((res) => {
         if (!mountedRef.current) return;
         if (requestId !== requestIdRef.current) return;
-        setError(null);
+        dismissError('summary-stats');
+        if (res.lastSchedulerTickAt) {
+          lastKnownTickRef.current = res.lastSchedulerTickAt;
+        }
+        setLocalStale(false);
         setData(res);
       })
       .catch((err: Error) => {
         if (!mountedRef.current) return;
         if (requestId !== requestIdRef.current) return;
-        setError(err.message);
+        reportError('summary-stats', err.message);
+        const lastTick = lastKnownTickRef.current;
+        if (!lastTick) {
+          setLocalStale(true);
+        } else {
+          setLocalStale(Date.now() - new Date(lastTick).getTime() > staleThresholdMs);
+        }
       });
-  }, [duration]);
+  }, [duration, dismissError, reportError, staleThresholdMs]);
 
   useEffect(() => {
     fetchData();
@@ -64,19 +98,26 @@ const SummaryStats = () => {
       })
       .catch((err: Error) => {
         if (!mountedRef.current) return;
-        setError(err.message);
+        reportError('summary-stats', err.message);
         setToggling(false);
       });
   };
 
   usePauseNotification({ paused: data ? data.paused : false });
 
-  if (error && !data) return <div className="error">Failed to load summary: {error}</div>;
   if (!data) return <div className="loading">Loading summary…</div>;
 
   return (
     <section>
-      {error && <div className="error-banner">Failed to refresh: {error}</div>}
+      {(data.schedulerStale || localStale) && (
+        <div className="scheduler-stale-banner">
+          Scheduler may be down —{' '}
+          {(() => {
+            const tick = data.lastSchedulerTickAt ?? lastKnownTickRef.current;
+            return tick ? `no heartbeat for ${formatElapsed(tick)}` : 'no heartbeat yet';
+          })()}
+        </div>
+      )}
       <ReviewCountdown
         target={data.nextReviewAvailableAt ? new Date(data.nextReviewAvailableAt) : null}
         paused={data.paused}

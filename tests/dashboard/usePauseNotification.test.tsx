@@ -1,9 +1,9 @@
 /** @jest-environment jsdom */
 
-import { usePauseNotification } from '../../dashboard/src/components/index.js';
+import { usePauseNotification } from '../../dashboard/src/index.js';
 import { MS_PER_SECOND } from '../../src/utils/index.js';
 
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
 
 const MOCK_CONFIG = {
@@ -36,10 +36,6 @@ describe('usePauseNotification', () => {
       configurable: true,
       value: notificationMock,
     });
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
   });
 
   it('requests notification permission on mount when permission is default', () => {

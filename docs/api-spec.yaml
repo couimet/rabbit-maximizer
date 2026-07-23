@@ -507,8 +507,12 @@ components:
 
     DashboardState:
       type: object
-      required: [nextReviewAvailableAt, pendingItems, eventCounts, paused]
+      required: [lastSchedulerTickAt, nextReviewAvailableAt, pendingItems, eventCounts, paused, schedulerStale]
       properties:
+        lastSchedulerTickAt:
+          type: string
+          format: date-time
+          nullable: true
         nextReviewAvailableAt:
           type: string
           format: date-time
@@ -520,6 +524,8 @@ components:
         eventCounts:
           $ref: '#/components/schemas/EventCounts'
         paused:
+          type: boolean
+        schedulerStale:
           type: boolean
       additionalProperties: false
 
@@ -541,7 +547,7 @@ components:
 
     PublicConfig:
       type: object
-      required: [pauseNotificationInitialDelaySec, pauseNotificationRepeatIntervalSec]
+      required: [pauseNotificationInitialDelaySec, pauseNotificationRepeatIntervalSec, schedulerStaleThresholdMs]
       properties:
         pauseNotificationInitialDelaySec:
           type: integer
@@ -549,6 +555,9 @@ components:
         pauseNotificationRepeatIntervalSec:
           type: integer
           description: Interval in seconds between repeat "paused" notifications
+        schedulerStaleThresholdMs:
+          type: integer
+          description: Time in ms before the scheduler is considered stale (no heartbeat)
       additionalProperties: false
 
     Summary:

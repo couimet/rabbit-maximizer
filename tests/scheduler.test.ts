@@ -78,6 +78,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_RETRIGGER_SPACING_SEC: 180,
     SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
     SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
+    SCHEDULER_STALE_TICK_MULTIPLIER: 4,
     REVIEW_LIMIT_BUFFER_SEC: 60,
     REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
     SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000,
@@ -127,6 +128,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
 
       await stop();
     });
@@ -297,6 +299,7 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.schedulerPaused).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
 
       await stop();
     });

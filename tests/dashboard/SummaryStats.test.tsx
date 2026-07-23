@@ -1,7 +1,6 @@
 /** @jest-environment jsdom */
 
-import { SummaryStats } from '../../dashboard/src/components/index.js';
-import { TimezoneProvider } from '../../dashboard/src/timezone.js';
+import { ErrorProvider, GlobalErrorBanner, SummaryStats, TimezoneProvider } from '../../dashboard/src/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
@@ -9,7 +8,15 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { type ReactElement, StrictMode } from 'react';
 
-const renderSummaryStats = (ui?: ReactElement) => render(<TimezoneProvider>{ui ?? <SummaryStats />}</TimezoneProvider>);
+const renderSummaryStats = (ui?: ReactElement) =>
+  render(
+    <TimezoneProvider>
+      <ErrorProvider>
+        <GlobalErrorBanner />
+        {ui ?? <SummaryStats />}
+      </ErrorProvider>
+    </TimezoneProvider>,
+  );
 
 const DEFAULT_EVENT_COUNTS = { detected: 8, enqueued: 7, retriggered: 3, failed: 1 };
 
@@ -28,7 +35,7 @@ const mockDashboardState = (data: Record<string, unknown>) => {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ pauseNotificationInitialDelayMinutes: 30, pauseNotificationRepeatIntervalMinutes: 15 }),
+        json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
       } as Response);
     }
     return Promise.resolve({
@@ -56,6 +63,7 @@ describe('SummaryStats', () => {
 
   afterEach(() => {
     localStorage.clear();
+    globalThis.fetch = undefined as unknown as typeof fetch;
   });
 
   describe('loading', () => {
@@ -74,10 +82,12 @@ describe('SummaryStats', () => {
 
   describe('data', () => {
     const dashboardData = {
+      lastSchedulerTickAt: null,
       nextReviewAvailableAt: null,
       pendingItems: [],
       eventCounts: DEFAULT_EVENT_COUNTS,
       paused: false,
+      schedulerStale: false,
     };
 
     beforeEach(() => {
@@ -136,12 +146,16 @@ describe('SummaryStats', () => {
         pendingItems: [],
         eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
         paused: false,
+        schedulerStale: false,
+        lastSchedulerTickAt: null,
       };
       const freshData = {
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: { detected: 9, enqueued: 0, retriggered: 0, failed: 0 },
         paused: false,
+        schedulerStale: false,
+        lastSchedulerTickAt: null,
       };
 
       mockDashboardState({
@@ -187,6 +201,8 @@ describe('SummaryStats', () => {
         pendingItems: [],
         eventCounts: { detected: 9, enqueued: 0, retriggered: 0, failed: 0 },
         paused: false,
+        schedulerStale: false,
+        lastSchedulerTickAt: null,
       };
 
       mockDashboardState({
@@ -230,9 +246,11 @@ describe('SummaryStats', () => {
 
   describe('review countdown', () => {
     const dashboardData = {
+      lastSchedulerTickAt: null,
       pendingItems: [],
       eventCounts: DEFAULT_EVENT_COUNTS,
       paused: false,
+      schedulerStale: false,
     };
 
     it('renders Available now when nextReviewAvailableAt is null', async () => {
@@ -254,8 +272,91 @@ describe('SummaryStats', () => {
     });
   });
 
+  describe('scheduler stale banner', () => {
+    it('renders banner when schedulerStale is true with a timestamp', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - 120_000).toISOString();
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument());
+      expect(screen.getByText(/no heartbeat for 2 minutes/)).toBeInTheDocument();
+    });
+
+    it('renders "no heartbeat yet" when lastSchedulerTickAt is null', async () => {
+      mockDashboardState({
+        lastSchedulerTickAt: null,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText(/no heartbeat yet/)).toBeInTheDocument());
+    });
+
+    it('does not render banner when schedulerStale is false', async () => {
+      mockDashboardState({
+        lastSchedulerTickAt: new Date().toISOString(),
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: false,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
+      expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
+    });
+
+    it('shows seconds for recent heartbeat', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - 30_000).toISOString();
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText(/no heartbeat for 30 seconds/)).toBeInTheDocument());
+    });
+
+    it('shows hours for very old heartbeat', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - 3600 * 1000 * 2).toISOString();
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText(/no heartbeat for 2 hours/)).toBeInTheDocument());
+    });
+  });
+
   describe('cleanup', () => {
     it('cancels in-flight fetch on unmount', () => {
+      mockDashboardState({
+        lastSchedulerTickAt: null,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: false,
+      });
       const { unmount } = renderSummaryStats();
       unmount();
       expect(globalThis.fetch).toHaveBeenCalled();
@@ -266,7 +367,18 @@ describe('SummaryStats', () => {
       const pending = new Promise<Response>((r) => {
         resolveFetch = r;
       });
-      globalThis.fetch = jest.fn(() => pending) as unknown as typeof fetch;
+      let callCount = 0;
+      globalThis.fetch = jest.fn(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+          } as Response);
+        }
+        return pending;
+      }) as unknown as typeof fetch;
 
       const { unmount } = renderSummaryStats();
       unmount();
@@ -291,7 +403,18 @@ describe('SummaryStats', () => {
       const pending = new Promise<Response>((_resolve, reject) => {
         rejectFetch = reject;
       });
-      globalThis.fetch = jest.fn(() => pending) as unknown as typeof fetch;
+      let callCount2 = 0;
+      globalThis.fetch = jest.fn(() => {
+        callCount2++;
+        if (callCount2 === 1) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+          } as Response);
+        }
+        return pending;
+      }) as unknown as typeof fetch;
 
       const { unmount } = renderSummaryStats();
       unmount();
@@ -312,7 +435,10 @@ describe('SummaryStats', () => {
       render(
         <StrictMode>
           <TimezoneProvider>
-            <SummaryStats />
+            <ErrorProvider>
+              <GlobalErrorBanner />
+              <SummaryStats />
+            </ErrorProvider>
           </TimezoneProvider>
         </StrictMode>,
       );
@@ -378,10 +504,12 @@ describe('SummaryStats', () => {
 
   describe('pause toggle', () => {
     const dashboardData = {
+      lastSchedulerTickAt: null,
       nextReviewAvailableAt: null,
       pendingItems: [],
       eventCounts: DEFAULT_EVENT_COUNTS,
       paused: false,
+      schedulerStale: false,
     };
 
     it('renders Pause button when not paused', async () => {
@@ -519,17 +647,62 @@ describe('SummaryStats', () => {
 
   describe('error', () => {
     it('shows error message on HTTP failure', async () => {
-      globalThis.fetch = jest.fn(() =>
-        Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Internal server error' }) } as Response),
-      ) as unknown as typeof fetch;
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/api/config')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+          } as Response);
+        }
+        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Internal server error' }) } as Response);
+      }) as unknown as typeof fetch;
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Failed to load summary: Internal server error')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Internal server error')).toBeInTheDocument());
     });
 
     it('shows generic error message when fetch rejects', async () => {
-      globalThis.fetch = jest.fn(() => Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/api/config')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+          } as Response);
+        }
+        return Promise.reject(new Error('Network error'));
+      }) as unknown as typeof fetch;
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Failed to load summary: Network error')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Network error')).toBeInTheDocument());
+    });
+
+    it('uses known lastTick to compute staleness on fetch error', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - 120_000).toISOString();
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
+
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/api/config')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 30000 }),
+          } as Response);
+        }
+        return Promise.reject(new Error('Background refresh failed'));
+      }) as unknown as typeof fetch;
+
+      fireEvent.change(screen.getByRole('combobox', { name: 'Events time range' }), { target: { value: '2d' } });
+
+      await waitFor(() => expect(screen.getByText('Background refresh failed')).toBeInTheDocument());
     });
 
     it('shows refresh error banner alongside data when background poll fails', async () => {
@@ -546,7 +719,7 @@ describe('SummaryStats', () => {
 
       fireEvent.change(screen.getByRole('combobox', { name: 'Events time range' }), { target: { value: '2d' } });
 
-      await waitFor(() => expect(screen.getByText('Failed to refresh: Background refresh failed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Background refresh failed')).toBeInTheDocument());
       expect(screen.getByText('8')).toBeInTheDocument();
     });
   });

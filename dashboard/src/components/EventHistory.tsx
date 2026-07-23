@@ -4,7 +4,7 @@ import { fetchEvents, type PaginatedResponse } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
-import Pagination from './Pagination.js';
+import { Pagination } from './index.js';
 
 import { useEffect, useState } from 'react';
 

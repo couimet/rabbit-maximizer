@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { QueueOrder } from '../../dashboard/src/components/index.js';
+import { QueueOrder } from '../../dashboard/src/index.js';
 import { createMockFetch, generateQueueItemResponseData } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
