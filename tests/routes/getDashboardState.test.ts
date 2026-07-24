@@ -39,6 +39,12 @@ const STALE_CONFIG: Config = {
   WEB_PORT: 3000,
 };
 
+const STALE_TICK_MULTIPLIER = STALE_CONFIG.SCHEDULER_STALE_TICK_MULTIPLIER;
+const TICK_INTERVAL_SEC = STALE_CONFIG.SCHEDULER_TICK_INTERVAL_SEC;
+const SCHEDULER_STALE_THRESHOLD_MS = STALE_TICK_MULTIPLIER * TICK_INTERVAL_SEC * 1000;
+const STALE_TICK_OFFSET_MS = SCHEDULER_STALE_THRESHOLD_MS + 1000;
+const RECENT_TICK_OFFSET_MS = SCHEDULER_STALE_THRESHOLD_MS - 10_000;
+
 describe('getDashboardState', () => {
   let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
@@ -59,7 +65,7 @@ describe('getDashboardState', () => {
     queueOrderRepoOver: Record<string, unknown> = {},
     eventRepoOver: Record<string, unknown> = {},
     systemStateRepoOver: Record<string, unknown> = {},
-    config: Config = STALE_CONFIG,
+    config?: Config,
   ) => {
     const mergedSystemState = {
       getLastSchedulerTickAt: jest.fn<any>().mockResolvedValue(new Date()),
@@ -75,7 +81,7 @@ describe('getDashboardState', () => {
           queueItemMapper,
           eventCountsMapper,
           logger,
-          config,
+          config ?? STALE_CONFIG,
         ),
       );
     });
@@ -261,7 +267,7 @@ describe('getDashboardState', () => {
     logger = createMockLogger();
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
-    const staleTick = new Date(fixedNow - 41_000);
+    const staleTick = new Date(fixedNow - STALE_TICK_OFFSET_MS);
     startServer({}, {}, { getLastSchedulerTickAt: jest.fn<any>().mockResolvedValue(staleTick) });
 
     const json = await getJson(port, '/api/dashboard-state');
@@ -274,7 +280,7 @@ describe('getDashboardState', () => {
     logger = createMockLogger();
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
-    const recentTick = new Date(fixedNow - 30_000);
+    const recentTick = new Date(fixedNow - RECENT_TICK_OFFSET_MS);
     startServer({}, {}, { getLastSchedulerTickAt: jest.fn<any>().mockResolvedValue(recentTick) });
 
     const json = await getJson(port, '/api/dashboard-state');

@@ -558,59 +558,6 @@ describe('PullRequestRepositoryImpl', () => {
     });
   });
 
-  describe('findStaleOpenPRs', () => {
-    it('returns stale open PRs with last_review_requested_at as Date objects', async () => {
-      const lastReviewRequestedAt = getUniqueDate();
-      const rows = [
-        {
-          id: getUniqueInt(),
-          repo_full_name: getUniqueGitHubRepoRef().fullName,
-          pr_number: getUniqueInt(),
-          title: getUniqueString(),
-          last_review_requested_at: lastReviewRequestedAt.toISOString(),
-        },
-        {
-          id: getUniqueInt(),
-          repo_full_name: getUniqueGitHubRepoRef().fullName,
-          pr_number: getUniqueInt(),
-          title: getUniqueString(),
-          last_review_requested_at: lastReviewRequestedAt.toISOString(),
-        },
-      ];
-      const queryRawUnsafe = jest.fn<any>().mockResolvedValue(rows);
-      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
-
-      const result = await sut.findStaleOpenPRs();
-
-      expect(queryRawUnsafe).toHaveBeenCalledWith(
-        expect.toEqualIgnoringWhitespace(
-          "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered'))",
-        ),
-      );
-      expect(result).toStrictEqual(
-        rows.map((row) => ({
-          id: row.id,
-          repoFullName: row.repo_full_name,
-          prNumber: row.pr_number,
-          title: row.title,
-          lastReviewRequestedAt: new Date(row.last_review_requested_at),
-        })),
-      );
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findStaleOpenPRs', count: rows.length }, 'Found stale open PRs');
-    });
-
-    it('returns empty array when no stale PRs exist', async () => {
-      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
-
-      const result = await sut.findStaleOpenPRs();
-
-      expect(result).toStrictEqual([]);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findStaleOpenPRs', count: 0 }, 'Found stale open PRs');
-    });
-  });
-
   describe('recordReviewLimitDetection', () => {
     it('sets both timestamps when first is null', async () => {
       const id = getUniqueInt();

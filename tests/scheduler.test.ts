@@ -348,6 +348,23 @@ describe('Scheduler', () => {
       await stop();
     });
 
+    it('logs error when heartbeat persistence fails', async () => {
+      const item = generateQueueItemHydrationData();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+      const heartbeatError = new Error('DB write failed');
+      deps.systemState.setLastSchedulerTickAt.mockRejectedValue(heartbeatError);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.logger.error).toHaveBeenCalledWith({ fn: 'Scheduler.executeTick', error: heartbeatError }, 'Failed to persist scheduler heartbeat');
+
+      await stop();
+    });
+
     it('logs warning when getEffectiveOrder rejects', async () => {
       const dbError = new Error('DB connection lost');
       deps.queueOrder.getEffectiveOrder.mockRejectedValue(dbError);

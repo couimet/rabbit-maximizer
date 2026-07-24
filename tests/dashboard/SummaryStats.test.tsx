@@ -22,6 +22,8 @@ const DEFAULT_EVENT_COUNTS = { detected: 8, enqueued: 7, retriggered: 3, failed:
 
 const TRIGGERED_RESPONSE = { data: [], total: 0, page: 1, pageSize: 50 };
 
+const DEFAULT_CONFIG_RESPONSE = { pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 };
+
 const mockDashboardState = (data: Record<string, unknown>) => {
   globalThis.fetch = jest.fn((url: string) => {
     if (typeof url === 'string' && url.includes('/queue/triggered')) {
@@ -35,7 +37,7 @@ const mockDashboardState = (data: Record<string, unknown>) => {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+        json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
       } as Response);
     }
     return Promise.resolve({
@@ -374,7 +376,7 @@ describe('SummaryStats', () => {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
           } as Response);
         }
         return pending;
@@ -410,7 +412,7 @@ describe('SummaryStats', () => {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
           } as Response);
         }
         return pending;
@@ -652,7 +654,7 @@ describe('SummaryStats', () => {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
           } as Response);
         }
         return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Internal server error' }) } as Response);
@@ -667,7 +669,7 @@ describe('SummaryStats', () => {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 }),
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
           } as Response);
         }
         return Promise.reject(new Error('Network error'));
@@ -721,6 +723,40 @@ describe('SummaryStats', () => {
 
       await waitFor(() => expect(screen.getByText('Background refresh failed')).toBeInTheDocument());
       expect(screen.getByText('8')).toBeInTheDocument();
+    });
+
+    it('uses default stale threshold when config fetch fails', async () => {
+      globalThis.fetch = jest.fn((url: string) => {
+        if (url === '/api/config') {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: () => Promise.resolve({ error: 'Config fetch failed' }),
+          } as Response);
+        }
+        if (typeof url === 'string' && url.includes('/queue/triggered')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve(TRIGGERED_RESPONSE),
+          } as Response);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              lastSchedulerTickAt: null,
+              nextReviewAvailableAt: null,
+              pendingItems: [],
+              eventCounts: DEFAULT_EVENT_COUNTS,
+              paused: false,
+              schedulerStale: false,
+            }),
+        } as Response);
+      }) as unknown as typeof fetch;
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Summary')).toBeInTheDocument());
     });
   });
 });

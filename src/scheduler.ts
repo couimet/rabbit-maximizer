@@ -129,7 +129,11 @@ export class Scheduler extends IntervalService {
         await probe.backedOff(backoffMs, item!.attempts, err, tx);
       });
     } finally {
-      await this.systemState.setLastSchedulerTickAt(new Date());
+      try {
+        await this.systemState.setLastSchedulerTickAt(new Date());
+      } catch (error) {
+        this.log.error({ fn: 'Scheduler.executeTick', error }, 'Failed to persist scheduler heartbeat');
+      }
     }
   }
 }

@@ -61,7 +61,7 @@ const RecentlyTriggered = () => {
           setLoading(false);
         });
     },
-    [duration, includeReviewed],
+    [duration, includeReviewed, reportError, dismissError],
   );
 
   useEffect(() => {
@@ -89,7 +89,7 @@ const RecentlyTriggered = () => {
     /* c8 ignore next — safety fallback: total is always set when items are displayed */
     setTotal((t) => (t !== null ? t - 1 : null));
     markReviewed(uuid).catch((err: Error) => {
-      reportError('recently-triggered', err.message);
+      reportError('recently-triggered-mark-reviewed', err.message);
       fetchData(1, false);
     });
   };

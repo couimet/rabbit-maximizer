@@ -1,5 +1,5 @@
 import type { DashboardStateResponse, PublicConfigResponse } from '../../../src/types/index.js';
-import { DEFAULT_DURATION, type Duration } from '../../../src/utils/index.js';
+import { DEFAULT_DURATION, type Duration, MS_PER_SECOND, SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from '../../../src/utils/index.js';
 import { fetchConfig, fetchDashboardState, setPaused } from '../api.js';
 import { useErrorContext } from '../context/index.js';
 
@@ -9,9 +9,7 @@ import './SummaryStats.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const POLL_INTERVAL_MS = 30_000;
-const SECONDS_PER_MINUTE = 60;
-const SECONDS_PER_HOUR = 3600;
-const MS_PER_SECOND = 1000;
+const DEFAULT_STALE_THRESHOLD_MS = 40_000;
 
 const formatElapsed = (lastSchedulerTickAt: string | null): string | null => {
   if (!lastSchedulerTickAt) return null;
@@ -31,7 +29,7 @@ const SummaryStats = () => {
   const [duration, setDuration] = useState<Duration>(DEFAULT_DURATION);
   const { reportError, dismissError } = useErrorContext();
   const [toggling, setToggling] = useState(false);
-  const [staleThresholdMs, setStaleThresholdMs] = useState(40_000);
+  const [staleThresholdMs, setStaleThresholdMs] = useState(DEFAULT_STALE_THRESHOLD_MS);
   const [localStale, setLocalStale] = useState(false);
 
   const mountedRef = useRef(false);
@@ -46,10 +44,14 @@ const SummaryStats = () => {
   }, []);
 
   useEffect(() => {
-    fetchConfig().then((cfg: PublicConfigResponse) => {
-      if (!mountedRef.current) return;
-      setStaleThresholdMs(cfg.schedulerStaleThresholdMs);
-    });
+    fetchConfig()
+      .then((cfg: PublicConfigResponse) => {
+        if (!mountedRef.current) return;
+        setStaleThresholdMs(cfg.schedulerStaleThresholdMs);
+      })
+      .catch(() => {
+        // fall back to the default staleThresholdMs already set in state
+      });
   }, []);
 
   const fetchData = useCallback(() => {
