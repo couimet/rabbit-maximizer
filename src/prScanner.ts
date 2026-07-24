@@ -42,17 +42,25 @@ export class PrScannerImpl implements PrScanner {
     const scannedPRs: ScannedPR[] = [];
     let scanResult: ScanResult = { opened: 0, updated: 0, scannedPRs: [] };
 
-    try {
-      probe.scanStarted();
+    probe.scanStarted();
 
-      const lastScanAt = await this.systemState.getState(StateKey.lastScanAt);
-      if (lastScanAt) {
-        const elapsedMs = now.getTime() - lastScanAt.getTime();
-        if (elapsedMs < this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND) {
-          probe.skipped(elapsedMs);
-          return scanResult;
-        }
+    const lastScanCompletedAt = await this.systemState.getState(StateKey.lastScanCompletedAt);
+    if (lastScanCompletedAt) {
+      const elapsedMs = now.getTime() - lastScanCompletedAt.getTime();
+      const intervalMs = this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND;
+      if (elapsedMs < intervalMs) {
+        probe.skipped(elapsedMs, intervalMs);
+        return scanResult;
       }
+    }
+
+    try {
+      await this.systemState.setState(StateKey.lastScanStartedAt, now);
+    } catch (err: unknown) {
+      probe.failedToPersistScanStartedAt(err);
+    }
+
+    try {
       const discoveredPRs = await this.github.listOpenPRs(this.config.REPO_FILTER);
       const discoveredKeys = new Set(discoveredPRs.map((p) => `${p.repoFullName}#${p.prNumber}`));
 
@@ -103,17 +111,17 @@ export class PrScannerImpl implements PrScanner {
         probe.detectedClosures(closed);
       }
 
+      try {
+        await this.systemState.setState(StateKey.lastScanCompletedAt, new Date());
+      } catch (err: unknown) {
+        probe.failedToPersistScanCompletedAt(err);
+      }
+
       probe.completed(opened, updated, closed);
 
       scanResult = { opened, updated, scannedPRs };
     } catch (err: unknown) {
       probe.failed(err);
-    } finally {
-      try {
-        await this.systemState.setState(StateKey.lastScanAt, now);
-      } catch (err: unknown) {
-        probe.failedToPersistLastScanAt(err);
-      }
     }
 
     return scanResult;

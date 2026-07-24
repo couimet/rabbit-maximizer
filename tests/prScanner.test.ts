@@ -103,13 +103,15 @@ describe('PrScannerImpl', () => {
   });
 
   it('respects interval gate: skips via probe when last scan is within interval', async () => {
+    const intervalMs = INTERVAL_SEC * 1000;
     systemState.getState.mockResolvedValue(new Date());
 
     const scanner = createScanner();
     await scanner.scan();
 
     expect(prScannerProbe.scanStarted).toHaveBeenCalledTimes(1);
-    expect(prScannerProbe.skipped).toHaveBeenCalledTimes(1);
+    expect(prScannerProbe.skipped).toHaveBeenCalledWith(expect.any(Number), intervalMs);
+    expect(systemState.setState).not.toHaveBeenCalled();
   });
 
   it('handles per-PR errors gracefully without stopping the scan', async () => {
@@ -182,7 +184,8 @@ describe('PrScannerImpl', () => {
     const scanner = createScanner();
     await scanner.scan();
 
-    expect(prScannerProbe.failedToPersistLastScanAt).toHaveBeenCalledWith(setStateError);
+    expect(prScannerProbe.failedToPersistScanStartedAt).toHaveBeenCalledWith(setStateError);
+    expect(prScannerProbe.failedToPersistScanCompletedAt).toHaveBeenCalledWith(setStateError);
     expect(prScannerProbe.failed).not.toHaveBeenCalled();
     expect(prScannerProbe.completed).toHaveBeenCalledWith(0, 0, 0);
   });
@@ -197,7 +200,20 @@ describe('PrScannerImpl', () => {
     await scanner.scan();
 
     expect(prScannerProbe.failed).toHaveBeenCalledWith(scanError);
-    expect(prScannerProbe.failedToPersistLastScanAt).toHaveBeenCalledWith(setStateError);
+    expect(prScannerProbe.failedToPersistScanStartedAt).toHaveBeenCalledWith(setStateError);
+    expect(prScannerProbe.failedToPersistScanCompletedAt).not.toHaveBeenCalled();
+  });
+
+  it('sets lastScanStartedAt but not lastScanCompletedAt when scan fails', async () => {
+    const scanError = new Error('GitHub API unreachable');
+    github.listOpenPRs.mockRejectedValue(scanError);
+
+    const scanner = createScanner();
+    await scanner.scan();
+
+    expect(systemState.setState).toHaveBeenCalledWith('last_scan_started_at', expect.any(Date));
+    expect(systemState.setState).not.toHaveBeenCalledWith('last_scan_completed_at', expect.any(Date));
+    expect(prScannerProbe.failed).toHaveBeenCalledWith(scanError);
   });
 
   it('handles empty results: no PRs to upsert and no closures to detect', async () => {
