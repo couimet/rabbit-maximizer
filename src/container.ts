@@ -21,6 +21,7 @@ import { ProbeFactory } from './probes/index.js';
 import type { OnDetectedCallback } from './types/index.js';
 import { MS_PER_SECOND, QueueItemEnricher } from './utils/index.js';
 import { type Config, config } from './config.js';
+import { type DirectCommentChecker, DirectCommentCheckerImpl } from './DirectCommentChecker.js';
 import { TYPES } from './domain.js';
 import {
   EnqueueService,
@@ -92,6 +93,8 @@ container.bind<Pruner>(TYPES.Pruner).to(PrunerImpl).inSingletonScope();
 container.bind<PrScanner>(TYPES.PrScanner).to(PrScannerImpl).inSingletonScope();
 
 container.bind<StalePrRecoverer>(TYPES.StalePrRecoverer).to(StalePrRecovererImpl).inSingletonScope();
+
+container.bind<DirectCommentChecker>(TYPES.DirectCommentChecker).to(DirectCommentCheckerImpl).inSingletonScope();
 
 container.bind<EnqueueService>(TYPES.EnqueueService).to(EnqueueService).inSingletonScope();
 

@@ -187,6 +187,19 @@ describe('PrScannerImpl', () => {
     expect(prScannerProbe.completed).toHaveBeenCalledWith(0, 0, 0);
   });
 
+  it('handles top-level scan failure when setState also fails', async () => {
+    const scanError = new Error('GitHub API unreachable');
+    const setStateError = new Error('DB write failed');
+    github.listOpenPRs.mockRejectedValue(scanError);
+    systemState.setState.mockRejectedValue(setStateError);
+
+    const scanner = createScanner();
+    await scanner.scan();
+
+    expect(prScannerProbe.failed).toHaveBeenCalledWith(scanError);
+    expect(prScannerProbe.failedToPersistLastScanAt).toHaveBeenCalledWith(setStateError);
+  });
+
   it('handles empty results: no PRs to upsert and no closures to detect', async () => {
     github.listOpenPRs.mockResolvedValue([]);
     pullRequests.findByPrState.mockResolvedValue([]);

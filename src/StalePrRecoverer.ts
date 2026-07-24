@@ -1,13 +1,13 @@
 import type { PullRequestRepository } from './db/index.js';
 import { buildPrUrl, CodeRabbitCommentType } from './github/index.js';
-import type { OnDetectedCallback } from './types/index.js';
+import type { OnDetectedCallback, StaleOpenPR } from './types/index.js';
 import { TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
 export interface StalePrRecoverer {
-  recover(): Promise<void>;
+  recover(): Promise<StaleOpenPR[]>;
 }
 
 @injectable()
@@ -22,10 +22,10 @@ export class StalePrRecovererImpl implements StalePrRecoverer {
   ) {}
   /* c8 ignore stop */
 
-  async recover(): Promise<void> {
+  async recover(): Promise<StaleOpenPR[]> {
     const stalePRs = await this.pullRequests.findStaleOpenPRs();
     if (stalePRs.length === 0) {
-      return;
+      return [];
     }
 
     this.log.warn({ fn: 'StalePrRecoverer.recover', count: stalePRs.length }, 'Recovering stale open PRs with no review-limit comment');
@@ -51,5 +51,6 @@ export class StalePrRecovererImpl implements StalePrRecoverer {
         );
       }
     }
+    return stalePRs;
   }
 }

@@ -1,6 +1,7 @@
 export { apiJson } from './apiJson.js';
 export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
 export { createMockCoderabbitGitHubClient } from './createMockCoderabbitGitHubClient.js';
+export { createMockDirectCommentChecker } from './createMockDirectCommentChecker.js';
 export { createMockEventRepo } from './createMockEventRepo.js';
 export { createMockFetch } from './createMockFetch.js';
 export type { MockIssuesRest, MockOctokitOptions, MockOctokitResult, MockPullsRest, MockSearchRest } from './createMockOctokit.js';
@@ -64,5 +65,5 @@ export { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
 export { generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from './QueueOrderTestSupport.js';
 export { generateReviewQueueHydrationData } from './ReviewQueueTestSupport.js';
 export type { ReviewRef, ReviewRefInput } from './ReviewRefTestSupport.js';
-export { buildCommentUrl, generateReviewRef } from './ReviewRefTestSupport.js';
+export { generateReviewRef } from './ReviewRefTestSupport.js';
 export { generateCreateSkippedData } from './SkippedDataTestSupport.js';

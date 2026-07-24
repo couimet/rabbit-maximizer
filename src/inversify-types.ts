@@ -14,6 +14,7 @@ export const TYPES = {
   EventRepository: Symbol.for('EventRepository'),
   Logger: Symbol.for('Logger'),
   ObservationContextProvider: Symbol.for('ObservationContextProvider'),
+  DirectCommentChecker: Symbol.for('DirectCommentChecker'),
   OnDetectedCallback: Symbol.for('OnDetectedCallback'),
   Octokit: Symbol.for('Octokit'),
   PollDetector: Symbol.for('PollDetector'),

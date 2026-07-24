@@ -6,6 +6,7 @@ export { formatDate } from './formatDate.js';
 export { formatRelativeFuture } from './formatRelativeFuture.js';
 export { formatRelativeTime } from './formatRelativeTime.js';
 export { isValidTimezone } from './isValidTimezone.js';
+export { mergeByPullRequestId } from './mergeByPullRequestId.js';
 export { nullableDateToISOString } from './nullableDateToISOString.js';
 export { nullableString } from './nullableString.js';
 export { QueueItemEnricher } from './QueueItemEnricher.js';

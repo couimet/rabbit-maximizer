@@ -1,6 +1,7 @@
 import { QueueStatus, TriggerSource } from '../../src/domain.js';
+import { buildCommentUrl } from '../../src/github/index.js';
 
-import { buildCommentUrl, generateReviewRef } from './ReviewRefTestSupport.js';
+import { generateReviewRef } from './ReviewRefTestSupport.js';
 
 import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { ReviewQueue } from '@prisma/client';

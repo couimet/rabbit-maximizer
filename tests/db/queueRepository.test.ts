@@ -1,10 +1,10 @@
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/index.js';
 import { QueueStatus, TYPES } from '../../src/domain.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
+import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
 import {
-  buildCommentUrl,
   createMockObservationContextProvider,
   createMockPrismaClient,
   createResolvedMock,

@@ -1,6 +1,7 @@
 import { PrState, QueueStatus, TriggerSource } from '../../src/domain.js';
+import { buildCommentUrl } from '../../src/github/index.js';
 import { QueueItemMapper } from '../../src/mappers/index.js';
-import { buildCommentUrl, createMockQueueItemEnricher, generateEnrichedQueueItemData, generateQueueItemHydrationData } from '../helpers/index.js';
+import { createMockQueueItemEnricher, generateEnrichedQueueItemData, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
