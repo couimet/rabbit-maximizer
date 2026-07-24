@@ -72,7 +72,10 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   app.get('/api/summary', createGetSummaryHandler(queueRepo, eventRepo, queueItemMapper, eventCountsMapper, logger));
   app.get('/api/queue', createGetQueueHandler(queueRepo, queueItemMapper, logger));
   app.get('/api/config', createGetConfigHandler(config, logger));
-  app.get('/api/dashboard-state', createGetDashboardStateHandler(queueOrderRepo, eventRepo, systemStateRepo, queueItemMapper, eventCountsMapper, logger));
+  app.get(
+    '/api/dashboard-state',
+    createGetDashboardStateHandler(queueOrderRepo, eventRepo, systemStateRepo, queueItemMapper, eventCountsMapper, logger, config),
+  );
   app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));
   app.post('/api/queue/order/move-to-top', createMoveToTopHandler(queueOrderRepo, logger));

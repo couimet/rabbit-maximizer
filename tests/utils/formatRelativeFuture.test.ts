@@ -8,10 +8,6 @@ describe('formatRelativeFuture', () => {
     jest.setSystemTime(new Date('2026-07-04T12:00:00.000Z'));
   });
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
   it('returns "eligible now" for past timestamp', () => {
     expect(formatRelativeFuture('2026-07-04T11:00:00.000Z')).toBe('eligible now');
   });

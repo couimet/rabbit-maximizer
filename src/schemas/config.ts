@@ -32,6 +32,7 @@ export const ConfigSchema = z
     SCHEDULER_RETRIGGER_SPACING_SEC: z.coerce.number().int().positive('SCHEDULER_RETRIGGER_SPACING_SEC must be a positive integer').default(180),
     SCHEDULER_RETRY_BACKOFF_BASE_SEC: z.coerce.number().int().positive('SCHEDULER_RETRY_BACKOFF_BASE_SEC must be a positive integer').default(60),
     SCHEDULER_RETRY_BACKOFF_MAX_SEC: z.coerce.number().int().positive('SCHEDULER_RETRY_BACKOFF_MAX_SEC must be a positive integer').default(3600),
+    SCHEDULER_STALE_TICK_MULTIPLIER: z.coerce.number().int().positive('SCHEDULER_STALE_TICK_MULTIPLIER must be a positive integer').default(4),
     SCHEDULER_TICK_INTERVAL_SEC: z.coerce.number().int().positive('SCHEDULER_TICK_INTERVAL_SEC must be a positive integer').default(10),
     TUNNEL_URL: z.string().optional(),
     WEB_PORT: z.coerce.number().int().positive('WEB_PORT must be a positive integer').default(3000),

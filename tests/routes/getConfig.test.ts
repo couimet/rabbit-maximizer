@@ -7,6 +7,11 @@ import { afterEach, describe, expect, it } from '@jest/globals';
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
+const STALE_TICK_MULTIPLIER = 4;
+const TICK_INTERVAL_SEC = 10;
+const MS_PER_SECOND = 1000;
+const SCHEDULER_STALE_THRESHOLD_MS = STALE_TICK_MULTIPLIER * TICK_INTERVAL_SEC * MS_PER_SECOND;
+
 const makeConfig = (overrides?: Partial<Config>): Config => ({
   DATABASE_URL: 'file:./data/rabbit-maximizer.db',
   DETECTION_MODE: 'poll',
@@ -23,6 +28,7 @@ const makeConfig = (overrides?: Partial<Config>): Config => ({
   SCHEDULER_RETRIGGER_SPACING_SEC: 180,
   SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
   SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
+  SCHEDULER_STALE_TICK_MULTIPLIER: 4,
   SCHEDULER_TICK_INTERVAL_SEC: 10,
   TUNNEL_URL: undefined,
   WEB_PORT: 3000,
@@ -57,6 +63,7 @@ describe('getConfig', () => {
     expect(await res.json()).toStrictEqual({
       pauseNotificationInitialDelaySec: config.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       pauseNotificationRepeatIntervalSec: config.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
+      schedulerStaleThresholdMs: SCHEDULER_STALE_THRESHOLD_MS,
     });
   });
 
@@ -74,6 +81,7 @@ describe('getConfig', () => {
     expect(await res.json()).toStrictEqual({
       pauseNotificationInitialDelaySec: customInitialDelaySec,
       pauseNotificationRepeatIntervalSec: customRepeatIntervalSec,
+      schedulerStaleThresholdMs: SCHEDULER_STALE_THRESHOLD_MS,
     });
   });
 

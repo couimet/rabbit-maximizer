@@ -69,6 +69,5 @@ describe('IntervalService', () => {
     expect(svc['stopped']).toBe(false);
 
     await svc['stop']();
-    jest.useRealTimers();
   });
 });

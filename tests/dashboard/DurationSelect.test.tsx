@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { DurationSelect } from '../../dashboard/src/components/index.js';
+import { DurationSelect } from '../../dashboard/src/index.js';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';

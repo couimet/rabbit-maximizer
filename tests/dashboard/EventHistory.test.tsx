@@ -1,7 +1,6 @@
 /** @jest-environment jsdom */
 
-import { EventHistory } from '../../dashboard/src/components/index.js';
-import { TimezoneProvider } from '../../dashboard/src/timezone.js';
+import { ErrorProvider, EventHistory, GlobalErrorBanner, TimezoneProvider } from '../../dashboard/src/index.js';
 import { formatDate } from '../../src/utils/index.js';
 import { createMockFetch } from '../helpers/index.js';
 
@@ -16,7 +15,10 @@ const TYPE_DETECTED = 'detected';
 const renderEventHistory = () =>
   render(
     <TimezoneProvider>
-      <EventHistory />
+      <ErrorProvider>
+        <GlobalErrorBanner />
+        <EventHistory />
+      </ErrorProvider>
     </TimezoneProvider>,
   );
 
@@ -228,7 +230,7 @@ describe('EventHistory', () => {
     it('shows error message on HTTP failure', async () => {
       createMockFetch(500, { error: 'Internal server error' });
       renderEventHistory();
-      await screen.findByText('Failed to load events: Internal server error');
+      await screen.findByText('Internal server error');
     });
   });
 

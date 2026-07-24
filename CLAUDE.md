@@ -137,10 +137,11 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Import symbols from the file that defines them, or from a same-directory barrel file that only re-exports its sibling files</do>
   <do>Use barrel files to aggregate exports within a single directory, providing a shorter import path for consumers</do>
   <do>Only re-export the directory's public API through the barrel — symbols exported solely for testing (e.g., internal lookup tables, column mappers) belong to the source file and must not appear in the barrel</do>
-  <do>The test for "same-directory barrel" is whether the barrel lives in the same directory as the symbol's defining file. The importer's location does not matter — a barrel in `src/` that re-exports files from `src/` is valid when imported from any directory, including `src/probes/`</do>
-  <never>Re-export a symbol from one directory or package through a barrel file in a different directory (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
+  <do>Package entrypoint files (<code>src/index.ts</code>, <code>dashboard/src/index.ts</code>) serve as the public API surface for their package. They may re-export symbols from any subdirectory barrel or source file within that package.</do>
+  <do>The test for "same-directory barrel" is whether the barrel lives in the same directory as the symbol's defining file. The importer's location does not matter — a barrel in `src/` that re-exports files from `src/` is valid when imported from any directory, including `src/probes/`. A file importing from its own directory's barrel is explicitly allowed — sibling components importing each other through the directory barrel is the barrel's primary purpose.</do>
+  <never>Re-export a symbol from one directory or package through a barrel file in a different directory, unless the barrel is a package entrypoint file (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
   <never>Import a symbol through a barrel that lives outside the symbol's defining directory</never>
-  <rationale>Cross-directory re-exports create invisible coupling, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Same-directory barrels are fine — they act as namespace indexes for their own directory's exports, reduce import path verbosity, and make future linting rules (removing redundant folder segments) possible. Barrels are the public API of a directory — testing-only exports are imported directly from the source file, keeping the barrel surface intentional.</rationale>
+  <rationale>Cross-directory re-exports create invisible coupling, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Same-directory barrels are fine — they act as namespace indexes for their own directory's exports, reduce import path verbosity, and make future linting rules (removing redundant folder segments) possible. Barrels are the public API of a directory — testing-only exports are imported directly from the source file, keeping the barrel surface intentional. Package entrypoints are the single exception for cross-directory re-exports — they define the package's public API contract and must aggregate symbols from subdirectories.</rationale>
   <good-example>
     ```typescript
     // GOOD: test imports testing-only export directly from the source file
@@ -151,6 +152,19 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     // GOOD: importing from a same-directory barrel (src/domain.ts) from a subdirectory.
     // domain.ts re-exports PrState from the sibling PrState.ts — both are in src/.
     import { PrState, EventType } from '../domain.js';
+    ```
+
+    ```typescript
+    // GOOD: package entrypoint re-exports from subdirectories.
+    // dashboard/src/index.ts is the public API — it may aggregate from any subdirectory.
+    export { SummaryStats, QueueOrder } from './components/index.js';
+    export { ErrorProvider } from './context/index.js';
+    ```
+
+    ```typescript
+    // GOOD: sibling importing another sibling through the directory barrel.
+    // Both EventHistory and Pagination live in dashboard/src/components/.
+    import { Pagination } from './index.js';
     ```
 
   </good-example>
@@ -165,6 +179,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     // BAD: cross-directory re-export — ScannedPR is defined in src/types/ScannedPR.ts,
     // not in src/prScanner.ts. Consumers should import from src/types/index.js directly.
     export type { ScannedPR } from './types/index.js';
+    ```
+  </bad-example>
+  <bad-example>
+    ```typescript
+    // BAD: cross-directory re-export through a non-entrypoint barrel.
+    // prisma-repo/index.ts must not re-export SoftDeleteConfig from prisma-extension-soft-delete.
+    export { SoftDeleteConfig } from '../prisma-extension-soft-delete/index.js';
     ```
   </bad-example>
 </rule>
@@ -459,4 +480,11 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     }
     ```
   </bad-example>
+</rule>
+
+<rule id="P008" priority="critical">
+  <title>Zod schema defaults are self-documenting — no named constants needed</title>
+  <do>Use inline numeric literals in Zod `.default()` calls within schema definition files (<code>src/schemas/config.ts</code>). The config key name already documents the value's purpose</do>
+  <never>Extract a Zod schema `.default()` value into a named constant — the indirection adds noise without adding clarity</never>
+  <rationale>A Zod schema is a declarative specification of shape + defaults. The key name (e.g., <code>SCHEDULER_STALE_TICK_MULTIPLIER</code>) already names the value; wrapping <code>.default(4)</code> as <code>.default(SCHEDULER_STALE_TICK_MULTIPLIER_DEFAULT)</code> just repeats the key name with a <code>_DEFAULT</code> suffix. The inline literal is the single source of truth — there is no other reference site to keep in sync. P001 (no magic numbers) applies to business logic, not schema declarations.</rationale>
 </rule>

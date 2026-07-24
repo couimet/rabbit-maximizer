@@ -295,10 +295,13 @@ export interface components {
     };
     DashboardState: {
       /** Format: date-time */
+      lastSchedulerTickAt: string | null;
+      /** Format: date-time */
       nextReviewAvailableAt: string | null;
       pendingItems: components['schemas']['QueueItem'][];
       eventCounts: components['schemas']['EventCounts'];
       paused: boolean;
+      schedulerStale: boolean;
     };
     PauseRequest: {
       paused: boolean;
@@ -311,6 +314,8 @@ export interface components {
       pauseNotificationInitialDelaySec: number;
       /** @description Interval in seconds between repeat "paused" notifications */
       pauseNotificationRepeatIntervalSec: number;
+      /** @description Time in ms before the scheduler is considered stale (no heartbeat) */
+      schedulerStaleThresholdMs: number;
     };
     Summary: {
       queueCounts: components['schemas']['QueueCounts'];

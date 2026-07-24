@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import App from '../../dashboard/src/App.js';
+import { App } from '../../dashboard/src/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';

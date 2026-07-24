@@ -2,7 +2,7 @@ import type { QueueItemResponse } from '../../../src/types/index.js';
 import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
-import ConfirmDialog from './ConfirmDialog.js';
+import { ConfirmDialog } from './index.js';
 
 import './QueueOrder.css';
 import { useEffect, useRef, useState } from 'react';

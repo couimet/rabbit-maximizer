@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { ConfirmDialog } from '../../dashboard/src/components/index.js';
+import { ConfirmDialog } from '../../dashboard/src/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { describe, expect, it, jest } from '@jest/globals';

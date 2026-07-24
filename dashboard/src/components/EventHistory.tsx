@@ -1,10 +1,11 @@
 import type { EventEntryResponse } from '../../../src/types/index.js';
 import { formatDate } from '../../../src/utils/index.js';
 import { fetchEvents, type PaginatedResponse } from '../api.js';
+import { useErrorContext } from '../context/index.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 import { useTimezone, useTimezoneSuffix } from '../timezone.js';
 
-import Pagination from './Pagination.js';
+import { Pagination } from './index.js';
 
 import { useEffect, useState } from 'react';
 
@@ -21,26 +22,25 @@ const eventDetail = (event: EventEntryResponse): string => {
 const EventHistory = () => {
   const [data, setData] = useState<PaginatedResponse<EventEntryResponse> | null>(null);
   const [page, setPage] = useState(1);
-  const [error, setError] = useState<string | null>(null);
   const { timezone } = useTimezone();
+  const { reportError, dismissError } = useErrorContext();
   const suffix = useTimezoneSuffix();
 
   useEffect(() => {
     let cancelled = false;
-    setError(null);
+    dismissError('event-history');
     fetchEvents(page, PAGE_SIZE)
       .then((d) => {
         if (!cancelled) setData(d);
       })
       .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
+        if (!cancelled) reportError('event-history', err.message);
       });
     return () => {
       cancelled = true;
     };
-  }, [page]);
+  }, [page, dismissError, reportError]);
 
-  if (error) return <div className="error">Failed to load events: {error}</div>;
   if (!data) return <div className="loading">Loading events…</div>;
 
   const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));

@@ -381,6 +381,83 @@ describe('SystemStateRepositoryImpl', () => {
     });
   });
 
+  describe('setLastSchedulerTickAt', () => {
+    let frozenNow: Date;
+
+    beforeEach(() => {
+      frozenNow = getUniqueDate();
+      jest.useFakeTimers();
+      jest.setSystemTime(frozenNow);
+    });
+
+    it('upserts last_scheduler_tick_at with the given Date', async () => {
+      const tickAt = getUniqueDate();
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { upsert: jest.fn<any>() },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.setLastSchedulerTickAt(tickAt);
+
+      expect(systemState.upsert).toHaveBeenCalledWith({
+        where: { state_key: 'last_scheduler_tick_at' },
+        create: {
+          state_key: 'last_scheduler_tick_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: tickAt.toISOString(),
+          updated_at: frozenNow.toISOString(),
+        },
+        update: {
+          state_key: 'last_scheduler_tick_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: tickAt.toISOString(),
+          updated_at: frozenNow.toISOString(),
+        },
+      });
+    });
+  });
+
+  describe('getLastSchedulerTickAt', () => {
+    it('returns the Date stored at last_scheduler_tick_at', async () => {
+      const now = getUniqueDate();
+      const row = {
+        state_key: 'last_scheduler_tick_at',
+        value_text: null,
+        value_integer: null,
+        value_float: null,
+        value_datetime: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { findUnique: createResolvedMock(row) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.getLastSchedulerTickAt();
+
+      expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'last_scheduler_tick_at' } });
+      expect(result).toBeInstanceOf(Date);
+      expect(result!.getTime()).toBe(now.getTime());
+    });
+
+    it('returns undefined when no row exists', async () => {
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { findUnique: createResolvedMock(null) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.getLastSchedulerTickAt();
+
+      expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'last_scheduler_tick_at' } });
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe('container binding', () => {
     it('resolves SystemStateRepository from the container', () => {
       const { prisma } = createMockPrismaClient();
