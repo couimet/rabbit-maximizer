@@ -28,11 +28,12 @@ describe('PrScannerProbe', () => {
   });
 
   describe('skipped', () => {
-    it('logs debug when scan is skipped within interval', () => {
+    it('logs debug with elapsedMs and intervalMs when scan is skipped within interval', () => {
       const elapsedMs = getUniqueInt();
-      createProbe().skipped(elapsedMs);
+      const intervalMs = getUniqueInt();
+      createProbe().skipped(elapsedMs, intervalMs);
 
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PrScannerProbe.skipped', elapsedMs }, 'Skipping scan; within interval');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PrScannerProbe.skipped', elapsedMs, intervalMs }, 'Skipping scan; within interval');
     });
   });
 
@@ -75,12 +76,27 @@ describe('PrScannerProbe', () => {
     });
   });
 
-  describe('failedToPersistLastScanAt', () => {
-    it('logs warn when persisting lastScanAt fails', () => {
+  describe('failedToPersistScanStartedAt', () => {
+    it('logs warn when persisting lastScanStartedAt fails', () => {
       const err = new Error('DB write failed');
-      createProbe().failedToPersistLastScanAt(err);
+      createProbe().failedToPersistScanStartedAt(err);
 
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'PrScannerProbe.failedToPersistLastScanAt', error: err }, 'Failed to persist lastScanAt; continuing');
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'PrScannerProbe.failedToPersistScanStartedAt', error: err },
+        'Failed to persist lastScanStartedAt; continuing',
+      );
+    });
+  });
+
+  describe('failedToPersistScanCompletedAt', () => {
+    it('logs warn when persisting lastScanCompletedAt fails', () => {
+      const err = new Error('DB write failed');
+      createProbe().failedToPersistScanCompletedAt(err);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'PrScannerProbe.failedToPersistScanCompletedAt', error: err },
+        'Failed to persist lastScanCompletedAt; continuing',
+      );
     });
   });
 
