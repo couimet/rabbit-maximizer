@@ -31,6 +31,7 @@ const SEARCH_MAX_PAGES = 3;
 const COMMENTS_FETCH_PER_PAGE = 100;
 const OPEN_PR_SEARCH_PER_PAGE = 100;
 const OPEN_PR_SEARCH_MAX_PAGES = 3;
+const UNKNOWN_USER = '<unknown>';
 
 export interface CoderabbitGitHubClient {
   searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]>;
@@ -144,7 +145,13 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       });
 
       for (const c of response.data) {
-        results.push({ body: normalizeCommentBody(c.body), id: c.id, createdAt: new Date(c.created_at), updatedAt: new Date(c.updated_at) });
+        results.push({
+          body: normalizeCommentBody(c.body),
+          id: c.id,
+          createdAt: new Date(c.created_at),
+          updatedAt: new Date(c.updated_at),
+          user: c.user?.login ?? UNKNOWN_USER,
+        });
       }
 
       if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;

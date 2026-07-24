@@ -33,6 +33,7 @@ describe('StalePrRecovererImpl', () => {
 
       expect(result).toStrictEqual([]);
       expect(onDetected).not.toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it('enqueues a synthetic comment for each stale PR', async () => {

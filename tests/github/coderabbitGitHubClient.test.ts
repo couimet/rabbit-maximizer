@@ -221,6 +221,7 @@ describe('client', () => {
             body,
             created_at: createdAt.toISOString(),
             updated_at: updatedAt.toISOString(),
+            user: { login: 'test-user' },
           },
         ],
       });
@@ -235,7 +236,7 @@ describe('client', () => {
         per_page: 100,
         page: 1,
       });
-      expect(result).toStrictEqual([{ body, id: commentId, createdAt, updatedAt }]);
+      expect(result).toStrictEqual([{ body, id: commentId, createdAt, updatedAt, user: 'test-user' }]);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'listComments', owner, repo, issueNumber }, 'Listing issue comments');
     });
 
@@ -255,9 +256,9 @@ describe('client', () => {
 
       issues.listComments.mockResolvedValue({
         data: [
-          { id: nullId, body: null, created_at: nullCreatedAt.toISOString(), updated_at: nullUpdatedAt.toISOString() },
-          { id: undefinedId, body: undefined, created_at: undefinedCreatedAt.toISOString(), updated_at: undefinedUpdatedAt.toISOString() },
-          { id: commentId, body, created_at: createdAt.toISOString(), updated_at: updatedAt.toISOString() },
+          { id: nullId, body: null, created_at: nullCreatedAt.toISOString(), updated_at: nullUpdatedAt.toISOString(), user: null },
+          { id: undefinedId, body: undefined, created_at: undefinedCreatedAt.toISOString(), updated_at: undefinedUpdatedAt.toISOString(), user: null },
+          { id: commentId, body, created_at: createdAt.toISOString(), updated_at: updatedAt.toISOString(), user: { login: 'test-user' } },
         ],
       });
 
@@ -265,9 +266,9 @@ describe('client', () => {
       const result = await client.listComments(owner, repo, issueNumber);
 
       expect(result).toStrictEqual([
-        { body: '<EMPTY_BODY>', id: nullId, createdAt: nullCreatedAt, updatedAt: nullUpdatedAt },
-        { body: '<EMPTY_BODY>', id: undefinedId, createdAt: undefinedCreatedAt, updatedAt: undefinedUpdatedAt },
-        { body, id: commentId, createdAt, updatedAt },
+        { body: '<EMPTY_BODY>', id: nullId, createdAt: nullCreatedAt, updatedAt: nullUpdatedAt, user: '<unknown>' },
+        { body: '<EMPTY_BODY>', id: undefinedId, createdAt: undefinedCreatedAt, updatedAt: undefinedUpdatedAt, user: '<unknown>' },
+        { body, id: commentId, createdAt, updatedAt, user: 'test-user' },
       ]);
     });
 
@@ -287,10 +288,19 @@ describe('client', () => {
             body: `comment-${i}`,
             created_at: firstPageDate.toISOString(),
             updated_at: firstPageDate.toISOString(),
+            user: { login: 'test-user' },
           })),
         })
         .mockResolvedValueOnce({
-          data: [{ id: secondPageId, body: 'second-page-comment', created_at: secondPageDate.toISOString(), updated_at: secondPageDate.toISOString() }],
+          data: [
+            {
+              id: secondPageId,
+              body: 'second-page-comment',
+              created_at: secondPageDate.toISOString(),
+              updated_at: secondPageDate.toISOString(),
+              user: { login: 'test-user' },
+            },
+          ],
         });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
@@ -311,7 +321,13 @@ describe('client', () => {
         page: 2,
       });
       expect(result).toHaveLength(101);
-      expect(result[100]).toStrictEqual({ body: 'second-page-comment', id: secondPageId, createdAt: secondPageDate, updatedAt: secondPageDate });
+      expect(result[100]).toStrictEqual({
+        body: 'second-page-comment',
+        id: secondPageId,
+        createdAt: secondPageDate,
+        updatedAt: secondPageDate,
+        user: 'test-user',
+      });
     });
 
     it('returns empty array when there are no comments', async () => {

@@ -4,6 +4,7 @@ import {
   type CoderabbitGitHubClient,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,
+  REVIEW_BOT_LOGIN,
   splitRepo,
 } from './github/index.js';
 import type { DirectCheckPR, OnDetectedCallback } from './types/index.js';
@@ -11,6 +12,8 @@ import { TYPES } from './domain.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
+
+const MAX_DIRECT_CHECK_PRS = 125;
 
 export interface DirectCommentChecker {
   check(prs: readonly DirectCheckPR[]): Promise<void>;
@@ -31,20 +34,31 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
   /**
    * Check known PRs directly for rate-limit comments via the comments API, bypassing
    * GitHub search indexing delay. At ~21 open PRs and ~90s tick interval this adds
-   * ~14 API calls/min, well under the 5000/hr authenticated rate limit. Revisit if
-   * the monitored PR count grows past ~200.
+   * ~840 API calls/hr, well under the 5000/hr authenticated rate limit. Revisit if
+   * the monitored PR count grows past ~125.
    */
   async check(prs: readonly DirectCheckPR[]): Promise<void> {
     const logCtx: LoggingContext = { fn: 'DirectCommentChecker.check' };
     let found = 0;
 
-    for (const pr of prs) {
+    let effectivePRs: typeof prs;
+    if (prs.length > MAX_DIRECT_CHECK_PRS) {
+      this.log.warn(
+        { ...logCtx, prCount: prs.length, maxDirectCheckPRs: MAX_DIRECT_CHECK_PRS },
+        'PR count exceeds direct-check limit; truncating to prevent API rate-limit exhaustion',
+      );
+      effectivePRs = prs.slice(0, MAX_DIRECT_CHECK_PRS);
+    } else {
+      effectivePRs = prs;
+    }
+
+    for (const pr of effectivePRs) {
       try {
         const { owner, repo } = splitRepo(pr.repoFullName);
         const comments = await this.github.listComments(owner, repo, pr.prNumber);
 
         for (const c of comments) {
-          if (!hasRateLimitMarker(c.body) || hasOwnRetriggerMarker(c.body)) {
+          if (c.user !== REVIEW_BOT_LOGIN || !hasRateLimitMarker(c.body) || hasOwnRetriggerMarker(c.body)) {
             continue;
           }
 
@@ -69,7 +83,7 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
     }
 
     if (found > 0) {
-      this.log.info({ ...logCtx, found, checked: prs.length }, 'Direct comment check found rate-limit comments');
+      this.log.info({ ...logCtx, found, checked: effectivePRs.length }, 'Direct comment check found rate-limit comments');
     }
   }
 }

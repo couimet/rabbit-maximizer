@@ -40,6 +40,7 @@ export class PrScannerImpl implements PrScanner {
     let opened = 0;
     let updated = 0;
     const scannedPRs: ScannedPR[] = [];
+    let scanResult: ScanResult = { opened: 0, updated: 0, scannedPRs: [] };
 
     try {
       probe.scanStarted();
@@ -49,7 +50,7 @@ export class PrScannerImpl implements PrScanner {
         const elapsedMs = now.getTime() - lastScanAt.getTime();
         if (elapsedMs < this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND) {
           probe.skipped(elapsedMs);
-          return { opened: 0, updated: 0, scannedPRs: [] };
+          return scanResult;
         }
       }
       const discoveredPRs = await this.github.listOpenPRs(this.config.REPO_FILTER);
@@ -104,10 +105,9 @@ export class PrScannerImpl implements PrScanner {
 
       probe.completed(opened, updated, closed);
 
-      return { opened, updated, scannedPRs };
+      scanResult = { opened, updated, scannedPRs };
     } catch (err: unknown) {
       probe.failed(err);
-      return { opened: 0, updated: 0, scannedPRs: [] };
     } finally {
       try {
         await this.systemState.setState(StateKey.lastScanAt, now);
@@ -115,5 +115,7 @@ export class PrScannerImpl implements PrScanner {
         probe.failedToPersistLastScanAt(err);
       }
     }
+
+    return scanResult;
   }
 }
