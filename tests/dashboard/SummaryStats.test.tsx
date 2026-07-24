@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { ErrorProvider, GlobalErrorBanner, SummaryStats, TimezoneProvider } from '../../dashboard/src/index.js';
+import { ErrorProvider, formatElapsed, GlobalErrorBanner, SummaryStats, TimezoneProvider } from '../../dashboard/src/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
@@ -346,6 +346,39 @@ describe('SummaryStats', () => {
       });
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText(/no heartbeat for 2 hours/)).toBeInTheDocument());
+    });
+  });
+
+  describe('formatElapsed', () => {
+    let frozenNow: Date;
+
+    beforeEach(() => {
+      frozenNow = getUniqueDate();
+      jest.useFakeTimers();
+      jest.setSystemTime(frozenNow);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('returns null when lastSchedulerTickAt is null', () => {
+      expect(formatElapsed(null)).toBeNull();
+    });
+
+    it('returns singular "1 second" for elapsed of exactly 1 second', () => {
+      const tick = new Date(frozenNow.getTime() - 1000).toISOString();
+      expect(formatElapsed(tick)).toBe('1 second');
+    });
+
+    it('returns "1 minute" for elapsed of 60 seconds', () => {
+      const tick = new Date(frozenNow.getTime() - 60_000).toISOString();
+      expect(formatElapsed(tick)).toBe('1 minute');
+    });
+
+    it('returns "1 hour" for elapsed of 3600 seconds', () => {
+      const tick = new Date(frozenNow.getTime() - 3_600_000).toISOString();
+      expect(formatElapsed(tick)).toBe('1 hour');
     });
   });
 

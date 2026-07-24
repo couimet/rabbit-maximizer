@@ -3,6 +3,7 @@ export {
   ConfirmDialog,
   DurationSelect,
   EventHistory,
+  formatElapsed,
   GlobalErrorBanner,
   Pagination,
   QueueOrder,

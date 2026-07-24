@@ -1,6 +1,7 @@
 export { default as ConfirmDialog } from './ConfirmDialog.js';
 export { default as DurationSelect } from './DurationSelect.js';
 export { default as EventHistory } from './EventHistory.js';
+export { formatElapsed } from './formatElapsed.js';
 export { GlobalErrorBanner } from './GlobalErrorBanner.js';
 export { default as Pagination } from './Pagination.js';
 export { default as QueueOrder } from './QueueOrder.js';

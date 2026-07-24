@@ -1,28 +1,15 @@
 import type { DashboardStateResponse, PublicConfigResponse } from '../../../src/types/index.js';
-import { DEFAULT_DURATION, type Duration, MS_PER_SECOND, SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from '../../../src/utils/index.js';
+import { DEFAULT_DURATION, type Duration } from '../../../src/utils/index.js';
 import { fetchConfig, fetchDashboardState, setPaused } from '../api.js';
 import { useErrorContext } from '../context/index.js';
 
-import { DurationSelect, QueueOrder, RecentlyTriggered, ReviewCountdown, usePauseNotification } from './index.js';
+import { DurationSelect, formatElapsed, QueueOrder, RecentlyTriggered, ReviewCountdown, usePauseNotification } from './index.js';
 
 import './SummaryStats.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const POLL_INTERVAL_MS = 30_000;
 const DEFAULT_STALE_THRESHOLD_MS = 40_000;
-
-const formatElapsed = (lastSchedulerTickAt: string | null): string | null => {
-  if (!lastSchedulerTickAt) return null;
-  const elapsedMs = Date.now() - new Date(lastSchedulerTickAt).getTime();
-  const elapsedSec = Math.floor(elapsedMs / MS_PER_SECOND);
-  if (elapsedSec < SECONDS_PER_MINUTE) return `${elapsedSec} second${elapsedSec === 1 ? '' : 's'}`;
-  if (elapsedSec < SECONDS_PER_HOUR) {
-    const minutes = Math.floor(elapsedSec / SECONDS_PER_MINUTE);
-    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
-  }
-  const hours = Math.floor(elapsedSec / SECONDS_PER_HOUR);
-  return `${hours} hour${hours === 1 ? '' : 's'}`;
-};
 
 const SummaryStats = () => {
   const [data, setData] = useState<DashboardStateResponse | null>(null);
