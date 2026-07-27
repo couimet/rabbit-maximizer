@@ -36,9 +36,9 @@ export const fetchDashboardState = (duration?: string): Promise<DashboardStateRe
 export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedResponse<QueueItemResponse>> =>
   fetchJson<PaginatedResponse<QueueItemResponse>>(`${API_BASE}/queue${buildQueryString({ page, pageSize })}`);
 
-export const fetchTriggered = (since: Date, page: number, pageSize: number, includeReviewed: boolean): Promise<PaginatedResponse<QueueItemResponse>> =>
+export const fetchTriggered = (since: Date, page: number, pageSize: number, includeResolved: boolean): Promise<PaginatedResponse<QueueItemResponse>> =>
   fetchJson<PaginatedResponse<QueueItemResponse>>(
-    `${API_BASE}/queue/triggered${buildQueryString({ since, page, pageSize, include_reviewed: includeReviewed })}`,
+    `${API_BASE}/queue/triggered${buildQueryString({ since, page, pageSize, include_reviewed: includeResolved })}`,
   );
 
 export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedResponse<EventEntryResponse>> =>
@@ -65,7 +65,7 @@ export const retriggerNow = (uuid: string, overridePause?: boolean): Promise<voi
   return fetchJson<void>(`${API_BASE}/queue/${uuid}/retrigger-now${query}`, { method: 'POST' });
 };
 
-export const markReviewed = (uuid: string): Promise<{ ok: boolean }> =>
+export const markResolved = (uuid: string): Promise<{ ok: boolean }> =>
   fetchJson<{ ok: boolean }>(`${API_BASE}/queue/${uuid}/mark-reviewed`, { method: 'POST' });
 
 export const setPaused = (paused: boolean): Promise<{ paused: boolean }> =>

@@ -20,7 +20,7 @@ describe('Pruner', () => {
 
   beforeEach(() => {
     log = createMockLogger();
-    queue = { getPendingQueue: jest.fn<any>(), markReviewed: jest.fn<any>(), markFailed: jest.fn<any>() } as unknown as QueueRepository;
+    queue = { getPendingQueue: jest.fn<any>(), markResolved: jest.fn<any>() } as unknown as QueueRepository;
     pruneEvaluator = { evaluate: jest.fn<any>().mockResolvedValue([]) } as unknown as PruneEvaluator;
     mockProbe = createMockPrunerProbe();
     probeFactory = createMockProbeFactory({ createPrunerProbe: jest.fn<any>().mockReturnValue(mockProbe) });
@@ -44,10 +44,10 @@ describe('Pruner', () => {
       await createPruner().prune();
       expect(prisma.$transaction).toHaveBeenCalledTimes(2);
       expect(mockProbe.withItem).toHaveBeenCalledWith(mergedItem);
-      expect(queue.markReviewed).toHaveBeenCalledWith(mergedItem.id, tx);
+      expect(queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', tx);
       expect(mockProbe.prMerged).toHaveBeenCalledWith(tx);
       expect(mockProbe.withItem).toHaveBeenCalledWith(closedItem);
-      expect(queue.markFailed).toHaveBeenCalledWith(closedItem.id, tx);
+      expect(queue.markResolved).toHaveBeenCalledWith(closedItem.id, 'pr_closed_without_merge', tx);
       expect(mockProbe.prClosedWithoutMerge).toHaveBeenCalledWith(tx);
     });
 

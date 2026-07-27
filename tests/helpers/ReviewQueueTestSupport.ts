@@ -1,4 +1,4 @@
-import { QueueStatus, TriggerSource } from '../../src/domain.js';
+import { QueueStatus, Resolution, TriggerSource } from '../../src/domain.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
@@ -29,6 +29,8 @@ export const generateReviewQueueHydrationData = (overrideValues?: Partial<Review
     failed_at: getUniqueDate(),
     reviewed_at: getUniqueDate(),
     pull_request_id: getUniqueInt(),
+    resolution: getRandomEnumValue(Resolution),
+    resolved_at: getUniqueDate(),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
     ...rest,

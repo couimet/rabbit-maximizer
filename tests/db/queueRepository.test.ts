@@ -1,5 +1,5 @@
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/index.js';
-import { QueueStatus, TYPES } from '../../src/domain.js';
+import { QueueStatus, Resolution, TYPES } from '../../src/domain.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
@@ -145,7 +145,7 @@ describe('QueueRepositoryImpl', () => {
       expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
     });
 
-    it('marks old retriggered item as reviewed and creates a new pending item when source_comment_id differs', async () => {
+    it('marks old retriggered item as resolved and creates a new pending item when source_comment_id differs', async () => {
       const ref = generateReviewRef();
       const oldCommentId = getUniqueInt();
       const newCommentId = getUniqueInt();
@@ -185,7 +185,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: oldRetriggered.id },
-        data: { status: 'reviewed', reviewed_at: frozenNow },
+        data: { status: 'resolved', resolution: 'review_completed', resolved_at: frozenNow },
       });
       expect(reviewQueue.create).toHaveBeenCalledWith({
         data: {
@@ -341,15 +341,18 @@ describe('QueueRepositoryImpl', () => {
     });
   });
 
-  describe('markFailed', () => {
-    it('updates the row to failed', async () => {
-      const row = generateReviewQueueHydrationData({ status: QueueStatus.failed });
+  describe('markResolved', () => {
+    it('updates the row to resolved', async () => {
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.resolved });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
-      const result = await sut.markFailed(row.id, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'failed', failed_at: frozenNow } });
+      const result = await sut.markResolved(row.id, Resolution.Failed, prisma as unknown as Prisma.TransactionClient);
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: row.id },
+        data: { status: 'resolved', resolution: 'failed', resolved_at: frozenNow },
+      });
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markFailed', id: row.id }, 'Marked review failed');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markResolved', id: row.id, resolution: 'failed' }, 'Marked review resolved');
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
@@ -359,65 +362,37 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      await expect(sut.markFailed(getUniqueInt(), prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'ReviewQueue'",
-        functionName: 'QueueRepositoryImpl.markFailed',
-        details: { tableName: 'ReviewQueue' },
-        cause: p2025,
-      });
+      await expect(sut.markResolved(getUniqueInt(), Resolution.Failed, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+        'PRISMA_RECORD_NOT_FOUND_P2025',
+        {
+          message: "Record not found in table 'ReviewQueue'",
+          functionName: 'QueueRepositoryImpl.markResolved',
+          details: { tableName: 'ReviewQueue' },
+          cause: p2025,
+        },
+      );
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.markFailed', modelName: 'ReviewQueue', prismaCode: 'P2025' },
+        { fn: 'QueueRepositoryImpl.markResolved', modelName: 'ReviewQueue', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
       );
     });
   });
 
-  describe('markReviewed', () => {
-    it('updates the row to reviewed', async () => {
-      const row = generateReviewQueueHydrationData({ status: QueueStatus.reviewed });
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
-      const result = await sut.markReviewed(row.id, prisma as unknown as Prisma.TransactionClient);
-      expect(reviewQueue.update).toHaveBeenCalledWith({ where: { id: row.id }, data: { status: 'reviewed', reviewed_at: frozenNow } });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.markReviewed', id: row.id }, 'Marked review reviewed');
-    });
-
-    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
-      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
-      const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
-        reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
-      });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
-
-      await expect(sut.markReviewed(getUniqueInt(), prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'ReviewQueue'",
-        functionName: 'QueueRepositoryImpl.markReviewed',
-        details: { tableName: 'ReviewQueue' },
-        cause: p2025,
-      });
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.markReviewed', modelName: 'ReviewQueue', prismaCode: 'P2025' },
-        'Prisma record not found, throwing typed error',
-      );
-    });
-  });
-
-  describe('markReviewedByUuid', () => {
-    it('finds by UUID, marks the row reviewed, and logs the event', async () => {
+  describe('markResolvedByUuid', () => {
+    it('finds by UUID, marks the row resolved, and logs the event', async () => {
       const commentUrl = 'https://gh/c/retriggered-123';
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retrigger_comment_url: commentUrl });
-      const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
+      const completedRow = { ...row, status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: frozenNow };
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const result = await sut.markReviewedByUuid(row.uuid, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.markResolvedByUuid(row.uuid, Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { uuid: row.uuid },
-        data: { status: 'reviewed', reviewed_at: frozenNow },
+        data: { status: 'resolved', resolution: 'review_completed', resolved_at: frozenNow },
       });
       expect(result).toStrictEqual(mapper.fromReviewQueue(completedRow));
       expect(logger.debug).toHaveBeenCalledWith(
@@ -428,13 +403,13 @@ describe('QueueRepositoryImpl', () => {
 
     it('handles null retrigger_comment_url', async () => {
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retrigger_comment_url: null });
-      const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
+      const completedRow = { ...row, status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: frozenNow };
       const { prisma } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const result = await sut.markReviewedByUuid(row.uuid, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.markResolvedByUuid(row.uuid, Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
       expect(result).toStrictEqual(mapper.fromReviewQueue(completedRow));
     });
@@ -447,7 +422,7 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const result = await sut.markReviewedByUuid('missing-uuid', prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.markResolvedByUuid('missing-uuid', Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
       expect(result).toBeUndefined();
       expect(logger.warn).toHaveBeenCalledWith(
@@ -463,18 +438,18 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      await expect(sut.markReviewedByUuid('some-uuid', prisma as unknown as Prisma.TransactionClient)).rejects.toThrow('DB down');
+      await expect(sut.markResolvedByUuid('some-uuid', Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow('DB down');
     });
 
     it('wraps in a transaction when called without tx', async () => {
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
-      const completedRow = { ...row, status: QueueStatus.reviewed, reviewed_at: frozenNow };
+      const completedRow = { ...row, status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: frozenNow };
       const { prisma } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const result = await sut.markReviewedByUuid(row.uuid);
+      const result = await sut.markResolvedByUuid(row.uuid, Resolution.ReviewCompleted);
 
       expect(prisma.$transaction).toHaveBeenCalled();
       expect(result).toStrictEqual(mapper.fromReviewQueue(completedRow));
@@ -701,19 +676,11 @@ describe('QueueRepositoryImpl', () => {
 
   describe('getCountsByStatus', () => {
     it('returns counts keyed by QueueStatus, initializing missing statuses to 0', async () => {
-      const { pendingCnt, retriggeredCnt, reviewedCnt, skippedCnt, failedCnt } = getUniqueIntsNamed([
-        'pendingCnt',
-        'retriggeredCnt',
-        'reviewedCnt',
-        'skippedCnt',
-        'failedCnt',
-      ]);
+      const { pendingCnt, retriggeredCnt, resolvedCnt } = getUniqueIntsNamed(['pendingCnt', 'retriggeredCnt', 'resolvedCnt']);
       const rows = [
         { status: QueueStatus.pending, _count: { status: pendingCnt } },
         { status: QueueStatus.retriggered, _count: { status: retriggeredCnt } },
-        { status: QueueStatus.reviewed, _count: { status: reviewedCnt } },
-        { status: QueueStatus.coderabbit_skipped, _count: { status: skippedCnt } },
-        { status: QueueStatus.failed, _count: { status: failedCnt } },
+        { status: QueueStatus.resolved, _count: { status: resolvedCnt } },
       ];
 
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -728,21 +695,17 @@ describe('QueueRepositoryImpl', () => {
         _count: { status: true },
       });
       expect(result).toStrictEqual({
-        coderabbit_skipped: skippedCnt,
-        failed: failedCnt,
         pending: pendingCnt,
         retriggered: retriggeredCnt,
-        reviewed: reviewedCnt,
+        resolved: resolvedCnt,
       });
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'QueueRepositoryImpl.getCountsByStatus',
           counts: {
-            coderabbit_skipped: skippedCnt,
-            failed: failedCnt,
             pending: pendingCnt,
             retriggered: retriggeredCnt,
-            reviewed: reviewedCnt,
+            resolved: resolvedCnt,
           },
         },
         'Fetched queue counts by status',
@@ -776,18 +739,18 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(result).toStrictEqual({ items: [mapper.fromReviewQueue(row2), mapper.fromReviewQueue(row1)], total: 2 });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeReviewed: false, count: 2, total: 2 },
+        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeResolved: false, count: 2, total: 2 },
         'Fetched triggered queue',
       );
     });
 
-    it('includes reviewed items when includeReviewed is true', async () => {
+    it('includes resolved items when includeResolved is true', async () => {
       const since = getUniqueDate();
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: since });
-      const completedRow = generateReviewQueueHydrationData({ status: QueueStatus.reviewed, retriggered_at: since });
+      const resolvedRow = generateReviewQueueHydrationData({ status: QueueStatus.resolved, retriggered_at: since });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
-          findMany: createResolvedMock([row, completedRow]),
+          findMany: createResolvedMock([row, resolvedRow]),
           count: createResolvedMock(2),
         },
       });
@@ -796,15 +759,15 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.getTriggered(since, 0, 50, true);
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'reviewed'] } },
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'resolved'] } },
         orderBy: { retriggered_at: 'desc' },
         skip: 0,
         take: 50,
       });
       expect(reviewQueue.count).toHaveBeenCalledWith({
-        where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'reviewed'] } },
+        where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'resolved'] } },
       });
-      expect(result.items).toStrictEqual([mapper.fromReviewQueue(row), mapper.fromReviewQueue(completedRow)]);
+      expect(result.items).toStrictEqual([mapper.fromReviewQueue(row), mapper.fromReviewQueue(resolvedRow)]);
     });
 
     it('respects skip and take for pagination', async () => {
@@ -869,8 +832,8 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('createSkipped', () => {
-    it('creates a row with coderabbit_skipped status and returns item with created: true', async () => {
-      const row = generateReviewQueueHydrationData({ status: 'coderabbit_skipped' });
+    it('creates a row with resolved status / skipped resolution and returns item with created: true', async () => {
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.resolved, resolution: Resolution.Skipped, resolved_at: frozenNow });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { create: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
       const data = generateCreateSkippedData({
@@ -892,18 +855,20 @@ describe('QueueRepositoryImpl', () => {
           pr_title: data.prTitle,
           source_comment_url: data.sourceCommentUrl,
           source_comment_id: data.sourceCommentId,
-          status: 'coderabbit_skipped',
+          status: 'resolved',
+          resolution: 'skipped',
+          resolved_at: frozenNow,
         },
       });
       expect(result).toStrictEqual({ item: mapper.fromReviewQueue(row), created: true });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.createSkipped', repo: data.repo, pr: data.pr, commentId: data.sourceCommentId },
-        'Created coderabbit skipped entry',
+        'Created skipped entry',
       );
     });
 
     it('returns existing row with created: false on unique constraint violation', async () => {
-      const existingRow = generateReviewQueueHydrationData({ status: 'coderabbit_skipped' });
+      const existingRow = generateReviewQueueHydrationData({ status: QueueStatus.resolved, resolution: Resolution.Skipped });
       const prismaError = new Prisma.PrismaClientKnownRequestError('Unique constraint violation', {
         code: 'P2002',
         clientVersion: '7.8.0',

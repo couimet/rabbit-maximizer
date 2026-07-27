@@ -220,7 +220,7 @@ export interface components {
       error: string;
     };
     /** @enum {string} */
-    QueueStatus: 'pending' | 'retriggered' | 'reviewed' | 'failed' | 'coderabbit_skipped';
+    QueueStatus: 'pending' | 'retriggered' | 'resolved';
     QueueItem: {
       id: number;
       uuid: string;
@@ -249,6 +249,13 @@ export interface components {
       last_coderabbit_acknowledged_at?: string | null;
       /** Format: date-time */
       reviewed_at?: string | null;
+      /**
+       * Format: date-time
+       * @description When the item transitioned to resolved (supersedes reviewed_at/failed_at for new code)
+       */
+      resolved_at?: string | null;
+      /** @description Terminal reason when status='resolved' (review_completed, pr_merged, pr_closed_without_merge, failed, skipped) */
+      resolution?: string | null;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */
@@ -285,7 +292,7 @@ export interface components {
     QueueCounts: {
       pending: number;
       retriggered: number;
-      failed: number;
+      resolved: number;
     };
     EventCounts: {
       detected: number;

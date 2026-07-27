@@ -25,6 +25,8 @@ export class QueueItemMapper {
       retriggered_at: nullableDateToISOString(input.retriggered_at),
       failed_at: nullableDateToISOString(input.failed_at),
       reviewed_at: nullableDateToISOString(input.reviewed_at),
+      resolved_at: nullableDateToISOString(input.resolved_at),
+      resolution: nullableString(input.resolution),
       pr_state: nullableString(input.prState) as QueueItemResponse['pr_state'],
       last_coderabbit_acknowledged_at: nullableDateToISOString(input.lastCoderabbitAcknowledgedAt),
       created_at: input.created_at.toISOString(),

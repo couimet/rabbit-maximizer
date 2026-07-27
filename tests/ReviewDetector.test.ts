@@ -24,7 +24,7 @@ const drainMicrotasks = async (depth: number): Promise<void> => {
 };
 
 interface MockReviewDetectorDeps {
-  queue: { getRetriggeredQueue: jest.Mock<any>; markReviewed: jest.Mock<any> };
+  queue: { getRetriggeredQueue: jest.Mock<any>; markResolved: jest.Mock<any> };
   pullRequests: { recordReview: jest.Mock<any>; getColumnMaps: jest.Mock<any> };
   github: jest.Mocked<CoderabbitGitHubClient>;
   probeFactory: ReturnType<typeof createMockProbeFactory>;
@@ -131,7 +131,7 @@ describe('ReviewDetector', () => {
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
       expect(deps.probeFactory.createReviewDetectorProbe).toHaveBeenCalledTimes(1);
       expect(deps.probe.withItem).toHaveBeenCalledWith(item);
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', completedCommentUrl, {});
     });
 
@@ -172,7 +172,7 @@ describe('ReviewDetector', () => {
       expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
       expect(deps.probe.reviewed).not.toHaveBeenCalled();
       expect(deps.probe.reviewedViaFallback).not.toHaveBeenCalled();
-      expect(deps.queue.markReviewed).not.toHaveBeenCalled();
+      expect(deps.queue.markResolved).not.toHaveBeenCalled();
     });
 
     it('delegates to probe when no retriggered items exist', async () => {
@@ -252,7 +252,7 @@ describe('ReviewDetector', () => {
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'pr_merged', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('merged');
     });
 
@@ -272,7 +272,7 @@ describe('ReviewDetector', () => {
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'pr_closed_without_merge', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('closed');
     });
 
@@ -296,7 +296,7 @@ describe('ReviewDetector', () => {
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
       expect(deps.probe.prClosedResolved).not.toHaveBeenCalled();
     });
@@ -320,7 +320,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(mergedItem.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('merged');
       expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(1);
       expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
@@ -342,7 +342,7 @@ describe('ReviewDetector', () => {
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'pr_merged', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('merged');
     });
 
@@ -362,7 +362,7 @@ describe('ReviewDetector', () => {
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'pr_closed_without_merge', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('closed');
     });
 
@@ -386,7 +386,7 @@ describe('ReviewDetector', () => {
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
       expect(deps.probe.prClosedResolved).not.toHaveBeenCalled();
     });
@@ -410,7 +410,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(mergedItem.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('merged');
       expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(1);
       expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
@@ -469,7 +469,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
     });
 
@@ -496,7 +496,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
-      expect(deps.queue.markReviewed).toHaveBeenCalledWith(item.id, {});
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewedViaFallback).toHaveBeenCalledWith({});
       expect(deps.probe.reviewed).not.toHaveBeenCalled();
       expect(deps.probe.noCompletedReviewFound).not.toHaveBeenCalled();
@@ -521,7 +521,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
-      expect(deps.queue.markReviewed).not.toHaveBeenCalled();
+      expect(deps.queue.markResolved).not.toHaveBeenCalled();
       expect(deps.probe.reviewedViaFallback).not.toHaveBeenCalled();
     });
 
@@ -545,7 +545,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
-      expect(deps.queue.markReviewed).not.toHaveBeenCalled();
+      expect(deps.queue.markResolved).not.toHaveBeenCalled();
       expect(deps.probe.reviewedViaFallback).not.toHaveBeenCalled();
     });
   });

@@ -6,11 +6,10 @@ export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueReposit
   ({
     enqueue: jest.fn<any>(),
     markRetriggered: jest.fn<any>(),
-    markReviewed: jest.fn<any>(),
-    markReviewedByUuid: jest.fn<any>().mockResolvedValue(undefined),
+    markResolved: jest.fn<any>(),
+    markResolvedByUuid: jest.fn<any>().mockResolvedValue(undefined),
     reschedule: jest.fn<any>(),
     backoff: jest.fn<any>(),
-    markFailed: jest.fn<any>(),
     findBySourceCommentId: jest.fn<any>().mockResolvedValue(null),
     createSkipped: jest.fn<any>(),
     getPendingQueue: jest.fn<any>().mockResolvedValue([]),
@@ -18,6 +17,6 @@ export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueReposit
     getTriggered: jest.fn<any>().mockResolvedValue({ items: [], total: 0 }),
     getOldestPending: jest.fn<any>().mockResolvedValue(null),
     getAll: jest.fn<any>().mockResolvedValue({ items: [], total: 0 }),
-    getCountsByStatus: jest.fn<any>().mockResolvedValue({ coderabbit_skipped: 0, pending: 0, retriggered: 0, reviewed: 0, failed: 0 }),
+    getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 0, retriggered: 0, resolved: 0 }),
     ...overrides,
   }) as unknown as jest.Mocked<QueueRepository>;

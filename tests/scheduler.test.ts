@@ -237,7 +237,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(404, deps.tx);
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
 
       await stop();
     });
@@ -254,7 +254,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(410, deps.tx);
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
 
       await stop();
     });
@@ -436,7 +436,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([prId], ['retrigger_count'], deps.tx);
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
       expect(deps.queue.backoff).not.toHaveBeenCalled();
       expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(maxRetrigger, deps.tx);
       expect(deps.mockProbe.triggerFailed).not.toHaveBeenCalled();
@@ -460,7 +460,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
       expect(deps.queue.backoff).not.toHaveBeenCalled();
       expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(maxRetrigger, deps.tx);
       expect(deps.mockProbe.backedOff).not.toHaveBeenCalled();
@@ -490,7 +490,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
-      expect(deps.queue.markFailed).not.toHaveBeenCalled();
+      expect(deps.queue.markResolved).not.toHaveBeenCalled();
       expect(deps.mockProbe.maxRetriggersExceeded).not.toHaveBeenCalled();
 
       await stop();

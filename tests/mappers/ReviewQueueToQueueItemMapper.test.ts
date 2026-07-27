@@ -1,4 +1,4 @@
-import { type QueueStatus, type TriggerSource } from '../../src/domain.js';
+import { type QueueStatus, type Resolution, type TriggerSource } from '../../src/domain.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import type { QueueItem } from '../../src/types/index.js';
 import { sqlDateToDate } from '../../src/utils/index.js';
@@ -28,10 +28,10 @@ describe('ReviewQueueToQueueItemMapper', () => {
     });
 
     it('casts status to QueueStatus', () => {
-      const row = generateReviewQueueHydrationData({ status: 'reviewed' as QueueStatus });
+      const row = generateReviewQueueHydrationData({ status: 'resolved' as QueueStatus });
       const result = mapper.fromReviewQueue(row);
 
-      expect(result.status).toBe('reviewed');
+      expect(result.status).toBe('resolved');
     });
 
     it('casts trigger_source to TriggerSource', () => {
@@ -46,6 +46,8 @@ describe('ReviewQueueToQueueItemMapper', () => {
         retriggered_at: null as unknown as Date,
         failed_at: null as unknown as Date,
         reviewed_at: null as unknown as Date,
+        resolved_at: null as unknown as Date,
+        resolution: null as unknown as string,
       });
 
       const result = mapper.fromReviewQueue(row);
@@ -53,17 +55,27 @@ describe('ReviewQueueToQueueItemMapper', () => {
       expect(result.retriggered_at).toBeUndefined();
       expect(result.failed_at).toBeUndefined();
       expect(result.reviewed_at).toBeUndefined();
+      expect(result.resolved_at).toBeUndefined();
+      expect(result.resolution).toBeUndefined();
     });
 
     it('preserves non-null timestamps as Date objects', () => {
       const retriggeredAt = new Date('2026-07-20T10:00:00Z');
-      const row = generateReviewQueueHydrationData({ retriggered_at: retriggeredAt, failed_at: null as unknown as Date, reviewed_at: null as unknown as Date });
+      const row = generateReviewQueueHydrationData({
+        retriggered_at: retriggeredAt,
+        failed_at: null as unknown as Date,
+        reviewed_at: null as unknown as Date,
+        resolved_at: null as unknown as Date,
+        resolution: 'review_completed' as unknown as string,
+      });
 
       const result = mapper.fromReviewQueue(row);
 
       expect(result.retriggered_at).toBe(retriggeredAt);
       expect(result.failed_at).toBeUndefined();
       expect(result.reviewed_at).toBeUndefined();
+      expect(result.resolved_at).toBeUndefined();
+      expect(result.resolution).toBe('review_completed');
     });
 
     it('converts null retrigger_comment_url to undefined', () => {
@@ -117,6 +129,8 @@ describe('ReviewQueueToQueueItemMapper', () => {
         retriggered_at: sqlDateToDate(row.retriggered_at),
         failed_at: sqlDateToDate(row.failed_at),
         reviewed_at: sqlDateToDate(row.reviewed_at),
+        resolved_at: sqlDateToDate(row.resolved_at),
+        resolution: (row.resolution as Resolution) ?? undefined,
         pull_request_id: row.pull_request_id!,
         created_at: row.created_at,
         updated_at: row.updated_at,
