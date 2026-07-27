@@ -92,9 +92,9 @@ export const createRetriggerNowHandler = (
         res.status(StatusCodes.NOT_FOUND).json({ error: 'Queue item not found' });
         return;
       }
-      if (item.status !== QueueStatus.pending) {
-        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is not pending');
-        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is not pending' });
+      if (item.status === QueueStatus.resolved) {
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is already resolved');
+        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is already resolved' });
         return;
       }
 

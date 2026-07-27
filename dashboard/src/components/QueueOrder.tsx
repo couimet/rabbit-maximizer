@@ -1,3 +1,4 @@
+import { QueueStatus } from '../../../src/domain.js';
 import type { QueueItemResponse } from '../../../src/types/index.js';
 import { safeDeriveActivityStatus } from '../activityState.js';
 import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
@@ -30,14 +31,12 @@ const QueueOrder = ({
   error,
   onMoveComplete,
   headingLevel,
-  pendingCount,
   paused,
 }: {
   items: QueueItemResponse[] | null;
   error: string | null;
   onMoveComplete: () => void;
   headingLevel: 'h2' | 'h3';
-  pendingCount: number | null;
   paused: boolean;
 }) => {
   const [, forceTick] = useState(0);
@@ -162,14 +161,17 @@ const QueueOrder = ({
 
   const hasSelection = selectedUuids.size > 0;
   const allSelected = items.length > 0 && selectedUuids.size === items.length;
+  const pendingCount = items.filter((i) => i.status === QueueStatus.pending).length;
+  const retriggeredCount = items.filter((i) => i.status === QueueStatus.retriggered).length;
+  const headingCount = [pendingCount > 0 && `${pendingCount} pending`, retriggeredCount > 0 && `${retriggeredCount} retriggered`].filter(Boolean).join(', ');
 
   return (
     <section>
-      <Heading>Queue Order{pendingCount !== null ? ` — ${pendingCount} pending item(s)` : ''}</Heading>
+      <Heading>Queue Order{headingCount ? ` — ${headingCount}` : ''}</Heading>
       {moveError && <div className="error">Move failed: {moveError}</div>}
       {toast && <div className={'toast toast-' + toast.variant}>{toast.message}</div>}
       {items.length === 0 ? (
-        <p>No pending items.</p>
+        <p>No items in queue.</p>
       ) : (
         <>
           <div className="queue-order-toolbar">
@@ -189,7 +191,7 @@ const QueueOrder = ({
                     checked={allSelected}
                     onChange={toggleSelectAll}
                     disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
-                    aria-label="Select all pending items"
+                    aria-label="Select all items"
                   />
                 </th>
                 <th className="col-position">#</th>
@@ -201,14 +203,18 @@ const QueueOrder = ({
             <tbody>
               {items.map((item, index) => {
                 const isSelected = selectedUuids.has(item.uuid);
+                const isRetriggered = item.status === QueueStatus.retriggered;
+                const rowClass = [isSelected ? 'row-selected' : '', index > 0 ? 'row-waiting' : '', isRetriggered ? 'row-retriggered' : '']
+                  .filter(Boolean)
+                  .join(' ');
                 return (
-                  <tr key={item.uuid} className={`${isSelected ? 'row-selected' : ''} ${index > 0 ? 'row-waiting' : ''}`}>
+                  <tr key={item.uuid} className={rowClass}>
                     <td className="col-select">
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(item.uuid)}
-                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
+                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label={`Select ${item.repo_full_name} #${item.pr_number}`}
                       />
                     </td>
@@ -233,7 +239,7 @@ const QueueOrder = ({
                       <button
                         className="btn-arrow"
                         onClick={() => handleMoveToTop(item.uuid)}
-                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
+                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label="Move to top"
                       >
                         ⇈
@@ -241,7 +247,7 @@ const QueueOrder = ({
                       <button
                         className="btn-arrow"
                         onClick={() => moveSingle(item.uuid, 'up')}
-                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
+                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label="Move up"
                       >
                         ↑
@@ -249,7 +255,7 @@ const QueueOrder = ({
                       <button
                         className="btn-arrow"
                         onClick={() => moveSingle(item.uuid, 'down')}
-                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
+                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label="Move down"
                       >
                         ↓

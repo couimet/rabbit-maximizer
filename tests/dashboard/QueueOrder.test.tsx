@@ -15,7 +15,7 @@ const renderQueueOrder = (
   error: string | null = null,
   onMoveComplete = defaultOnMoveComplete,
   paused = false,
-) => render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} paused={paused} />);
+) => render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" paused={paused} />);
 
 const makeQueueItem = (over: Record<string, unknown> = {}) => generateQueueItemResponseData(over);
 
@@ -36,8 +36,8 @@ describe('QueueOrder', () => {
     let item2: ReturnType<typeof makeQueueItem>;
 
     beforeEach(() => {
-      item1 = makeQueueItem();
-      item2 = makeQueueItem();
+      item1 = makeQueueItem({ status: 'pending' });
+      item2 = makeQueueItem({ status: 'pending' });
     });
 
     it('renders queue order items with position numbers and details', () => {
@@ -58,9 +58,12 @@ describe('QueueOrder', () => {
       expect(link).toHaveAttribute('target', '_blank');
     });
 
-    it('includes pending count in heading when pendingCount is provided', () => {
-      render(<QueueOrder items={[makeQueueItem()]} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={3} paused={false} />);
-      expect(screen.getByText('Queue Order — 3 pending item(s)')).toBeInTheDocument();
+    it('shows heading with counts derived from item statuses', () => {
+      const pendingItem1 = makeQueueItem({ status: 'pending' });
+      const pendingItem2 = makeQueueItem({ status: 'pending' });
+      const retriggeredItem = makeQueueItem({ status: 'retriggered' });
+      render(<QueueOrder items={[pendingItem1, pendingItem2, retriggeredItem]} error={null} onMoveComplete={jest.fn()} headingLevel="h2" paused={false} />);
+      expect(screen.getByRole('heading', { name: 'Queue Order — 2 pending, 1 retriggered' })).toBeInTheDocument();
     });
 
     it('renders up and down arrow buttons per row', () => {
@@ -75,7 +78,7 @@ describe('QueueOrder', () => {
   describe('empty', () => {
     it('shows empty message when items is empty', () => {
       renderQueueOrder([]);
-      expect(screen.getByText('No pending items.')).toBeInTheDocument();
+      expect(screen.getByText('No items in queue.')).toBeInTheDocument();
     });
   });
 
@@ -88,7 +91,7 @@ describe('QueueOrder', () => {
 
   describe('cleanup', () => {
     it('does not update state after unmount when move request resolves', async () => {
-      const items = [makeQueueItem(), makeQueueItem()];
+      const items = [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })];
 
       let resolveMove!: (value: { data: ReturnType<typeof makeQueueItem>[] }) => void;
       const movePromise = new Promise<{ data: ReturnType<typeof makeQueueItem>[] }>((resolve) => {
@@ -107,7 +110,7 @@ describe('QueueOrder', () => {
       unmount();
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      resolveMove({ data: [makeQueueItem(), makeQueueItem()] });
+      resolveMove({ data: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })] });
       await new Promise((r) => setTimeout(r, 0));
 
       const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
@@ -115,20 +118,20 @@ describe('QueueOrder', () => {
     });
 
     it('allows move after StrictMode double-invoke', async () => {
-      const items = [makeQueueItem(), makeQueueItem()];
+      const items = [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })];
       const onMoveComplete = jest.fn();
 
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({ data: [makeQueueItem(), makeQueueItem()] }),
+          json: () => Promise.resolve({ data: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })] }),
         } as Response),
       ) as unknown as typeof fetch;
 
       render(
         <StrictMode>
-          <QueueOrder items={items} error={null} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} paused={false} />
+          <QueueOrder items={items} error={null} onMoveComplete={onMoveComplete} headingLevel="h2" paused={false} />
         </StrictMode>,
       );
 
@@ -140,7 +143,7 @@ describe('QueueOrder', () => {
     });
 
     it('does not update state after unmount when move request fails', async () => {
-      const items = [makeQueueItem(), makeQueueItem()];
+      const items = [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })];
 
       let rejectMove!: (reason: Error) => void;
       const moveFetchPromise = new Promise<Response>((_, reject) => {
@@ -162,7 +165,7 @@ describe('QueueOrder', () => {
   });
 
   describe('select all', () => {
-    const items = [makeQueueItem(), makeQueueItem()];
+    const items = [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })];
 
     it('selects all items when header checkbox is clicked', () => {
       renderQueueOrder([...items]);
@@ -201,12 +204,12 @@ describe('QueueOrder', () => {
     let onMoveComplete: jest.Mock;
 
     beforeEach(() => {
-      item1 = makeQueueItem();
-      item2 = makeQueueItem();
+      item1 = makeQueueItem({ status: 'pending' });
+      item2 = makeQueueItem({ status: 'pending' });
       onMoveComplete = jest.fn();
     });
 
-    const moveResponse = () => ({ data: [makeQueueItem(), makeQueueItem()] });
+    const moveResponse = () => ({ data: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })] });
 
     it('calls moveQueueItems with correct args on single up click', async () => {
       createMockFetch(200, moveResponse());
@@ -307,18 +310,18 @@ describe('QueueOrder', () => {
 
   describe('Status column', () => {
     it('renders Status column header', () => {
-      renderQueueOrder([makeQueueItem()]);
+      renderQueueOrder([makeQueueItem({ status: 'pending' })]);
       expect(screen.getByText('Status')).toBeInTheDocument();
     });
 
     it('applies row-waiting class to positions greater than 1', () => {
-      renderQueueOrder([makeQueueItem(), makeQueueItem()]);
+      renderQueueOrder([makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })]);
       const rows = screen.getAllByRole('row');
       expect(rows[2].classList.contains('row-waiting')).toBe(true);
     });
 
     it('does not apply row-waiting class to position 1', () => {
-      renderQueueOrder([makeQueueItem(), makeQueueItem()]);
+      renderQueueOrder([makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })]);
       const rows = screen.getAllByRole('row');
       expect(rows[1].classList.contains('row-waiting')).toBe(false);
     });
@@ -330,8 +333,8 @@ describe('QueueOrder', () => {
     let onMoveComplete: jest.Mock;
 
     beforeEach(() => {
-      item1 = makeQueueItem();
-      item2 = makeQueueItem();
+      item1 = makeQueueItem({ status: 'pending' });
+      item2 = makeQueueItem({ status: 'pending' });
       onMoveComplete = jest.fn();
     });
 
@@ -460,22 +463,22 @@ describe('QueueOrder', () => {
     });
 
     it('retrigger buttons are enabled when paused is false', () => {
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={false} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" paused={false} />);
 
       expect(screen.getByLabelText(/^Retrigger now/)).not.toBeDisabled();
     });
 
     it('retrigger buttons are enabled when paused is true', () => {
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" paused={true} />);
 
       expect(screen.getByLabelText(/^Retrigger now/)).not.toBeDisabled();
     });
 
     it('shows confirmation dialog when retrigger is clicked while paused', () => {
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" paused={true} />);
 
       fireEvent.click(screen.getByLabelText(/^Retrigger now/));
 
@@ -485,8 +488,8 @@ describe('QueueOrder', () => {
 
     it('confirming the dialog calls retriggerNow with overridePause=true', async () => {
       createMockFetch(204, undefined);
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" paused={true} />);
 
       fireEvent.click(screen.getByLabelText(/^Retrigger now/));
       fireEvent.click(screen.getByText('Retrigger anyway'));
@@ -499,8 +502,8 @@ describe('QueueOrder', () => {
     });
 
     it('canceling the dialog does not call retriggerNow', () => {
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" paused={true} />);
 
       fireEvent.click(screen.getByLabelText(/^Retrigger now/));
       fireEvent.click(screen.getByText('Cancel'));
@@ -516,8 +519,8 @@ describe('QueueOrder', () => {
     let onMoveComplete: jest.Mock;
 
     beforeEach(() => {
-      item1 = makeQueueItem();
-      item2 = makeQueueItem();
+      item1 = makeQueueItem({ status: 'pending' });
+      item2 = makeQueueItem({ status: 'pending' });
       onMoveComplete = jest.fn();
     });
 
@@ -565,7 +568,7 @@ describe('QueueOrder', () => {
       });
     });
 
-    const ERROR_MESSAGE_NOT_PENDING = 'Queue item is not pending';
+    const ERROR_MESSAGE_NOT_PENDING = 'Queue item is already resolved';
 
     it('shows error toast on failure', async () => {
       createMockFetch(409, { error: ERROR_MESSAGE_NOT_PENDING });

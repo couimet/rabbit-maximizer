@@ -36,9 +36,9 @@ describe('QueueOrderRepositoryImpl', () => {
       const result = await sut.getEffectiveOrder();
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: 'pending' },
+        where: { status: { in: ['pending', 'retriggered'] } },
         include: { queueOrder: true },
-        orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
+        orderBy: [{ status: 'asc' }, { queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
       expect(result).toStrictEqual(rows.map((row) => mapper.fromReviewQueue(row)));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 3 }, 'Fetched effective order');
@@ -405,7 +405,7 @@ describe('QueueOrderRepositoryImpl', () => {
       });
     });
 
-    it('throws when item is not pending', async () => {
+    it('throws when item is resolved', async () => {
       const itemA = generateReviewQueueWithOrderHydrationData({ id: 1, status: 'resolved' }, { position: 1, id: getUniqueInt() });
 
       const { prisma } = createMockPrismaClient({
@@ -416,7 +416,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       await expect(sut.moveToTop(itemA.uuid)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_PENDING', {
-        message: `Queue item ${itemA.uuid} is not pending`,
+        message: `Queue item ${itemA.uuid} is already resolved`,
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
         details: { uuid: itemA.uuid, status: 'resolved' },
       });
