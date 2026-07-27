@@ -1,7 +1,7 @@
 import type { QueueRepository } from './db/index.js';
 import { RabbitMaximizerError } from './errors/index.js';
 import type { ProbeFactory } from './probes/index.js';
-import { TYPES } from './domain.js';
+import { Resolution, TYPES } from './domain.js';
 import type { PruneEvaluator } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -38,11 +38,11 @@ export class PrunerImpl implements Pruner {
         await this.prisma.$transaction(async (tx) => {
           switch (e.outcome) {
             case 'merged':
-              await this.queue.markReviewed(e.item.id, tx);
+              await this.queue.markResolved(e.item.id, Resolution.PrMerged, tx);
               await probe.prMerged(tx);
               break;
             case 'closed-without-merge':
-              await this.queue.markFailed(e.item.id, tx);
+              await this.queue.markResolved(e.item.id, Resolution.PrClosedWithoutMerge, tx);
               await probe.prClosedWithoutMerge(tx);
               break;
             default:

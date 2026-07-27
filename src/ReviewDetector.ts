@@ -3,7 +3,7 @@ import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { EventType, IntervalService, PrState, TYPES } from './domain.js';
+import { EventType, IntervalService, PrState, Resolution, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -54,8 +54,9 @@ export class ReviewDetector extends IntervalService {
 
         const prState = prStateMap.get(item.pull_request_id);
         if (prState === PrState.merged || prState === PrState.closed) {
+          const resolution = prState === PrState.merged ? Resolution.PrMerged : Resolution.PrClosedWithoutMerge;
           await this.prisma.$transaction(async (tx) => {
-            await this.queue.markReviewed(item.id, tx);
+            await this.queue.markResolved(item.id, resolution, tx);
           });
           probe.prClosedResolved(prState);
           continue;
@@ -70,7 +71,7 @@ export class ReviewDetector extends IntervalService {
           const lastCoderabbitReviewAt = lastCoderabbitReviewAtMap.get(item.pull_request_id);
           if (lastCoderabbitReviewAt != null && lastCoderabbitReviewAt >= lookbackSince) {
             await this.prisma.$transaction(async (tx) => {
-              await this.queue.markReviewed(item.id, tx);
+              await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
               await probe.reviewedViaFallback(tx);
             });
             continue;
@@ -82,7 +83,7 @@ export class ReviewDetector extends IntervalService {
         const eventType = completedReview.isApproval ? EventType.coderabbit_review_approved : EventType.coderabbit_review_changes_suggested;
 
         await this.prisma.$transaction(async (tx) => {
-          await this.queue.markReviewed(item.id, tx);
+          await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
           await probe.reviewed(eventType, completedReview.htmlUrl, tx);
         });
       } catch (err: unknown) {

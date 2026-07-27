@@ -4,7 +4,7 @@ import {
   fetchQueue,
   fetchQueueOrder,
   fetchSummary,
-  markReviewed,
+  markResolved,
   moveQueueItems,
   moveToTop,
 } from '../../dashboard/src/api.js';
@@ -169,21 +169,21 @@ describe('api', () => {
     });
   });
 
-  describe('markReviewed', () => {
+  describe('markResolved', () => {
     const UUID = '11111111-1111-1111-1111-111111111111';
 
     it('returns parsed JSON on success', async () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response),
       ) as unknown as typeof fetch;
-      await expect(markReviewed(UUID)).resolves.toStrictEqual({ ok: true });
+      await expect(markResolved(UUID)).resolves.toStrictEqual({ ok: true });
     });
 
     it('throws with body error message on failure', async () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({ error: 'Not found' }) } as Response),
       ) as unknown as typeof fetch;
-      await expect(markReviewed(UUID)).rejects.toThrow('Not found');
+      await expect(markResolved(UUID)).rejects.toThrow('Not found');
     });
   });
 });

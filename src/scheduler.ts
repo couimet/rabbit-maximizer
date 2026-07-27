@@ -4,7 +4,7 @@ import type { ProbeFactory } from './probes/index.js';
 import type { QueueItem } from './types/index.js';
 import { computeSchedulerBackoff, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { IntervalService, TriggerSource, TYPES } from './domain.js';
+import { IntervalService, Resolution, TriggerSource, TYPES } from './domain.js';
 import { type Pruner, ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -108,7 +108,7 @@ export class Scheduler extends IntervalService {
             const columnMaps = await this.pullRequests.getColumnMaps([item!.pull_request_id], ['retrigger_count'], tx);
             const retriggerCount = columnMaps.retrigger_count.get(item!.pull_request_id) ?? 0;
             if (retriggerCount >= this.maxRetriggerAttempts) {
-              await this.queue.markFailed(item!.id, tx);
+              await this.queue.markResolved(item!.id, Resolution.Failed, tx);
               await probe.maxRetriggersExceeded(retriggerCount, tx);
             } else {
               await this.queue.backoff(item!.id, tx);
@@ -128,7 +128,7 @@ export class Scheduler extends IntervalService {
 
       if (error.status !== undefined && TERMINAL_HTTP_STATUSES.includes(error.status)) {
         await this.prisma.$transaction(async (tx) => {
-          await this.queue.markFailed(item!.id, tx);
+          await this.queue.markResolved(item!.id, Resolution.Failed, tx);
           await probe.prClosedOrMerged(error.status!, tx);
         });
         return;
@@ -140,7 +140,7 @@ export class Scheduler extends IntervalService {
         const columnMaps = await this.pullRequests.getColumnMaps([item!.pull_request_id], ['retrigger_count'], tx);
         const retriggerCount = columnMaps.retrigger_count.get(item!.pull_request_id) ?? 0;
         if (retriggerCount >= this.maxRetriggerAttempts) {
-          await this.queue.markFailed(item!.id, tx);
+          await this.queue.markResolved(item!.id, Resolution.Failed, tx);
           await probe.maxRetriggersExceeded(retriggerCount, tx);
         } else {
           await this.queue.backoff(item!.id, tx);

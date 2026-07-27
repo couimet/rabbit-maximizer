@@ -365,13 +365,13 @@ describe('queueOrderRoutes', () => {
 
     it('returns 409 when item is not pending', async () => {
       startServer({
-        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'reviewed' }]),
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'resolved' }]),
       });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
       expect(await res.json()).toStrictEqual({ error: 'Queue item is not pending' });
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'reviewed' }, 'Queue item is not pending');
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'resolved' }, 'Queue item is not pending');
     });
 
     it('returns 500 on repository error', async () => {
@@ -482,13 +482,13 @@ describe('queueOrderRoutes', () => {
 
     it('returns 200 with { ok: true }', async () => {
       const item = generateQueueItemHydrationData({ uuid: UUID_A });
-      const markReviewedByUuid = jest.fn<any>().mockResolvedValue(item);
-      const { pullRequests } = startServer({ markReviewedByUuid });
+      const markResolvedByUuid = jest.fn<any>().mockResolvedValue(item);
+      const { pullRequests } = startServer({ markResolvedByUuid });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
-      expect(markReviewedByUuid).toHaveBeenCalledWith(UUID_A, {});
+      expect(markResolvedByUuid).toHaveBeenCalledWith(UUID_A, 'review_completed', {});
       expect(pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, {});
     });
 
@@ -501,7 +501,7 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 404 when item not found', async () => {
-      startServer({ markReviewedByUuid: jest.fn<any>().mockResolvedValue(undefined) });
+      startServer({ markResolvedByUuid: jest.fn<any>().mockResolvedValue(undefined) });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NOT_FOUND);
@@ -510,12 +510,12 @@ describe('queueOrderRoutes', () => {
 
     it('returns 500 on repository error', async () => {
       const repoError = new Error('DB down');
-      startServer({ markReviewedByUuid: jest.fn<any>().mockRejectedValue(repoError) });
+      startServer({ markResolvedByUuid: jest.fn<any>().mockRejectedValue(repoError) });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to mark item reviewed' });
-      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.markReviewed', error: repoError }, 'Failed to mark item reviewed');
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.markResolved', error: repoError }, 'Failed to mark item resolved');
     });
   });
 });

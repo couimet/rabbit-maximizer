@@ -145,14 +145,14 @@ describe('EnqueueService', () => {
       });
 
       it('calls alreadySkipped when createSkipped returns created: false', async () => {
-        (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: { status: 'coderabbit_skipped' }, created: false });
+        (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: { status: 'resolved' }, created: false });
         const svc = createService();
         const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
 
         await svc.handle(comment, pullRequestId);
 
-        expect(probe.alreadySkipped).toHaveBeenCalledWith('coderabbit_skipped');
+        expect(probe.alreadySkipped).toHaveBeenCalledWith('resolved');
         expect(probe.skipped).not.toHaveBeenCalled();
       });
     });

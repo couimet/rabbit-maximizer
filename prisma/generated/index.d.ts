@@ -2760,6 +2760,8 @@ export namespace Prisma {
     pr_number: number | null;
     pr_title: string | null;
     status: string | null;
+    resolution: string | null;
+    resolved_at: Date | null;
     attempts: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
@@ -2780,6 +2782,8 @@ export namespace Prisma {
     pr_number: number | null;
     pr_title: string | null;
     status: string | null;
+    resolution: string | null;
+    resolved_at: Date | null;
     attempts: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
@@ -2800,6 +2804,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: number;
     status: number;
+    resolution: number;
+    resolved_at: number;
     attempts: number;
     source_comment_url: number;
     source_comment_id: number;
@@ -2837,6 +2843,8 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
+    resolution?: true;
+    resolved_at?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2857,6 +2865,8 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
+    resolution?: true;
+    resolved_at?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2877,6 +2887,8 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
+    resolution?: true;
+    resolved_at?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2981,6 +2993,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status: string;
+    resolution: string | null;
+    resolved_at: Date | null;
     attempts: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -3019,6 +3033,8 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
+      resolution?: boolean;
+      resolved_at?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3044,6 +3060,8 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
+      resolution?: boolean;
+      resolved_at?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3068,6 +3086,8 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
+      resolution?: boolean;
+      resolved_at?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3091,6 +3111,8 @@ export namespace Prisma {
     pr_number?: boolean;
     pr_title?: boolean;
     status?: boolean;
+    resolution?: boolean;
+    resolved_at?: boolean;
     attempts?: boolean;
     source_comment_url?: boolean;
     source_comment_id?: boolean;
@@ -3111,6 +3133,8 @@ export namespace Prisma {
     | 'pr_number'
     | 'pr_title'
     | 'status'
+    | 'resolution'
+    | 'resolved_at'
     | 'attempts'
     | 'source_comment_url'
     | 'source_comment_id'
@@ -3158,9 +3182,14 @@ export namespace Prisma {
          */
         pr_title: string;
         /**
-         * Max 25; one of 'pending' | 'retriggered' | 'reviewed' | 'failed' (CHECK in the init migration).
+         * Max 25; one of 'pending' | 'retriggered' | 'resolved' (CHECK in migration).
          */
         status: string;
+        /**
+         * Max 50. Terminal reason when status='resolved' (review_completed, pr_merged, pr_closed_without_merge, failed, skipped).
+         */
+        resolution: string | null;
+        resolved_at: Date | null;
         attempts: number;
         /**
          * Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
@@ -3661,6 +3690,8 @@ export namespace Prisma {
     readonly pr_number: FieldRef<'ReviewQueue', 'Int'>;
     readonly pr_title: FieldRef<'ReviewQueue', 'String'>;
     readonly status: FieldRef<'ReviewQueue', 'String'>;
+    readonly resolution: FieldRef<'ReviewQueue', 'String'>;
+    readonly resolved_at: FieldRef<'ReviewQueue', 'DateTime'>;
     readonly attempts: FieldRef<'ReviewQueue', 'Int'>;
     readonly source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly source_comment_id: FieldRef<'ReviewQueue', 'Int'>;
@@ -8993,6 +9024,8 @@ export namespace Prisma {
     pr_number: 'pr_number';
     pr_title: 'pr_title';
     status: 'status';
+    resolution: 'resolution';
+    resolved_at: 'resolved_at';
     attempts: 'attempts';
     source_comment_url: 'source_comment_url';
     source_comment_id: 'source_comment_id';
@@ -9250,6 +9283,8 @@ export namespace Prisma {
     pr_number?: IntFilter<'ReviewQueue'> | number;
     pr_title?: StringFilter<'ReviewQueue'> | string;
     status?: StringFilter<'ReviewQueue'> | string;
+    resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
+    resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -9272,6 +9307,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrderInput | SortOrder;
+    resolved_at?: SortOrderInput | SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -9298,6 +9335,8 @@ export namespace Prisma {
       pr_number?: IntFilter<'ReviewQueue'> | number;
       pr_title?: StringFilter<'ReviewQueue'> | string;
       status?: StringFilter<'ReviewQueue'> | string;
+      resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
+      resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
       attempts?: IntFilter<'ReviewQueue'> | number;
       source_comment_url?: StringFilter<'ReviewQueue'> | string;
       source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -9322,6 +9361,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrderInput | SortOrder;
+    resolved_at?: SortOrderInput | SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -9350,6 +9391,8 @@ export namespace Prisma {
     pr_number?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     pr_title?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     status?: StringWithAggregatesFilter<'ReviewQueue'> | string;
+    resolution?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
+    resolved_at?: DateTimeNullableWithAggregatesFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     source_comment_url?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     source_comment_id?: IntWithAggregatesFilter<'ReviewQueue'> | number;
@@ -9845,6 +9888,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9867,6 +9912,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9886,6 +9933,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9908,6 +9957,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9929,6 +9980,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9947,6 +10000,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9967,6 +10022,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -10582,6 +10639,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrder;
+    resolved_at?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -10610,6 +10669,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrder;
+    resolved_at?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -10630,6 +10691,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrder;
+    resolved_at?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -11470,6 +11533,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11490,6 +11555,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11617,6 +11684,8 @@ export namespace Prisma {
     pr_number?: IntFilter<'ReviewQueue'> | number;
     pr_title?: StringFilter<'ReviewQueue'> | string;
     status?: StringFilter<'ReviewQueue'> | string;
+    resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
+    resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -11952,6 +12021,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11973,6 +12044,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -12007,6 +12080,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12028,6 +12103,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12149,6 +12226,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -12198,6 +12277,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12218,6 +12299,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12238,6 +12321,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;

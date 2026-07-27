@@ -48,10 +48,10 @@ describe('QueueItemMapper', () => {
     });
 
     it('converts QueueStatus enum to string', () => {
-      const input = generateEnrichedQueueItemData({ status: QueueStatus.reviewed });
+      const input = generateEnrichedQueueItemData({ status: 'resolved' as QueueStatus });
       const result = mapper.mapToQueueItemResponse(input);
 
-      expect(result.status).toBe('reviewed');
+      expect(result.status).toBe('resolved');
     });
 
     it('converts TriggerSource enum to string', () => {

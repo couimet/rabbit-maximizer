@@ -1,4 +1,4 @@
-import type { QueueStatus, TriggerSource } from '../domain.js';
+import type { QueueStatus, Resolution, TriggerSource } from '../domain.js';
 
 export interface QueueItem {
   readonly id: number;
@@ -15,6 +15,8 @@ export interface QueueItem {
   readonly retriggered_at?: Date;
   readonly failed_at?: Date;
   readonly reviewed_at?: Date;
+  readonly resolved_at?: Date;
+  readonly resolution?: Resolution;
   readonly pull_request_id: number;
   readonly created_at: Date;
   readonly updated_at: Date;

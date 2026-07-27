@@ -406,7 +406,7 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('throws when item is not pending', async () => {
-      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1, status: 'reviewed' }, { position: 1, id: getUniqueInt() });
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1, status: 'resolved' }, { position: 1, id: getUniqueInt() });
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
@@ -418,7 +418,7 @@ describe('QueueOrderRepositoryImpl', () => {
       await expect(sut.moveToTop(itemA.uuid)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_PENDING', {
         message: `Queue item ${itemA.uuid} is not pending`,
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
-        details: { uuid: itemA.uuid, status: 'reviewed' },
+        details: { uuid: itemA.uuid, status: 'resolved' },
       });
     });
 

@@ -1,5 +1,5 @@
 import type { PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
-import { QueueStatus, TriggerSource } from '../domain.js';
+import { QueueStatus, Resolution, TriggerSource } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
 import type { QueueItemMapper } from '../mappers/index.js';
@@ -153,7 +153,7 @@ export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullReques
       }
 
       const item = await prisma.$transaction(async (tx) => {
-        const updated = await queueRepo.markReviewedByUuid(uuid, tx);
+        const updated = await queueRepo.markResolvedByUuid(uuid, Resolution.ReviewCompleted, tx);
         if (!updated) return null;
         await pullRequests.recordReview(updated.pull_request_id, tx);
         return updated;
@@ -166,7 +166,7 @@ export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullReques
 
       res.json({ ok: true });
     } catch (error) {
-      logger.error({ fn: 'api.queueOrder.markReviewed', error }, 'Failed to mark item reviewed');
+      logger.error({ fn: 'api.queueOrder.markResolved', error }, 'Failed to mark item resolved');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to mark item reviewed' });
     }
   };
