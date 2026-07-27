@@ -98,6 +98,12 @@ export const createRetriggerNowHandler = (
         return;
       }
 
+      if (item.status === QueueStatus.retriggered) {
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is in retrigger cooldown');
+        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is in retrigger cooldown' });
+        return;
+      }
+
       const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
       if (!result.success) {
         logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, error: result.error }, 'Failed to retrigger now');

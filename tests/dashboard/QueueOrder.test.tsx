@@ -113,8 +113,7 @@ describe('QueueOrder', () => {
       resolveMove({ data: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })] });
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
     it('allows move after StrictMode double-invoke', async () => {
@@ -159,8 +158,7 @@ describe('QueueOrder', () => {
       rejectMove(new Error('Network error'));
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -439,8 +437,7 @@ describe('QueueOrder', () => {
       resolveRetrigger();
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
     it('does not update state after unmount on error', async () => {
@@ -458,8 +455,7 @@ describe('QueueOrder', () => {
       rejectRetrigger(new Error('Network error'));
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
     it('retrigger buttons are enabled when paused is false', () => {
@@ -629,8 +625,7 @@ describe('QueueOrder', () => {
       resolveMoveToTop();
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
     it('does not update state after unmount on error', async () => {
@@ -648,8 +643,7 @@ describe('QueueOrder', () => {
       rejectMoveToTop(new Error('Network error'));
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });
 });

@@ -228,7 +228,7 @@ export interface components {
       pr_number: number;
       pr_title: string;
       /** @description GitHub login of the PR author */
-      author_login?: string;
+      author_login: string;
       /**
        * @description PR state from GitHub (open, merged, closed)
        * @enum {string|null}

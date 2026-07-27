@@ -374,6 +374,20 @@ describe('queueOrderRoutes', () => {
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'resolved' }, 'Queue item is already resolved');
     });
 
+    it('returns 409 when item is in retrigger cooldown', async () => {
+      startServer({
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'retriggered' }]),
+      });
+
+      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.CONFLICT);
+      expect(await res.json()).toStrictEqual({ error: 'Queue item is in retrigger cooldown' });
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'retriggered' },
+        'Queue item is in retrigger cooldown',
+      );
+    });
+
     it('returns 500 on repository error', async () => {
       const repoError = new Error('DB down');
       startServer({

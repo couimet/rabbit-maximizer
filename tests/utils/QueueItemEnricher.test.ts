@@ -165,4 +165,20 @@ describe('QueueItemEnricher', () => {
       'All items have null pull_request_id; enrichment skipped entirely',
     );
   });
+
+  it('enriches items with author_login from the repository', async () => {
+    const pullRequestId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ pull_request_id: pullRequestId });
+    (pullRequests.getColumnMaps as any).mockResolvedValue({
+      pr_state: new Map(),
+      last_coderabbit_acknowledged_at: new Map(),
+      author_login: new Map([[pullRequestId, 'some-login']]),
+    });
+
+    const result = await enricher.enrich([item]);
+
+    expect(result).toStrictEqual([{ ...item, prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: 'some-login' }]);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
+  });
 });

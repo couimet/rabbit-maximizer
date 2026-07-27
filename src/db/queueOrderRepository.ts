@@ -12,7 +12,7 @@ import { inject, injectable } from 'inversify';
 export type MoveDirection = 'up' | 'down';
 
 /** Statuses that participate in the effective queue order. `pending` items are reorderable; `retriggered` items appear below them in cooldown. */
-const EFFECTIVE_ORDER_STATUSES: QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
+const EFFECTIVE_ORDER_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
 
 export interface QueueOrderRepository {
   getEffectiveOrder(): Promise<QueueItem[]>;
@@ -44,7 +44,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
    */
   private readEffectiveOrder(tx: Prisma.TransactionClient | undefined): Promise<QueueItem[]> {
     return this.enforceTx(tx, async (db) => {
-      const where: Prisma.ReviewQueueWhereInput = { status: { in: EFFECTIVE_ORDER_STATUSES } };
+      const where: Prisma.ReviewQueueWhereInput = { status: { in: [...EFFECTIVE_ORDER_STATUSES] } };
       const rows = await db.reviewQueue.findMany({
         where,
         include: { queueOrder: true },
@@ -68,7 +68,18 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       const orderedIds = ordered.map((item) => item.id);
       const selectedIds = resolveUuidsToIds(ordered, [...new Set(queueItemUuids)]);
 
-      const sortedSelected = selectedIds.sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
+      const idToStatus = new Map(ordered.map((item) => [item.id, item.status]));
+      const pendingSelectedIds = selectedIds.filter((id) => idToStatus.get(id) === QueueStatus.pending);
+      const skippedRetriggered = selectedIds.length - pendingSelectedIds.length;
+      if (skippedRetriggered > 0) {
+        this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', skipped: skippedRetriggered }, 'Skipped retriggered items in moveItems');
+      }
+      if (pendingSelectedIds.length === 0) {
+        this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems' }, 'No pending items to move; returning effective order unchanged');
+        return ordered;
+      }
+
+      const sortedSelected = pendingSelectedIds.sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
       if (direction === 'down') {
         sortedSelected.reverse();
       }
@@ -79,7 +90,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
         const neighborIdx = direction === 'up' ? idx - 1 : idx + 1;
         if (neighborIdx < 0 || neighborIdx >= newOrder.length) continue;
-        if (selectedIds.includes(newOrder[neighborIdx])) continue;
+        if (pendingSelectedIds.includes(newOrder[neighborIdx])) continue;
 
         [newOrder[idx], newOrder[neighborIdx]] = [newOrder[neighborIdx], newOrder[idx]];
       }
@@ -116,6 +127,15 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
         });
       }
 
+      if (rawItem.status === QueueStatus.retriggered) {
+        throw new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
+          message: `Queue item ${uuid} is in cooldown and cannot be moved to top`,
+          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          details: { uuid, status: rawItem.status },
+        });
+      }
+
       const ordered = await this.readEffectiveOrder(tx);
       const item = findByUuid(ordered, uuid);
 
@@ -142,7 +162,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
   private async normalizePositionsToOrder(db: Prisma.TransactionClient, orderedIds: number[]): Promise<void> {
     const activeItems = await db.reviewQueue.findMany({
-      where: { status: { in: EFFECTIVE_ORDER_STATUSES } },
+      where: { status: { in: [...EFFECTIVE_ORDER_STATUSES] } },
       include: { queueOrder: true },
     });
 

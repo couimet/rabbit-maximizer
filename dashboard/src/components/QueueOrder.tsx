@@ -79,10 +79,11 @@ const QueueOrder = ({
   const toggleSelectAll = () => {
     /* c8 ignore next 2 — type guard: toggleSelectAll only rendered when items is non-null */
     if (!items) return;
-    if (selectedUuids.size === items.length) {
+    const pendingItems = items.filter((item) => item.status === QueueStatus.pending);
+    if (selectedUuids.size === pendingItems.length) {
       setSelectedUuids(new Set());
     } else {
-      setSelectedUuids(new Set(items.map((item) => item.uuid)));
+      setSelectedUuids(new Set(pendingItems.map((item) => item.uuid)));
     }
   };
 
@@ -160,8 +161,8 @@ const QueueOrder = ({
   if (!items) return <div className="loading">Loading queue order…</div>;
 
   const hasSelection = selectedUuids.size > 0;
-  const allSelected = items.length > 0 && selectedUuids.size === items.length;
   const pendingCount = items.filter((i) => i.status === QueueStatus.pending).length;
+  const allSelected = pendingCount > 0 && selectedUuids.size === pendingCount;
   const retriggeredCount = items.filter((i) => i.status === QueueStatus.retriggered).length;
   const headingCount = [pendingCount > 0 && `${pendingCount} pending`, retriggeredCount > 0 && `${retriggeredCount} retriggered`].filter(Boolean).join(', ');
 
@@ -230,7 +231,7 @@ const QueueOrder = ({
                       <button
                         className="btn-retrigger"
                         onClick={() => handleRetriggerNow(item.uuid)}
-                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null}
+                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null}
                         aria-label={'Retrigger now for ' + item.repo_full_name + ' #' + item.pr_number}
                         title="Retrigger now"
                       >

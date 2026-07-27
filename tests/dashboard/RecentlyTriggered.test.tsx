@@ -52,7 +52,7 @@ describe('RecentlyTriggered', () => {
       renderRecentlyTriggered();
 
       await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
-      expect(screen.getByText((content) => content.includes('by ' + item.author_login))).toBeInTheDocument();
+      expect(screen.getByText('by ' + item.author_login)).toBeInTheDocument();
     });
 
     it('shows empty message when no items exist', async () => {
