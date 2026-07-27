@@ -6,7 +6,9 @@ import type { EnrichedQueueItem, QueueItem } from '../types/index.js';
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-const EMPTY_ENRICHMENT = { prState: undefined, lastCoderabbitAcknowledgedAt: undefined };
+const UNKNOWN_AUTHOR_LOGIN = '<unknown>';
+
+const EMPTY_ENRICHMENT = { prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: UNKNOWN_AUTHOR_LOGIN };
 
 @injectable()
 export class QueueItemEnricher {
@@ -36,10 +38,11 @@ export class QueueItemEnricher {
       return items.map((item) => ({ ...item, ...EMPTY_ENRICHMENT }));
     }
 
-    const { pr_state: prStateMap, last_coderabbit_acknowledged_at: ackMap } = await this.pullRequests.getColumnMaps(validIds, [
-      'pr_state',
-      'last_coderabbit_acknowledged_at',
-    ]);
+    const {
+      pr_state: prStateMap,
+      last_coderabbit_acknowledged_at: ackMap,
+      author_login: authorLoginMap,
+    } = await this.pullRequests.getColumnMaps(validIds, ['pr_state', 'last_coderabbit_acknowledged_at', 'author_login']);
 
     return items.map((item) => {
       const pid = item.pull_request_id;
@@ -48,7 +51,8 @@ export class QueueItemEnricher {
       }
       const prState = prStateMap.get(pid) as PrState | undefined;
       const ackValue = ackMap.get(pid) ?? undefined;
-      return { ...item, prState, lastCoderabbitAcknowledgedAt: ackValue };
+      const authorLogin = authorLoginMap.get(pid) ?? UNKNOWN_AUTHOR_LOGIN;
+      return { ...item, prState, lastCoderabbitAcknowledgedAt: ackValue, authorLogin };
     });
   }
 }

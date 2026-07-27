@@ -45,24 +45,15 @@ describe('QueueOrder', () => {
 
       expect(screen.getByText('1')).toBeInTheDocument();
       expect(screen.getByText('2')).toBeInTheDocument();
-      expect(screen.getByText(item1.repo_full_name)).toBeInTheDocument();
-      expect(screen.getByText(item2.repo_full_name)).toBeInTheDocument();
-      expect(screen.getByText(`#${item1.pr_number}`)).toBeInTheDocument();
-      expect(screen.getByText(`#${item2.pr_number}`)).toBeInTheDocument();
-      expect(screen.getByText(item1.pr_title)).toBeInTheDocument();
-      expect(screen.getByText(item2.pr_title)).toBeInTheDocument();
-    });
-
-    it('renders repo links opening in new tabs', () => {
-      renderQueueOrder([item1, item2]);
-      const link = screen.getByText(item1.repo_full_name).closest('a');
-      expect(link).toHaveAttribute('href', `https://github.com/${item1.repo_full_name}`);
-      expect(link).toHaveAttribute('target', '_blank');
+      expect(screen.getByText(`${item1.pr_title} (#${item1.pr_number})`)).toBeInTheDocument();
+      expect(screen.getByText(`${item2.pr_title} (#${item2.pr_number})`)).toBeInTheDocument();
+      expect(screen.getByText(`by ${item1.author_login}`)).toBeInTheDocument();
+      expect(screen.getByText(`by ${item2.author_login}`)).toBeInTheDocument();
     });
 
     it('renders PR links opening in new tabs', () => {
       renderQueueOrder([item1, item2]);
-      const link = screen.getByText(`#${item1.pr_number}`).closest('a');
+      const link = screen.getByText(`${item1.pr_title} (#${item1.pr_number})`).closest('a');
       expect(link).toHaveAttribute('href', `https://github.com/${item1.repo_full_name}/pull/${item1.pr_number}`);
       expect(link).toHaveAttribute('target', '_blank');
     });

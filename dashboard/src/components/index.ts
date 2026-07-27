@@ -1,3 +1,4 @@
+export { STATE_CLASS, STATE_LABEL } from './activityStateMeta.js';
 export { default as ConfirmDialog } from './ConfirmDialog.js';
 export { default as DurationSelect } from './DurationSelect.js';
 export { default as EventHistory } from './EventHistory.js';

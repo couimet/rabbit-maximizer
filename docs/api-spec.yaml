@@ -393,6 +393,9 @@ components:
           type: integer
         pr_title:
           type: string
+        author_login:
+          type: string
+          description: GitHub login of the PR author
         pr_state:
           type: string
           nullable: true

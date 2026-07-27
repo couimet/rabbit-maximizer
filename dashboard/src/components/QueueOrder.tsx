@@ -1,14 +1,29 @@
 import type { QueueItemResponse } from '../../../src/types/index.js';
+import { safeDeriveActivityStatus } from '../activityState.js';
 import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
-import { prUrl, repoUrl } from '../githubUrl.js';
+import { prUrl } from '../githubUrl.js';
 
-import { ConfirmDialog } from './index.js';
+import { ConfirmDialog, STATE_CLASS, STATE_LABEL } from './index.js';
 
 import './QueueOrder.css';
 import { useEffect, useRef, useState } from 'react';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
 const TOAST_DISMISS_MS = 5000;
+
+const renderQueueOrderStatus = (item: QueueItemResponse) => {
+  const { state, linkUrl } = safeDeriveActivityStatus(item);
+  const label = STATE_LABEL[state];
+  const className = `status-pill ${STATE_CLASS[state]}`;
+  if (linkUrl) {
+    return (
+      <a href={linkUrl} className={className} target="_blank" rel="noopener noreferrer">
+        {label}
+      </a>
+    );
+  }
+  return <span className={className}>{label}</span>;
+};
 
 const QueueOrder = ({
   items,
@@ -199,17 +214,12 @@ const QueueOrder = ({
                     </td>
                     <td className="col-position">{index + 1}</td>
                     <td>
-                      <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
-                        {item.repo_full_name}
-                      </a>{' '}
                       <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
-                        #{item.pr_number}
-                      </a>
-                      <span className="pr-title">{item.pr_title}</span>
+                        {item.pr_title} (#{item.pr_number})
+                      </a>{' '}
+                      by {item.author_login}
                     </td>
-                    <td>
-                      <span className="status-pill pending">pending</span>
-                    </td>
+                    <td>{renderQueueOrderStatus(item)}</td>
                     <td className="col-actions">
                       <button
                         className="btn-retrigger"
