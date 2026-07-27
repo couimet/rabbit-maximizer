@@ -18,6 +18,7 @@ const TERMINAL_HTTP_STATUSES = [StatusCodes.NOT_FOUND, StatusCodes.GONE];
 export class Scheduler extends IntervalService {
   private readonly baseBackoff: number;
   private readonly maxBackoff: number;
+  private readonly maxRetriggerAttempts: number;
   private readonly retriggerSpacingMs: number;
 
   /* c8 ignore start — decorator emit branches */
@@ -44,6 +45,7 @@ export class Scheduler extends IntervalService {
     super(log, cfg.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND);
     this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE_SEC * MS_PER_SECOND;
     this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX_SEC * MS_PER_SECOND;
+    this.maxRetriggerAttempts = cfg.MAX_RETRIGGER_ATTEMPTS;
     this.retriggerSpacingMs = cfg.SCHEDULER_RETRIGGER_SPACING_SEC * MS_PER_SECOND;
   }
   /* c8 ignore stop */
@@ -57,7 +59,11 @@ export class Scheduler extends IntervalService {
   }
 
   protected async executeTick(): Promise<void> {
-    const probe = this.probeFactory.createSchedulerProbe({ baseBackoff: this.baseBackoff, maxBackoff: this.maxBackoff });
+    const probe = this.probeFactory.createSchedulerProbe({
+      baseBackoff: this.baseBackoff,
+      maxBackoff: this.maxBackoff,
+      maxRetriggerAttempts: this.maxRetriggerAttempts,
+    });
     let item: QueueItem | undefined;
     try {
       await this.pruner.prune();
@@ -98,9 +104,14 @@ export class Scheduler extends IntervalService {
             const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
             await this.queue.reschedule(item!.id, details.sourceComment, tx);
           } else {
-            // Genuine failure (stale-skip, replacement-deleted, or unknown): apply
-            // exponential backoff. The item may succeed on a later attempt.
-            await this.queue.backoff(item!.id, tx);
+            const columnMaps = await this.pullRequests.getColumnMaps([item!.pull_request_id], ['retrigger_count'], tx);
+            const retriggerCount = columnMaps.retrigger_count.get(item!.pull_request_id) ?? 0;
+            if (retriggerCount >= this.maxRetriggerAttempts) {
+              await this.queue.markFailed(item!.id, tx);
+              await probe.maxRetriggersExceeded(retriggerCount, tx);
+            } else {
+              await this.queue.backoff(item!.id, tx);
+            }
           }
           await probe.triggerFailed(err, tx);
         });
@@ -125,8 +136,15 @@ export class Scheduler extends IntervalService {
       const backoffMs = computeSchedulerBackoff(item!.attempts, this.baseBackoff, this.maxBackoff);
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.backoff(item!.id, tx);
-        await probe.backedOff(backoffMs, item!.attempts, err, tx);
+        const columnMaps = await this.pullRequests.getColumnMaps([item!.pull_request_id], ['retrigger_count'], tx);
+        const retriggerCount = columnMaps.retrigger_count.get(item!.pull_request_id) ?? 0;
+        if (retriggerCount >= this.maxRetriggerAttempts) {
+          await this.queue.markFailed(item!.id, tx);
+          await probe.maxRetriggersExceeded(retriggerCount, tx);
+        } else {
+          await this.queue.backoff(item!.id, tx);
+          await probe.backedOff(backoffMs, item!.attempts, err, tx);
+        }
       });
     } finally {
       try {

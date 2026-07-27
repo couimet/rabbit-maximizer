@@ -14,6 +14,6 @@ export const createMockPullRequestRepo = (overrides?: Partial<jest.Mocked<PullRe
     findPendingAcknowledgement: jest.fn<any>().mockResolvedValue(undefined),
     findStaleOpenPRs: jest.fn<any>().mockResolvedValue([]),
     recordAcknowledgement: jest.fn<any>().mockResolvedValue(undefined),
-    getColumnMaps: jest.fn<any>().mockResolvedValue({ pr_state: new Map(), last_coderabbit_acknowledged_at: new Map() }),
+    getColumnMaps: jest.fn<any>().mockResolvedValue({ pr_state: new Map(), last_coderabbit_acknowledged_at: new Map(), retrigger_count: new Map() }),
     ...overrides,
   }) as unknown as jest.Mocked<PullRequestRepository>;

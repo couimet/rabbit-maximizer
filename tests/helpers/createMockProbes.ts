@@ -62,6 +62,7 @@ export interface MockReviewDetectorProbe {
   noRetriggeredItemFound: jest.Mock<any>;
   noCompletedReviewFound: jest.Mock<any>;
   reviewed: jest.Mock<any>;
+  reviewedViaFallback: jest.Mock<any>;
   prClosedResolved: jest.Mock<any>;
   caughtError: jest.Mock<any>;
 }
@@ -70,6 +71,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   noRetriggeredItemFound: jest.fn<any>(),
   noCompletedReviewFound: jest.fn<any>(),
   reviewed: jest.fn<any>(),
+  reviewedViaFallback: jest.fn<any>(),
   prClosedResolved: jest.fn<any>(),
   caughtError: jest.fn<any>(),
 });
@@ -96,6 +98,7 @@ export interface MockSchedulerProbe {
   withItem: jest.Mock<any>;
   retriggered: jest.Mock<any>;
   prClosedOrMerged: jest.Mock<any>;
+  maxRetriggersExceeded: jest.Mock<any>;
   backedOff: jest.Mock<any>;
   triggerFailed: jest.Mock<any>;
 }
@@ -110,6 +113,7 @@ export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
   withItem: jest.fn<any>(),
   retriggered: jest.fn<any>(),
   prClosedOrMerged: jest.fn<any>(),
+  maxRetriggersExceeded: jest.fn<any>(),
   backedOff: jest.fn<any>(),
   triggerFailed: jest.fn<any>(),
 });

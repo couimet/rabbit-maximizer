@@ -7,11 +7,13 @@ export const ConfigSchema = z
     DETECTION_MODE: z.enum(['poll', 'webhook']).default('poll'),
     GITHUB_API_TIMEOUT_SEC: z.coerce.number().int().positive('GITHUB_API_TIMEOUT_SEC must be a positive integer').default(10),
     GITHUB_PAT: z.string({ error: 'GITHUB_PAT is required' }).min(1, 'GITHUB_PAT is required'),
+    MAX_RETRIGGER_ATTEMPTS: z.coerce.number().int().positive('MAX_RETRIGGER_ATTEMPTS must be a positive integer').default(10),
     PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: z.coerce.number().int().positive('PAUSE_NOTIFICATION_INITIAL_DELAY_SEC must be a positive integer').default(1800),
     PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: z.coerce.number().int().positive('PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC must be a positive integer').default(900),
     POLL_INTERVAL_SEC: z.coerce.number().int().positive('POLL_INTERVAL_SEC must be a positive integer').default(90),
     PR_SCANNER_INTERVAL_SEC: z.coerce.number().int().positive('PR_SCANNER_INTERVAL_SEC must be a positive integer').default(300),
     REVIEW_LIMIT_BUFFER_SEC: z.coerce.number().int().positive('REVIEW_LIMIT_BUFFER_SEC must be a positive integer').default(60),
+    REVIEW_DETECTION_LOOKBACK_SEC: z.coerce.number().int().positive('REVIEW_DETECTION_LOOKBACK_SEC must be a positive integer').default(7200),
     REVIEW_LIMIT_FALLBACK_WAIT_SEC: z.coerce.number().int().positive('REVIEW_LIMIT_FALLBACK_WAIT_SEC must be a positive integer').default(3600),
     REPO_FILTER: z
       .array(
@@ -60,6 +62,14 @@ export const ConfigSchema = z
         code: 'custom',
         message: 'SCHEDULER_RETRIGGER_SPACING_SEC must be < SCHEDULER_POST_COOLDOWN_SEC',
         path: ['SCHEDULER_RETRIGGER_SPACING_SEC'],
+      });
+    }
+
+    if (cfg.REVIEW_DETECTION_LOOKBACK_SEC > cfg.SCHEDULER_POST_COOLDOWN_SEC * 2) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'REVIEW_DETECTION_LOOKBACK_SEC must be <= SCHEDULER_POST_COOLDOWN_SEC * 2',
+        path: ['REVIEW_DETECTION_LOOKBACK_SEC'],
       });
     }
 
