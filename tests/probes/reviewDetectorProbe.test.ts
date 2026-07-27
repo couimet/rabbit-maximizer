@@ -43,6 +43,33 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
+  describe('reviewedViaFallback', () => {
+    it('records coderabbit_review_approved event with fallback payload and logs info', async () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const tx = createMockTx();
+      const probe = createProbe();
+      probe.withItem(item);
+      await probe.reviewedViaFallback(tx);
+      expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'coderabbit_review_approved',
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          correlation_id: observation.correlationId,
+          request_id: observation.requestId,
+          version: observation.version,
+          payload: { detected_via: 'last_coderabbit_review_at_fallback' },
+        },
+        tx,
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.reviewedViaFallback', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
+        'Review detected via last_coderabbit_review_at fallback',
+      );
+    });
+  });
+
   describe('reviewed', () => {
     it('records coderabbit_review_approved event with coderabbit_comment_url and logs info', async () => {
       const ref = generateReviewRef();
