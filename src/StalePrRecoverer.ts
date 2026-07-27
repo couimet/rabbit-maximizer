@@ -1,6 +1,6 @@
 import type { PullRequestRepository } from './db/index.js';
-import { buildPrUrl, CodeRabbitCommentType } from './github/index.js';
-import type { OnDetectedCallback, StaleOpenPR } from './types/index.js';
+import { buildPrUrl } from './github/index.js';
+import { CodeRabbitCommentType, type OnDetectedCallback, type StaleOpenPR } from './types/index.js';
 import { TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';

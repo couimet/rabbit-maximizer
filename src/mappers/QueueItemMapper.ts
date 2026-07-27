@@ -29,6 +29,8 @@ export class QueueItemMapper {
       resolution: nullableString(input.resolution),
       pr_state: nullableString(input.prState) as QueueItemResponse['pr_state'],
       last_coderabbit_acknowledged_at: nullableDateToISOString(input.lastCoderabbitAcknowledgedAt),
+      coderabbit_review_state: nullableString(input.coderabbitReview?.state) as QueueItemResponse['coderabbit_review_state'],
+      coderabbit_review_url: nullableString(input.coderabbitReview?.htmlUrl),
       created_at: input.created_at.toISOString(),
       updated_at: input.updated_at.toISOString(),
     };
