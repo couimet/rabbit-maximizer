@@ -12,8 +12,8 @@ export const ConfigSchema = z
     PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: z.coerce.number().int().positive('PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC must be a positive integer').default(900),
     POLL_INTERVAL_SEC: z.coerce.number().int().positive('POLL_INTERVAL_SEC must be a positive integer').default(90),
     PR_SCANNER_INTERVAL_SEC: z.coerce.number().int().positive('PR_SCANNER_INTERVAL_SEC must be a positive integer').default(300),
-    REVIEW_LIMIT_BUFFER_SEC: z.coerce.number().int().positive('REVIEW_LIMIT_BUFFER_SEC must be a positive integer').default(60),
     REVIEW_DETECTION_LOOKBACK_SEC: z.coerce.number().int().positive('REVIEW_DETECTION_LOOKBACK_SEC must be a positive integer').default(7200),
+    REVIEW_LIMIT_BUFFER_SEC: z.coerce.number().int().positive('REVIEW_LIMIT_BUFFER_SEC must be a positive integer').default(60),
     REVIEW_LIMIT_FALLBACK_WAIT_SEC: z.coerce.number().int().positive('REVIEW_LIMIT_FALLBACK_WAIT_SEC must be a positive integer').default(3600),
     REPO_FILTER: z
       .array(

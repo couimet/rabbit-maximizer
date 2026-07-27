@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 const DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC = 1800;
 const DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC = 900;
+const DEFAULT_MAX_RETRIGGER_ATTEMPTS = 10;
+const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
 
 describe('ConfigSchema', () => {
   let githubPat: string;
@@ -22,10 +24,10 @@ describe('ConfigSchema', () => {
       GITHUB_PAT: githubPat,
       PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
-      MAX_RETRIGGER_ATTEMPTS: 10,
+      MAX_RETRIGGER_ATTEMPTS: DEFAULT_MAX_RETRIGGER_ATTEMPTS,
       POLL_INTERVAL_SEC: 90,
       PR_SCANNER_INTERVAL_SEC: 300,
-      REVIEW_DETECTION_LOOKBACK_SEC: 7200,
+      REVIEW_DETECTION_LOOKBACK_SEC: DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC,
       REVIEW_LIMIT_BUFFER_SEC: 60,
       REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
@@ -134,7 +136,7 @@ describe('ConfigSchema', () => {
     const result = ConfigSchema.safeParse(rest);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.REVIEW_DETECTION_LOOKBACK_SEC).toBe(7200);
+      expect(result.data.REVIEW_DETECTION_LOOKBACK_SEC).toBe(DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC);
     }
   });
 
@@ -143,7 +145,7 @@ describe('ConfigSchema', () => {
     const result = ConfigSchema.safeParse(rest);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.MAX_RETRIGGER_ATTEMPTS).toBe(10);
+      expect(result.data.MAX_RETRIGGER_ATTEMPTS).toBe(DEFAULT_MAX_RETRIGGER_ATTEMPTS);
     }
   });
 

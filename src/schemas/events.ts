@@ -43,6 +43,8 @@ export const CoderabbitReviewSkippedPayloadSchema = z.object({
 
 export const FailedPayloadSchema = z.object({
   reason: z.string().max(REASON_MAX_LENGTH),
+  retrigger_count: z.number().int().positive().optional(),
+  max: z.number().int().positive().optional(),
 });
 
 export const EventMetadataSchema = z.object({

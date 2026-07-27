@@ -103,6 +103,7 @@ export class Scheduler extends IntervalService {
             // new comment's notBefore with updated source_comment data. Not a failure.
             const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
             await this.queue.reschedule(item!.id, details.sourceComment, tx);
+            await probe.triggerFailed(err, tx);
           } else {
             const columnMaps = await this.pullRequests.getColumnMaps([item!.pull_request_id], ['retrigger_count'], tx);
             const retriggerCount = columnMaps.retrigger_count.get(item!.pull_request_id) ?? 0;
@@ -111,9 +112,9 @@ export class Scheduler extends IntervalService {
               await probe.maxRetriggersExceeded(retriggerCount, tx);
             } else {
               await this.queue.backoff(item!.id, tx);
+              await probe.triggerFailed(err, tx);
             }
           }
-          await probe.triggerFailed(err, tx);
         });
         return;
       }
