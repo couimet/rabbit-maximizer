@@ -44,14 +44,19 @@ export class PrScannerImpl implements PrScanner {
 
     probe.scanStarted();
 
-    const lastScanCompletedAt = await this.systemState.getState(StateKey.lastScanCompletedAt);
-    if (lastScanCompletedAt) {
-      const elapsedMs = now.getTime() - lastScanCompletedAt.getTime();
-      const intervalMs = this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND;
-      if (elapsedMs < intervalMs) {
-        probe.skipped(elapsedMs, intervalMs);
-        return scanResult;
+    try {
+      const lastScanCompletedAt = await this.systemState.getState(StateKey.lastScanCompletedAt);
+      if (lastScanCompletedAt) {
+        const elapsedMs = now.getTime() - lastScanCompletedAt.getTime();
+        const intervalMs = this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND;
+        if (elapsedMs < intervalMs) {
+          probe.skipped(elapsedMs, intervalMs);
+          return scanResult;
+        }
       }
+    } catch (err: unknown) {
+      probe.failed(err);
+      return scanResult;
     }
 
     try {

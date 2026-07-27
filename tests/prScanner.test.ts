@@ -21,6 +21,7 @@ import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const INTERVAL_SEC = 300;
+const MS_PER_SECOND = 1000;
 
 describe('PrScannerImpl', () => {
   let github: jest.Mocked<CoderabbitGitHubClient>;
@@ -103,7 +104,7 @@ describe('PrScannerImpl', () => {
   });
 
   it('respects interval gate: skips via probe when last scan is within interval', async () => {
-    const intervalMs = INTERVAL_SEC * 1000;
+    const intervalMs = INTERVAL_SEC * MS_PER_SECOND;
     systemState.getState.mockResolvedValue(new Date());
 
     const scanner = createScanner();
@@ -214,6 +215,17 @@ describe('PrScannerImpl', () => {
     expect(systemState.setState).toHaveBeenCalledWith('last_scan_started_at', expect.any(Date));
     expect(systemState.setState).not.toHaveBeenCalledWith('last_scan_completed_at', expect.any(Date));
     expect(prScannerProbe.failed).toHaveBeenCalledWith(scanError);
+  });
+
+  it('handles getState rejection and calls probe.failed', async () => {
+    const stateError = new Error('DB read failed');
+    systemState.getState.mockRejectedValue(stateError);
+
+    const scanner = createScanner();
+    const result = await scanner.scan();
+
+    expect(prScannerProbe.failed).toHaveBeenCalledWith(stateError);
+    expect(result).toStrictEqual({ opened: 0, updated: 0, scannedPRs: [] });
   });
 
   it('handles empty results: no PRs to upsert and no closures to detect', async () => {
