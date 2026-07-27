@@ -1,7 +1,7 @@
 import type { PullRequestRepository, QueueRepository } from './db/index.js';
 import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
-import { MS_PER_SECOND, reviewStateToEventType } from './utils/index.js';
+import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
 import { EventType, IntervalService, PrState, TYPES } from './domain.js';
 
@@ -57,25 +57,18 @@ export class ReviewDetector extends IntervalService {
 
         const { owner, repo } = splitRepo(item.repo_full_name);
 
-        // Try Reviews API first for structured state, fall back to body-matched completed review
-        const review = await this.github.findLatestCoderabbitReview(owner, repo, item.pr_number, item.retriggered_at);
-        const completedReview = review === undefined ? await this.github.findCompletedReview(owner, repo, item.pr_number, item.retriggered_at) : undefined;
+        const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, item.retriggered_at);
 
-        if (!review && !completedReview) {
+        if (!completedReview) {
           probe.noCompletedReviewFound();
           continue;
         }
 
-        const eventType = review
-          ? reviewStateToEventType(review.state)
-          : completedReview!.isApproval
-            ? EventType.coderabbit_review_approved
-            : EventType.coderabbit_review_changes_suggested;
-        const commentUrl = review ? review.htmlUrl : completedReview!.htmlUrl;
+        const eventType = completedReview.isApproval ? EventType.coderabbit_review_approved : EventType.coderabbit_review_changes_suggested;
 
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markReviewed(item.id, tx);
-          await probe.reviewed(eventType, commentUrl, tx);
+          await probe.reviewed(eventType, completedReview.htmlUrl, tx);
         });
       } catch (err: unknown) {
         probe.caughtError(err);
