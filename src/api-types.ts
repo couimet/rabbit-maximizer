@@ -703,7 +703,7 @@ export interface operations {
         since: string;
         page?: number;
         pageSize?: number;
-        include_reviewed?: boolean;
+        include_resolved?: boolean;
       };
       header?: never;
       path?: never;
