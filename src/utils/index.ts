@@ -12,7 +12,6 @@ export { nullableString } from './nullableString.js';
 export { QueueItemEnricher } from './QueueItemEnricher.js';
 export type { Duration } from './resolveDurationSince.js';
 export { DEFAULT_DURATION, DURATION_OPTIONS, resolveDurationSince } from './resolveDurationSince.js';
-export { reviewStateToEventType } from './reviewStateToEventType.js';
 export { sqlDateToDate } from './sqlDateToDate.js';
 export { truncateBodyPreview } from './truncateBodyPreview.js';
 export { findByUuid, isValidUuid, resolveUuidsToIds } from './uuidLookup.js';

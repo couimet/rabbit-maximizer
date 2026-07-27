@@ -24,6 +24,7 @@ import { Container } from 'inversify';
 
 const BASE_BACKOFF_MS = 60_000;
 const MAX_BACKOFF_MS = 3_600_000;
+const MAX_RETRIGGER_ATTEMPTS = 10;
 
 describe('ProbeFactory', () => {
   let observationProvider: ReturnType<typeof createMockObservationContextProvider>;
@@ -67,7 +68,7 @@ describe('ProbeFactory', () => {
   it('creates a SchedulerProbe', () => {
     const { eventRepository, logger } = makeMocks();
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
-    const probe = factory.createSchedulerProbe({ baseBackoff: BASE_BACKOFF_MS, maxBackoff: MAX_BACKOFF_MS });
+    const probe = factory.createSchedulerProbe({ baseBackoff: BASE_BACKOFF_MS, maxBackoff: MAX_BACKOFF_MS, maxRetriggerAttempts: MAX_RETRIGGER_ATTEMPTS });
     expect(probe).toBeInstanceOf(SchedulerProbe);
   });
 

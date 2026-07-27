@@ -7,19 +7,16 @@ import {
   buildOpenPRSearchQuery,
   buildSearchQuery,
   classifyCoderabbitComment,
-  type CoderabbitReview,
   extractRepoFullName,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,
   isAcknowledgementComment,
   isApprovalReviewSignal,
-  isMatchingCoderabbitReview,
   isMatchingCompletedReview,
   normalizeCommentBody,
   splitRepo,
   SubmittedComment,
   SubmittedReview,
-  toReviewState,
 } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -47,8 +44,6 @@ export interface CoderabbitGitHubClient {
   getPRState(repo: string, pr: number): Promise<PRState>;
 
   findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined>;
-
-  findLatestCoderabbitReview(owner: string, repo: string, pr: number, since: Date): Promise<CoderabbitReview | undefined>;
 
   findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
 
@@ -241,32 +236,6 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
           'Found completed review',
         );
         return { htmlUrl: completedReview.html_url, reviewId: completedReview.id, isApproval: isApprovalReviewSignal(completedReview.body!) };
-      }
-
-      if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
-    }
-
-    return undefined;
-  }
-
-  async findLatestCoderabbitReview(owner: string, repo: string, pr: number, since: Date): Promise<CoderabbitReview | undefined> {
-    this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr }, 'Searching for latest CodeRabbit review');
-
-    for (let page = 1; ; page++) {
-      const response = await this.octokit.rest.pulls.listReviews({
-        owner,
-        repo,
-        pull_number: pr,
-        per_page: COMMENTS_FETCH_PER_PAGE,
-        page,
-      });
-
-      const review = response.data.find((r) => isMatchingCoderabbitReview(SubmittedReview.from(r), since));
-
-      if (review) {
-        const state = toReviewState(review.state);
-        this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr, reviewId: review.id, state }, 'Found CodeRabbit review');
-        return { htmlUrl: review.html_url, state };
       }
 
       if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;

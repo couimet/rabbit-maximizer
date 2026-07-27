@@ -1,7 +1,7 @@
 import type { PullRequestRepository, QueueRepository } from './db/index.js';
 import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
-import { MS_PER_SECOND, reviewStateToEventType } from './utils/index.js';
+import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
 import { EventType, IntervalService, PrState, TYPES } from './domain.js';
 
@@ -11,6 +11,8 @@ import { inject, injectable } from 'inversify';
 
 @injectable()
 export class ReviewDetector extends IntervalService {
+  private readonly lookbackMs: number;
+
   /* c8 ignore start */
   constructor(
     @inject(TYPES.QueueRepository) private readonly queue: QueueRepository,
@@ -22,6 +24,7 @@ export class ReviewDetector extends IntervalService {
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(log, cfg.POLL_INTERVAL_SEC * MS_PER_SECOND);
+    this.lookbackMs = cfg.REVIEW_DETECTION_LOOKBACK_SEC * MS_PER_SECOND;
   }
   /* c8 ignore stop */
 
@@ -40,7 +43,10 @@ export class ReviewDetector extends IntervalService {
       return;
     }
     const prIds = retriggeredItems.map((item) => item.pull_request_id);
-    const { pr_state: prStateMap } = await this.pullRequests.getColumnMaps(prIds, ['pr_state']);
+    const { pr_state: prStateMap, last_coderabbit_review_at: lastCoderabbitReviewAtMap } = await this.pullRequests.getColumnMaps(prIds, [
+      'pr_state',
+      'last_coderabbit_review_at',
+    ]);
     for (const item of retriggeredItems) {
       probe.withItem(item);
       try {
@@ -56,26 +62,28 @@ export class ReviewDetector extends IntervalService {
         }
 
         const { owner, repo } = splitRepo(item.repo_full_name);
+        const lookbackSince = new Date(item.retriggered_at.getTime() - this.lookbackMs);
 
-        // Try Reviews API first for structured state, fall back to body-matched completed review
-        const review = await this.github.findLatestCoderabbitReview(owner, repo, item.pr_number, item.retriggered_at);
-        const completedReview = review === undefined ? await this.github.findCompletedReview(owner, repo, item.pr_number, item.retriggered_at) : undefined;
+        const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, lookbackSince);
 
-        if (!review && !completedReview) {
+        if (!completedReview) {
+          const lastCoderabbitReviewAt = lastCoderabbitReviewAtMap.get(item.pull_request_id);
+          if (lastCoderabbitReviewAt != null && lastCoderabbitReviewAt >= lookbackSince) {
+            await this.prisma.$transaction(async (tx) => {
+              await this.queue.markReviewed(item.id, tx);
+              await probe.reviewedViaFallback(tx);
+            });
+            continue;
+          }
           probe.noCompletedReviewFound();
           continue;
         }
 
-        const eventType = review
-          ? reviewStateToEventType(review.state)
-          : completedReview!.isApproval
-            ? EventType.coderabbit_review_approved
-            : EventType.coderabbit_review_changes_suggested;
-        const commentUrl = review ? review.htmlUrl : completedReview!.htmlUrl;
+        const eventType = completedReview.isApproval ? EventType.coderabbit_review_approved : EventType.coderabbit_review_changes_suggested;
 
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markReviewed(item.id, tx);
-          await probe.reviewed(eventType, commentUrl, tx);
+          await probe.reviewed(eventType, completedReview.htmlUrl, tx);
         });
       } catch (err: unknown) {
         probe.caughtError(err);
