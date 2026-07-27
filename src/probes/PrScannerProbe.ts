@@ -8,8 +8,8 @@ export class PrScannerProbe {
     private readonly log: Logger,
   ) {}
 
-  skipped(elapsedMs: number): void {
-    this.log.debug({ fn: 'PrScannerProbe.skipped', elapsedMs }, 'Skipping scan; within interval');
+  skipped(elapsedMs: number, intervalMs: number): void {
+    this.log.debug({ fn: 'PrScannerProbe.skipped', elapsedMs, intervalMs }, 'Skipping scan; within interval');
   }
 
   scanStarted(): void {
@@ -32,8 +32,12 @@ export class PrScannerProbe {
     this.log.error({ fn: 'PrScannerProbe.failed', error: err }, 'PR scan failed');
   }
 
-  failedToPersistLastScanAt(err: unknown): void {
-    this.log.warn({ fn: 'PrScannerProbe.failedToPersistLastScanAt', error: err }, 'Failed to persist lastScanAt; continuing');
+  failedToPersistScanStartedAt(err: unknown): void {
+    this.log.warn({ fn: 'PrScannerProbe.failedToPersistScanStartedAt', error: err }, 'Failed to persist lastScanStartedAt; continuing');
+  }
+
+  failedToPersistScanCompletedAt(err: unknown): void {
+    this.log.warn({ fn: 'PrScannerProbe.failedToPersistScanCompletedAt', error: err }, 'Failed to persist lastScanCompletedAt; continuing');
   }
 
   completed(opened: number, updated: number, closed: number): void {

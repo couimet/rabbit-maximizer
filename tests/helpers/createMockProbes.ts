@@ -7,7 +7,8 @@ export interface MockPrScannerProbe {
   detectedClosures: jest.Mock<any>;
   caughtError: jest.Mock<any>;
   failed: jest.Mock<any>;
-  failedToPersistLastScanAt: jest.Mock<any>;
+  failedToPersistScanStartedAt: jest.Mock<any>;
+  failedToPersistScanCompletedAt: jest.Mock<any>;
   completed: jest.Mock<any>;
 }
 export const createMockPrScannerProbe = (): MockPrScannerProbe => ({
@@ -17,7 +18,8 @@ export const createMockPrScannerProbe = (): MockPrScannerProbe => ({
   detectedClosures: jest.fn<any>(),
   caughtError: jest.fn<any>(),
   failed: jest.fn<any>(),
-  failedToPersistLastScanAt: jest.fn<any>(),
+  failedToPersistScanStartedAt: jest.fn<any>(),
+  failedToPersistScanCompletedAt: jest.fn<any>(),
   completed: jest.fn<any>(),
 });
 
