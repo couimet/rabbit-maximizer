@@ -1,4 +1,4 @@
-import type { CodeRabbitCommentType } from './CodeRabbitCommentType.js';
+import type { CodeRabbitCommentType } from '../domain.js';
 
 import type { CoderabbitComment } from '@prisma/client';
 

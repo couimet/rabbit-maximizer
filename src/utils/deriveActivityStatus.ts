@@ -1,5 +1,6 @@
+import { ActivityState, CodeRabbitCommentType } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
-import { ActivityState, type ActivityStatus, CodeRabbitCommentType, type QueueItemResponse } from '../types/index.js';
+import type { ActivityStatus, QueueItemResponse } from '../types/index.js';
 
 export const deriveActivityStatus = (item: QueueItemResponse): ActivityStatus => {
   switch (item.status) {

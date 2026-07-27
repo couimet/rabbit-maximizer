@@ -1,4 +1,4 @@
-import { CodeRabbitCommentType } from '../../src/types/index.js';
+import { CodeRabbitCommentType } from '../../src/domain.js';
 
 import { describe, expect, it } from '@jest/globals';
 

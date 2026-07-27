@@ -1,7 +1,6 @@
-import { PrState, QueueStatus, TriggerSource } from '../../src/domain.js';
+import { CodeRabbitCommentType, PrState, QueueStatus, TriggerSource } from '../../src/domain.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 import { QueueItemMapper } from '../../src/mappers/index.js';
-import { CodeRabbitCommentType } from '../../src/types/index.js';
 import { createMockQueueItemEnricher, generateEnrichedQueueItemData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';

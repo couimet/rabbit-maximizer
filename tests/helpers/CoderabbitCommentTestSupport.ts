@@ -1,5 +1,5 @@
 import type { UpsertCommentData } from '../../src/db/index.js';
-import { CodeRabbitCommentType } from '../../src/types/index.js';
+import { CodeRabbitCommentType } from '../../src/domain.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
 

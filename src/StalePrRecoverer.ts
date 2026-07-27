@@ -1,7 +1,7 @@
 import type { PullRequestRepository } from './db/index.js';
 import { buildPrUrl } from './github/index.js';
-import { CodeRabbitCommentType, type OnDetectedCallback, type StaleOpenPR } from './types/index.js';
-import { TYPES } from './domain.js';
+import { type OnDetectedCallback, type StaleOpenPR } from './types/index.js';
+import { CodeRabbitCommentType, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';

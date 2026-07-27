@@ -1,6 +1,6 @@
 import { CoderabbitCommentRepositoryImpl } from '../../src/db/index.js';
+import { CodeRabbitCommentType } from '../../src/domain.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
-import { CodeRabbitCommentType } from '../../src/types/index.js';
 import { createMockPrismaClient, generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from '../helpers/index.js';
 
 import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';

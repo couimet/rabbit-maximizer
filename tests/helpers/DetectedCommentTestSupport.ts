@@ -1,4 +1,5 @@
-import { CodeRabbitCommentType, type DetectedComment } from '../../src/types/index.js';
+import { CodeRabbitCommentType } from '../../src/domain.js';
+import type { DetectedComment } from '../../src/types/index.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
 

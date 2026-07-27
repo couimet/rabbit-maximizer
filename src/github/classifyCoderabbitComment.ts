@@ -1,4 +1,4 @@
-import { CodeRabbitCommentType } from '../types/index.js';
+import { CodeRabbitCommentType } from '../domain.js';
 
 import { hasRateLimitMarker, isApprovalReviewSignal, isCompletedReview, REVIEW_BOT_SKIP_MARKER } from './index.js';
 
