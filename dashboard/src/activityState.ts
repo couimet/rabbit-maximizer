@@ -1,4 +1,5 @@
-import { ActivityState, type ActivityStatus, type QueueItemResponse } from '../../src/types/index.js';
+import { ActivityState } from '../../src/domain.js';
+import { type ActivityStatus, type QueueItemResponse } from '../../src/types/index.js';
 import { deriveActivityStatus } from '../../src/utils/index.js';
 
 const FALLBACK: ActivityStatus = { state: ActivityState.pending, linkUrl: undefined };

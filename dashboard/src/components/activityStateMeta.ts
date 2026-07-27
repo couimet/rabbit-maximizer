@@ -1,4 +1,4 @@
-import { ActivityState } from '../../../src/types/index.js';
+import { ActivityState } from '../../../src/domain.js';
 
 export const STATE_LABEL: Record<ActivityState, string> = {
   [ActivityState.reviewCompleted]: 'Reviewed',
