@@ -67,11 +67,13 @@ const setup = (): MockSchedulerDeps => {
     DETECTION_MODE: 'poll',
     GITHUB_API_TIMEOUT_SEC: 10,
     GITHUB_PAT: 'test-pat',
+    MAX_RETRIGGER_ATTEMPTS: 10,
     PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 1800,
     PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 900,
     POLL_INTERVAL_SEC: 90,
     PR_SCANNER_INTERVAL_SEC: 300,
     REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
+    REVIEW_DETECTION_LOOKBACK_SEC: 7200,
     DATABASE_URL: 'file:./data/test.db',
     WEB_PORT: 3000,
     SCHEDULER_POST_COOLDOWN_SEC: 3600,
@@ -410,6 +412,88 @@ describe('Scheduler', () => {
       await stop();
 
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
+    });
+
+    it('marks failed when retrigger_count >= MAX_RETRIGGER_ATTEMPTS on trigger failure', async () => {
+      const prId = getUniqueInt();
+      const item = generateQueueItemHydrationData({ pull_request_id: prId });
+      const maxRetrigger = 10;
+      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+        message: 'gone',
+        functionName: 'test',
+      });
+      const triggerResult = RabbitResult.err(staleErr);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
+
+      const retriggerMap = new Map([[prId, maxRetrigger]]);
+      deps.pullRequests.getColumnMaps.mockResolvedValue({ retrigger_count: retriggerMap } as any);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([prId], ['retrigger_count'], deps.tx);
+      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(maxRetrigger, deps.tx);
+      expect(deps.mockProbe.triggerFailed).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('marks failed when retrigger_count >= MAX_RETRIGGER_ATTEMPTS on unexpected exception', async () => {
+      const prId = getUniqueInt();
+      const item = generateQueueItemHydrationData({ pull_request_id: prId });
+      const maxRetrigger = 10;
+      const networkError = new Error('Network timeout');
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockRejectedValue(networkError);
+
+      const retriggerMap = new Map([[prId, maxRetrigger]]);
+      deps.pullRequests.getColumnMaps.mockResolvedValue({ retrigger_count: retriggerMap } as any);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(maxRetrigger, deps.tx);
+      expect(deps.mockProbe.backedOff).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('backs off normally when retrigger_count is under the ceiling', async () => {
+      const prId = getUniqueInt();
+      const item = generateQueueItemHydrationData({ pull_request_id: prId });
+      const underMax = 2;
+      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+        code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+        message: 'gone',
+        functionName: 'test',
+      });
+      const triggerResult = RabbitResult.err(staleErr);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
+
+      const retriggerMap = new Map([[prId, underMax]]);
+      deps.pullRequests.getColumnMaps.mockResolvedValue({ retrigger_count: retriggerMap } as any);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.markFailed).not.toHaveBeenCalled();
+      expect(deps.mockProbe.maxRetriggersExceeded).not.toHaveBeenCalled();
+
+      await stop();
     });
   });
 });

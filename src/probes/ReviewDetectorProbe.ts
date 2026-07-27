@@ -30,6 +30,32 @@ export class ReviewDetectorProbe {
     );
   }
 
+  async reviewedViaFallback(tx: Prisma.TransactionClient): Promise<void> {
+    await this.events.record(
+      {
+        type: EventType.coderabbit_review_approved,
+        repo_full_name: this.item!.repo_full_name,
+        pr_number: this.item!.pr_number,
+        correlation_id: this.observation.correlationId,
+        request_id: this.observation.requestId,
+        version: this.observation.version,
+        payload: {
+          detected_via: 'last_coderabbit_review_at_fallback',
+        },
+      },
+      tx,
+    );
+    this.log.info(
+      {
+        fn: 'ReviewDetectorProbe.reviewedViaFallback',
+        repo: this.item!.repo_full_name,
+        pr: this.item!.pr_number,
+        queueId: this.item!.id,
+      },
+      'Review detected via last_coderabbit_review_at fallback',
+    );
+  }
+
   async reviewed(
     eventType: EventType.coderabbit_review_approved | EventType.coderabbit_review_changes_suggested,
     commentUrl: string,

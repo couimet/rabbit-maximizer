@@ -53,7 +53,7 @@ export class ProbeFactory {
   }
 
   createSchedulerProbe(params: CreateSchedulerProbeParams): SchedulerProbe {
-    return new SchedulerProbe(params.baseBackoff, params.maxBackoff, this.eventRepository, this.observation.current(), this.log);
+    return new SchedulerProbe(params.baseBackoff, params.maxBackoff, params.maxRetriggerAttempts, this.eventRepository, this.observation.current(), this.log);
   }
 
   createReviewRetriggerProbe(item: QueueItem): ReviewRetriggerProbe {
