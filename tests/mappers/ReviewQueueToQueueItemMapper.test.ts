@@ -4,7 +4,7 @@ import type { QueueItem } from '../../src/types/index.js';
 import { sqlDateToDate } from '../../src/utils/index.js';
 import { generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 
 describe('ReviewQueueToQueueItemMapper', () => {
@@ -60,21 +60,24 @@ describe('ReviewQueueToQueueItemMapper', () => {
     });
 
     it('preserves non-null timestamps as Date objects', () => {
-      const retriggeredAt = new Date('2026-07-20T10:00:00Z');
+      const retriggeredAt = getUniqueDate();
+      const failedAt = getUniqueDate();
+      const reviewedAt = getUniqueDate();
+      const resolvedAt = getUniqueDate();
       const row = generateReviewQueueHydrationData({
         retriggered_at: retriggeredAt,
-        failed_at: null as unknown as Date,
-        reviewed_at: null as unknown as Date,
-        resolved_at: null as unknown as Date,
+        failed_at: failedAt,
+        reviewed_at: reviewedAt,
+        resolved_at: resolvedAt,
         resolution: 'review_completed' as unknown as string,
       });
 
       const result = mapper.fromReviewQueue(row);
 
       expect(result.retriggered_at).toBe(retriggeredAt);
-      expect(result.failed_at).toBeUndefined();
-      expect(result.reviewed_at).toBeUndefined();
-      expect(result.resolved_at).toBeUndefined();
+      expect(result.failed_at).toBe(failedAt);
+      expect(result.reviewed_at).toBe(reviewedAt);
+      expect(result.resolved_at).toBe(resolvedAt);
       expect(result.resolution).toBe('review_completed');
     });
 

@@ -205,7 +205,7 @@ describe('RecentlyTriggered', () => {
         const calls = (globalThis.fetch as jest.Mock).mock.calls as unknown[][];
         const triggeredCall = calls.find((call) => String(call[0]).includes('/queue/triggered'));
         expect(triggeredCall).toBeDefined();
-        expect(new URL('http://localhost' + String(triggeredCall![0])).searchParams.get('include_reviewed')).toBe('true');
+        expect(new URL('http://localhost' + String(triggeredCall![0])).searchParams.get('include_resolved')).toBe('true');
       });
     });
   });

@@ -71,7 +71,7 @@ describe('getTriggered', () => {
   it('passes include_resolved=true to the repository', async () => {
     const getTriggered = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
     startServer({ getTriggered });
-    await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}&include_reviewed=true`);
+    await getJson(port, `/api/queue/triggered?since=${encodeURIComponent(since)}&include_resolved=true`);
     expect(getTriggered).toHaveBeenCalledWith(expect.any(Date), 0, 50, true);
   });
 

@@ -6,7 +6,7 @@ State diagram of the `QueueStatus` values from `src/QueueStatus.ts`. Each queue 
 stateDiagram-v2
     [*] --> pending: new review-limit comment detected
     pending --> retriggered: scheduler posts retrigger
-    pending --> resolved: PR closed/merged (404/410)
+    pending --> resolved: PR unavailable, resolved with 'failed' (404/410)
     retriggered --> resolved: review completed, or PR merged/closed
     retriggered --> [*]: old item recycled, new pending item\ncreated when new commit triggers\nfresh CodeRabbit review
     resolved --> [*]: terminal
@@ -34,11 +34,11 @@ When `status` is `resolved`, the `resolution` column provides the reason:
 
 ## Transition details
 
-| From          | To            | Trigger / explanation                                                        |
-| ------------- | ------------- | ---------------------------------------------------------------------------- |
-| `[*]`         | `pending`     | Poll detector enqueues PR after detecting a review-limit comment             |
-| `pending`     | `retriggered` | Scheduler posts retrigger successfully                                       |
-| `pending`     | `resolved`    | Scheduler hits HTTP 404/410 (PR closed or merged)                            |
-| `retriggered` | `resolved`    | `ReviewDetector` finds a completed CodeRabbit review, or PR is merged/closed |
-| `retriggered` | `[*]`         | Retrigger sent, awaiting outcome (cycle may restart via poll detector)       |
-| `resolved`    | `[*]`         | Terminal — see `resolution` column for the reason                            |
+| From          | To            | Trigger / explanation                                                             |
+| ------------- | ------------- | --------------------------------------------------------------------------------- |
+| `[*]`         | `pending`     | Poll detector enqueues PR after detecting a review-limit comment                  |
+| `pending`     | `retriggered` | Scheduler posts retrigger successfully                                            |
+| `pending`     | `resolved`    | Scheduler hits HTTP 404/410 while retriggering; resolved with resolution 'failed' |
+| `retriggered` | `resolved`    | `ReviewDetector` finds a completed CodeRabbit review, or PR is merged/closed      |
+| `retriggered` | `[*]`         | Retrigger sent, awaiting outcome (cycle may restart via poll detector)            |
+| `resolved`    | `[*]`         | Terminal — see `resolution` column for the reason                                 |

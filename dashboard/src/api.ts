@@ -38,7 +38,7 @@ export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedRes
 
 export const fetchTriggered = (since: Date, page: number, pageSize: number, includeResolved: boolean): Promise<PaginatedResponse<QueueItemResponse>> =>
   fetchJson<PaginatedResponse<QueueItemResponse>>(
-    `${API_BASE}/queue/triggered${buildQueryString({ since, page, pageSize, include_reviewed: includeResolved })}`,
+    `${API_BASE}/queue/triggered${buildQueryString({ since, page, pageSize, include_resolved: includeResolved })}`,
   );
 
 export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedResponse<EventEntryResponse>> =>
