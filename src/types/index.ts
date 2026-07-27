@@ -1,4 +1,5 @@
 export type { AcknowledgementResult } from './AcknowledgementResult.js';
+export type { ActivityStatus } from './ActivityStatus.js';
 export type {
   DashboardStateResponse,
   EventCountsResponse,
@@ -11,6 +12,7 @@ export type {
   QueueOrderResponse,
   SummaryResponse,
 } from './api.js';
+export type { CoderabbitReviewVerdict, CoderabbitReviewVerdictState } from './CoderabbitReviewVerdict.js';
 export type { CommentDetails } from './CommentDetails.js';
 export type { CreateSkippedData } from './CreateSkippedData.js';
 export type { DetectedComment } from './DetectedComment.js';

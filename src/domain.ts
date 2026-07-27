@@ -6,7 +6,9 @@
  * Files with internal dependencies (config, container, express, etc.) belong in
  * services.ts or are imported directly from their source files.
  */
+export { ActivityState } from './ActivityState.js';
 export { BypassReason } from './BypassReason.js';
+export { CodeRabbitCommentType } from './CodeRabbitCommentType.js';
 export { EventType } from './EventType.js';
 export { IntervalService } from './IntervalService.js';
 export { TYPES } from './inversify-types.js';

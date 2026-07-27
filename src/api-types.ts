@@ -256,6 +256,16 @@ export interface components {
       resolved_at?: string | null;
       /** @description Terminal reason when status='resolved' (review_completed, pr_merged, pr_closed_without_merge, failed, skipped) */
       resolution?: string | null;
+      /**
+       * @description Outcome of the most recent CodeRabbit review for this PR
+       * @enum {string|null}
+       */
+      coderabbit_review_state?: 'review_approved' | 'review_changes_suggested' | null;
+      /**
+       * Format: uri
+       * @description URL of the most recent CodeRabbit review for this PR
+       */
+      coderabbit_review_url?: string | null;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */

@@ -1,7 +1,7 @@
-import { PrState, QueueStatus, TriggerSource } from '../../src/domain.js';
+import { CodeRabbitCommentType, PrState, QueueStatus, TriggerSource } from '../../src/domain.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 import { QueueItemMapper } from '../../src/mappers/index.js';
-import { createMockQueueItemEnricher, generateEnrichedQueueItemData, generateQueueItemHydrationData } from '../helpers/index.js';
+import { createMockQueueItemEnricher, generateEnrichedQueueItemData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -92,6 +92,25 @@ describe('QueueItemMapper', () => {
 
       expect(result.pr_state).toBe('merged');
       expect(result.last_coderabbit_acknowledged_at).toBe(acknowledgedAt.toISOString());
+    });
+
+    it('returns null for coderabbit_review_state and coderabbit_review_url when review is absent', () => {
+      const input = generateEnrichedQueueItemData();
+      const result = mapper.mapToQueueItemResponse(input);
+
+      expect(result.coderabbit_review_state).toBeNull();
+      expect(result.coderabbit_review_url).toBeNull();
+    });
+
+    it('maps coderabbitReview fields when present', () => {
+      const reviewUrl = generateReviewRef().commentUrl;
+      const input = generateEnrichedQueueItemData({
+        coderabbitReview: { htmlUrl: reviewUrl, state: CodeRabbitCommentType.review_approved },
+      });
+      const result = mapper.mapToQueueItemResponse(input);
+
+      expect(result.coderabbit_review_state).toBe('review_approved');
+      expect(result.coderabbit_review_url).toBe(reviewUrl);
     });
   });
 

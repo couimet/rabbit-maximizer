@@ -1,4 +1,4 @@
-import type { CodeRabbitCommentType } from '../github/index.js';
+import type { CodeRabbitCommentType } from '../domain.js';
 
 import type { ReviewLimitComment } from './index.js';
 

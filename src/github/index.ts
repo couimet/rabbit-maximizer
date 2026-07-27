@@ -5,7 +5,6 @@ export { buildPrUrl } from './buildPrUrl.js';
 export { buildRepoQualifierClause } from './buildRepoQualifierClause.js';
 export { buildSearchQuery } from './buildSearchQuery.js';
 export { classifyCoderabbitComment } from './classifyCoderabbitComment.js';
-export { CodeRabbitCommentType } from './CodeRabbitCommentType.js';
 export {
   REVIEW_BOT_ACKNOWLEDGEMENT_MARKER,
   REVIEW_BOT_ACTIONABLE_SIGNAL,
