@@ -34,6 +34,7 @@
     "lint:fix": "eslint . --fix",
     "local": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" tsx src/main.ts",
     "prisma:snapshot": "prisma generate && bash scripts/prisma-snapshot.sh",
+    "prisma:validate": "bash scripts/prisma-validate.sh",
     "test": "pnpm test:ts:unit && pnpm test:shellcheck && pnpm test:bats",
     "test:bats": "bats -r bats-tests",
     "test:bats:db": "bats bats-tests/db/",
