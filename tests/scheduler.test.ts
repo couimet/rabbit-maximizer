@@ -14,9 +14,10 @@ import {
   createMockSystemStateRepository,
   drainMicrotasks,
   generateQueueItemHydrationData,
+  generateReviewRef,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -83,6 +84,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_STALE_TICK_MULTIPLIER: 4,
     REVIEW_LIMIT_BUFFER_SEC: 60,
     REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
+    SCHEDULER_MAX_RETRIGGER_AGE_SEC: 259200,
     SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000,
   };
 
@@ -320,11 +322,30 @@ describe('Scheduler', () => {
       await stop();
     });
 
+    it('resolves stale retriggered items and notifies probe', async () => {
+      deps.systemState.isSchedulerPaused.mockResolvedValue(true);
+      deps.queue.resolveStaleRetriggered.mockResolvedValue(3);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.resolveStaleRetriggered).toHaveBeenCalledWith(deps.config.SCHEDULER_MAX_RETRIGGER_AGE_SEC * 1000, deps.tx);
+      expect(deps.mockProbe.staleRetriggeredResolved).toHaveBeenCalledWith(3);
+
+      await stop();
+    });
+
     it('skips the tick when a PR is awaiting acknowledgement within the spacing window', async () => {
+      const ackRef = generateReviewRef();
       const ackId = getUniqueInt();
-      const ackRepo = getUniqueGitHubRepoRef().fullName;
-      const ackPr = getUniqueInt();
-      const pendingAck = { id: ackId, repo_full_name: ackRepo, pr_number: ackPr, last_review_requested_at: new Date(frozenNow.getTime() - 30_000) };
+      const pendingAck = {
+        id: ackId,
+        repo_full_name: ackRef.repoFullName,
+        pr_number: ackRef.prNumber,
+        last_review_requested_at: new Date(frozenNow.getTime() - 30_000),
+      };
       deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
       const scheduler = createScheduler();
       const { stop } = scheduler.start();

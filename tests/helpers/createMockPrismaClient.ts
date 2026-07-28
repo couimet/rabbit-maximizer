@@ -6,6 +6,7 @@ export interface MockReviewQueueDelegate {
   findFirst: jest.Mock<any>;
   findUnique: jest.Mock<any>;
   update: jest.Mock<any>;
+  updateMany: jest.Mock<any>;
   findMany: jest.Mock<any>;
   count: jest.Mock<any>;
   groupBy: jest.Mock<any>;
@@ -97,6 +98,7 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
     findFirst: jest.fn<any>(),
     findUnique: jest.fn<any>(),
     update: jest.fn<any>(),
+    updateMany: jest.fn<any>(),
     findMany: jest.fn<any>(),
     count: jest.fn<any>(),
     groupBy: jest.fn<any>(),

@@ -12,6 +12,7 @@ export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueReposit
     backoff: jest.fn<any>(),
     findBySourceCommentId: jest.fn<any>().mockResolvedValue(null),
     createSkipped: jest.fn<any>(),
+    resolveStaleRetriggered: jest.fn<any>().mockResolvedValue(0),
     getPendingQueue: jest.fn<any>().mockResolvedValue([]),
     getRetriggeredQueue: jest.fn<any>().mockResolvedValue([]),
     getTriggered: jest.fn<any>().mockResolvedValue({ items: [], total: 0 }),

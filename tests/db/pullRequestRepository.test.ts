@@ -2,7 +2,7 @@ import { PullRequestRepositoryImpl } from '../../src/db/index.js';
 import { CodeRabbitCommentType, PrState } from '../../src/domain.js';
 import { createMockPrismaClient, createResolvedMock, generatePullRequestHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
@@ -10,23 +10,21 @@ import { Prisma } from '@prisma/client';
 describe('PullRequestRepositoryImpl', () => {
   let frozenNow: Date;
   let logger: ReturnType<typeof createMockLogger>;
-  let repoFullName: string;
-  let prNumber: number;
+  let ref: ReturnType<typeof generateReviewRef>;
 
   beforeEach(() => {
     frozenNow = getUniqueDate();
     logger = createMockLogger();
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);
-    repoFullName = getUniqueGitHubRepoRef().fullName;
-    prNumber = getUniqueInt();
+    ref = generateReviewRef();
   });
 
   describe('upsert', () => {
     it('creates a new pull_request when it does not exist', async () => {
       const row = generatePullRequestHydrationData({
-        repo_full_name: repoFullName,
-        pr_number: prNumber,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         title: 'Test PR title',
         author_login: 'test-author',
       });
@@ -36,19 +34,19 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prTitle: 'Test PR', prState: PrState.open });
+      const result = await sut.upsert(ref.repoFullName, ref.prNumber, { prTitle: 'Test PR', prState: PrState.open });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: row.id },
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
     });
 
     it('creates a new pull_request with fallback title and author when not provided', async () => {
       const row = generatePullRequestHydrationData({
-        repo_full_name: repoFullName,
-        pr_number: prNumber,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         title: '<unknown>',
         author_login: '<unknown>',
       });
@@ -58,7 +56,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prState: PrState.open });
+      const result = await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
     });
@@ -71,7 +69,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.upsert(repoFullName, prNumber, { prState: PrState.open });
+      const result = await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open });
 
       expect(pullRequest.findUnique).toHaveBeenCalled();
       expect(pullRequest.create).not.toHaveBeenCalled();
@@ -81,7 +79,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       expect(result).toStrictEqual({ id: existing.id, created: false });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: existing.id },
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -95,7 +93,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prTitle, prState: PrState.open });
+      await sut.upsert(ref.repoFullName, ref.prNumber, { prTitle, prState: PrState.open });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
@@ -111,12 +109,15 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await expect(sut.upsert(repoFullName, prNumber, { prTitle: 'Test', prState: PrState.open })).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'PullRequest'",
-        functionName: 'PullRequestRepositoryImpl.upsert',
-        details: { tableName: 'PullRequest' },
-        cause: p2025,
-      });
+      await expect(sut.upsert(ref.repoFullName, ref.prNumber, { prTitle: 'Test', prState: PrState.open })).rejects.toBeDetailedError(
+        'PRISMA_RECORD_NOT_FOUND_P2025',
+        {
+          message: "Record not found in table 'PullRequest'",
+          functionName: 'PullRequestRepositoryImpl.upsert',
+          details: { tableName: 'PullRequest' },
+          cause: p2025,
+        },
+      );
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'PullRequestRepositoryImpl.upsert', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
@@ -132,12 +133,12 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: PrState.closed });
+      await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.closed });
 
       expect(mockCreate).toHaveBeenCalledWith({
         data: {
-          repo_full_name: repoFullName,
-          pr_number: prNumber,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           title: '<unknown>',
           author_login: '<unknown>',
           pr_state: 'closed',
@@ -145,7 +146,7 @@ describe('PullRequestRepositoryImpl', () => {
         },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: row.id },
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
     });
@@ -160,12 +161,12 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: PrState.open, authorLogin });
+      await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open, authorLogin });
 
       expect(mockCreate).toHaveBeenCalledWith({
         data: {
-          repo_full_name: repoFullName,
-          pr_number: prNumber,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           title: '<unknown>',
           author_login: authorLogin,
           pr_state: 'open',
@@ -173,7 +174,7 @@ describe('PullRequestRepositoryImpl', () => {
         },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: row.id },
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
     });
@@ -185,14 +186,14 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: PrState.merged });
+      await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.merged });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
         data: { pr_state: 'merged' },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: existing.id },
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -205,14 +206,14 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.upsert(repoFullName, prNumber, { prState: PrState.open, authorLogin });
+      await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open, authorLogin });
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
         data: { pr_state: 'open', author_login: authorLogin },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: repoFullName, prNumber: prNumber, id: existing.id },
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -226,7 +227,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.findByRepoAndPr(repoFullName, prNumber);
+      const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber);
 
       expect(result).toStrictEqual({ id: row.id });
     });
@@ -237,7 +238,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.findByRepoAndPr(repoFullName, prNumber);
+      const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber);
 
       expect(result).toBeNull();
     });
@@ -317,10 +318,11 @@ describe('PullRequestRepositoryImpl', () => {
   describe('findPendingAcknowledgement', () => {
     it('returns the mapped PR when a pending acknowledgement exists', async () => {
       const lastReviewRequestedAt = getUniqueDate();
+      const findPrRef = generateReviewRef();
       const pr = {
         id: getUniqueInt(),
-        repo_full_name: getUniqueGitHubRepoRef().fullName,
-        pr_number: getUniqueInt(),
+        repo_full_name: findPrRef.repoFullName,
+        pr_number: findPrRef.prNumber,
         last_review_requested_at: lastReviewRequestedAt.toISOString(),
       };
       const queryRawUnsafe = jest.fn<any>().mockResolvedValue([pr]);
@@ -429,9 +431,10 @@ describe('PullRequestRepositoryImpl', () => {
 
   describe('findByPrState', () => {
     it('returns matching PRs when found', async () => {
+      const secondRowRef = generateReviewRef();
       const rows = [
-        { id: getUniqueInt(), repo_full_name: repoFullName, pr_number: prNumber },
-        { id: getUniqueInt(), repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt() },
+        { id: getUniqueInt(), repo_full_name: ref.repoFullName, pr_number: ref.prNumber },
+        { id: getUniqueInt(), repo_full_name: secondRowRef.repoFullName, pr_number: secondRowRef.prNumber },
       ];
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
@@ -535,18 +538,20 @@ describe('PullRequestRepositoryImpl', () => {
   describe('findStaleOpenPRs', () => {
     it('returns stale open PRs with last_review_requested_at as Date objects', async () => {
       const lastReviewRequestedAt = getUniqueDate();
+      const staleRef1 = generateReviewRef();
+      const staleRef2 = generateReviewRef();
       const rows = [
         {
           id: getUniqueInt(),
-          repo_full_name: getUniqueGitHubRepoRef().fullName,
-          pr_number: getUniqueInt(),
+          repo_full_name: staleRef1.repoFullName,
+          pr_number: staleRef1.prNumber,
           title: getUniqueString(),
           last_review_requested_at: lastReviewRequestedAt.toISOString(),
         },
         {
           id: getUniqueInt(),
-          repo_full_name: getUniqueGitHubRepoRef().fullName,
-          pr_number: getUniqueInt(),
+          repo_full_name: staleRef2.repoFullName,
+          pr_number: staleRef2.prNumber,
           title: getUniqueString(),
           last_review_requested_at: lastReviewRequestedAt.toISOString(),
         },

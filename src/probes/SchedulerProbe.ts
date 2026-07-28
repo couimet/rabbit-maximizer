@@ -30,6 +30,10 @@ export class SchedulerProbe {
     this.item = item;
   }
 
+  staleRetriggeredResolved(count: number): void {
+    this.log.info({ fn: 'SchedulerProbe.staleRetriggeredResolved', count }, 'Resolved stale retriggered items');
+  }
+
   pruningCompleted(): void {
     this.log.debug({ fn: 'SchedulerProbe.pruningCompleted' }, 'Pruning completed');
   }

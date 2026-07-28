@@ -20,6 +20,7 @@ export class Scheduler extends IntervalService {
   private readonly maxBackoff: number;
   private readonly maxRetriggerAttempts: number;
   private readonly retriggerSpacingMs: number;
+  private readonly maxRetriggerAgeMs: number;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
@@ -47,6 +48,7 @@ export class Scheduler extends IntervalService {
     this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX_SEC * MS_PER_SECOND;
     this.maxRetriggerAttempts = cfg.MAX_RETRIGGER_ATTEMPTS;
     this.retriggerSpacingMs = cfg.SCHEDULER_RETRIGGER_SPACING_SEC * MS_PER_SECOND;
+    this.maxRetriggerAgeMs = cfg.SCHEDULER_MAX_RETRIGGER_AGE_SEC * MS_PER_SECOND;
   }
   /* c8 ignore stop */
 
@@ -68,6 +70,13 @@ export class Scheduler extends IntervalService {
     try {
       await this.pruner.prune();
       probe.pruningCompleted();
+
+      await this.prisma.$transaction(async (tx) => {
+        const resolvedCount = await this.queue.resolveStaleRetriggered(this.maxRetriggerAgeMs, tx);
+        if (resolvedCount > 0) {
+          probe.staleRetriggeredResolved(resolvedCount);
+        }
+      });
 
       if (await this.systemState.isSchedulerPaused()) {
         probe.schedulerPaused();

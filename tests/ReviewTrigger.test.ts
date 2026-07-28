@@ -2,9 +2,9 @@ import { TriggerSource } from '../src/domain.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import { ReviewTrigger } from '../src/services.js';
 
-import { createMockProbeFactory, createMockPullRequestRepo, createMockQueueRepo, generateQueueItemHydrationData } from './helpers/index.js';
+import { createMockProbeFactory, createMockPullRequestRepo, createMockQueueRepo, generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
@@ -122,12 +122,13 @@ describe('ReviewTrigger', () => {
   it('returns err with RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED when replacement is deleted', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const replacementRef = generateReviewRef();
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
       commentId: newCommentId,
       url: newCommentUrl,
-      repoFullName: getUniqueGitHubRepoRef().fullName,
-      prNumber: getUniqueInt(),
+      repoFullName: replacementRef.repoFullName,
+      prNumber: replacementRef.prNumber,
       createdAt: getUniqueDate().toISOString(),
       updatedAt: getUniqueDate().toISOString(),
     });
@@ -150,12 +151,13 @@ describe('ReviewTrigger', () => {
   it('returns err with RETRIGGER_STALE_COMMENT_RESCHEDULE when source comment was replaced', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const replacementRef = generateReviewRef();
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
       commentId: newCommentId,
       url: newCommentUrl,
-      repoFullName: getUniqueGitHubRepoRef().fullName,
-      prNumber: getUniqueInt(),
+      repoFullName: replacementRef.repoFullName,
+      prNumber: replacementRef.prNumber,
       createdAt: getUniqueDate().toISOString(),
       updatedAt: getUniqueDate().toISOString(),
     });
@@ -186,12 +188,13 @@ describe('ReviewTrigger', () => {
   it('throws when replacement comment fetch fails with non-terminal error', async () => {
     const { github, reviewTrigger } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const replacementRef = generateReviewRef();
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
       commentId: newCommentId,
       url: newCommentUrl,
-      repoFullName: getUniqueGitHubRepoRef().fullName,
-      prNumber: getUniqueInt(),
+      repoFullName: replacementRef.repoFullName,
+      prNumber: replacementRef.prNumber,
       createdAt: getUniqueDate().toISOString(),
       updatedAt: getUniqueDate().toISOString(),
     });

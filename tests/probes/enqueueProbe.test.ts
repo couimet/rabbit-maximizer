@@ -21,13 +21,34 @@ describe('EnqueueProbe', () => {
   const createProbe = (tx: ReturnType<typeof createMockTx>) => new EnqueueProbe(events, observation, tx, logger);
 
   describe('recentlyRetriggered', () => {
-    it('logs debug when PR was recently retriggered', () => {
+    it('logs info when PR was recently retriggered', () => {
       const ref = generateReviewRef();
       const probe = createProbe(createMockTx());
       probe.recentlyRetriggered(ref.repoFullName, ref.prNumber);
-      expect(logger.debug).toHaveBeenCalledWith(
+      expect(logger.info).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.recentlyRetriggered', repo: ref.repoFullName, pr: ref.prNumber },
         'PR was recently retriggered; skipping',
+      );
+    });
+  });
+
+  describe('recentlyResolved', () => {
+    it('logs warn (loop detection) when resolved within 5 minutes', () => {
+      const ref = generateReviewRef();
+      const existingUuid = getUuid();
+      const probe = createProbe(createMockTx());
+      const resolvedAt = new Date();
+      probe.recentlyResolved(ref.repoFullName, ref.prNumber, existingUuid, ref.commentId, resolvedAt);
+      expect(logger.warn).toHaveBeenCalledWith(
+        {
+          fn: 'EnqueueProbe.recentlyResolved',
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          existingUuid,
+          sourceCommentId: ref.commentId,
+          elapsedMs: expect.any(Number) as number,
+        },
+        'Loop detected: same source_comment_id re-enqueued within guard window',
       );
     });
   });

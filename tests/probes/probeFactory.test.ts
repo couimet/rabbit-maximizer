@@ -13,9 +13,9 @@ import {
   SchedulerProbe,
 } from '../../src/probes/index.js';
 import type { QueueItem } from '../../src/types/index.js';
-import { createMockEventRepo, createMockObservationContextProvider, createMockPrismaClient } from '../helpers/index.js';
+import { createMockEventRepo, createMockObservationContextProvider, createMockPrismaClient, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
@@ -44,8 +44,9 @@ describe('ProbeFactory', () => {
   it('creates a DetectedProbe with the provided observation context', () => {
     const { eventRepository, logger } = makeMocks();
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const ref = generateReviewRef();
     const probe = factory.createDetectedProbe(
-      { repo_full_name: getUniqueGitHubRepoRef().fullName, pr_number: getUniqueInt(), source_ts: getUniqueDate(), source_comment_url: 'https://gh/c/1' },
+      { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_ts: getUniqueDate(), source_comment_url: 'https://gh/c/1' },
       observationContext,
     );
     expect(probe).toBeInstanceOf(DetectedProbe);
@@ -98,10 +99,11 @@ describe('ProbeFactory', () => {
   it('creates a ReviewRetriggerProbe', () => {
     const { eventRepository, logger } = makeMocks();
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const ref = generateReviewRef();
     const probe = factory.createReviewRetriggerProbe({
       id: getUniqueInt(),
-      repo_full_name: getUniqueGitHubRepoRef().fullName,
-      pr_number: getUniqueInt(),
+      repo_full_name: ref.repoFullName,
+      pr_number: ref.prNumber,
     } as QueueItem);
     expect(probe).toBeInstanceOf(ReviewRetriggerProbe);
   });

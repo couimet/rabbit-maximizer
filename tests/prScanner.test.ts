@@ -12,10 +12,11 @@ import {
   createMockPrScannerProbe,
   createMockPullRequestRepo,
   createMockSystemStateRepository,
+  generateReviewRef,
   type MockPrScannerProbe,
 } from './helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -50,14 +51,12 @@ describe('PrScannerImpl', () => {
   const createScanner = () => new PrScannerImpl(github, pullRequests, probeFactory, systemState, config, log);
 
   it('discovers PRs and calls upsert with prState:open for each', async () => {
-    const repoRef1 = getUniqueGitHubRepoRef();
-    const prNum1 = getUniqueInt();
-    const repoRef2 = getUniqueGitHubRepoRef();
-    const prNum2 = getUniqueInt();
+    const ref1 = generateReviewRef();
+    const ref2 = generateReviewRef();
     const { prTitle1, authorLogin1, prTitle2, authorLogin2 } = getUniqueStringsNamed(['prTitle1', 'authorLogin1', 'prTitle2', 'authorLogin2']);
 
-    const pr1: DiscoveredPR = { repoFullName: repoRef1.fullName, prNumber: prNum1, prTitle: prTitle1, authorLogin: authorLogin1 };
-    const pr2: DiscoveredPR = { repoFullName: repoRef2.fullName, prNumber: prNum2, prTitle: prTitle2, authorLogin: authorLogin2 };
+    const pr1: DiscoveredPR = { repoFullName: ref1.repoFullName, prNumber: ref1.prNumber, prTitle: prTitle1, authorLogin: authorLogin1 };
+    const pr2: DiscoveredPR = { repoFullName: ref2.repoFullName, prNumber: ref2.prNumber, prTitle: prTitle2, authorLogin: authorLogin2 };
 
     github.listOpenPRs.mockResolvedValue([pr1, pr2]);
     pullRequests.upsert.mockResolvedValueOnce({ id: 1, created: true }).mockResolvedValueOnce({ id: 2, created: false });
@@ -66,27 +65,24 @@ describe('PrScannerImpl', () => {
     const scanner = createScanner();
     await scanner.scan();
 
-    expect(pullRequests.upsert).toHaveBeenCalledWith(repoRef1.fullName, prNum1, { prTitle: prTitle1, prState: 'open', authorLogin: authorLogin1 });
-    expect(pullRequests.upsert).toHaveBeenCalledWith(repoRef2.fullName, prNum2, { prTitle: prTitle2, prState: 'open', authorLogin: authorLogin2 });
+    expect(pullRequests.upsert).toHaveBeenCalledWith(ref1.repoFullName, ref1.prNumber, { prTitle: prTitle1, prState: 'open', authorLogin: authorLogin1 });
+    expect(pullRequests.upsert).toHaveBeenCalledWith(ref2.repoFullName, ref2.prNumber, { prTitle: prTitle2, prState: 'open', authorLogin: authorLogin2 });
     expect(prScannerProbe.scanStarted).toHaveBeenCalled();
     expect(prScannerProbe.discovered).toHaveBeenCalledWith(1, 1);
     expect(prScannerProbe.completed).toHaveBeenCalledWith(1, 1, 0);
   });
 
   it('detects closures: updates DB PRs not in GitHub open list with correct prState', async () => {
-    const repoOpen = getUniqueGitHubRepoRef();
-    const prOpen = getUniqueInt();
-    const repoMerged = getUniqueGitHubRepoRef();
-    const prMerged = getUniqueInt();
-    const repoClosed = getUniqueGitHubRepoRef();
-    const prClosed = getUniqueInt();
+    const openRef = generateReviewRef();
+    const mergedRef = generateReviewRef();
+    const closedRef = generateReviewRef();
     const { prTitle, authorLogin } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
 
-    const discoveredPR: DiscoveredPR = { repoFullName: repoOpen.fullName, prNumber: prOpen, prTitle, authorLogin };
+    const discoveredPR: DiscoveredPR = { repoFullName: openRef.repoFullName, prNumber: openRef.prNumber, prTitle, authorLogin };
     const dbOpenPRs = [
-      { id: getUniqueInt(), repo_full_name: repoOpen.fullName, pr_number: prOpen },
-      { id: getUniqueInt(), repo_full_name: repoMerged.fullName, pr_number: prMerged },
-      { id: getUniqueInt(), repo_full_name: repoClosed.fullName, pr_number: prClosed },
+      { id: getUniqueInt(), repo_full_name: openRef.repoFullName, pr_number: openRef.prNumber },
+      { id: getUniqueInt(), repo_full_name: mergedRef.repoFullName, pr_number: mergedRef.prNumber },
+      { id: getUniqueInt(), repo_full_name: closedRef.repoFullName, pr_number: closedRef.prNumber },
     ];
 
     github.listOpenPRs.mockResolvedValue([discoveredPR]);
@@ -96,8 +92,8 @@ describe('PrScannerImpl', () => {
     const scanner = createScanner();
     await scanner.scan();
 
-    expect(pullRequests.upsert).toHaveBeenCalledWith(repoMerged.fullName, prMerged, { prState: 'merged' });
-    expect(pullRequests.upsert).toHaveBeenCalledWith(repoClosed.fullName, prClosed, { prState: 'closed' });
+    expect(pullRequests.upsert).toHaveBeenCalledWith(mergedRef.repoFullName, mergedRef.prNumber, { prState: 'merged' });
+    expect(pullRequests.upsert).toHaveBeenCalledWith(closedRef.repoFullName, closedRef.prNumber, { prState: 'closed' });
     expect(github.getPRState).toHaveBeenCalledTimes(2);
     expect(prScannerProbe.detectedClosures).toHaveBeenCalledWith(2);
     expect(prScannerProbe.completed).toHaveBeenCalledWith(1, 0, 2);
@@ -116,16 +112,14 @@ describe('PrScannerImpl', () => {
   });
 
   it('handles per-PR errors gracefully without stopping the scan', async () => {
-    const repoRef1 = getUniqueGitHubRepoRef();
-    const prNum1 = getUniqueInt();
-    const repoRef2 = getUniqueGitHubRepoRef();
-    const prNum2 = getUniqueInt();
+    const ref1 = generateReviewRef();
+    const ref2 = generateReviewRef();
 
     const { prTitle: prTitle1, authorLogin: authorLogin1 } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
     const { prTitle: prTitle2, authorLogin: authorLogin2 } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
 
-    const pr1: DiscoveredPR = { repoFullName: repoRef1.fullName, prNumber: prNum1, prTitle: prTitle1, authorLogin: authorLogin1 };
-    const pr2: DiscoveredPR = { repoFullName: repoRef2.fullName, prNumber: prNum2, prTitle: prTitle2, authorLogin: authorLogin2 };
+    const pr1: DiscoveredPR = { repoFullName: ref1.repoFullName, prNumber: ref1.prNumber, prTitle: prTitle1, authorLogin: authorLogin1 };
+    const pr2: DiscoveredPR = { repoFullName: ref2.repoFullName, prNumber: ref2.prNumber, prTitle: prTitle2, authorLogin: authorLogin2 };
 
     github.listOpenPRs.mockResolvedValue([pr1, pr2]);
     const dbError = new Error('DB connection failed');
@@ -136,22 +130,20 @@ describe('PrScannerImpl', () => {
     await scanner.scan();
 
     expect(pullRequests.upsert).toHaveBeenCalledTimes(2);
-    expect(prScannerProbe.caughtError).toHaveBeenCalledWith(repoRef1.fullName, prNum1, dbError);
+    expect(prScannerProbe.caughtError).toHaveBeenCalledWith(ref1.repoFullName, ref1.prNumber, dbError);
     expect(prScannerProbe.discovered).toHaveBeenCalledWith(0, 1);
     expect(prScannerProbe.completed).toHaveBeenCalledWith(0, 1, 0);
   });
 
   it('handles per-PR errors in closure detection without stopping the scan', async () => {
-    const repoOpen = getUniqueGitHubRepoRef();
-    const prOpen = getUniqueInt();
-    const repoFail = getUniqueGitHubRepoRef();
-    const prFail = getUniqueInt();
+    const openRef = generateReviewRef();
+    const failRef = generateReviewRef();
 
     const { prTitle, authorLogin } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
-    const discoveredPR: DiscoveredPR = { repoFullName: repoOpen.fullName, prNumber: prOpen, prTitle, authorLogin };
+    const discoveredPR: DiscoveredPR = { repoFullName: openRef.repoFullName, prNumber: openRef.prNumber, prTitle, authorLogin };
     const dbOpenPRs = [
-      { id: getUniqueInt(), repo_full_name: repoOpen.fullName, pr_number: prOpen },
-      { id: getUniqueInt(), repo_full_name: repoFail.fullName, pr_number: prFail },
+      { id: getUniqueInt(), repo_full_name: openRef.repoFullName, pr_number: openRef.prNumber },
+      { id: getUniqueInt(), repo_full_name: failRef.repoFullName, pr_number: failRef.prNumber },
     ];
 
     github.listOpenPRs.mockResolvedValue([discoveredPR]);
@@ -162,7 +154,7 @@ describe('PrScannerImpl', () => {
     const scanner = createScanner();
     await scanner.scan();
 
-    expect(prScannerProbe.caughtError).toHaveBeenCalledWith(repoFail.fullName, prFail, apiError);
+    expect(prScannerProbe.caughtError).toHaveBeenCalledWith(failRef.repoFullName, failRef.prNumber, apiError);
     expect(prScannerProbe.completed).toHaveBeenCalledWith(1, 0, 0);
   });
 

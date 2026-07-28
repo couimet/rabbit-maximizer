@@ -17,7 +17,7 @@ import {
   generateReviewRef,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -247,13 +247,12 @@ describe('PollDetector', () => {
 
   describe('acknowledgement check', () => {
     it('checks for pending acknowledgements and records them when found', async () => {
+      const ackRef = generateReviewRef();
       const ackId = getUniqueInt();
-      const ackRepo = getUniqueGitHubRepoRef().fullName;
-      const ackPr = getUniqueInt();
       const ackCommentId = getUniqueInt();
       const ackCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
-      const [ackOwner, ackRepoName] = ackRepo.split('/');
-      const pendingAck = { id: ackId, repo_full_name: ackRepo, pr_number: ackPr, last_review_requested_at: getUniqueDate() };
+      const [ackOwner, ackRepoName] = ackRef.repoFullName.split('/');
+      const pendingAck = { id: ackId, repo_full_name: ackRef.repoFullName, pr_number: ackRef.prNumber, last_review_requested_at: getUniqueDate() };
       const ackResult = { commentId: ackCommentId, commentUrl: ackCommentUrl };
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
       deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
@@ -261,7 +260,7 @@ describe('PollDetector', () => {
       const detector = createDetector();
       detector.start();
       await drainMicrotasks(TICK_DEPTH);
-      expect(deps.github.findAcknowledgement).toHaveBeenCalledWith(ackOwner, ackRepoName, ackPr, pendingAck.last_review_requested_at);
+      expect(deps.github.findAcknowledgement).toHaveBeenCalledWith(ackOwner, ackRepoName, ackRef.prNumber, pendingAck.last_review_requested_at);
       expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(ackId);
     });
 
