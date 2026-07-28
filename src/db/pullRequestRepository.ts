@@ -1,4 +1,4 @@
-import { PrState, TYPES } from '../domain.js';
+import { CodeRabbitCommentType, PrState, TYPES } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
 import type { PendingAcknowledgement, PullRequestColumnTypes, StaleOpenPR, UpsertPullRequestData } from '../types/index.js';
 
@@ -47,7 +47,7 @@ export interface PullRequestRepository {
   ): Promise<{ [K in C]: Map<number, PullRequestColumnTypes[K]> }>;
   incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
   recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void>;
-  recordReview(id: number, tx: Prisma.TransactionClient): Promise<void>;
+  recordReview(id: number, reviewUrl: string, reviewState: CodeRabbitCommentType, tx: Prisma.TransactionClient): Promise<void>;
   recordReviewLimitDetection(id: number, reviewLimitAt: Date, tx: Prisma.TransactionClient): Promise<void>;
   updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
 }
@@ -131,7 +131,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
     this.log.debug({ fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
   }
 
-  async recordReview(id: number, tx: Prisma.TransactionClient): Promise<void> {
+  async recordReview(id: number, reviewUrl: string, reviewState: CodeRabbitCommentType, tx: Prisma.TransactionClient): Promise<void> {
     await this.withPrismaErrorHandling(
       () =>
         this.client(tx).pullRequest.update({
@@ -139,6 +139,8 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
           data: {
             review_count: { increment: 1 },
             last_coderabbit_review_at: new Date(),
+            last_review_url: reviewUrl,
+            last_review_state: reviewState,
           },
         }),
       'PullRequestRepositoryImpl.recordReview',

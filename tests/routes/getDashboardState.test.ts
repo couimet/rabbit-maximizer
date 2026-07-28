@@ -64,6 +64,7 @@ describe('getDashboardState', () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
+  /** @testFixture */
   const startServer = (
     queueOrderRepoOver: Record<string, unknown> = {},
     eventRepoOver: Record<string, unknown> = {},

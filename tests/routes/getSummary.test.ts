@@ -33,6 +33,7 @@ describe('getSummary', () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
+  /** @testFixture */
   const startServer = (queueRepoOver = {}, eventRepoOver = {}) => {
     const result = startTestServer(logger, (app) => {
       app.get(

@@ -41,6 +41,7 @@ const TS_2 = new Date(TS_1.getTime() + TS_TO_TS2_OFFSET_MINUTES * MS_PER_MINUTE)
 const TS_2_ISO = TS_2.toISOString();
 const TS_2_DISPLAY = formatDate(TS_2_ISO, 'UTC');
 
+/** @testFixture */
 const makeEvent = (over: Record<string, unknown> = {}) => ({
   id: getUniqueInt(),
   uuid: getUuid(),

@@ -10,6 +10,7 @@ import { StrictMode } from 'react';
 
 const defaultOnMoveComplete = jest.fn();
 
+/** @testFixture */
 const renderQueueOrder = (
   items: ReturnType<typeof makeQueueItem>[] | null = null,
   error: string | null = null,
@@ -17,6 +18,7 @@ const renderQueueOrder = (
   paused = false,
 ) => render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" paused={paused} />);
 
+/** @testFixture */
 const makeQueueItem = (over: Record<string, unknown> = {}) => generateQueueItemResponseData(over);
 
 describe('QueueOrder', () => {

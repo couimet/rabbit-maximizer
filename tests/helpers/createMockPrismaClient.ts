@@ -83,6 +83,7 @@ export interface MockPrismaResult {
   systemState: MockSystemStateDelegate;
 }
 
+/** @testFixture */
 export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockPrismaResult => {
   const coderabbitComment: MockCoderabbitCommentDelegate = {
     create: jest.fn<any>(),

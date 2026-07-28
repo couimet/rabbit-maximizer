@@ -1,4 +1,4 @@
-import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import type { EventRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
 import type { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
 import { describeDatabaseUrl } from './utils/index.js';
 import { config, describeRepoFilter } from './config.js';
@@ -50,7 +50,6 @@ const { stop: stopScheduler } = scheduler.start();
 const queueRepo = container.get<QueueRepository>(TYPES.QueueRepository);
 const queueOrderRepo = container.get<QueueOrderRepository>(TYPES.QueueOrderRepository);
 const eventRepo = container.get<EventRepository>(TYPES.EventRepository);
-const pullRequestRepo = container.get<PullRequestRepository>(TYPES.PullRequestRepository);
 const systemStateRepo = container.get<SystemStateRepository>(TYPES.SystemStateRepository);
 const reviewTrigger = container.get<ReviewTrigger>(TYPES.ReviewTrigger);
 const eventCountsMapper = container.get<EventCountsMapper>(TYPES.EventCountsMapper);
@@ -63,7 +62,6 @@ const { stop: stopServer } = await setupExpress({
   eventCountsMapper,
   eventEntryMapper,
   eventRepo,
-  pullRequestRepo,
   prisma,
   queueItemMapper,
   queueOrderRepo,

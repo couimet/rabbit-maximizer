@@ -2,6 +2,8 @@ import { ActivityState, CodeRabbitCommentType } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
 import type { ActivityStatus, QueueItemResponse } from '../types/index.js';
 
+import { isReviewVerdictState } from './isReviewVerdictState.js';
+
 export const deriveActivityStatus = (item: QueueItemResponse): ActivityStatus => {
   switch (item.status) {
     case 'resolved':
@@ -16,6 +18,10 @@ export const deriveActivityStatus = (item: QueueItemResponse): ActivityStatus =>
 };
 
 const resolvedStatus = (item: QueueItemResponse): ActivityStatus => {
+  // Legacy items may have a null resolution; guard before the switch.
+  if (item.resolution == null) {
+    return { state: ActivityState.reviewCompleted, linkUrl: undefined };
+  }
   switch (item.resolution) {
     case 'review_completed':
       return reviewedStatus(item);
@@ -27,17 +33,18 @@ const resolvedStatus = (item: QueueItemResponse): ActivityStatus => {
       return { state: ActivityState.prClosed, linkUrl: undefined };
     case 'skipped':
       return { state: ActivityState.skipped, linkUrl: item.source_comment_url };
+    case 'manual_review':
+      return { state: ActivityState.manualReview, linkUrl: undefined };
     default:
-      return { state: ActivityState.unknownResolution, linkUrl: undefined };
+      throw RabbitMaximizerError.forUnexpectedSwitchDefault('resolution', item.resolution, 'resolvedStatus');
   }
 };
 
 const reviewedStatus = (item: QueueItemResponse): ActivityStatus => {
   let subState: ActivityStatus['subState'] = undefined;
-  if (item.coderabbit_review_state === CodeRabbitCommentType.review_approved) {
-    subState = CodeRabbitCommentType.review_approved;
-  } else if (item.coderabbit_review_state === CodeRabbitCommentType.review_changes_suggested) {
-    subState = CodeRabbitCommentType.review_changes_suggested;
+  const reviewState: CodeRabbitCommentType | null | undefined = item.coderabbit_review_state as CodeRabbitCommentType | null | undefined;
+  if (isReviewVerdictState(reviewState)) {
+    subState = reviewState;
   }
   return {
     state: ActivityState.reviewCompleted,

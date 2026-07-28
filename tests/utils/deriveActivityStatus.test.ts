@@ -125,12 +125,30 @@ describe('deriveActivityStatus', () => {
       expect(result).toStrictEqual({ state: 'skipped', linkUrl: undefined });
     });
 
-    it('returns unknown_resolution state with undefined link for unknown resolution', () => {
-      const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'unknown_resolution' as QueueItemResponse['resolution'] });
+    it('returns manual_review state for manual_review resolution', () => {
+      const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'manual_review' });
 
       const result = deriveActivityStatus(item);
 
-      expect(result).toStrictEqual({ state: 'unknown_resolution', linkUrl: undefined });
+      expect(result).toStrictEqual({ state: 'manual_review', linkUrl: undefined });
+    });
+
+    it('returns review_completed state with undefined link when resolution is null (legacy data)', () => {
+      const item = generateQueueItemResponseData({ status: 'resolved', resolution: null as unknown as QueueItemResponse['resolution'] });
+
+      const result = deriveActivityStatus(item);
+
+      expect(result).toStrictEqual({ state: 'review_completed', linkUrl: undefined });
+    });
+
+    it('throws DetailedError for unrecognized resolution', () => {
+      const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'future_resolution' as QueueItemResponse['resolution'] });
+
+      expect(() => deriveActivityStatus(item)).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
+        message: 'Unexpected resolution: "future_resolution"',
+        functionName: 'resolvedStatus',
+        details: { unexpectedValue: 'future_resolution' },
+      });
     });
   });
 

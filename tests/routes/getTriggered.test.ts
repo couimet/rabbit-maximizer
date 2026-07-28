@@ -24,6 +24,7 @@ describe('getTriggered', () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
+  /** @testFixture */
   const startServer = (over = {}) => {
     logger = createMockLogger();
     const result = startTestServer(logger, (app) => {
