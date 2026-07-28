@@ -3,10 +3,13 @@ import { BasePrismaRepository, PrismaRecordNotFoundError, PrismaUniqueConstraint
 import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
 import type { ProbeFactory } from '../probes/index.js';
 import { type CommentDetails, type CreateSkippedData, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem } from '../types/index.js';
+import { MS_PER_MINUTE } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
+
+const COMPLETED_GUARD_WINDOW_MS = 5 * MS_PER_MINUTE;
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -17,6 +20,7 @@ export interface QueueRepository {
   backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   findBySourceCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
+  resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getTriggered(since: Date, skip: number, take: number, includeResolved: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
@@ -59,6 +63,20 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         data: { status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: new Date() },
       });
       probe.retriggeredReplaced(repo, pr, recentRetriggered.source_comment_id, sourceCommentId);
+    }
+
+    const recentResolved = await db.reviewQueue.findFirst({
+      where: {
+        repo_full_name: repo,
+        pr_number: pr,
+        source_comment_id: sourceCommentId,
+        status: QueueStatus.resolved,
+        resolved_at: { gte: new Date(Date.now() - COMPLETED_GUARD_WINDOW_MS) },
+      },
+    });
+    if (recentResolved) {
+      probe.recentlyResolved(repo, pr, recentResolved.uuid, sourceCommentId, recentResolved.resolved_at!);
+      return { item: this.mapper.fromReviewQueue(recentResolved), created: false };
     }
 
     try {
@@ -159,20 +177,45 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
 
   async reschedule(id: number, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
-    const row = await this.withPrismaErrorHandling(
-      () =>
-        this.client(tx).reviewQueue.update({
-          where: { id },
-          data: {
-            attempts: { increment: 1 },
-            source_comment_id: sourceComment.commentId,
-            source_comment_url: sourceComment.commentUrl,
-          },
-        }),
-      'QueueRepositoryImpl.reschedule',
-    );
-    this.log.debug({ fn: 'QueueRepositoryImpl.reschedule', id }, 'Rescheduled review');
-    return this.mapper.fromReviewQueue(row);
+    try {
+      const row = await this.withPrismaErrorHandling(
+        () =>
+          this.client(tx).reviewQueue.update({
+            where: { id },
+            data: {
+              attempts: { increment: 1 },
+              source_comment_id: sourceComment.commentId,
+              source_comment_url: sourceComment.commentUrl,
+            },
+          }),
+        'QueueRepositoryImpl.reschedule',
+      );
+      this.log.debug({ fn: 'QueueRepositoryImpl.reschedule', id }, 'Rescheduled review');
+      return this.mapper.fromReviewQueue(row);
+    } catch (err) {
+      if (err instanceof PrismaUniqueConstraintViolationError) {
+        const db = this.client(tx);
+        const existing = await db.reviewQueue.findFirst({
+          where: { source_comment_id: sourceComment.commentId },
+        });
+        if (existing) {
+          await db.reviewQueue.update({
+            where: { id },
+            data: { status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: new Date() },
+          });
+          this.log.info(
+            { fn: 'QueueRepositoryImpl.reschedule', id, existingId: existing.id, sourceCommentId: sourceComment.commentId },
+            'Reschedule collision: source_comment_id already exists on a resolved row; marking current item as resolved',
+          );
+          return this.mapper.fromReviewQueue(existing);
+        }
+      }
+      this.log.error(
+        { fn: 'QueueRepositoryImpl.reschedule', id, sourceCommentId: sourceComment.commentId, error: err },
+        'Reschedule failed with no existing row to recover; rethrowing',
+      );
+      throw err;
+    }
   }
 
   async backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem> {
@@ -239,6 +282,23 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       this.log.warn({ fn: 'QueueRepositoryImpl.createSkipped', repo, pr, error: err }, 'Create skipped failed; rethrowing');
       throw err;
     }
+  }
+
+  async resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number> {
+    const db = this.client(tx);
+    const cutoff = new Date(Date.now() - maxAgeMs);
+    const result = await db.reviewQueue.updateMany({
+      where: {
+        status: QueueStatus.retriggered,
+        retriggered_at: { lt: cutoff },
+      },
+      data: {
+        status: QueueStatus.resolved,
+        resolution: Resolution.Failed,
+        resolved_at: new Date(),
+      },
+    });
+    return result.count;
   }
 
   // eslint-disable-next-line require-await

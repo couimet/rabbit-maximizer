@@ -7,6 +7,7 @@ const DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC = 1800;
 const DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC = 900;
 const DEFAULT_MAX_RETRIGGER_ATTEMPTS = 10;
 const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
+const DEFAULT_MAX_RETRIGGER_AGE_SEC = 259200;
 
 describe('ConfigSchema', () => {
   let githubPat: string;
@@ -32,6 +33,7 @@ describe('ConfigSchema', () => {
       REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
       REPO_FILTER: [{ pattern: 'couimet/*', scope: 'user' as const }],
+      SCHEDULER_MAX_RETRIGGER_AGE_SEC: DEFAULT_MAX_RETRIGGER_AGE_SEC,
       SCHEDULER_POST_COOLDOWN_SEC: 3600,
       SCHEDULER_RETRIGGER_SPACING_SEC: 180,
       SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
@@ -149,6 +151,15 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('applies default SCHEDULER_MAX_RETRIGGER_AGE_SEC when missing', () => {
+    const { SCHEDULER_MAX_RETRIGGER_AGE_SEC: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.SCHEDULER_MAX_RETRIGGER_AGE_SEC).toBe(DEFAULT_MAX_RETRIGGER_AGE_SEC);
+    }
+  });
+
   it('coerces numeric REVIEW_DETECTION_LOOKBACK_SEC from a string', () => {
     const customLookbackSec = 3600;
     const result = ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: String(customLookbackSec) });
@@ -237,6 +248,10 @@ describe('ConfigSchema', () => {
 
   it('rejects negative MAX_RETRIGGER_ATTEMPTS', () => {
     expect(ConfigSchema.safeParse({ ...BASE, MAX_RETRIGGER_ATTEMPTS: -1 }).success).toBe(false);
+  });
+
+  it('rejects negative SCHEDULER_MAX_RETRIGGER_AGE_SEC', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, SCHEDULER_MAX_RETRIGGER_AGE_SEC: -1 }).success).toBe(false);
   });
 
   it('rejects REVIEW_DETECTION_LOOKBACK_SEC > SCHEDULER_POST_COOLDOWN_SEC * 2', () => {
