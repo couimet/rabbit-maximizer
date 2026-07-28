@@ -18,20 +18,20 @@ stateDiagram-v2
 | ------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pending`     | `QueueRepository.enqueue()`         | Awaiting scheduler pick-up. Only `pending` items are returned by `getEffectiveOrder()`.                                                                                             |
 | `retriggered` | `QueueRepository.markRetriggered()` | Retrigger comment was posted on the PR. The scheduler does not re-pick this up. If CodeRabbit responds with another review limit, the poll detector creates a fresh `pending` item. |
-| `resolved`    | `QueueRepository.markResolved()`    | Terminal. The `resolution` column records why: `review_completed`, `pr_merged`, `pr_closed_without_merge`, `failed`, or `skipped`.                                                  |
+| `resolved`    | `QueueRepository.markResolved()`    | Terminal. The `resolution` column records why: `review_completed`, `manual_review`, `pr_merged`, `pr_closed_without_merge`, `failed`, or `skipped`.                                 |
 
 ## Resolution values
 
 When `status` is `resolved`, the `resolution` column provides the reason:
 
-| Resolution                | Set by                          | Meaning                                              |
-| ------------------------- | ------------------------------- | ---------------------------------------------------- |
-| `review_completed`        | `ReviewDetector`, manual action | CodeRabbit review ran successfully after retrigger   |
-| `manual_review`           | Manual action                   | Review manually marked as done via the dashboard     |
-| `pr_merged`               | `ReviewDetector`, `Pruner`      | PR was merged before or after retrigger              |
-| `pr_closed_without_merge` | `ReviewDetector`, `Pruner`      | PR was closed without merging                        |
-| `failed`                  | `Scheduler`                     | Retrigger exhausted max attempts or PR is gone (404) |
-| `skipped`                 | `EnqueueService`                | CodeRabbit review was skipped (rate-limit comment)   |
+| Resolution                | Set by                     | Meaning                                              |
+| ------------------------- | -------------------------- | ---------------------------------------------------- |
+| `review_completed`        | `ReviewDetector`           | CodeRabbit review ran successfully after retrigger   |
+| `manual_review`           | Manual action              | Review manually marked as done via the dashboard     |
+| `pr_merged`               | `ReviewDetector`, `Pruner` | PR was merged before or after retrigger              |
+| `pr_closed_without_merge` | `ReviewDetector`, `Pruner` | PR was closed without merging                        |
+| `failed`                  | `Scheduler`                | Retrigger exhausted max attempts or PR is gone (404) |
+| `skipped`                 | `EnqueueService`           | CodeRabbit review was skipped (rate-limit comment)   |
 
 ## Transition details
 
