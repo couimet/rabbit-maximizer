@@ -330,7 +330,7 @@ describe('Scheduler', () => {
 
       await awaitTick(scheduler);
 
-      expect(deps.queue.resolveStaleRetriggered).toHaveBeenCalled();
+      expect(deps.queue.resolveStaleRetriggered).toHaveBeenCalledWith(deps.config.SCHEDULER_MAX_RETRIGGER_AGE_SEC * 1000, deps.tx);
       expect(deps.mockProbe.staleRetriggeredResolved).toHaveBeenCalledWith(3);
 
       await stop();

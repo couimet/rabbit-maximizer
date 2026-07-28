@@ -614,6 +614,41 @@ describe('QueueRepositoryImpl', () => {
       );
     });
 
+    it('rethrows PrismaUniqueConstraintViolationError when findFirst returns a non-resolved row', async () => {
+      const row = generateReviewQueueHydrationData();
+      const commentId = getUniqueInt();
+      const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
+      const nonResolvedRow = generateReviewQueueHydrationData({ status: QueueStatus.pending, source_comment_id: commentId });
+
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: {
+          update: jest.fn<any>().mockRejectedValueOnce(p2002),
+          findFirst: createResolvedMock(nonResolvedRow),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      await expect(sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+        'PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002',
+        {
+          message: "Unique constraint violation in table 'ReviewQueue'",
+          functionName: 'QueueRepositoryImpl.reschedule',
+          details: { tableName: 'ReviewQueue' },
+          cause: p2002,
+        },
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        {
+          fn: 'QueueRepositoryImpl.reschedule',
+          id: row.id,
+          sourceCommentId: commentId,
+          error: expect.any(PrismaUniqueConstraintViolationError) as PrismaUniqueConstraintViolationError,
+        },
+        'Reschedule failed with no existing row to recover; rethrowing',
+      );
+    });
+
     it('rethrows PrismaUniqueConstraintViolationError when no existing row has the conflicting source_comment_id', async () => {
       const row = generateReviewQueueHydrationData();
       const commentId = getUniqueInt();

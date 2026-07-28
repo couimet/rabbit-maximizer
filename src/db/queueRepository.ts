@@ -196,9 +196,9 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       if (err instanceof PrismaUniqueConstraintViolationError) {
         const db = this.client(tx);
         const existing = await db.reviewQueue.findFirst({
-          where: { source_comment_id: sourceComment.commentId },
+          where: { source_comment_id: sourceComment.commentId, status: QueueStatus.resolved },
         });
-        if (existing) {
+        if (existing && existing.status === QueueStatus.resolved) {
           await db.reviewQueue.update({
             where: { id },
             data: { status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: new Date() },
