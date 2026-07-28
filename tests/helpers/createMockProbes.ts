@@ -81,12 +81,16 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
 export interface MockEnqueueProbe {
   enqueued: jest.Mock<any>;
   recentlyRetriggered: jest.Mock<any>;
+  recentlyResolved: jest.Mock<any>;
   alreadyQueued: jest.Mock<any>;
+  retriggeredReplaced: jest.Mock<any>;
 }
 export const createMockEnqueueProbe = (): MockEnqueueProbe => ({
   enqueued: jest.fn<any>(),
   recentlyRetriggered: jest.fn<any>(),
+  recentlyResolved: jest.fn<any>(),
   alreadyQueued: jest.fn<any>(),
+  retriggeredReplaced: jest.fn<any>(),
 });
 
 export interface MockSchedulerProbe {
@@ -94,6 +98,7 @@ export interface MockSchedulerProbe {
   schedulerPaused: jest.Mock<any>;
   tickSkippedAwaitingAcknowledgement: jest.Mock<any>;
   noItemsDue: jest.Mock<any>;
+  staleRetriggeredResolved: jest.Mock<any>;
   tickFailed: jest.Mock<any>;
   rescheduled: jest.Mock<any>;
   skipped: jest.Mock<any>;
@@ -105,6 +110,7 @@ export interface MockSchedulerProbe {
   triggerFailed: jest.Mock<any>;
 }
 export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
+  staleRetriggeredResolved: jest.fn<any>(),
   pruningCompleted: jest.fn<any>(),
   schedulerPaused: jest.fn<any>(),
   tickSkippedAwaitingAcknowledgement: jest.fn<any>(),

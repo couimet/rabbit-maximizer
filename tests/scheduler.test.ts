@@ -83,6 +83,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_STALE_TICK_MULTIPLIER: 4,
     REVIEW_LIMIT_BUFFER_SEC: 60,
     REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
+    SCHEDULER_MAX_RETRIGGER_AGE_SEC: 259200,
     SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000,
   };
 
@@ -316,6 +317,21 @@ describe('Scheduler', () => {
 
       expect(deps.pruner.prune).toHaveBeenCalled();
       expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('resolves stale retriggered items and notifies probe', async () => {
+      deps.systemState.isSchedulerPaused.mockResolvedValue(true);
+      deps.queue.resolveStaleRetriggered.mockResolvedValue(3);
+
+      const scheduler = createScheduler();
+      const { stop } = scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.resolveStaleRetriggered).toHaveBeenCalledWith(deps.config.SCHEDULER_MAX_RETRIGGER_AGE_SEC * 1000, deps.tx);
+      expect(deps.mockProbe.staleRetriggeredResolved).toHaveBeenCalledWith(3);
 
       await stop();
     });

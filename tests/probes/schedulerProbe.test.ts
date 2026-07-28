@@ -33,6 +33,15 @@ describe('SchedulerProbe', () => {
     });
   });
 
+  describe('staleRetriggeredResolved', () => {
+    it('logs info with count', () => {
+      const probe = createProbe();
+      const count = 3;
+      probe.staleRetriggeredResolved(count);
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'SchedulerProbe.staleRetriggeredResolved', count }, 'Resolved stale retriggered items');
+    });
+  });
+
   describe('schedulerPaused', () => {
     it('logs debug', () => {
       const probe = createProbe();

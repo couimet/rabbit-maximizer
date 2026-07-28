@@ -14,7 +14,7 @@ export class EnqueueProbe {
   ) {}
 
   recentlyRetriggered(repo: string, pr: number): void {
-    this.log.debug({ fn: 'EnqueueProbe.recentlyRetriggered', repo, pr }, 'PR was recently retriggered; skipping');
+    this.log.info({ fn: 'EnqueueProbe.recentlyRetriggered', repo, pr }, 'PR was recently retriggered; skipping');
   }
 
   async enqueued(params: { repo: string; pr: number }): Promise<void> {
@@ -35,6 +35,14 @@ export class EnqueueProbe {
 
   alreadyQueued(repo: string, pr: number, status: string): void {
     this.log.debug({ fn: 'EnqueueProbe.alreadyQueued', repo, pr, status }, 'Already queued; returning existing row');
+  }
+
+  recentlyResolved(repo: string, pr: number, existingUuid: string, sourceCommentId: number, resolvedAt: Date): void {
+    const elapsedMs = Date.now() - resolvedAt.getTime();
+    this.log.warn(
+      { fn: 'EnqueueProbe.recentlyResolved', repo, pr, existingUuid, sourceCommentId, elapsedMs },
+      'Loop detected: same source_comment_id re-enqueued within guard window',
+    );
   }
 
   retriggeredReplaced(repo: string, pr: number, oldCommentId: number, newCommentId: number): void {
