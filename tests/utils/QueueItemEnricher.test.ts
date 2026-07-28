@@ -32,12 +32,13 @@ describe('QueueItemEnricher', () => {
     (pullRequests.getColumnMaps as any).mockResolvedValue({
       pr_state: new Map([[item.pull_request_id, 'merged']]),
       last_coderabbit_acknowledged_at: new Map(),
+      author_login: new Map(),
     });
 
     const result = await enricher.enrich([item]);
 
-    expect(result).toStrictEqual([{ ...item, prState: 'merged', lastCoderabbitAcknowledgedAt: undefined }]);
-    expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_acknowledged_at']);
+    expect(result).toStrictEqual([{ ...item, prState: 'merged', lastCoderabbitAcknowledgedAt: undefined, authorLogin: '<unknown>' }]);
+    expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_acknowledged_at', 'author_login']);
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.debug).not.toHaveBeenCalled();
   });
@@ -48,11 +49,12 @@ describe('QueueItemEnricher', () => {
     (pullRequests.getColumnMaps as any).mockResolvedValue({
       pr_state: new Map(),
       last_coderabbit_acknowledged_at: new Map([[item.pull_request_id, acknowledgedAt]]),
+      author_login: new Map(),
     });
 
     const result = await enricher.enrich([item]);
 
-    expect(result).toStrictEqual([{ ...item, prState: undefined, lastCoderabbitAcknowledgedAt: acknowledgedAt }]);
+    expect(result).toStrictEqual([{ ...item, prState: undefined, lastCoderabbitAcknowledgedAt: acknowledgedAt, authorLogin: '<unknown>' }]);
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.debug).not.toHaveBeenCalled();
   });
@@ -62,11 +64,12 @@ describe('QueueItemEnricher', () => {
     (pullRequests.getColumnMaps as any).mockResolvedValue({
       pr_state: new Map(),
       last_coderabbit_acknowledged_at: new Map([[item.pull_request_id, null]]),
+      author_login: new Map(),
     });
 
     const result = await enricher.enrich([item]);
 
-    expect(result).toStrictEqual([{ ...item, prState: undefined, lastCoderabbitAcknowledgedAt: undefined }]);
+    expect(result).toStrictEqual([{ ...item, prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: '<unknown>' }]);
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.debug).not.toHaveBeenCalled();
   });
@@ -76,11 +79,12 @@ describe('QueueItemEnricher', () => {
     (pullRequests.getColumnMaps as any).mockResolvedValue({
       pr_state: new Map(),
       last_coderabbit_acknowledged_at: new Map(),
+      author_login: new Map(),
     });
 
     const result = await enricher.enrich([item]);
 
-    expect(result).toStrictEqual([{ ...item, prState: undefined, lastCoderabbitAcknowledgedAt: undefined }]);
+    expect(result).toStrictEqual([{ ...item, prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: '<unknown>' }]);
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.debug).not.toHaveBeenCalled();
   });
@@ -92,14 +96,15 @@ describe('QueueItemEnricher', () => {
     (pullRequests.getColumnMaps as any).mockResolvedValue({
       pr_state: new Map([[sharedId, 'merged']]),
       last_coderabbit_acknowledged_at: new Map(),
+      author_login: new Map(),
     });
 
     const result = await enricher.enrich([item1, item2]);
 
-    expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([sharedId], ['pr_state', 'last_coderabbit_acknowledged_at']);
+    expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([sharedId], ['pr_state', 'last_coderabbit_acknowledged_at', 'author_login']);
     expect(result).toStrictEqual([
-      { ...item1, prState: 'merged', lastCoderabbitAcknowledgedAt: undefined },
-      { ...item2, prState: 'merged', lastCoderabbitAcknowledgedAt: undefined },
+      { ...item1, prState: 'merged', lastCoderabbitAcknowledgedAt: undefined, authorLogin: '<unknown>' },
+      { ...item2, prState: 'merged', lastCoderabbitAcknowledgedAt: undefined, authorLogin: '<unknown>' },
     ]);
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.debug).not.toHaveBeenCalled();
@@ -107,9 +112,14 @@ describe('QueueItemEnricher', () => {
 
   it('calls getColumnMaps with unique ids', async () => {
     const item = generateQueueItemHydrationData();
+    (pullRequests.getColumnMaps as any).mockResolvedValue({
+      pr_state: new Map(),
+      last_coderabbit_acknowledged_at: new Map(),
+      author_login: new Map(),
+    });
     await enricher.enrich([item]);
 
-    expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_acknowledged_at']);
+    expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_acknowledged_at', 'author_login']);
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.debug).not.toHaveBeenCalled();
   });
@@ -121,11 +131,12 @@ describe('QueueItemEnricher', () => {
     (pullRequests.getColumnMaps as any).mockResolvedValue({
       pr_state: new Map([[validId, 'merged']]),
       last_coderabbit_acknowledged_at: new Map(),
+      author_login: new Map(),
     });
 
     const result = await enricher.enrich([itemWithNull, itemWithId]);
 
-    expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([validId], ['pr_state', 'last_coderabbit_acknowledged_at']);
+    expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([validId], ['pr_state', 'last_coderabbit_acknowledged_at', 'author_login']);
     expect(result[0].prState).toBeUndefined();
     expect(result[1].prState).toBe('merged');
     expect(logger.warn).toHaveBeenCalledWith(
@@ -142,8 +153,8 @@ describe('QueueItemEnricher', () => {
 
     expect(pullRequests.getColumnMaps).not.toHaveBeenCalled();
     expect(result).toStrictEqual([
-      { ...item1, prState: undefined, lastCoderabbitAcknowledgedAt: undefined },
-      { ...item2, prState: undefined, lastCoderabbitAcknowledgedAt: undefined },
+      { ...item1, prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: '<unknown>' },
+      { ...item2, prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: '<unknown>' },
     ]);
     expect(logger.warn).toHaveBeenCalledWith(
       { fn: 'QueueItemEnricher.enrich', nullCount: 2, totalItemCount: 2 },
@@ -153,5 +164,21 @@ describe('QueueItemEnricher', () => {
       { fn: 'QueueItemEnricher.enrich', itemCount: 2 },
       'All items have null pull_request_id; enrichment skipped entirely',
     );
+  });
+
+  it('enriches items with author_login from the repository', async () => {
+    const pullRequestId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ pull_request_id: pullRequestId });
+    (pullRequests.getColumnMaps as any).mockResolvedValue({
+      pr_state: new Map(),
+      last_coderabbit_acknowledged_at: new Map(),
+      author_login: new Map([[pullRequestId, 'some-login']]),
+    });
+
+    const result = await enricher.enrich([item]);
+
+    expect(result).toStrictEqual([{ ...item, prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: 'some-login' }]);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
   });
 });

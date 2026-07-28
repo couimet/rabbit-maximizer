@@ -363,15 +363,29 @@ describe('queueOrderRoutes', () => {
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: '99999999-9999-9999-9999-999999999999' }, 'Queue item not found');
     });
 
-    it('returns 409 when item is not pending', async () => {
+    it('returns 409 when item is already resolved', async () => {
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'resolved' }]),
       });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
-      expect(await res.json()).toStrictEqual({ error: 'Queue item is not pending' });
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'resolved' }, 'Queue item is not pending');
+      expect(await res.json()).toStrictEqual({ error: 'Queue item is already resolved' });
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'resolved' }, 'Queue item is already resolved');
+    });
+
+    it('returns 409 when item is in retrigger cooldown', async () => {
+      startServer({
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'retriggered' }]),
+      });
+
+      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      expect(res.status).toBe(StatusCodes.CONFLICT);
+      expect(await res.json()).toStrictEqual({ error: 'Queue item is in retrigger cooldown' });
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'retriggered' },
+        'Queue item is in retrigger cooldown',
+      );
     });
 
     it('returns 500 on repository error', async () => {
@@ -444,17 +458,17 @@ describe('queueOrderRoutes', () => {
       expect(await res.json()).toStrictEqual({ error: "Record not found in table 'reviewQueue'" });
     });
 
-    it('returns 409 when item is not pending', async () => {
+    it('returns 409 when item is already resolved', async () => {
       const notPendingError = new RabbitMaximizerError({
         code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
-        message: `Queue item ${UUID_A} is not pending`,
+        message: `Queue item ${UUID_A} is already resolved`,
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
       });
       startServer({ moveToTop: jest.fn<any>().mockRejectedValue(notPendingError) });
 
       const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: UUID_A });
       expect(res.status).toBe(StatusCodes.CONFLICT);
-      expect(await res.json()).toStrictEqual({ error: `Queue item ${UUID_A} is not pending` });
+      expect(await res.json()).toStrictEqual({ error: `Queue item ${UUID_A} is already resolved` });
     });
 
     it('returns 500 and logs error on unexpected failure', async () => {

@@ -17,6 +17,7 @@ export class QueueItemMapper {
       repo_full_name: input.repo_full_name,
       pr_number: input.pr_number,
       pr_title: input.pr_title,
+      author_login: input.authorLogin,
       status: input.status as QueueItemResponse['status'],
       attempts: input.attempts,
       source_comment_url: input.source_comment_url,

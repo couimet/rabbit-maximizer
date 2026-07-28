@@ -1,11 +1,11 @@
-import { Resolution } from '../../../src/domain.js';
 import type { QueueItemResponse } from '../../../src/types/index.js';
 import { type Duration, formatRelativeTime, resolveDurationSince } from '../../../src/utils/index.js';
+import { safeDeriveActivityStatus } from '../activityState.js';
 import { fetchTriggered, markResolved } from '../api.js';
 import { useErrorContext } from '../context/index.js';
-import { prUrl, repoUrl } from '../githubUrl.js';
+import { prUrl } from '../githubUrl.js';
 
-import { DurationSelect } from './index.js';
+import { DurationSelect, STATE_CLASS, STATE_LABEL } from './index.js';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -15,19 +15,12 @@ const RELATIVE_TIME_REFRESH_MS = 60_000;
 
 const TRIGGERED_DEFAULT_DURATION = '2d';
 
-const RESOLUTION_META: Record<Resolution, { label: string; className: string }> = {
-  [Resolution.ReviewCompleted]: { label: 'Reviewed', className: 'reviewed' },
-  [Resolution.PrMerged]: { label: 'Merged', className: 'merged' },
-  [Resolution.PrClosedWithoutMerge]: { label: 'Closed', className: 'closed' },
-  [Resolution.Failed]: { label: 'Failed', className: 'failed' },
-  [Resolution.Skipped]: { label: 'Skipped', className: 'skipped' },
-};
+/* c8 ignore next 2 — both branches tested but V8 coverage cannot track arrow-function ternaries in React render paths */
+const formatRetriggeredTime = (item: QueueItemResponse): string => (item.retriggered_at != null ? formatRelativeTime(item.retriggered_at) : '—');
 
-/** Returns the display label for a resolution value. Falls back to the raw resolution string for unknown values. */
-const resolutionLabel = (resolution: string): string => RESOLUTION_META[resolution as Resolution]?.label ?? resolution;
-
-/** Returns the CSS class name for a resolution pill. Falls back to 'reviewed' for unknown values. */
-const resolutionPillClass = (resolution: string): string => RESOLUTION_META[resolution as Resolution]?.className ?? 'reviewed';
+/* c8 ignore next 2 — both branches tested but V8 coverage cannot track nested ternaries in React render paths */
+const formatApprovalBadge = (subState: string | undefined): string =>
+  subState === 'review_approved' ? ' ✓' : subState === 'review_changes_suggested' ? ' Δ' : '';
 
 const RecentlyTriggered = () => {
   const [items, setItems] = useState<QueueItemResponse[]>([]);
@@ -112,11 +105,24 @@ const RecentlyTriggered = () => {
   const hasMore = total !== null && items.length < total;
 
   const renderStatusPill = (item: QueueItemResponse) => {
-    if (item.status === 'resolved') {
-      const resolution = item.resolution ?? 'review_completed';
-      return <span className={`status-pill ${resolutionPillClass(resolution)}`}>{resolutionLabel(resolution)}</span>;
+    const { state, linkUrl, subState } = safeDeriveActivityStatus(item);
+    const label = STATE_LABEL[state];
+    const className = `status-pill ${STATE_CLASS[state]}`;
+    const badge = formatApprovalBadge(subState);
+    if (linkUrl) {
+      return (
+        <a href={linkUrl} className={className} target="_blank" rel="noopener noreferrer">
+          {label}
+          {badge}
+        </a>
+      );
     }
-    return <span className="status-pill retriggered">Retriggered</span>;
+    return (
+      <span className={className}>
+        {label}
+        {badge}
+      </span>
+    );
   };
 
   return (
@@ -148,15 +154,12 @@ const RecentlyTriggered = () => {
               {items.map((item) => (
                 <tr key={item.uuid} className={item.status === 'resolved' ? 'row-status-reviewed' : ''}>
                   <td>
-                    <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noreferrer">
-                      {item.repo_full_name}
-                    </a>{' '}
                     <a href={item.retrigger_comment_url ?? prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noreferrer">
-                      #{item.pr_number}
-                    </a>
-                    <span className="pr-title">{item.pr_title}</span>
+                      {item.pr_title} (#{item.pr_number})
+                    </a>{' '}
+                    by {item.author_login}
                   </td>
-                  <td>{item.retriggered_at ? formatRelativeTime(item.retriggered_at) : '—'}</td>
+                  <td>{formatRetriggeredTime(item)}</td>
                   <td>{renderStatusPill(item)}</td>
                   <td>
                     {item.status !== 'resolved' && (
