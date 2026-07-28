@@ -3,9 +3,15 @@ import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import { ReviewDetector } from '../src/services.js';
 import { type QueueItem } from '../src/types/index.js';
 
-import { createMockCoderabbitGitHubClient, createMockProbeFactory, createMockQueueRepo, createMockReviewDetectorProbe } from './helpers/index.js';
+import {
+  createMockCoderabbitGitHubClient,
+  createMockProbeFactory,
+  createMockQueueRepo,
+  createMockReviewDetectorProbe,
+  generateReviewRef,
+} from './helpers/index.js';
 
-import { getRandomEnumValue, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -37,11 +43,12 @@ interface MockReviewDetectorDeps {
 const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: number }): QueueItem => {
   const { commentId: overrideCommentId, ...rest } = overrides ?? {};
   const commentId = overrideCommentId ?? getUniqueInt();
+  const ref = generateReviewRef();
   const defaults: QueueItem = {
     id: getUniqueInt(),
     uuid: getUuid(),
-    repo_full_name: getUniqueGitHubRepoRef().fullName,
-    pr_number: getUniqueInt(),
+    repo_full_name: ref.repoFullName,
+    pr_number: ref.prNumber,
     pr_title: 'Test PR title',
     status: getRandomEnumValue(QueueStatus),
     attempts: 1,
@@ -112,11 +119,10 @@ describe('ReviewDetector', () => {
     it('records coderabbit_review_approved when completed review is an approval', async () => {
       const retriggeredAt = getUniqueDate();
       const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
-      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const reviewId = getUniqueInt();
-      const completedCommentUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const completedCommentUrl = `https://github.com/${ref.repoFullName}/pull/${ref.prNumber}#pullrequestreview-${reviewId}`;
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: completedCommentUrl, reviewId, isApproval: true });
@@ -128,7 +134,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.probeFactory.createReviewDetectorProbe).toHaveBeenCalledTimes(1);
       expect(deps.probe.withItem).toHaveBeenCalledWith(item);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
@@ -139,11 +145,10 @@ describe('ReviewDetector', () => {
     it('records coderabbit_review_changes_suggested when completed review is not an approval', async () => {
       const retriggeredAt = getUniqueDate();
       const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
-      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const reviewId = getUniqueInt();
-      const completedCommentUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const completedCommentUrl = `https://github.com/${ref.repoFullName}/pull/${ref.prNumber}#pullrequestreview-${reviewId}`;
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: completedCommentUrl, reviewId, isApproval: false });
@@ -155,7 +160,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, completedCommentUrl, 'review_changes_suggested', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', completedCommentUrl, {});
     });
@@ -240,9 +245,8 @@ describe('ReviewDetector', () => {
   describe('pr state filtering', () => {
     it('auto-resolves a retriggered item when PR is merged, skipping API calls', async () => {
       const retriggeredAt = getUniqueDate();
-      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.merged]]), last_coderabbit_review_at: new Map() });
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
@@ -260,9 +264,8 @@ describe('ReviewDetector', () => {
 
     it('auto-resolves a retriggered item when PR is closed, skipping API calls', async () => {
       const retriggeredAt = getUniqueDate();
-      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.closed]]), last_coderabbit_review_at: new Map() });
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
@@ -281,10 +284,9 @@ describe('ReviewDetector', () => {
     it('proceeds with API calls when PR is open', async () => {
       const retriggeredAt = getUniqueDate();
       const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
-      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
-      const reviewUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${getUniqueInt()}`;
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewUrl = `https://github.com/${ref.repoFullName}/pull/${ref.prNumber}#pullrequestreview-${getUniqueInt()}`;
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.open]]), last_coderabbit_review_at: new Map() });
@@ -297,7 +299,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
-      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
       expect(deps.probe.prClosedResolved).not.toHaveBeenCalled();
@@ -330,9 +332,8 @@ describe('ReviewDetector', () => {
 
     it('auto-resolves a retriggered item when PR is merged, skipping API calls', async () => {
       const retriggeredAt = getUniqueDate();
-      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.merged]]), last_coderabbit_review_at: new Map() });
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
@@ -350,9 +351,8 @@ describe('ReviewDetector', () => {
 
     it('auto-resolves a retriggered item when PR is closed, skipping API calls', async () => {
       const retriggeredAt = getUniqueDate();
-      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.closed]]), last_coderabbit_review_at: new Map() });
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
@@ -371,10 +371,9 @@ describe('ReviewDetector', () => {
     it('proceeds with API calls when PR is open', async () => {
       const retriggeredAt = getUniqueDate();
       const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
-      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
-      const reviewUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${getUniqueInt()}`;
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewUrl = `https://github.com/${ref.repoFullName}/pull/${ref.prNumber}#pullrequestreview-${getUniqueInt()}`;
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.pullRequests.getColumnMaps.mockResolvedValue({ pr_state: new Map([[item.pull_request_id, PrState.open]]), last_coderabbit_review_at: new Map() });
@@ -387,7 +386,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
-      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
       expect(deps.probe.prClosedResolved).not.toHaveBeenCalled();
@@ -455,10 +454,9 @@ describe('ReviewDetector', () => {
     it('finds a review within the lookback window when review was posted before retriggered_at', async () => {
       const retriggeredAt = getUniqueDate();
       const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
-      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
-      const reviewUrl = `https://github.com/${repoFullName}/pull/${prNumber}#pullrequestreview-${getUniqueInt()}`;
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewUrl = `https://github.com/${ref.repoFullName}/pull/${ref.prNumber}#pullrequestreview-${getUniqueInt()}`;
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: reviewUrl, reviewId: getUniqueInt(), isApproval: true });
@@ -470,7 +468,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
     });
@@ -479,9 +477,8 @@ describe('ReviewDetector', () => {
       const retriggeredAt = getUniqueDate();
       const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
       const lastCoderabbitReviewAt = new Date(retriggeredAt.getTime() - 1000);
-      const { owner, repo, fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.github.findCompletedReview.mockResolvedValue(undefined);
@@ -497,7 +494,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewedViaFallback).toHaveBeenCalledWith({});
       expect(deps.probe.reviewed).not.toHaveBeenCalled();
@@ -506,9 +503,8 @@ describe('ReviewDetector', () => {
 
     it('calls noCompletedReviewFound when API returns nothing and last_coderabbit_review_at is null', async () => {
       const retriggeredAt = getUniqueDate();
-      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.github.findCompletedReview.mockResolvedValue(undefined);
@@ -530,9 +526,8 @@ describe('ReviewDetector', () => {
     it('calls noCompletedReviewFound when API returns nothing and last_coderabbit_review_at is outside the lookback window', async () => {
       const retriggeredAt = getUniqueDate();
       const lastCoderabbitReviewAt = new Date(retriggeredAt.getTime() - LOOKBACK_MS - 60_000);
-      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
-      const prNumber = getUniqueInt();
-      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: repoFullName, pr_number: prNumber });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.github.findCompletedReview.mockResolvedValue(undefined);

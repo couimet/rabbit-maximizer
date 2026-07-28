@@ -14,9 +14,10 @@ import {
   createMockSystemStateRepository,
   drainMicrotasks,
   generateQueueItemHydrationData,
+  generateReviewRef,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -337,10 +338,14 @@ describe('Scheduler', () => {
     });
 
     it('skips the tick when a PR is awaiting acknowledgement within the spacing window', async () => {
+      const ackRef = generateReviewRef();
       const ackId = getUniqueInt();
-      const ackRepo = getUniqueGitHubRepoRef().fullName;
-      const ackPr = getUniqueInt();
-      const pendingAck = { id: ackId, repo_full_name: ackRepo, pr_number: ackPr, last_review_requested_at: new Date(frozenNow.getTime() - 30_000) };
+      const pendingAck = {
+        id: ackId,
+        repo_full_name: ackRef.repoFullName,
+        pr_number: ackRef.prNumber,
+        last_review_requested_at: new Date(frozenNow.getTime() - 30_000),
+      };
       deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
