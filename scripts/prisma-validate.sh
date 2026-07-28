@@ -9,7 +9,7 @@ set -euo pipefail
 #
 # Usage: prisma-validate.sh
 
-TRACKED="prisma/generated/index.d.ts"
+TRACKED="${PRISMA_VALIDATE_TRACKED:-prisma/generated/index.d.ts}"
 
 if [[ ! -f "$TRACKED" ]]; then
   echo "error: tracked snapshot not found at $TRACKED — run pnpm prisma:snapshot first" >&2
@@ -41,7 +41,11 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 cp "$SOURCE" "$TMPDIR/generated.d.ts"
 cp "$TRACKED" "$TMPDIR/tracked.d.ts"
-pnpm exec prettier --write "$TMPDIR/generated.d.ts" "$TMPDIR/tracked.d.ts" > /dev/null
+# Run prettier to normalize formatting differences (matching what CI does).
+# Fall back to raw diff if pnpm/prettier is unavailable (e.g. BATS sandbox).
+if pnpm exec prettier --write "$TMPDIR/generated.d.ts" "$TMPDIR/tracked.d.ts" > /dev/null 2>&1; then
+  :
+fi
 
 if ! diff -q "$TMPDIR/generated.d.ts" "$TMPDIR/tracked.d.ts" > /dev/null 2>&1; then
   echo "FAIL: Prisma generated types are out of date." >&2
