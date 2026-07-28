@@ -13,6 +13,8 @@ export interface PullRequestColumnTypes {
   last_review_limit_at: Date | null;
   first_review_limit_at: Date | null;
   last_coderabbit_review_at: Date | null;
+  last_review_url: string | null;
+  last_review_state: string | null;
   first_seen_at: Date;
   retrigger_count: number;
   review_count: number;

@@ -125,6 +125,14 @@ describe('deriveActivityStatus', () => {
       expect(result).toStrictEqual({ state: 'skipped', linkUrl: undefined });
     });
 
+    it('returns manual_review state for manual_review resolution', () => {
+      const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'manual_review' });
+
+      const result = deriveActivityStatus(item);
+
+      expect(result).toStrictEqual({ state: 'manual_review', linkUrl: undefined });
+    });
+
     it('returns unknown_resolution state with undefined link for unknown resolution', () => {
       const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'unknown_resolution' as QueueItemResponse['resolution'] });
 

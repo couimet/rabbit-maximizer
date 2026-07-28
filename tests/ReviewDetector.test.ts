@@ -132,6 +132,7 @@ describe('ReviewDetector', () => {
       expect(deps.probeFactory.createReviewDetectorProbe).toHaveBeenCalledTimes(1);
       expect(deps.probe.withItem).toHaveBeenCalledWith(item);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
+      expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, completedCommentUrl, 'coderabbit_review_approved', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', completedCommentUrl, {});
     });
 
@@ -155,6 +156,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(owner, repo, prNumber, lookbackSince);
+      expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, completedCommentUrl, 'coderabbit_review_changes_suggested', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', completedCommentUrl, {});
     });
 

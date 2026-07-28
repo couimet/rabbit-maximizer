@@ -485,25 +485,22 @@ describe('queueOrderRoutes', () => {
   describe('POST /api/queue/:uuid/mark-reviewed', () => {
     const startServer = (over = {}, txOverride?: { $transaction: jest.Mock<any> }) => {
       const prisma = txOverride ?? { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn({})) };
-      const pullRequests = { recordReview: jest.fn<any>().mockResolvedValue(undefined) };
       const result = startTestServer(logger, (app) => {
-        app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(createMockQueueRepo(over), pullRequests as any, prisma as any, logger));
+        app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(createMockQueueRepo(over), prisma as any, logger));
       });
       server = result.server;
       port = result.port;
-      return { pullRequests };
     };
 
     it('returns 200 with { ok: true }', async () => {
       const item = generateQueueItemHydrationData({ uuid: UUID_A });
       const markResolvedByUuid = jest.fn<any>().mockResolvedValue(item);
-      const { pullRequests } = startServer({ markResolvedByUuid });
+      startServer({ markResolvedByUuid });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
-      expect(markResolvedByUuid).toHaveBeenCalledWith(UUID_A, 'review_completed', {});
-      expect(pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, {});
+      expect(markResolvedByUuid).toHaveBeenCalledWith(UUID_A, 'manual_review', {});
     });
 
     it('returns 400 for non-UUID id', async () => {

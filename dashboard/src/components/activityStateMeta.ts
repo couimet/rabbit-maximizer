@@ -2,6 +2,7 @@ import { ActivityState } from '../../../src/domain.js';
 
 export const STATE_LABEL: Record<ActivityState, string> = {
   [ActivityState.reviewCompleted]: 'Reviewed',
+  [ActivityState.manualReview]: 'Manual review',
   [ActivityState.failed]: 'Failed',
   [ActivityState.prMerged]: 'Merged',
   [ActivityState.prClosed]: 'Closed',
@@ -13,8 +14,11 @@ export const STATE_LABEL: Record<ActivityState, string> = {
   [ActivityState.pending]: 'Pending',
 };
 
-export const STATE_CLASS: Record<ActivityState, string> = {
+type StatusPillClass = 'reviewed' | 'failed' | 'merged' | 'closed' | 'skipped' | 'retriggered' | 'pending';
+
+export const STATE_CLASS: Record<ActivityState, StatusPillClass> = {
   [ActivityState.reviewCompleted]: 'reviewed',
+  [ActivityState.manualReview]: 'reviewed',
   [ActivityState.failed]: 'failed',
   [ActivityState.prMerged]: 'merged',
   [ActivityState.prClosed]: 'closed',

@@ -36,6 +36,8 @@ model PullRequest {
   last_review_limit_at      DateTime?
   last_review_requested_at  DateTime?
   last_coderabbit_review_at       DateTime?
+  last_review_url                 String?
+  last_review_state               String?
   last_coderabbit_acknowledged_at DateTime?
   retrigger_count           Int       @default(0)
   review_count              Int       @default(0)

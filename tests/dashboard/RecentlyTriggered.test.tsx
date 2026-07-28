@@ -90,6 +90,22 @@ describe('RecentlyTriggered', () => {
       await waitFor(() => expect(screen.getByText('Reviewed')).toBeInTheDocument());
     });
 
+    it('shows Reviewed pill with approved badge when review state is review_approved', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'review_completed', coderabbit_review_state: 'review_approved' });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderRecentlyTriggered();
+
+      await waitFor(() => expect(screen.getByText(/Reviewed ✓/)).toBeInTheDocument());
+    });
+
+    it('shows Reviewed pill with changes_suggested badge when review state is review_changes_suggested', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'review_completed', coderabbit_review_state: 'review_changes_suggested' });
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderRecentlyTriggered();
+
+      await waitFor(() => expect(screen.getByText(/Reviewed Δ/)).toBeInTheDocument());
+    });
+
     it('shows Resolved pill when status is resolved and resolution is absent', async () => {
       const item = makeItem({ status: 'resolved' });
       mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
@@ -231,13 +247,11 @@ describe('RecentlyTriggered', () => {
 
   describe('edge cases', () => {
     it('shows em dash when retriggered_at is missing', async () => {
-      const item = makeItem({ retriggered_at: undefined });
+      const item = generateQueueItemResponseData({ status: 'retriggered', retriggered_at: null, source_comment_url: undefined });
       mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderRecentlyTriggered();
 
-      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
-      const dashes = screen.getAllByText('—');
-      expect(dashes.length).toBeGreaterThanOrEqual(1);
+      await waitFor(() => expect(screen.getByText('—')).toBeInTheDocument());
     });
 
     it('shows refresh error banner when poll fails with existing data', async () => {

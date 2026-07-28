@@ -27,6 +27,8 @@ const resolvedStatus = (item: QueueItemResponse): ActivityStatus => {
       return { state: ActivityState.prClosed, linkUrl: undefined };
     case 'skipped':
       return { state: ActivityState.skipped, linkUrl: item.source_comment_url };
+    case 'manual_review':
+      return { state: ActivityState.manualReview, linkUrl: undefined };
     default:
       return { state: ActivityState.unknownResolution, linkUrl: undefined };
   }

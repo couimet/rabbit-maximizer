@@ -84,6 +84,7 @@ export class ReviewDetector extends IntervalService {
 
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
+          await this.pullRequests.recordReview(item.pull_request_id, completedReview.htmlUrl, eventType, tx);
           await probe.reviewed(eventType, completedReview.htmlUrl, tx);
         });
       } catch (err: unknown) {

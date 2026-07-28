@@ -24,6 +24,8 @@ export const generatePullRequestHydrationData = (overrideValues?: Partial<PullRe
     last_review_limit_at: getUniqueDate(),
     last_review_requested_at: getUniqueDate(),
     last_coderabbit_review_at: getUniqueDate(),
+    last_review_url: null,
+    last_review_state: null,
     last_coderabbit_acknowledged_at: getUniqueDate(),
     retrigger_count: getUniqueInt(),
     review_count: getUniqueInt(),

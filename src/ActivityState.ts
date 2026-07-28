@@ -1,5 +1,6 @@
 export enum ActivityState {
   reviewCompleted = 'review_completed',
+  manualReview = 'manual_review',
   failed = 'failed',
   prMerged = 'pr_merged',
   prClosed = 'pr_closed',
