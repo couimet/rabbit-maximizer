@@ -1,8 +1,8 @@
 import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/index.js';
 import { EventType, TYPES } from '../../src/domain.js';
-import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it } from '@jest/globals';
@@ -14,8 +14,7 @@ describe('EventRepositoryImpl', () => {
 
   describe('record', () => {
     it('inserts a detected event and returns the parsed entry', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const correlationId = getUuid();
       const requestId = getUuid();
       const version = getUniqueString({ prefix: 'v' });
@@ -29,8 +28,8 @@ describe('EventRepositoryImpl', () => {
         uuid,
         ts,
         type: 'detected',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: requestId,
         version,
@@ -46,8 +45,8 @@ describe('EventRepositoryImpl', () => {
 
       const input: NewEvent = {
         type: EventType.detected,
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: requestId,
         version,
@@ -58,8 +57,8 @@ describe('EventRepositoryImpl', () => {
       expect(event.create).toHaveBeenCalledWith({
         data: {
           type: 'detected',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: correlationId,
           request_id: requestId,
           version,
@@ -72,20 +71,22 @@ describe('EventRepositoryImpl', () => {
         uuid,
         ts,
         type: 'detected',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: requestId,
         version,
         metadata: undefined,
         payload: { source_comment_url: sourceCommentUrl },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.record', type: 'detected', repo, pr }, 'Event recorded');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'EventRepositoryImpl.record', type: 'detected', repo: ref.repoFullName, pr: ref.prNumber },
+        'Event recorded',
+      );
     });
 
     it('writes through the transaction client and serializes metadata', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const correlationId = getUuid();
       const version = getUniqueString({ prefix: 'v' });
       const reason = getUniqueString({ prefix: 'reason-' });
@@ -100,8 +101,8 @@ describe('EventRepositoryImpl', () => {
         uuid: getUuid(),
         ts,
         type: 'failed',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: null,
         version,
@@ -119,8 +120,8 @@ describe('EventRepositoryImpl', () => {
       const result = await sut.record(
         {
           type: EventType.failed,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: correlationId,
           version,
           metadata,
@@ -132,8 +133,8 @@ describe('EventRepositoryImpl', () => {
       expect(tx.event.create).toHaveBeenCalledWith({
         data: {
           type: 'failed',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: correlationId,
           request_id: null,
           version,
@@ -144,14 +145,16 @@ describe('EventRepositoryImpl', () => {
       expect(base.event.create).not.toHaveBeenCalled();
       expect(result.metadata).toStrictEqual(metadata);
       expect(result.request_id).toBeUndefined();
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.record', type: 'failed', repo, pr }, 'Event recorded');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'EventRepositoryImpl.record', type: 'failed', repo: ref.repoFullName, pr: ref.prNumber },
+        'Event recorded',
+      );
     });
   });
 
   describe('listForPr', () => {
     it('returns events for a PR ordered by ts', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const detectedUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
       const detectedRow = {
@@ -159,8 +162,8 @@ describe('EventRepositoryImpl', () => {
         uuid: getUuid(),
         ts: getUniqueDate(),
         type: 'detected',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: getUuid(),
         request_id: null,
         version: getUniqueString(),
@@ -172,8 +175,8 @@ describe('EventRepositoryImpl', () => {
         uuid: getUuid(),
         ts: getUniqueDate(),
         type: 'enqueued',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: getUuid(),
         request_id: null,
         version: getUniqueString(),
@@ -187,10 +190,10 @@ describe('EventRepositoryImpl', () => {
       const logger = createMockLogger();
       const sut = new EventRepositoryImpl(prisma, logger);
 
-      const result = await sut.listForPr(repo, pr);
+      const result = await sut.listForPr(ref.repoFullName, ref.prNumber);
 
       expect(event.findMany).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr },
+        where: { repo_full_name: ref.repoFullName, pr_number: ref.prNumber },
         orderBy: { ts: 'asc' },
       });
       expect(result).toStrictEqual([
@@ -198,8 +201,8 @@ describe('EventRepositoryImpl', () => {
           id: detectedRow.id,
           uuid: detectedRow.uuid,
           ts: detectedRow.ts,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: detectedRow.correlation_id,
           request_id: undefined,
           version: detectedRow.version,
@@ -211,8 +214,8 @@ describe('EventRepositoryImpl', () => {
           id: enqueuedRow.id,
           uuid: enqueuedRow.uuid,
           ts: enqueuedRow.ts,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: enqueuedRow.correlation_id,
           request_id: undefined,
           version: enqueuedRow.version,
@@ -224,8 +227,8 @@ describe('EventRepositoryImpl', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'EventRepositoryImpl.listForPr',
-          repo,
-          pr,
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
           count: EXPECTED_EVENT_COUNT,
         },
         'Listed events for PR',
@@ -237,8 +240,7 @@ describe('EventRepositoryImpl', () => {
     it('returns paginated events sorted by ts descending, with total count', async () => {
       const skip = 0;
       const take = 10;
-      const repo = getUniqueGitHubRepoRef().fullName;
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const sourceCommentUrl = getUniqueString();
       const retriggeredCommentUrl = getUniqueString();
       const rows = [
@@ -247,8 +249,8 @@ describe('EventRepositoryImpl', () => {
           uuid: getUuid(),
           ts: getUniqueDate(),
           type: 'retriggered',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: getUuid(),
           request_id: null,
           version: getUniqueString(),
@@ -277,8 +279,8 @@ describe('EventRepositoryImpl', () => {
           id: rows[0].id,
           uuid: rows[0].uuid,
           ts: rows[0].ts,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: rows[0].correlation_id,
           request_id: undefined,
           version: rows[0].version,

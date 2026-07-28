@@ -1,27 +1,30 @@
 import { EventType } from '../../src/domain.js';
 import { COMMENT_URL_MAX_LENGTH, parseEventRow, REASON_MAX_LENGTH } from '../../src/schemas/index.js';
+import { generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 import type { Event as PrismaEvent } from '@prisma/client';
 
 const EXCEEDS_MAX_BY = 1;
 
-const baseRow = (over: Partial<PrismaEvent>): PrismaEvent =>
-  ({
+const baseRow = (over: Partial<PrismaEvent>): PrismaEvent => {
+  const ref = generateReviewRef();
+  return {
     id: getUniqueInt(),
     uuid: getUuid(),
     ts: getUniqueDate(),
     type: 'detected',
-    repo_full_name: getUniqueGitHubRepoRef().fullName,
-    pr_number: getUniqueInt(),
+    repo_full_name: ref.repoFullName,
+    pr_number: ref.prNumber,
     correlation_id: getUuid(),
     request_id: null,
     version: getUniqueString(),
     payload: '{}',
     metadata: null,
     ...over,
-  }) as PrismaEvent;
+  } as PrismaEvent;
+};
 
 describe('parseEventRow', () => {
   it('parses a detected event with metadata and request id', () => {
