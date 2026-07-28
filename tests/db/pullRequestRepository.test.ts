@@ -401,6 +401,7 @@ describe('PullRequestRepositoryImpl', () => {
           last_review_state: 'review_changes_suggested',
         },
       });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {

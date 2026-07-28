@@ -23,6 +23,7 @@ describe('parseConfig', () => {
     };
   });
 
+  /** @testFixture */
   const env = (base: Record<string, string>, overrides: Record<string, string | undefined> = {}): Record<string, string | undefined> => ({
     ...base,
     ...overrides,

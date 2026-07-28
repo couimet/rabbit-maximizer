@@ -49,6 +49,7 @@ describe('queueOrderRoutes', () => {
   });
 
   describe('GET /api/queue/order', () => {
+    /** @testFixture */
     const startServer = (over = {}) => {
       const result = startTestServer(logger, (app) => {
         app.get('/api/queue/order', createGetQueueOrderHandler(createMockQueueOrderRepo(over), queueItemMapper, logger));
@@ -84,6 +85,7 @@ describe('queueOrderRoutes', () => {
   });
 
   describe('POST /api/queue/order/move', () => {
+    /** @testFixture */
     const startServer = (over = {}) => {
       const result = startTestServer(logger, (app) => {
         app.use(express.json());
@@ -264,6 +266,7 @@ describe('queueOrderRoutes', () => {
   describe('POST /api/queue/:uuid/retrigger-now', () => {
     const TRIGGER_OK = RabbitResult.ok({ retriggeredCommentUrl: 'https://gh/c/retriggered' });
 
+    /** @testFixture */
     const startServer = (over = {}, systemStateRepoOver = {}, triggerResult = TRIGGER_OK) => {
       const mockReviewTrigger = { trigger: jest.fn<any>().mockResolvedValue(triggerResult) };
       const result = startTestServer(logger, (app) => {
@@ -402,6 +405,7 @@ describe('queueOrderRoutes', () => {
   });
 
   describe('POST /api/queue/order/move-to-top', () => {
+    /** @testFixture */
     const startServer = (over = {}) => {
       const result = startTestServer(logger, (app) => {
         app.use(express.json());
@@ -483,6 +487,7 @@ describe('queueOrderRoutes', () => {
   });
 
   describe('POST /api/queue/:uuid/mark-reviewed', () => {
+    /** @testFixture */
     const startServer = (over = {}, txOverride?: { $transaction: jest.Mock<any>; sentinelTx: object }) => {
       const txClient = txOverride?.sentinelTx ?? {};
       const prisma = txOverride ?? { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(txClient)), sentinelTx: txClient };
@@ -494,17 +499,17 @@ describe('queueOrderRoutes', () => {
     };
 
     it('returns 200 with { ok: true }', async () => {
-      const T_SENTINEL = { __sentinel: true };
+      const sentinelTx = { __sentinel: true };
       const item = generateQueueItemHydrationData({ uuid: UUID_A });
       const markResolvedByUuid = jest.fn<any>().mockResolvedValue(item);
-      const $transaction = jest.fn<any>().mockImplementation((fn: any) => fn(T_SENTINEL));
-      startServer({ markResolvedByUuid }, { $transaction, sentinelTx: T_SENTINEL });
+      const $transaction = jest.fn<any>().mockImplementation((fn: any) => fn(sentinelTx));
+      startServer({ markResolvedByUuid }, { $transaction, sentinelTx });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
       expect($transaction).toHaveBeenCalled();
-      expect(markResolvedByUuid).toHaveBeenCalledWith(UUID_A, 'manual_review', T_SENTINEL);
+      expect(markResolvedByUuid).toHaveBeenCalledWith(UUID_A, 'manual_review', sentinelTx);
     });
 
     it('returns 400 for non-UUID id', async () => {

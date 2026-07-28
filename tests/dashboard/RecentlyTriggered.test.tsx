@@ -21,6 +21,7 @@ const mockTriggeredEndpoint = (data: Record<string, unknown> = TRIGGERED_RESPONS
   }) as unknown as typeof fetch;
 };
 
+/** @testFixture */
 const makeItem = (over: Record<string, unknown> = {}) =>
   generateQueueItemResponseData({ status: 'retriggered', retrigger_comment_url: generateReviewRef().commentUrl, ...over } as Partial<QueueItemResponse>);
 
