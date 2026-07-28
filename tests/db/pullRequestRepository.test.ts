@@ -1,6 +1,6 @@
 import { PullRequestRepositoryImpl } from '../../src/db/index.js';
-import { PrState } from '../../src/domain.js';
-import { createMockPrismaClient, createResolvedMock, generatePullRequestHydrationData } from '../helpers/index.js';
+import { CodeRabbitCommentType, PrState } from '../../src/domain.js';
+import { createMockPrismaClient, createResolvedMock, generatePullRequestHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -363,18 +363,42 @@ describe('PullRequestRepositoryImpl', () => {
   });
 
   describe('recordReview', () => {
-    it('increments review_count and sets last_coderabbit_review_at', async () => {
+    it('increments review_count, sets timestamps, and stores review verdict', async () => {
       const id = getUniqueInt();
+      const reviewUrl = generateReviewRef().commentUrl;
+      const reviewState = CodeRabbitCommentType.review_approved;
       const { prisma, pullRequest } = createMockPrismaClient();
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.recordReview(id, prisma);
+      await sut.recordReview(id, reviewUrl, reviewState, prisma);
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id },
         data: {
           review_count: { increment: 1 },
           last_coderabbit_review_at: frozenNow,
+          last_review_url: reviewUrl,
+          last_review_state: 'review_approved',
+        },
+      });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+    });
+
+    it('stores review_changes_suggested verdict state', async () => {
+      const id = getUniqueInt();
+      const reviewUrl = generateReviewRef().commentUrl;
+      const { prisma, pullRequest } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_changes_suggested, prisma);
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id },
+        data: {
+          review_count: { increment: 1 },
+          last_coderabbit_review_at: frozenNow,
+          last_review_url: reviewUrl,
+          last_review_state: 'review_changes_suggested',
         },
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
@@ -387,12 +411,15 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await expect(sut.recordReview(getUniqueInt(), prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
-        message: "Record not found in table 'PullRequest'",
-        functionName: 'PullRequestRepositoryImpl.recordReview',
-        details: { tableName: 'PullRequest' },
-        cause: p2025,
-      });
+      await expect(sut.recordReview(getUniqueInt(), generateReviewRef().commentUrl, CodeRabbitCommentType.review_approved, prisma)).rejects.toBeDetailedError(
+        'PRISMA_RECORD_NOT_FOUND_P2025',
+        {
+          message: "Record not found in table 'PullRequest'",
+          functionName: 'PullRequestRepositoryImpl.recordReview',
+          details: { tableName: 'PullRequest' },
+          cause: p2025,
+        },
+      );
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'PullRequestRepositoryImpl.recordReview', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',

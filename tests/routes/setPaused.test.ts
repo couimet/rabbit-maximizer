@@ -18,6 +18,7 @@ describe('setPaused', () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
+  /** @testFixture */
   const startServer = (systemStateRepoOver: Partial<jest.Mocked<SystemStateRepository>> = {}) => {
     logger = createMockLogger();
     const result = startTestServer(logger, (app) => {

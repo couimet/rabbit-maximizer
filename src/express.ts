@@ -1,4 +1,4 @@
-import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import type { EventRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
 import { createExpressApp, startServer } from './external-deps/couimet/express-tools/index.js';
 import type { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
 import {
@@ -33,7 +33,6 @@ export interface ExpressDeps {
   eventCountsMapper: EventCountsMapper;
   eventEntryMapper: EventEntryMapper;
   eventRepo: EventRepository;
-  pullRequestRepo: PullRequestRepository;
   prisma: PrismaClient;
   queueItemMapper: QueueItemMapper;
   queueOrderRepo: QueueOrderRepository;
@@ -55,7 +54,6 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
     eventCountsMapper,
     eventEntryMapper,
     eventRepo,
-    pullRequestRepo,
     prisma,
     queueItemMapper,
     queueOrderRepo,
@@ -80,7 +78,7 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));
   app.post('/api/queue/order/move-to-top', createMoveToTopHandler(queueOrderRepo, logger));
   app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, reviewTrigger, logger));
-  app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, pullRequestRepo, prisma, logger));
+  app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, prisma, logger));
   app.get('/api/queue/triggered', createGetTriggeredHandler(queueRepo, queueItemMapper, logger));
   app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, eventEntryMapper, logger));

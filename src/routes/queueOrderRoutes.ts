@@ -1,4 +1,4 @@
-import type { PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
+import type { QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
 import { QueueStatus, Resolution, TriggerSource } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
@@ -149,7 +149,7 @@ export const createMoveToTopHandler = (queueOrderRepo: QueueOrderRepository, log
   };
 };
 
-export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullRequests: PullRequestRepository, prisma: PrismaClient, logger: Logger) => {
+export const createMarkReviewedHandler = (queueRepo: QueueRepository, prisma: PrismaClient, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const uuid = req.params.uuid as string;
@@ -159,10 +159,8 @@ export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullReques
       }
 
       const item = await prisma.$transaction(async (tx) => {
-        const updated = await queueRepo.markResolvedByUuid(uuid, Resolution.ReviewCompleted, tx);
-        if (!updated) return null;
-        await pullRequests.recordReview(updated.pull_request_id, tx);
-        return updated;
+        const updated = await queueRepo.markResolvedByUuid(uuid, Resolution.ManualReview, tx);
+        return updated ?? null;
       });
 
       if (!item) {

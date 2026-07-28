@@ -19,6 +19,7 @@ describe('getEvents', () => {
 
   const eventEntryMapper = new EventEntryMapper();
 
+  /** @testFixture */
   const startServer = (over = {}) => {
     logger = createMockLogger();
     const result = startTestServer(logger, (app) => {
