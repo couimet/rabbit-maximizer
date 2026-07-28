@@ -378,10 +378,29 @@ describe('PullRequestRepositoryImpl', () => {
           review_count: { increment: 1 },
           last_coderabbit_review_at: frozenNow,
           last_review_url: reviewUrl,
-          last_review_state: reviewState,
+          last_review_state: 'review_approved',
         },
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+    });
+
+    it('stores review_changes_suggested verdict state', async () => {
+      const id = getUniqueInt();
+      const reviewUrl = generateReviewRef().commentUrl;
+      const { prisma, pullRequest } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_changes_suggested, prisma);
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id },
+        data: {
+          review_count: { increment: 1 },
+          last_coderabbit_review_at: frozenNow,
+          last_review_url: reviewUrl,
+          last_review_state: 'review_changes_suggested',
+        },
+      });
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {

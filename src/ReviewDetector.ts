@@ -3,7 +3,7 @@ import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { EventType, IntervalService, PrState, Resolution, TYPES } from './domain.js';
+import { CodeRabbitCommentType, EventType, IntervalService, PrState, Resolution, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -81,10 +81,11 @@ export class ReviewDetector extends IntervalService {
         }
 
         const eventType = completedReview.isApproval ? EventType.coderabbit_review_approved : EventType.coderabbit_review_changes_suggested;
+        const verdictState = completedReview.isApproval ? CodeRabbitCommentType.review_approved : CodeRabbitCommentType.review_changes_suggested;
 
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
-          await this.pullRequests.recordReview(item.pull_request_id, completedReview.htmlUrl, eventType, tx);
+          await this.pullRequests.recordReview(item.pull_request_id, completedReview.htmlUrl, verdictState, tx);
           await probe.reviewed(eventType, completedReview.htmlUrl, tx);
         });
       } catch (err: unknown) {

@@ -1,7 +1,9 @@
 import type { PullRequestRepository } from '../db/index.js';
-import type { PrState } from '../domain.js';
+import { type PrState } from '../domain.js';
 import { TYPES } from '../inversify-types.js';
 import type { CoderabbitReviewVerdict, EnrichedQueueItem, QueueItem } from '../types/index.js';
+
+import { isReviewVerdictState } from './isReviewVerdictState.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -63,7 +65,7 @@ export class QueueItemEnricher {
       const reviewUrl = reviewUrlMap.get(pid) ?? undefined;
       const reviewState = reviewStateMap.get(pid) ?? undefined;
       const coderabbitReview: CoderabbitReviewVerdict | undefined =
-        reviewUrl != null && reviewState != null ? { htmlUrl: reviewUrl, state: reviewState as CoderabbitReviewVerdict['state'] } : undefined;
+        reviewUrl != null && isReviewVerdictState(reviewState) ? { htmlUrl: reviewUrl, state: reviewState } : undefined;
       return { ...item, prState, lastCoderabbitAcknowledgedAt: ackValue, authorLogin, coderabbitReview };
     });
   }

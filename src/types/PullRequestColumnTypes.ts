@@ -1,4 +1,4 @@
-import type { PrState } from '../domain.js';
+import type { CodeRabbitCommentType, PrState } from '../domain.js';
 
 /** Maps `pull_request` column names to their TypeScript types. Used by {@link PullRequestRepository.getColumnMaps} to enforce type-safe column selection. */
 export interface PullRequestColumnTypes {
@@ -14,7 +14,7 @@ export interface PullRequestColumnTypes {
   first_review_limit_at: Date | null;
   last_coderabbit_review_at: Date | null;
   last_review_url: string | null;
-  last_review_state: string | null;
+  last_review_state: CodeRabbitCommentType | null;
   first_seen_at: Date;
   retrigger_count: number;
   review_count: number;

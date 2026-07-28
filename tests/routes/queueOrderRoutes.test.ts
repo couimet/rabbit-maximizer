@@ -483,8 +483,9 @@ describe('queueOrderRoutes', () => {
   });
 
   describe('POST /api/queue/:uuid/mark-reviewed', () => {
-    const startServer = (over = {}, txOverride?: { $transaction: jest.Mock<any> }) => {
-      const prisma = txOverride ?? { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn({})) };
+    const startServer = (over = {}, txOverride?: { $transaction: jest.Mock<any>; sentinelTx: object }) => {
+      const txClient = txOverride?.sentinelTx ?? {};
+      const prisma = txOverride ?? { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(txClient)), sentinelTx: txClient };
       const result = startTestServer(logger, (app) => {
         app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(createMockQueueRepo(over), prisma as any, logger));
       });
@@ -493,14 +494,17 @@ describe('queueOrderRoutes', () => {
     };
 
     it('returns 200 with { ok: true }', async () => {
+      const T_SENTINEL = { __sentinel: true };
       const item = generateQueueItemHydrationData({ uuid: UUID_A });
       const markResolvedByUuid = jest.fn<any>().mockResolvedValue(item);
-      startServer({ markResolvedByUuid });
+      const $transaction = jest.fn<any>().mockImplementation((fn: any) => fn(T_SENTINEL));
+      startServer({ markResolvedByUuid }, { $transaction, sentinelTx: T_SENTINEL });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
-      expect(markResolvedByUuid).toHaveBeenCalledWith(UUID_A, 'manual_review', {});
+      expect($transaction).toHaveBeenCalled();
+      expect(markResolvedByUuid).toHaveBeenCalledWith(UUID_A, 'manual_review', T_SENTINEL);
     });
 
     it('returns 400 for non-UUID id', async () => {

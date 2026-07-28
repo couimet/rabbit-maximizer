@@ -95,7 +95,7 @@ describe('RecentlyTriggered', () => {
       mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderRecentlyTriggered();
 
-      await waitFor(() => expect(screen.getByText(/Reviewed ✓/)).toBeInTheDocument());
+      expect(await screen.findByText('Reviewed ✓')).toBeInTheDocument();
     });
 
     it('shows Reviewed pill with changes_suggested badge when review state is review_changes_suggested', async () => {
@@ -103,23 +103,23 @@ describe('RecentlyTriggered', () => {
       mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderRecentlyTriggered();
 
-      await waitFor(() => expect(screen.getByText(/Reviewed Δ/)).toBeInTheDocument());
+      expect(await screen.findByText('Reviewed Δ')).toBeInTheDocument();
     });
 
-    it('shows Resolved pill when status is resolved and resolution is absent', async () => {
+    it('shows Reviewed pill when status is resolved and resolution is absent', async () => {
       const item = makeItem({ status: 'resolved' });
       mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderRecentlyTriggered();
 
-      await waitFor(() => expect(screen.getByText('Resolved')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Reviewed')).toBeInTheDocument());
     });
 
-    it('shows Resolved pill for unknown resolution values', async () => {
+    it('shows Pending pill for unknown resolution values (safeDeriveActivityStatus fallback)', async () => {
       const item = makeItem({ status: 'resolved', resolution: 'custom_reason' });
       mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderRecentlyTriggered();
 
-      await waitFor(() => expect(screen.getByText('Resolved')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Pending')).toBeInTheDocument());
     });
 
     it('shows Review limited pill when status is retriggered with no acknowledge', async () => {
