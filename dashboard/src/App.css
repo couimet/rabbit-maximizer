@@ -492,6 +492,10 @@ a:hover {
   border-left: 4px solid #c95b4f;
   background: linear-gradient(135deg, #fff 0%, #fef8f7 100%);
 }
+.countdown-bar.stale {
+  border-left: 4px solid #999;
+  background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);
+}
 
 .countdown-status {
   display: flex;
@@ -514,6 +518,9 @@ a:hover {
 }
 .countdown-dot.paused {
   background: #c95b4f;
+}
+.countdown-dot.stale {
+  background: #999;
 }
 @keyframes pulse {
   0%,
@@ -539,6 +546,9 @@ a:hover {
 }
 .countdown-value.available {
   color: #2d6a4f;
+}
+.countdown-value.stale {
+  color: #666;
 }
 
 .countdown-toggle {

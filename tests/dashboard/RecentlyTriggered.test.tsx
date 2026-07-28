@@ -29,7 +29,7 @@ const renderRecentlyTriggered = (ui?: ReactElement) =>
   render(
     <ErrorProvider>
       <GlobalErrorBanner />
-      {ui ?? <RecentlyTriggered />}
+      {ui ?? <RecentlyTriggered schedulerStale={false} lastSchedulerTickAt={null} />}
     </ErrorProvider>,
   );
 
@@ -216,7 +216,7 @@ describe('RecentlyTriggered', () => {
       globalThis.fetch = jest.fn(() => Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
       renderRecentlyTriggered();
 
-      await waitFor(() => expect(screen.getByText('Network error')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Recently triggered: Network error')).toBeInTheDocument());
     });
 
     it('shows error page when duration change triggers a failed fetch with no existing data', async () => {
@@ -230,7 +230,7 @@ describe('RecentlyTriggered', () => {
 
       fireEvent.change(screen.getByRole('combobox', { name: 'Triggered time range' }), { target: { value: '24h' } });
 
-      await waitFor(() => expect(screen.getByText('Refresh failed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Recently triggered: Refresh failed')).toBeInTheDocument());
     });
   });
 
@@ -283,7 +283,7 @@ describe('RecentlyTriggered', () => {
         jest.advanceTimersByTime(60_000);
       });
 
-      await waitFor(() => expect(screen.getByText('Poll failed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Recently triggered: Poll failed')).toBeInTheDocument());
       expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument();
     });
   });
@@ -339,7 +339,7 @@ describe('RecentlyTriggered', () => {
         <ErrorProvider>
           <GlobalErrorBanner />
           <StrictMode>
-            <RecentlyTriggered />
+            <RecentlyTriggered schedulerStale={false} lastSchedulerTickAt={null} />
           </StrictMode>
         </ErrorProvider>,
       );
@@ -350,6 +350,100 @@ describe('RecentlyTriggered', () => {
       mockTriggeredEndpoint();
       const { unmount } = renderRecentlyTriggered();
       unmount();
+    });
+  });
+
+  describe('stale banner', () => {
+    it('shows stale banner when schedulerStale is true and items are present', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      const tickAt = new Date().toISOString();
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={tickAt} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+      expect(screen.getByText(/no heartbeat for/)).toBeInTheDocument();
+    });
+
+    it('shows "Data refreshed" line when lastUpdatedRef is set', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={new Date().toISOString()} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument());
+      expect(screen.getByText(/Data refreshed/)).toBeInTheDocument();
+    });
+
+    it('shows "unknown" in stale banner when lastSchedulerTickAt is null', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={null} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText(/no heartbeat for unknown/)).toBeInTheDocument());
+    });
+
+    it('does not show stale banner when schedulerStale is false', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderRecentlyTriggered();
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
+    });
+
+    it('does not show stale banner when items are empty even if schedulerStale is true', async () => {
+      mockTriggeredEndpoint();
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={new Date().toISOString()} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText('No triggered items in this time window.')).toBeInTheDocument());
+      expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('mark resolved disabled when stale', () => {
+    it('disables "Mark as resolved" button when schedulerStale is true', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={new Date().toISOString()} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      const button = screen.getByTitle('Unavailable while scheduler is down');
+      expect(button).toBeDisabled();
+    });
+
+    it('does not disable "Mark as resolved" button when schedulerStale is false', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderRecentlyTriggered();
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      const button = screen.getByTitle('Mark as resolved');
+      expect(button).not.toBeDisabled();
     });
   });
 });

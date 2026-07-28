@@ -21,6 +21,7 @@ const SummaryStats = () => {
 
   const mountedRef = useRef(false);
   const lastKnownTickRef = useRef<string | null>(null);
+  const lastUpdatedRef = useRef<Date | null>(null);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -52,20 +53,28 @@ const SummaryStats = () => {
         if (res.lastSchedulerTickAt) {
           lastKnownTickRef.current = res.lastSchedulerTickAt;
         }
+        lastUpdatedRef.current = new Date();
         setLocalStale(false);
         setData(res);
       })
       .catch((err: Error) => {
         if (!mountedRef.current) return;
         if (requestId !== requestIdRef.current) return;
-        reportError('summary-stats', err.message);
+
         const lastTick = lastKnownTickRef.current;
-        if (!lastTick) {
-          setLocalStale(true);
-        } else {
-          setLocalStale(Date.now() - new Date(lastTick).getTime() > staleThresholdMs);
-        }
+        const isStale =
+          data?.schedulerStale ||
+          (() => {
+            if (!lastTick) return true;
+            return Date.now() - new Date(lastTick).getTime() > staleThresholdMs;
+          })();
+
+        setLocalStale(isStale);
+
+        reportError('summary-stats', 'Summary', isStale ? `${err.message} — data may not reflect current state` : err.message);
       });
+    /* c8 ignore next 1 — eslint: data is not a dep to avoid recreating the callback on every data change; lastKnownTickRef.current provides the current tick state via ref */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, dismissError, reportError, staleThresholdMs]);
 
   useEffect(() => {
@@ -87,7 +96,7 @@ const SummaryStats = () => {
       })
       .catch((err: Error) => {
         if (!mountedRef.current) return;
-        reportError('summary-stats', err.message);
+        reportError('summary-stats', 'Summary', err.message);
         setToggling(false);
       });
   };
@@ -105,6 +114,9 @@ const SummaryStats = () => {
             const tick = data.lastSchedulerTickAt ?? lastKnownTickRef.current;
             return tick ? `no heartbeat for ${formatElapsed(tick)}` : 'no heartbeat yet';
           })()}
+          <button className="retry-now-button" onClick={fetchData}>
+            Retry now
+          </button>
         </div>
       )}
       <ReviewCountdown
@@ -112,14 +124,24 @@ const SummaryStats = () => {
         paused={data.paused}
         onTogglePaused={handleTogglePaused}
         toggling={toggling}
+        schedulerStale={data.schedulerStale || localStale}
+        lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current}
       />
       <h2>Summary</h2>
 
       <div className="section-card">
-        <QueueOrder items={data.pendingItems} error={null} onMoveComplete={fetchData} headingLevel="h3" paused={data.paused} />
+        <QueueOrder
+          items={data.pendingItems}
+          onMoveComplete={fetchData}
+          headingLevel="h3"
+          paused={data.paused}
+          schedulerStale={data.schedulerStale || localStale}
+          lastUpdatedAt={lastUpdatedRef.current}
+          lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current}
+        />
       </div>
 
-      <RecentlyTriggered />
+      <RecentlyTriggered schedulerStale={data.schedulerStale || localStale} lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current} />
 
       <div className="section-card">
         <h3>

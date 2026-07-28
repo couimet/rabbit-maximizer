@@ -9,11 +9,11 @@ import { type ReactElement, useEffect } from 'react';
 
 const renderBanner = (ui?: ReactElement) => render(<ErrorProvider>{ui ?? <GlobalErrorBanner />}</ErrorProvider>);
 
-const ErrorReporter = ({ id, message }: { id: string; message: string }) => {
+const ErrorReporter = ({ id, label, message }: { id: string; label?: string; message: string }) => {
   const { reportError } = useErrorContext();
   useEffect(() => {
-    reportError(id, message);
-  }, [id, message, reportError]);
+    reportError(id, label ?? '', message);
+  }, [id, label, message, reportError]);
   return null;
 };
 
@@ -64,8 +64,8 @@ describe('GlobalErrorBanner', () => {
     const DoubleReporter = () => {
       const { reportError } = useErrorContext();
       useEffect(() => {
-        reportError('test-1', 'Same message');
-        reportError('test-1', 'Same message');
+        reportError('test-1', '', 'Same message');
+        reportError('test-1', '', 'Same message');
       }, [reportError]);
       return null;
     };
@@ -77,6 +77,27 @@ describe('GlobalErrorBanner', () => {
     );
     expect(screen.getByText('Same message')).toBeInTheDocument();
     expect(screen.getAllByText('Same message')).toHaveLength(1);
+  });
+
+  it('renders label and message when label is provided', () => {
+    renderBanner(
+      <>
+        <ErrorReporter id="test-1" label="Summary" message="Network error" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('Summary: Network error')).toBeInTheDocument();
+  });
+
+  it('renders only message when label is absent', () => {
+    renderBanner(
+      <>
+        <ErrorReporter id="test-1" message="Something went wrong" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.queryByText(': Something went wrong')).not.toBeInTheDocument();
   });
 
   it('replaces error with same id when message changes', () => {

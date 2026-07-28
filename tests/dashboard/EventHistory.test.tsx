@@ -231,7 +231,7 @@ describe('EventHistory', () => {
     it('shows error message on HTTP failure', async () => {
       createMockFetch(500, { error: 'Internal server error' });
       renderEventHistory();
-      await screen.findByText('Internal server error');
+      await screen.findByText('Event history: Internal server error');
     });
   });
 

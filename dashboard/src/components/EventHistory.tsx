@@ -34,7 +34,7 @@ const EventHistory = () => {
         if (!cancelled) setData(d);
       })
       .catch((err: Error) => {
-        if (!cancelled) reportError('event-history', err.message);
+        if (!cancelled) reportError('event-history', 'Event history', err.message);
       });
     return () => {
       cancelled = true;
