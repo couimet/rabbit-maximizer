@@ -27,6 +27,7 @@ When `status` is `resolved`, the `resolution` column provides the reason:
 | Resolution                | Set by                          | Meaning                                              |
 | ------------------------- | ------------------------------- | ---------------------------------------------------- |
 | `review_completed`        | `ReviewDetector`, manual action | CodeRabbit review ran successfully after retrigger   |
+| `manual_review`           | Manual action                   | Review manually marked as done via the dashboard     |
 | `pr_merged`               | `ReviewDetector`, `Pruner`      | PR was merged before or after retrigger              |
 | `pr_closed_without_merge` | `ReviewDetector`, `Pruner`      | PR was closed without merging                        |
 | `failed`                  | `Scheduler`                     | Retrigger exhausted max attempts or PR is gone (404) |
