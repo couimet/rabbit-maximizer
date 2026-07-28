@@ -7,7 +7,8 @@ export interface MockPrScannerProbe {
   detectedClosures: jest.Mock<any>;
   caughtError: jest.Mock<any>;
   failed: jest.Mock<any>;
-  failedToPersistLastScanAt: jest.Mock<any>;
+  failedToPersistScanStartedAt: jest.Mock<any>;
+  failedToPersistScanCompletedAt: jest.Mock<any>;
   completed: jest.Mock<any>;
 }
 export const createMockPrScannerProbe = (): MockPrScannerProbe => ({
@@ -17,7 +18,8 @@ export const createMockPrScannerProbe = (): MockPrScannerProbe => ({
   detectedClosures: jest.fn<any>(),
   caughtError: jest.fn<any>(),
   failed: jest.fn<any>(),
-  failedToPersistLastScanAt: jest.fn<any>(),
+  failedToPersistScanStartedAt: jest.fn<any>(),
+  failedToPersistScanCompletedAt: jest.fn<any>(),
   completed: jest.fn<any>(),
 });
 
@@ -62,6 +64,7 @@ export interface MockReviewDetectorProbe {
   noRetriggeredItemFound: jest.Mock<any>;
   noCompletedReviewFound: jest.Mock<any>;
   reviewed: jest.Mock<any>;
+  reviewedViaFallback: jest.Mock<any>;
   prClosedResolved: jest.Mock<any>;
   caughtError: jest.Mock<any>;
 }
@@ -70,6 +73,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   noRetriggeredItemFound: jest.fn<any>(),
   noCompletedReviewFound: jest.fn<any>(),
   reviewed: jest.fn<any>(),
+  reviewedViaFallback: jest.fn<any>(),
   prClosedResolved: jest.fn<any>(),
   caughtError: jest.fn<any>(),
 });
@@ -77,12 +81,16 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
 export interface MockEnqueueProbe {
   enqueued: jest.Mock<any>;
   recentlyRetriggered: jest.Mock<any>;
+  recentlyResolved: jest.Mock<any>;
   alreadyQueued: jest.Mock<any>;
+  retriggeredReplaced: jest.Mock<any>;
 }
 export const createMockEnqueueProbe = (): MockEnqueueProbe => ({
   enqueued: jest.fn<any>(),
   recentlyRetriggered: jest.fn<any>(),
+  recentlyResolved: jest.fn<any>(),
   alreadyQueued: jest.fn<any>(),
+  retriggeredReplaced: jest.fn<any>(),
 });
 
 export interface MockSchedulerProbe {
@@ -90,16 +98,19 @@ export interface MockSchedulerProbe {
   schedulerPaused: jest.Mock<any>;
   tickSkippedAwaitingAcknowledgement: jest.Mock<any>;
   noItemsDue: jest.Mock<any>;
+  staleRetriggeredResolved: jest.Mock<any>;
   tickFailed: jest.Mock<any>;
   rescheduled: jest.Mock<any>;
   skipped: jest.Mock<any>;
   withItem: jest.Mock<any>;
   retriggered: jest.Mock<any>;
   prClosedOrMerged: jest.Mock<any>;
+  maxRetriggersExceeded: jest.Mock<any>;
   backedOff: jest.Mock<any>;
   triggerFailed: jest.Mock<any>;
 }
 export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
+  staleRetriggeredResolved: jest.fn<any>(),
   pruningCompleted: jest.fn<any>(),
   schedulerPaused: jest.fn<any>(),
   tickSkippedAwaitingAcknowledgement: jest.fn<any>(),
@@ -110,6 +121,7 @@ export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
   withItem: jest.fn<any>(),
   retriggered: jest.fn<any>(),
   prClosedOrMerged: jest.fn<any>(),
+  maxRetriggersExceeded: jest.fn<any>(),
   backedOff: jest.fn<any>(),
   triggerFailed: jest.fn<any>(),
 });

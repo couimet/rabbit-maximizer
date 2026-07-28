@@ -23,13 +23,16 @@ const STALE_CONFIG: Config = {
   DETECTION_MODE: 'poll',
   GITHUB_API_TIMEOUT_SEC: 10,
   GITHUB_PAT: 'test-pat',
+  MAX_RETRIGGER_ATTEMPTS: 10,
   PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 1800,
   PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 900,
   POLL_INTERVAL_SEC: 90,
   PR_SCANNER_INTERVAL_SEC: 300,
   REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
+  REVIEW_DETECTION_LOOKBACK_SEC: 7200,
   REVIEW_LIMIT_BUFFER_SEC: 60,
   REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
+  SCHEDULER_MAX_RETRIGGER_AGE_SEC: 259200,
   SCHEDULER_POST_COOLDOWN_SEC: 3600,
   SCHEDULER_RETRIGGER_SPACING_SEC: 180,
   SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
@@ -61,6 +64,7 @@ describe('getDashboardState', () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
+  /** @testFixture */
   const startServer = (
     queueOrderRepoOver: Record<string, unknown> = {},
     eventRepoOver: Record<string, unknown> = {},

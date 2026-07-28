@@ -1370,6 +1370,8 @@ export namespace Prisma {
     last_review_limit_at: Date | null;
     last_review_requested_at: Date | null;
     last_coderabbit_review_at: Date | null;
+    last_review_url: string | null;
+    last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
     retrigger_count: number | null;
     review_count: number | null;
@@ -1390,6 +1392,8 @@ export namespace Prisma {
     last_review_limit_at: Date | null;
     last_review_requested_at: Date | null;
     last_coderabbit_review_at: Date | null;
+    last_review_url: string | null;
+    last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
     retrigger_count: number | null;
     review_count: number | null;
@@ -1410,6 +1414,8 @@ export namespace Prisma {
     last_review_limit_at: number;
     last_review_requested_at: number;
     last_coderabbit_review_at: number;
+    last_review_url: number;
+    last_review_state: number;
     last_coderabbit_acknowledged_at: number;
     retrigger_count: number;
     review_count: number;
@@ -1445,6 +1451,8 @@ export namespace Prisma {
     last_review_limit_at?: true;
     last_review_requested_at?: true;
     last_coderabbit_review_at?: true;
+    last_review_url?: true;
+    last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
     retrigger_count?: true;
     review_count?: true;
@@ -1465,6 +1473,8 @@ export namespace Prisma {
     last_review_limit_at?: true;
     last_review_requested_at?: true;
     last_coderabbit_review_at?: true;
+    last_review_url?: true;
+    last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
     retrigger_count?: true;
     review_count?: true;
@@ -1485,6 +1495,8 @@ export namespace Prisma {
     last_review_limit_at?: true;
     last_review_requested_at?: true;
     last_coderabbit_review_at?: true;
+    last_review_url?: true;
+    last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
     retrigger_count?: true;
     review_count?: true;
@@ -1589,6 +1601,8 @@ export namespace Prisma {
     last_review_limit_at: Date | null;
     last_review_requested_at: Date | null;
     last_coderabbit_review_at: Date | null;
+    last_review_url: string | null;
+    last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
     retrigger_count: number;
     review_count: number;
@@ -1627,6 +1641,8 @@ export namespace Prisma {
       last_review_limit_at?: boolean;
       last_review_requested_at?: boolean;
       last_coderabbit_review_at?: boolean;
+      last_review_url?: boolean;
+      last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
       retrigger_count?: boolean;
       review_count?: boolean;
@@ -1654,6 +1670,8 @@ export namespace Prisma {
       last_review_limit_at?: boolean;
       last_review_requested_at?: boolean;
       last_coderabbit_review_at?: boolean;
+      last_review_url?: boolean;
+      last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
       retrigger_count?: boolean;
       review_count?: boolean;
@@ -1677,6 +1695,8 @@ export namespace Prisma {
       last_review_limit_at?: boolean;
       last_review_requested_at?: boolean;
       last_coderabbit_review_at?: boolean;
+      last_review_url?: boolean;
+      last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
       retrigger_count?: boolean;
       review_count?: boolean;
@@ -1699,6 +1719,8 @@ export namespace Prisma {
     last_review_limit_at?: boolean;
     last_review_requested_at?: boolean;
     last_coderabbit_review_at?: boolean;
+    last_review_url?: boolean;
+    last_review_state?: boolean;
     last_coderabbit_acknowledged_at?: boolean;
     retrigger_count?: boolean;
     review_count?: boolean;
@@ -1719,6 +1741,8 @@ export namespace Prisma {
     | 'last_review_limit_at'
     | 'last_review_requested_at'
     | 'last_coderabbit_review_at'
+    | 'last_review_url'
+    | 'last_review_state'
     | 'last_coderabbit_acknowledged_at'
     | 'retrigger_count'
     | 'review_count'
@@ -1759,6 +1783,8 @@ export namespace Prisma {
         last_review_limit_at: Date | null;
         last_review_requested_at: Date | null;
         last_coderabbit_review_at: Date | null;
+        last_review_url: string | null;
+        last_review_state: string | null;
         last_coderabbit_acknowledged_at: Date | null;
         retrigger_count: number;
         review_count: number;
@@ -2240,6 +2266,8 @@ export namespace Prisma {
     readonly last_review_limit_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly last_review_requested_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly last_coderabbit_review_at: FieldRef<'PullRequest', 'DateTime'>;
+    readonly last_review_url: FieldRef<'PullRequest', 'String'>;
+    readonly last_review_state: FieldRef<'PullRequest', 'String'>;
     readonly last_coderabbit_acknowledged_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly retrigger_count: FieldRef<'PullRequest', 'Int'>;
     readonly review_count: FieldRef<'PullRequest', 'Int'>;
@@ -2760,6 +2788,8 @@ export namespace Prisma {
     pr_number: number | null;
     pr_title: string | null;
     status: string | null;
+    resolution: string | null;
+    resolved_at: Date | null;
     attempts: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
@@ -2780,6 +2810,8 @@ export namespace Prisma {
     pr_number: number | null;
     pr_title: string | null;
     status: string | null;
+    resolution: string | null;
+    resolved_at: Date | null;
     attempts: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
@@ -2800,6 +2832,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: number;
     status: number;
+    resolution: number;
+    resolved_at: number;
     attempts: number;
     source_comment_url: number;
     source_comment_id: number;
@@ -2837,6 +2871,8 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
+    resolution?: true;
+    resolved_at?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2857,6 +2893,8 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
+    resolution?: true;
+    resolved_at?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2877,6 +2915,8 @@ export namespace Prisma {
     pr_number?: true;
     pr_title?: true;
     status?: true;
+    resolution?: true;
+    resolved_at?: true;
     attempts?: true;
     source_comment_url?: true;
     source_comment_id?: true;
@@ -2981,6 +3021,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status: string;
+    resolution: string | null;
+    resolved_at: Date | null;
     attempts: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -3019,6 +3061,8 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
+      resolution?: boolean;
+      resolved_at?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3044,6 +3088,8 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
+      resolution?: boolean;
+      resolved_at?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3068,6 +3114,8 @@ export namespace Prisma {
       pr_number?: boolean;
       pr_title?: boolean;
       status?: boolean;
+      resolution?: boolean;
+      resolved_at?: boolean;
       attempts?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
@@ -3091,6 +3139,8 @@ export namespace Prisma {
     pr_number?: boolean;
     pr_title?: boolean;
     status?: boolean;
+    resolution?: boolean;
+    resolved_at?: boolean;
     attempts?: boolean;
     source_comment_url?: boolean;
     source_comment_id?: boolean;
@@ -3111,6 +3161,8 @@ export namespace Prisma {
     | 'pr_number'
     | 'pr_title'
     | 'status'
+    | 'resolution'
+    | 'resolved_at'
     | 'attempts'
     | 'source_comment_url'
     | 'source_comment_id'
@@ -3158,9 +3210,14 @@ export namespace Prisma {
          */
         pr_title: string;
         /**
-         * Max 25; one of 'pending' | 'retriggered' | 'reviewed' | 'failed' (CHECK in the init migration).
+         * Max 25; one of 'pending' | 'retriggered' | 'resolved' (CHECK in migration).
          */
         status: string;
+        /**
+         * Max 50. Terminal reason when status='resolved' (review_completed, pr_merged, pr_closed_without_merge, failed, skipped).
+         */
+        resolution: string | null;
+        resolved_at: Date | null;
         attempts: number;
         /**
          * Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
@@ -3661,6 +3718,8 @@ export namespace Prisma {
     readonly pr_number: FieldRef<'ReviewQueue', 'Int'>;
     readonly pr_title: FieldRef<'ReviewQueue', 'String'>;
     readonly status: FieldRef<'ReviewQueue', 'String'>;
+    readonly resolution: FieldRef<'ReviewQueue', 'String'>;
+    readonly resolved_at: FieldRef<'ReviewQueue', 'DateTime'>;
     readonly attempts: FieldRef<'ReviewQueue', 'Int'>;
     readonly source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly source_comment_id: FieldRef<'ReviewQueue', 'Int'>;
@@ -8976,6 +9035,8 @@ export namespace Prisma {
     last_review_limit_at: 'last_review_limit_at';
     last_review_requested_at: 'last_review_requested_at';
     last_coderabbit_review_at: 'last_coderabbit_review_at';
+    last_review_url: 'last_review_url';
+    last_review_state: 'last_review_state';
     last_coderabbit_acknowledged_at: 'last_coderabbit_acknowledged_at';
     retrigger_count: 'retrigger_count';
     review_count: 'review_count';
@@ -8993,6 +9054,8 @@ export namespace Prisma {
     pr_number: 'pr_number';
     pr_title: 'pr_title';
     status: 'status';
+    resolution: 'resolution';
+    resolved_at: 'resolved_at';
     attempts: 'attempts';
     source_comment_url: 'source_comment_url';
     source_comment_id: 'source_comment_id';
@@ -9128,6 +9191,8 @@ export namespace Prisma {
     last_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
     last_review_requested_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
     last_coderabbit_review_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
+    last_review_url?: StringNullableFilter<'PullRequest'> | string | null;
+    last_review_state?: StringNullableFilter<'PullRequest'> | string | null;
     last_coderabbit_acknowledged_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
     retrigger_count?: IntFilter<'PullRequest'> | number;
     review_count?: IntFilter<'PullRequest'> | number;
@@ -9151,6 +9216,8 @@ export namespace Prisma {
     last_review_limit_at?: SortOrderInput | SortOrder;
     last_review_requested_at?: SortOrderInput | SortOrder;
     last_coderabbit_review_at?: SortOrderInput | SortOrder;
+    last_review_url?: SortOrderInput | SortOrder;
+    last_review_state?: SortOrderInput | SortOrder;
     last_coderabbit_acknowledged_at?: SortOrderInput | SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
@@ -9179,6 +9246,8 @@ export namespace Prisma {
       last_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
       last_review_requested_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
       last_coderabbit_review_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
+      last_review_url?: StringNullableFilter<'PullRequest'> | string | null;
+      last_review_state?: StringNullableFilter<'PullRequest'> | string | null;
       last_coderabbit_acknowledged_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
       retrigger_count?: IntFilter<'PullRequest'> | number;
       review_count?: IntFilter<'PullRequest'> | number;
@@ -9204,6 +9273,8 @@ export namespace Prisma {
     last_review_limit_at?: SortOrderInput | SortOrder;
     last_review_requested_at?: SortOrderInput | SortOrder;
     last_coderabbit_review_at?: SortOrderInput | SortOrder;
+    last_review_url?: SortOrderInput | SortOrder;
+    last_review_state?: SortOrderInput | SortOrder;
     last_coderabbit_acknowledged_at?: SortOrderInput | SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
@@ -9232,6 +9303,8 @@ export namespace Prisma {
     last_review_limit_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
     last_review_requested_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
     last_coderabbit_review_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
+    last_review_url?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
+    last_review_state?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
     last_coderabbit_acknowledged_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
     retrigger_count?: IntWithAggregatesFilter<'PullRequest'> | number;
     review_count?: IntWithAggregatesFilter<'PullRequest'> | number;
@@ -9250,6 +9323,8 @@ export namespace Prisma {
     pr_number?: IntFilter<'ReviewQueue'> | number;
     pr_title?: StringFilter<'ReviewQueue'> | string;
     status?: StringFilter<'ReviewQueue'> | string;
+    resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
+    resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -9272,6 +9347,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrderInput | SortOrder;
+    resolved_at?: SortOrderInput | SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -9298,6 +9375,8 @@ export namespace Prisma {
       pr_number?: IntFilter<'ReviewQueue'> | number;
       pr_title?: StringFilter<'ReviewQueue'> | string;
       status?: StringFilter<'ReviewQueue'> | string;
+      resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
+      resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
       attempts?: IntFilter<'ReviewQueue'> | number;
       source_comment_url?: StringFilter<'ReviewQueue'> | string;
       source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -9322,6 +9401,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrderInput | SortOrder;
+    resolved_at?: SortOrderInput | SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -9350,6 +9431,8 @@ export namespace Prisma {
     pr_number?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     pr_title?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     status?: StringWithAggregatesFilter<'ReviewQueue'> | string;
+    resolution?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
+    resolved_at?: DateTimeNullableWithAggregatesFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     source_comment_url?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     source_comment_id?: IntWithAggregatesFilter<'ReviewQueue'> | number;
@@ -9702,6 +9785,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -9725,6 +9810,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -9747,6 +9834,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -9770,6 +9859,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -9793,6 +9884,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -9812,6 +9905,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -9832,6 +9927,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -9845,6 +9942,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9867,6 +9966,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9886,6 +9987,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9908,6 +10011,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9929,6 +10034,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -9947,6 +10054,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -9967,6 +10076,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -10364,6 +10475,20 @@ export namespace Prisma {
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null;
   };
 
+  export type StringNullableFilter<$PrismaModel = never> = {
+    equals?: string | StringFieldRefInput<$PrismaModel> | null;
+    in?: string[] | null;
+    notIn?: string[] | null;
+    lt?: string | StringFieldRefInput<$PrismaModel>;
+    lte?: string | StringFieldRefInput<$PrismaModel>;
+    gt?: string | StringFieldRefInput<$PrismaModel>;
+    gte?: string | StringFieldRefInput<$PrismaModel>;
+    contains?: string | StringFieldRefInput<$PrismaModel>;
+    startsWith?: string | StringFieldRefInput<$PrismaModel>;
+    endsWith?: string | StringFieldRefInput<$PrismaModel>;
+    not?: NestedStringNullableFilter<$PrismaModel> | string | null;
+  };
+
   export type ReviewQueueListRelationFilter = {
     every?: ReviewQueueWhereInput;
     some?: ReviewQueueWhereInput;
@@ -10417,6 +10542,8 @@ export namespace Prisma {
     last_review_limit_at?: SortOrder;
     last_review_requested_at?: SortOrder;
     last_coderabbit_review_at?: SortOrder;
+    last_review_url?: SortOrder;
+    last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
@@ -10444,6 +10571,8 @@ export namespace Prisma {
     last_review_limit_at?: SortOrder;
     last_review_requested_at?: SortOrder;
     last_coderabbit_review_at?: SortOrder;
+    last_review_url?: SortOrder;
+    last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
@@ -10464,6 +10593,8 @@ export namespace Prisma {
     last_review_limit_at?: SortOrder;
     last_review_requested_at?: SortOrder;
     last_coderabbit_review_at?: SortOrder;
+    last_review_url?: SortOrder;
+    last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
@@ -10539,18 +10670,7 @@ export namespace Prisma {
     _max?: NestedDateTimeNullableFilter<$PrismaModel>;
   };
 
-  export type IntNullableFilter<$PrismaModel = never> = {
-    equals?: number | IntFieldRefInput<$PrismaModel> | null;
-    in?: number[] | null;
-    notIn?: number[] | null;
-    lt?: number | IntFieldRefInput<$PrismaModel>;
-    lte?: number | IntFieldRefInput<$PrismaModel>;
-    gt?: number | IntFieldRefInput<$PrismaModel>;
-    gte?: number | IntFieldRefInput<$PrismaModel>;
-    not?: NestedIntNullableFilter<$PrismaModel> | number | null;
-  };
-
-  export type StringNullableFilter<$PrismaModel = never> = {
+  export type StringNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel> | null;
     in?: string[] | null;
     notIn?: string[] | null;
@@ -10561,7 +10681,21 @@ export namespace Prisma {
     contains?: string | StringFieldRefInput<$PrismaModel>;
     startsWith?: string | StringFieldRefInput<$PrismaModel>;
     endsWith?: string | StringFieldRefInput<$PrismaModel>;
-    not?: NestedStringNullableFilter<$PrismaModel> | string | null;
+    not?: NestedStringNullableWithAggregatesFilter<$PrismaModel> | string | null;
+    _count?: NestedIntNullableFilter<$PrismaModel>;
+    _min?: NestedStringNullableFilter<$PrismaModel>;
+    _max?: NestedStringNullableFilter<$PrismaModel>;
+  };
+
+  export type IntNullableFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null;
+    in?: number[] | null;
+    notIn?: number[] | null;
+    lt?: number | IntFieldRefInput<$PrismaModel>;
+    lte?: number | IntFieldRefInput<$PrismaModel>;
+    gt?: number | IntFieldRefInput<$PrismaModel>;
+    gte?: number | IntFieldRefInput<$PrismaModel>;
+    not?: NestedIntNullableFilter<$PrismaModel> | number | null;
   };
 
   export type QueueOrderNullableScalarRelationFilter = {
@@ -10582,6 +10716,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrder;
+    resolved_at?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -10610,6 +10746,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrder;
+    resolved_at?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -10630,6 +10768,8 @@ export namespace Prisma {
     pr_number?: SortOrder;
     pr_title?: SortOrder;
     status?: SortOrder;
+    resolution?: SortOrder;
+    resolved_at?: SortOrder;
     attempts?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
@@ -10664,23 +10804,6 @@ export namespace Prisma {
     _sum?: NestedIntNullableFilter<$PrismaModel>;
     _min?: NestedIntNullableFilter<$PrismaModel>;
     _max?: NestedIntNullableFilter<$PrismaModel>;
-  };
-
-  export type StringNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: string | StringFieldRefInput<$PrismaModel> | null;
-    in?: string[] | null;
-    notIn?: string[] | null;
-    lt?: string | StringFieldRefInput<$PrismaModel>;
-    lte?: string | StringFieldRefInput<$PrismaModel>;
-    gt?: string | StringFieldRefInput<$PrismaModel>;
-    gte?: string | StringFieldRefInput<$PrismaModel>;
-    contains?: string | StringFieldRefInput<$PrismaModel>;
-    startsWith?: string | StringFieldRefInput<$PrismaModel>;
-    endsWith?: string | StringFieldRefInput<$PrismaModel>;
-    not?: NestedStringNullableWithAggregatesFilter<$PrismaModel> | string | null;
-    _count?: NestedIntNullableFilter<$PrismaModel>;
-    _min?: NestedStringNullableFilter<$PrismaModel>;
-    _max?: NestedStringNullableFilter<$PrismaModel>;
   };
 
   export type EventCountOrderByAggregateInput = {
@@ -11014,6 +11137,10 @@ export namespace Prisma {
     set?: Date | string | null;
   };
 
+  export type NullableStringFieldUpdateOperationsInput = {
+    set?: string | null;
+  };
+
   export type ReviewQueueUpdateManyWithoutPullRequestNestedInput = {
     create?:
       | XOR<ReviewQueueCreateWithoutPullRequestInput, ReviewQueueUncheckedCreateWithoutPullRequestInput>
@@ -11132,10 +11259,6 @@ export namespace Prisma {
     create?: XOR<QueueOrderCreateWithoutQueueItemInput, QueueOrderUncheckedCreateWithoutQueueItemInput>;
     connectOrCreate?: QueueOrderCreateOrConnectWithoutQueueItemInput;
     connect?: QueueOrderWhereUniqueInput;
-  };
-
-  export type NullableStringFieldUpdateOperationsInput = {
-    set?: string | null;
   };
 
   export type QueueOrderUpdateOneWithoutQueueItemNestedInput = {
@@ -11294,6 +11417,20 @@ export namespace Prisma {
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null;
   };
 
+  export type NestedStringNullableFilter<$PrismaModel = never> = {
+    equals?: string | StringFieldRefInput<$PrismaModel> | null;
+    in?: string[] | null;
+    notIn?: string[] | null;
+    lt?: string | StringFieldRefInput<$PrismaModel>;
+    lte?: string | StringFieldRefInput<$PrismaModel>;
+    gt?: string | StringFieldRefInput<$PrismaModel>;
+    gte?: string | StringFieldRefInput<$PrismaModel>;
+    contains?: string | StringFieldRefInput<$PrismaModel>;
+    startsWith?: string | StringFieldRefInput<$PrismaModel>;
+    endsWith?: string | StringFieldRefInput<$PrismaModel>;
+    not?: NestedStringNullableFilter<$PrismaModel> | string | null;
+  };
+
   export type NestedIntWithAggregatesFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>;
     in?: number[];
@@ -11377,7 +11514,7 @@ export namespace Prisma {
     not?: NestedIntNullableFilter<$PrismaModel> | number | null;
   };
 
-  export type NestedStringNullableFilter<$PrismaModel = never> = {
+  export type NestedStringNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel> | null;
     in?: string[] | null;
     notIn?: string[] | null;
@@ -11388,7 +11525,10 @@ export namespace Prisma {
     contains?: string | StringFieldRefInput<$PrismaModel>;
     startsWith?: string | StringFieldRefInput<$PrismaModel>;
     endsWith?: string | StringFieldRefInput<$PrismaModel>;
-    not?: NestedStringNullableFilter<$PrismaModel> | string | null;
+    not?: NestedStringNullableWithAggregatesFilter<$PrismaModel> | string | null;
+    _count?: NestedIntNullableFilter<$PrismaModel>;
+    _min?: NestedStringNullableFilter<$PrismaModel>;
+    _max?: NestedStringNullableFilter<$PrismaModel>;
   };
 
   export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -11416,23 +11556,6 @@ export namespace Prisma {
     gt?: number | FloatFieldRefInput<$PrismaModel>;
     gte?: number | FloatFieldRefInput<$PrismaModel>;
     not?: NestedFloatNullableFilter<$PrismaModel> | number | null;
-  };
-
-  export type NestedStringNullableWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: string | StringFieldRefInput<$PrismaModel> | null;
-    in?: string[] | null;
-    notIn?: string[] | null;
-    lt?: string | StringFieldRefInput<$PrismaModel>;
-    lte?: string | StringFieldRefInput<$PrismaModel>;
-    gt?: string | StringFieldRefInput<$PrismaModel>;
-    gte?: string | StringFieldRefInput<$PrismaModel>;
-    contains?: string | StringFieldRefInput<$PrismaModel>;
-    startsWith?: string | StringFieldRefInput<$PrismaModel>;
-    endsWith?: string | StringFieldRefInput<$PrismaModel>;
-    not?: NestedStringNullableWithAggregatesFilter<$PrismaModel> | string | null;
-    _count?: NestedIntNullableFilter<$PrismaModel>;
-    _min?: NestedStringNullableFilter<$PrismaModel>;
-    _max?: NestedStringNullableFilter<$PrismaModel>;
   };
 
   export type NestedBoolNullableFilter<$PrismaModel = never> = {
@@ -11470,6 +11593,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11490,6 +11615,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11617,6 +11744,8 @@ export namespace Prisma {
     pr_number?: IntFilter<'ReviewQueue'> | number;
     pr_title?: StringFilter<'ReviewQueue'> | string;
     status?: StringFilter<'ReviewQueue'> | string;
+    resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
+    resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
@@ -11730,6 +11859,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -11752,6 +11883,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -11813,6 +11946,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -11835,6 +11970,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -11856,6 +11993,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -11878,6 +12017,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -11915,6 +12056,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -11937,6 +12080,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -11952,6 +12097,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -11973,6 +12120,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -12007,6 +12156,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12028,6 +12179,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12052,6 +12205,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -12074,6 +12229,8 @@ export namespace Prisma {
     last_review_limit_at?: Date | string | null;
     last_review_requested_at?: Date | string | null;
     last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
@@ -12111,6 +12268,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -12133,6 +12292,8 @@ export namespace Prisma {
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
@@ -12149,6 +12310,8 @@ export namespace Prisma {
     pr_number: number;
     pr_title: string;
     status?: string;
+    resolution?: string | null;
+    resolved_at?: Date | string | null;
     attempts?: number;
     source_comment_url: string;
     source_comment_id: number;
@@ -12198,6 +12361,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12218,6 +12383,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
@@ -12238,6 +12405,8 @@ export namespace Prisma {
     pr_number?: IntFieldUpdateOperationsInput | number;
     pr_title?: StringFieldUpdateOperationsInput | string;
     status?: StringFieldUpdateOperationsInput | string;
+    resolution?: NullableStringFieldUpdateOperationsInput | string | null;
+    resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;

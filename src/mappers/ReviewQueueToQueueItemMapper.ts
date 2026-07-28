@@ -1,4 +1,4 @@
-import type { QueueStatus, TriggerSource } from '../domain.js';
+import type { QueueStatus, Resolution, TriggerSource } from '../domain.js';
 import type { QueueItem } from '../types/index.js';
 import { sqlDateToDate } from '../utils/index.js';
 
@@ -27,6 +27,8 @@ export class ReviewQueueToQueueItemMapper {
       retriggered_at: sqlDateToDate(row.retriggered_at),
       failed_at: sqlDateToDate(row.failed_at),
       reviewed_at: sqlDateToDate(row.reviewed_at),
+      resolved_at: sqlDateToDate(row.resolved_at),
+      resolution: (row.resolution as Resolution) ?? undefined,
       // TODO[2026-08-22]: #79 - remove ! once pull_request_id backfill is complete
       pull_request_id: row.pull_request_id!,
       created_at: row.created_at,

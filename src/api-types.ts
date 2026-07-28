@@ -220,13 +220,15 @@ export interface components {
       error: string;
     };
     /** @enum {string} */
-    QueueStatus: 'pending' | 'retriggered' | 'reviewed' | 'failed' | 'coderabbit_skipped';
+    QueueStatus: 'pending' | 'retriggered' | 'resolved';
     QueueItem: {
       id: number;
       uuid: string;
       repo_full_name: string;
       pr_number: number;
       pr_title: string;
+      /** @description GitHub login of the PR author */
+      author_login: string;
       /**
        * @description PR state from GitHub (open, merged, closed)
        * @enum {string|null}
@@ -249,6 +251,23 @@ export interface components {
       last_coderabbit_acknowledged_at?: string | null;
       /** Format: date-time */
       reviewed_at?: string | null;
+      /**
+       * Format: date-time
+       * @description When the item transitioned to resolved (supersedes reviewed_at/failed_at for new code)
+       */
+      resolved_at?: string | null;
+      /** @description Terminal reason when status='resolved' (review_completed, pr_merged, pr_closed_without_merge, failed, skipped) */
+      resolution?: string | null;
+      /**
+       * @description Outcome of the most recent CodeRabbit review for this PR
+       * @enum {string|null}
+       */
+      coderabbit_review_state?: 'review_approved' | 'review_changes_suggested' | null;
+      /**
+       * Format: uri
+       * @description URL of the most recent CodeRabbit review for this PR
+       */
+      coderabbit_review_url?: string | null;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */
@@ -285,7 +304,7 @@ export interface components {
     QueueCounts: {
       pending: number;
       retriggered: number;
-      failed: number;
+      resolved: number;
     };
     EventCounts: {
       detected: number;
@@ -696,7 +715,7 @@ export interface operations {
         since: string;
         page?: number;
         pageSize?: number;
-        include_reviewed?: boolean;
+        include_resolved?: boolean;
       };
       header?: never;
       path?: never;

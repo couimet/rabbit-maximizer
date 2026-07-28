@@ -116,14 +116,7 @@ const SummaryStats = () => {
       <h2>Summary</h2>
 
       <div className="section-card">
-        <QueueOrder
-          items={data.pendingItems}
-          error={null}
-          onMoveComplete={fetchData}
-          headingLevel="h3"
-          pendingCount={data.pendingItems.length}
-          paused={data.paused}
-        />
+        <QueueOrder items={data.pendingItems} error={null} onMoveComplete={fetchData} headingLevel="h3" paused={data.paused} />
       </div>
 
       <RecentlyTriggered />

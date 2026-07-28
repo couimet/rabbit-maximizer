@@ -2,9 +2,9 @@ import { buildPrUrl } from '../src/github/index.js';
 import { StalePrRecovererImpl } from '../src/services.js';
 import type { OnDetectedCallback } from '../src/types/index.js';
 
-import { createMockOnDetectedCallback, createMockPullRequestRepo } from './helpers/index.js';
+import { createMockOnDetectedCallback, createMockPullRequestRepo, generateReviewRef } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -37,10 +37,9 @@ describe('StalePrRecovererImpl', () => {
     });
 
     it('enqueues a synthetic comment for each stale PR', async () => {
-      const { fullName: repoFullName } = getUniqueGitHubRepoRef();
+      const ref = generateReviewRef();
       const prId = getUniqueInt();
-      const prNumber = getUniqueInt();
-      const pr = { id: prId, repoFullName: repoFullName, prNumber: prNumber, title: 'Test PR', lastReviewRequestedAt: getUniqueDate() };
+      const pr = { id: prId, repoFullName: ref.repoFullName, prNumber: ref.prNumber, title: 'Test PR', lastReviewRequestedAt: getUniqueDate() };
       pullRequests.findStaleOpenPRs.mockResolvedValue([pr]);
 
       const result = await recoverer.recover();
@@ -49,9 +48,9 @@ describe('StalePrRecovererImpl', () => {
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'StalePrRecoverer.recover', count: 1 }, 'Recovering stale open PRs with no review-limit comment');
       expect(onDetected).toHaveBeenCalledWith(
         {
-          url: buildPrUrl(repoFullName, prNumber),
-          repoFullName,
-          prNumber,
+          url: buildPrUrl(ref.repoFullName, ref.prNumber),
+          repoFullName: ref.repoFullName,
+          prNumber: ref.prNumber,
           commentId: -frozenNow.getTime(),
           createdAt: frozenNow.toISOString(),
           updatedAt: frozenNow.toISOString(),
@@ -65,17 +64,19 @@ describe('StalePrRecovererImpl', () => {
 
     it('catches error from onDetected and continues processing remaining PRs', async () => {
       const error = new Error('Connection refused');
+      const pr1Ref = generateReviewRef();
       const pr1 = {
         id: getUniqueInt(),
-        repoFullName: getUniqueGitHubRepoRef().fullName,
-        prNumber: getUniqueInt(),
+        repoFullName: pr1Ref.repoFullName,
+        prNumber: pr1Ref.prNumber,
         title: 'PR 1',
         lastReviewRequestedAt: getUniqueDate(),
       };
+      const pr2Ref = generateReviewRef();
       const pr2 = {
         id: getUniqueInt(),
-        repoFullName: getUniqueGitHubRepoRef().fullName,
-        prNumber: getUniqueInt(),
+        repoFullName: pr2Ref.repoFullName,
+        prNumber: pr2Ref.prNumber,
         title: 'PR 2',
         lastReviewRequestedAt: getUniqueDate(),
       };
@@ -106,17 +107,19 @@ describe('StalePrRecovererImpl', () => {
     });
 
     it('processes multiple stale PRs', async () => {
+      const pr1Ref = generateReviewRef();
       const pr1 = {
         id: getUniqueInt(),
-        repoFullName: getUniqueGitHubRepoRef().fullName,
-        prNumber: getUniqueInt(),
+        repoFullName: pr1Ref.repoFullName,
+        prNumber: pr1Ref.prNumber,
         title: 'PR 1',
         lastReviewRequestedAt: getUniqueDate(),
       };
+      const pr2Ref = generateReviewRef();
       const pr2 = {
         id: getUniqueInt(),
-        repoFullName: getUniqueGitHubRepoRef().fullName,
-        prNumber: getUniqueInt(),
+        repoFullName: pr2Ref.repoFullName,
+        prNumber: pr2Ref.prNumber,
         title: 'PR 2',
         lastReviewRequestedAt: getUniqueDate(),
       };

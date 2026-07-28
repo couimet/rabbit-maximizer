@@ -99,6 +99,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     const QueueOrder = ({ paused }: { paused: boolean }) => { ... }
     ```
   </good-example>
+  <exception>Test fixture functions marked with `/** @testFixture */` may use default parameter values. These are functions in test files or tests/helpers/ whose sole purpose is creating test servers, mock data, or mock clients. Defaults eliminate {} boilerplate for the common case. The @testFixture tag signals the defaults were reviewed and the function is not exposed to production code.</exception>
 </rule>
 
 <rule id="C009" priority="critical">
@@ -487,4 +488,11 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Use inline numeric literals in Zod `.default()` calls within schema definition files (<code>src/schemas/config.ts</code>). The config key name already documents the value's purpose</do>
   <never>Extract a Zod schema `.default()` value into a named constant — the indirection adds noise without adding clarity</never>
   <rationale>A Zod schema is a declarative specification of shape + defaults. The key name (e.g., <code>SCHEDULER_STALE_TICK_MULTIPLIER</code>) already names the value; wrapping <code>.default(4)</code> as <code>.default(SCHEDULER_STALE_TICK_MULTIPLIER_DEFAULT)</code> just repeats the key name with a <code>_DEFAULT</code> suffix. The inline literal is the single source of truth — there is no other reference site to keep in sync. P001 (no magic numbers) applies to business logic, not schema declarations.</rationale>
+</rule>
+
+<rule id="P009" priority="critical">
+  <title>Never delete the database file</title>
+  <never>Delete the database file (data/rabbit-maximizer.db) — even on a dev machine</never>
+  <do>Use surgical SQL operations: DROP COLUMN (SQLite ≥3.35), DELETE FROM _prisma_migrations to retry a specific migration, or create a new forward-fixing migration</do>
+  <rationale>The dev database contains real queue state, review history, and system configuration accumulated over time. Deleting it loses operational context that takes hours to rebuild. SQLite and Prisma support precise fixes that target only what needs changing.</rationale>
 </rule>

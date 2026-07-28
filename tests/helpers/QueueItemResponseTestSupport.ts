@@ -2,6 +2,8 @@ import type { QueueItemResponse } from '../../src/types/index.js';
 
 import { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
 
+import { getUniqueString } from '@couimet/dynamic-testing';
+
 export const generateQueueItemResponseData = (overrides?: Partial<QueueItemResponse>): QueueItemResponse => {
   const base = generateQueueItemHydrationData();
   return {
@@ -18,6 +20,7 @@ export const generateQueueItemResponseData = (overrides?: Partial<QueueItemRespo
     retriggered_at: base.retriggered_at?.toISOString() ?? null,
     failed_at: base.failed_at?.toISOString() ?? null,
     reviewed_at: base.reviewed_at?.toISOString() ?? null,
+    author_login: getUniqueString({ prefix: 'author-' }),
     last_coderabbit_acknowledged_at: null,
     created_at: base.created_at.toISOString(),
     updated_at: base.updated_at.toISOString(),

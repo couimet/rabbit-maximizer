@@ -1,5 +1,5 @@
-import type { PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
-import { QueueStatus, TriggerSource } from '../domain.js';
+import type { QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
+import { QueueStatus, Resolution, TriggerSource } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
 import type { QueueItemMapper } from '../mappers/index.js';
@@ -92,9 +92,15 @@ export const createRetriggerNowHandler = (
         res.status(StatusCodes.NOT_FOUND).json({ error: 'Queue item not found' });
         return;
       }
-      if (item.status !== QueueStatus.pending) {
-        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is not pending');
-        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is not pending' });
+      if (item.status === QueueStatus.resolved) {
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is already resolved');
+        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is already resolved' });
+        return;
+      }
+
+      if (item.status === QueueStatus.retriggered) {
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is in retrigger cooldown');
+        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is in retrigger cooldown' });
         return;
       }
 
@@ -143,7 +149,7 @@ export const createMoveToTopHandler = (queueOrderRepo: QueueOrderRepository, log
   };
 };
 
-export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullRequests: PullRequestRepository, prisma: PrismaClient, logger: Logger) => {
+export const createMarkReviewedHandler = (queueRepo: QueueRepository, prisma: PrismaClient, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const uuid = req.params.uuid as string;
@@ -153,10 +159,8 @@ export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullReques
       }
 
       const item = await prisma.$transaction(async (tx) => {
-        const updated = await queueRepo.markReviewedByUuid(uuid, tx);
-        if (!updated) return null;
-        await pullRequests.recordReview(updated.pull_request_id, tx);
-        return updated;
+        const updated = await queueRepo.markResolvedByUuid(uuid, Resolution.ManualReview, tx);
+        return updated ?? null;
       });
 
       if (!item) {
@@ -166,7 +170,7 @@ export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullReques
 
       res.json({ ok: true });
     } catch (error) {
-      logger.error({ fn: 'api.queueOrder.markReviewed', error }, 'Failed to mark item reviewed');
+      logger.error({ fn: 'api.queueOrder.markResolved', error }, 'Failed to mark item resolved');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to mark item reviewed' });
     }
   };

@@ -28,6 +28,7 @@ export const BypassedPayloadSchema = z.object({
 
 export const CoderabbitReviewApprovedPayloadSchema = z.object({
   coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
+  detected_via: z.string().optional(),
 });
 
 export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
@@ -42,6 +43,8 @@ export const CoderabbitReviewSkippedPayloadSchema = z.object({
 
 export const FailedPayloadSchema = z.object({
   reason: z.string().max(REASON_MAX_LENGTH),
+  retrigger_count: z.number().int().positive().optional(),
+  max: z.number().int().positive().optional(),
 });
 
 export const EventMetadataSchema = z.object({

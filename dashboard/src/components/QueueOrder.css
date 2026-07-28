@@ -99,3 +99,7 @@
 .row-selected td {
   border-color: #f5d5b0;
 }
+
+.row-retriggered td {
+  opacity: 0.55;
+}

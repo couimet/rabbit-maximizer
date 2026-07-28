@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const BASE_BACKOFF_MS = 60_000;
 const MAX_BACKOFF_MS = 3_600_000;
+const MAX_RETRIGGER_ATTEMPTS = 10;
 
 describe('SchedulerProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
@@ -22,13 +23,22 @@ describe('SchedulerProbe', () => {
     observation = generateObservationContextHydrationData();
   });
 
-  const createProbe = () => new SchedulerProbe(BASE_BACKOFF_MS, MAX_BACKOFF_MS, events, observation, logger);
+  const createProbe = () => new SchedulerProbe(BASE_BACKOFF_MS, MAX_BACKOFF_MS, MAX_RETRIGGER_ATTEMPTS, events, observation, logger);
 
   describe('pruningCompleted', () => {
     it('logs debug', () => {
       const probe = createProbe();
       probe.pruningCompleted();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'SchedulerProbe.pruningCompleted' }, 'Pruning completed');
+    });
+  });
+
+  describe('staleRetriggeredResolved', () => {
+    it('logs info with count', () => {
+      const probe = createProbe();
+      const count = 3;
+      probe.staleRetriggeredResolved(count);
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'SchedulerProbe.staleRetriggeredResolved', count }, 'Resolved stale retriggered items');
     });
   });
 
@@ -163,6 +173,34 @@ describe('SchedulerProbe', () => {
       expect(logger.info).toHaveBeenCalledWith(
         { fn: 'SchedulerProbe.prClosedOrMerged', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, status },
         'PR closed or merged; marked failed',
+      );
+    });
+  });
+
+  describe('maxRetriggersExceeded', () => {
+    it('records a failed event and logs warn', async () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const retriggerCount = getUniqueInt();
+      const tx = createMockTx();
+      const probe = createProbe();
+      probe.withItem(item);
+      await probe.maxRetriggersExceeded(retriggerCount, tx);
+      expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'failed',
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          correlation_id: observation.correlationId,
+          request_id: observation.requestId,
+          version: observation.version,
+          payload: { reason: 'max_retrigger_attempts_exceeded', retrigger_count: retriggerCount, max: MAX_RETRIGGER_ATTEMPTS },
+        },
+        tx,
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'SchedulerProbe.maxRetriggersExceeded', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, retriggerCount, max: MAX_RETRIGGER_ATTEMPTS },
+        'Max retrigger attempts exceeded; marking failed',
       );
     });
   });

@@ -36,6 +36,8 @@ model PullRequest {
   last_review_limit_at      DateTime?
   last_review_requested_at  DateTime?
   last_coderabbit_review_at       DateTime?
+  last_review_url                 String?
+  last_review_state               String?
   last_coderabbit_acknowledged_at DateTime?
   retrigger_count           Int       @default(0)
   review_count              Int       @default(0)
@@ -74,8 +76,11 @@ model ReviewQueue {
   pr_number      Int
   /// Max 256 (GitHub PR title). Set at enqueue time.
   pr_title       String
-  /// Max 25; one of 'pending' | 'retriggered' | 'reviewed' | 'failed' (CHECK in the init migration).
+  /// Max 25; one of 'pending' | 'retriggered' | 'resolved' (CHECK in migration).
   status         String    @default("pending")
+  /// Max 50. Terminal reason when status='resolved' (review_completed, pr_merged, pr_closed_without_merge, failed, skipped).
+  resolution     String?
+  resolved_at    DateTime?
   attempts       Int       @default(0)
   /// Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
   source_comment_url String

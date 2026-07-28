@@ -11,6 +11,7 @@ import type { Prisma } from '@prisma/client';
 export interface CreateSchedulerProbeParams {
   baseBackoff: number;
   maxBackoff: number;
+  maxRetriggerAttempts: number;
 }
 
 export class SchedulerProbe {
@@ -19,6 +20,7 @@ export class SchedulerProbe {
   constructor(
     private readonly baseBackoff: number,
     private readonly maxBackoff: number,
+    private readonly maxRetriggerAttempts: number,
     private readonly events: EventRepository,
     private readonly observation: ObservationContext,
     private readonly log: Logger,
@@ -26,6 +28,10 @@ export class SchedulerProbe {
 
   withItem(item: QueueItem): void {
     this.item = item;
+  }
+
+  staleRetriggeredResolved(count: number): void {
+    this.log.info({ fn: 'SchedulerProbe.staleRetriggeredResolved', count }, 'Resolved stale retriggered items');
   }
 
   pruningCompleted(): void {
@@ -80,6 +86,32 @@ export class SchedulerProbe {
     this.log.info(
       { fn: 'SchedulerProbe.prClosedOrMerged', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, status },
       'PR closed or merged; marked failed',
+    );
+  }
+
+  async maxRetriggersExceeded(retriggerCount: number, tx: Prisma.TransactionClient): Promise<void> {
+    await this.events.record(
+      {
+        type: EventType.failed,
+        repo_full_name: this.item!.repo_full_name,
+        pr_number: this.item!.pr_number,
+        correlation_id: this.observation.correlationId,
+        request_id: this.observation.requestId,
+        version: this.observation.version,
+        payload: { reason: 'max_retrigger_attempts_exceeded', retrigger_count: retriggerCount, max: this.maxRetriggerAttempts },
+      },
+      tx,
+    );
+    this.log.warn(
+      {
+        fn: 'SchedulerProbe.maxRetriggersExceeded',
+        repo: this.item!.repo_full_name,
+        pr: this.item!.pr_number,
+        queueId: this.item!.id,
+        retriggerCount,
+        max: this.maxRetriggerAttempts,
+      },
+      'Max retrigger attempts exceeded; marking failed',
     );
   }
 

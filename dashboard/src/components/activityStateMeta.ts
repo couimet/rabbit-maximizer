@@ -1,0 +1,29 @@
+import { ActivityState } from '../../../src/domain.js';
+
+export const STATE_LABEL: Record<ActivityState, string> = {
+  [ActivityState.reviewCompleted]: 'Reviewed',
+  [ActivityState.manualReview]: 'Manual review',
+  [ActivityState.failed]: 'Failed',
+  [ActivityState.prMerged]: 'Merged',
+  [ActivityState.prClosed]: 'Closed',
+  [ActivityState.skipped]: 'Skipped',
+  [ActivityState.reviewInProgress]: 'In progress',
+  [ActivityState.reviewLimited]: 'Review limited',
+  [ActivityState.awaitingReview]: 'Awaiting review',
+  [ActivityState.pending]: 'Pending',
+};
+
+type StatusPillClass = 'reviewed' | 'failed' | 'merged' | 'closed' | 'skipped' | 'retriggered' | 'pending';
+
+export const STATE_CLASS: Record<ActivityState, StatusPillClass> = {
+  [ActivityState.reviewCompleted]: 'reviewed',
+  [ActivityState.manualReview]: 'reviewed',
+  [ActivityState.failed]: 'failed',
+  [ActivityState.prMerged]: 'merged',
+  [ActivityState.prClosed]: 'closed',
+  [ActivityState.skipped]: 'skipped',
+  [ActivityState.reviewInProgress]: 'retriggered',
+  [ActivityState.reviewLimited]: 'retriggered',
+  [ActivityState.awaitingReview]: 'retriggered',
+  [ActivityState.pending]: 'pending',
+};

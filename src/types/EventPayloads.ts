@@ -21,6 +21,7 @@ export interface RetriggeredPayload {
 
 export interface CoderabbitReviewApprovedPayload {
   readonly coderabbit_comment_url?: string;
+  readonly detected_via?: string;
 }
 
 export interface CoderabbitReviewChangesSuggestedPayload {
@@ -35,6 +36,8 @@ export interface CoderabbitReviewSkippedPayload {
 
 export interface FailedPayload {
   readonly reason: string;
+  readonly retrigger_count?: number;
+  readonly max?: number;
 }
 
 export interface BypassedPayload {

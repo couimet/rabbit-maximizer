@@ -1,12 +1,16 @@
 import type { PullRequestRepository } from '../db/index.js';
-import type { PrState } from '../domain.js';
+import { type PrState } from '../domain.js';
 import { TYPES } from '../inversify-types.js';
-import type { EnrichedQueueItem, QueueItem } from '../types/index.js';
+import type { CoderabbitReviewVerdict, EnrichedQueueItem, QueueItem } from '../types/index.js';
+
+import { isReviewVerdictState } from './isReviewVerdictState.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-const EMPTY_ENRICHMENT = { prState: undefined, lastCoderabbitAcknowledgedAt: undefined };
+const UNKNOWN_AUTHOR_LOGIN = '<unknown>';
+
+const EMPTY_ENRICHMENT = { prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: UNKNOWN_AUTHOR_LOGIN, coderabbitReview: undefined };
 
 @injectable()
 export class QueueItemEnricher {
@@ -36,9 +40,18 @@ export class QueueItemEnricher {
       return items.map((item) => ({ ...item, ...EMPTY_ENRICHMENT }));
     }
 
-    const { pr_state: prStateMap, last_coderabbit_acknowledged_at: ackMap } = await this.pullRequests.getColumnMaps(validIds, [
-      'pr_state',
+    const {
+      pr_state: prStateMap,
+      last_coderabbit_acknowledged_at: ackMap,
+      author_login: authorLoginMap,
+      last_review_url: reviewUrlMap,
+      last_review_state: reviewStateMap,
+    } = await this.pullRequests.getColumnMaps(validIds, [
+      'author_login',
       'last_coderabbit_acknowledged_at',
+      'last_review_state',
+      'last_review_url',
+      'pr_state',
     ]);
 
     return items.map((item) => {
@@ -48,7 +61,12 @@ export class QueueItemEnricher {
       }
       const prState = prStateMap.get(pid) as PrState | undefined;
       const ackValue = ackMap.get(pid) ?? undefined;
-      return { ...item, prState, lastCoderabbitAcknowledgedAt: ackValue };
+      const authorLogin = authorLoginMap.get(pid) ?? UNKNOWN_AUTHOR_LOGIN;
+      const reviewUrl = reviewUrlMap.get(pid) ?? undefined;
+      const reviewState = reviewStateMap.get(pid) ?? undefined;
+      const coderabbitReview: CoderabbitReviewVerdict | undefined =
+        reviewUrl != null && isReviewVerdictState(reviewState) ? { htmlUrl: reviewUrl, state: reviewState } : undefined;
+      return { ...item, prState, lastCoderabbitAcknowledgedAt: ackValue, authorLogin, coderabbitReview };
     });
   }
 }

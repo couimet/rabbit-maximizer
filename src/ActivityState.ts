@@ -1,0 +1,12 @@
+export enum ActivityState {
+  reviewCompleted = 'review_completed',
+  manualReview = 'manual_review',
+  failed = 'failed',
+  prMerged = 'pr_merged',
+  prClosed = 'pr_closed',
+  skipped = 'skipped',
+  reviewInProgress = 'review_in_progress',
+  reviewLimited = 'review_limited',
+  awaitingReview = 'awaiting_review',
+  pending = 'pending',
+}

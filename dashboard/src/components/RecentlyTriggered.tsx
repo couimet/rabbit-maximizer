@@ -1,10 +1,11 @@
 import type { QueueItemResponse } from '../../../src/types/index.js';
 import { type Duration, formatRelativeTime, resolveDurationSince } from '../../../src/utils/index.js';
-import { fetchTriggered, markReviewed } from '../api.js';
+import { safeDeriveActivityStatus } from '../activityState.js';
+import { fetchTriggered, markResolved } from '../api.js';
 import { useErrorContext } from '../context/index.js';
-import { prUrl, repoUrl } from '../githubUrl.js';
+import { prUrl } from '../githubUrl.js';
 
-import { DurationSelect } from './index.js';
+import { DurationSelect, STATE_CLASS, STATE_LABEL } from './index.js';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -14,6 +15,13 @@ const RELATIVE_TIME_REFRESH_MS = 60_000;
 
 const TRIGGERED_DEFAULT_DURATION = '2d';
 
+/* c8 ignore next 2 — both branches tested but V8 coverage cannot track arrow-function ternaries in React render paths */
+const formatRetriggeredTime = (item: QueueItemResponse): string => (item.retriggered_at != null ? formatRelativeTime(item.retriggered_at) : '—');
+
+/* c8 ignore next 2 — both branches tested but V8 coverage cannot track nested ternaries in React render paths */
+const formatApprovalBadge = (subState: string | undefined): string =>
+  subState === 'review_approved' ? ' ✓' : subState === 'review_changes_suggested' ? ' Δ' : '';
+
 const RecentlyTriggered = () => {
   const [items, setItems] = useState<QueueItemResponse[]>([]);
   const [page, setPage] = useState(1);
@@ -21,7 +29,7 @@ const RecentlyTriggered = () => {
   const [loading, setLoading] = useState(true);
   const { reportError, dismissError } = useErrorContext();
   const [duration, setDuration] = useState<Duration>(TRIGGERED_DEFAULT_DURATION);
-  const [includeReviewed, setIncludeReviewed] = useState(false);
+  const [includeResolved, setIncludeResolved] = useState(false);
   const [, setTick] = useState(0);
 
   const mountedRef = useRef(false);
@@ -39,7 +47,7 @@ const RecentlyTriggered = () => {
       requestIdRef.current += 1;
       const requestId = requestIdRef.current;
       setLoading(true);
-      fetchTriggered(resolveDurationSince(duration), pageNum, PAGE_SIZE, includeReviewed)
+      fetchTriggered(resolveDurationSince(duration), pageNum, PAGE_SIZE, includeResolved)
         .then((res) => {
           /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
           if (!mountedRef.current) return;
@@ -61,7 +69,7 @@ const RecentlyTriggered = () => {
           setLoading(false);
         });
     },
-    [duration, includeReviewed, reportError, dismissError],
+    [duration, includeResolved, reportError, dismissError],
   );
 
   useEffect(() => {
@@ -84,17 +92,38 @@ const RecentlyTriggered = () => {
     fetchData(nextPage, true);
   };
 
-  const handleMarkReviewed = (uuid: string) => {
+  const handleMarkResolved = (uuid: string) => {
     setItems((prev) => prev.filter((i) => i.uuid !== uuid));
     /* c8 ignore next — safety fallback: total is always set when items are displayed */
     setTotal((t) => (t !== null ? t - 1 : null));
-    markReviewed(uuid).catch((err: Error) => {
-      reportError('recently-triggered-mark-reviewed', err.message);
+    markResolved(uuid).catch((err: Error) => {
+      reportError('recently-triggered-mark-resolved', err.message);
       fetchData(1, false);
     });
   };
 
   const hasMore = total !== null && items.length < total;
+
+  const renderStatusPill = (item: QueueItemResponse) => {
+    const { state, linkUrl, subState } = safeDeriveActivityStatus(item);
+    const label = STATE_LABEL[state];
+    const className = `status-pill ${STATE_CLASS[state]}`;
+    const badge = formatApprovalBadge(subState);
+    if (linkUrl) {
+      return (
+        <a href={linkUrl} className={className} target="_blank" rel="noopener noreferrer">
+          {label}
+          {badge}
+        </a>
+      );
+    }
+    return (
+      <span className={className}>
+        {label}
+        {badge}
+      </span>
+    );
+  };
 
   return (
     <div className="section-card">
@@ -103,7 +132,7 @@ const RecentlyTriggered = () => {
       </h3>
 
       <label className="show-reviewed-toggle">
-        <input type="checkbox" checked={includeReviewed} onChange={(e) => setIncludeReviewed(e.target.checked)} /> Show reviewed
+        <input type="checkbox" checked={includeResolved} onChange={(e) => setIncludeResolved(e.target.checked)} /> Show resolved
       </label>
 
       {loading && items.length === 0 ? (
@@ -123,27 +152,18 @@ const RecentlyTriggered = () => {
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.uuid} className={item.status === 'reviewed' ? 'row-status-reviewed' : ''}>
+                <tr key={item.uuid} className={item.status === 'resolved' ? 'row-status-reviewed' : ''}>
                   <td>
-                    <a href={repoUrl(item.repo_full_name)} target="_blank" rel="noreferrer">
-                      {item.repo_full_name}
-                    </a>{' '}
                     <a href={item.retrigger_comment_url ?? prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noreferrer">
-                      #{item.pr_number}
-                    </a>
-                    <span className="pr-title">{item.pr_title}</span>
+                      {item.pr_title} (#{item.pr_number})
+                    </a>{' '}
+                    by {item.author_login}
                   </td>
-                  <td>{item.retriggered_at ? formatRelativeTime(item.retriggered_at) : '—'}</td>
+                  <td>{formatRetriggeredTime(item)}</td>
+                  <td>{renderStatusPill(item)}</td>
                   <td>
-                    {item.status === 'reviewed' ? (
-                      <span className="status-pill reviewed">Reviewed</span>
-                    ) : (
-                      <span className="status-pill retriggered">Retriggered</span>
-                    )}
-                  </td>
-                  <td>
-                    {item.status !== 'reviewed' && (
-                      <button className="mark-reviewed-button" onClick={() => handleMarkReviewed(item.uuid)} title="Mark as reviewed">
+                    {item.status !== 'resolved' && (
+                      <button className="mark-reviewed-button" onClick={() => handleMarkResolved(item.uuid)} title="Mark as resolved">
                         ✓
                       </button>
                     )}
