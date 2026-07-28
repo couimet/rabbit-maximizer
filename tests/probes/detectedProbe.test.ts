@@ -4,7 +4,7 @@ import type { EventLogEntry } from '../../src/types/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { generateObservationContextHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it, jest } from '@jest/globals';
 
@@ -312,6 +312,34 @@ describe('DetectedProbe', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, existingStatus: 'coderabbit_skipped' },
       'Skipped comment already recorded; skipping',
+    );
+  });
+
+  it('logs when a reviewed comment was already recorded', () => {
+    const ref = generateReviewRef();
+    const observation = generateObservationContextHydrationData();
+    const logger = createMockLogger();
+
+    const probe = new DetectedProbe(
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: getUniqueDate(),
+        source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+      },
+      {} as EventRepository,
+      observation,
+      logger,
+    );
+
+    const commentId = getUniqueInt();
+    const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+    const comment = { comment_id: commentId, url: commentUrl };
+    probe.alreadyReviewed(comment);
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, commentId, commentUrl },
+      'PR already reviewed by CodeRabbit; skipping enqueue',
     );
   });
 });

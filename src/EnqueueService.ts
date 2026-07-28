@@ -1,4 +1,4 @@
-import type { PullRequestRepository, QueueRepository } from './db/index.js';
+import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository } from './db/index.js';
 import { classifyCoderabbitComment } from './github/index.js';
 import type { ObservationContextProvider } from './observability/index.js';
 import type { ProbeFactory } from './probes/index.js';
@@ -20,6 +20,8 @@ export class EnqueueService {
     private readonly prisma: PrismaClient,
     @inject(TYPES.ProbeFactory)
     private readonly probes: ProbeFactory,
+    @inject(TYPES.CoderabbitCommentRepository)
+    private readonly coderabbitComments: CoderabbitCommentRepository,
     @inject(TYPES.ObservationContextProvider)
     private readonly observation: ObservationContextProvider,
   ) {}
@@ -39,10 +41,29 @@ export class EnqueueService {
     );
     await probe.detected();
 
+    const existingReview = await this.coderabbitComments.findCompletedReview(pullRequestId);
+    if (existingReview) {
+      probe.alreadyReviewed(existingReview);
+      return;
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
 
       const classification = classifyCoderabbitComment(comment.body);
+
+      await this.coderabbitComments.upsert(
+        {
+          comment_id: comment.commentId,
+          pull_request_id: pullRequestId,
+          url: comment.url,
+          comment_type: classification,
+          body: comment.body,
+          gh_created_at: new Date(comment.createdAt),
+          gh_updated_at: new Date(comment.updatedAt),
+        },
+        tx,
+      );
 
       if (classification === 'review_skipped') {
         const { item, created } = await this.queue.createSkipped(
@@ -71,6 +92,7 @@ export class EnqueueService {
           prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
+          commentUpdatedAt: new Date(comment.updatedAt),
           pullRequestId,
         },
         tx,

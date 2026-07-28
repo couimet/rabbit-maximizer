@@ -1,14 +1,6 @@
-import {
-  buildCommentUrl,
-  classifyCoderabbitComment,
-  type CoderabbitGitHubClient,
-  hasOwnRetriggerMarker,
-  hasRateLimitMarker,
-  REVIEW_BOT_LOGIN,
-  splitRepo,
-} from './github/index.js';
+import { buildCommentUrl, classifyCoderabbitComment, type CoderabbitGitHubClient, hasOwnRetriggerMarker, REVIEW_BOT_LOGIN, splitRepo } from './github/index.js';
 import type { DirectCheckPR, OnDetectedCallback } from './types/index.js';
-import { TYPES } from './domain.js';
+import { CodeRabbitCommentType, TYPES } from './domain.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -58,7 +50,19 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
         const comments = await this.github.listComments(owner, repo, pr.prNumber);
 
         for (const c of comments) {
-          if (c.user !== REVIEW_BOT_LOGIN || !hasRateLimitMarker(c.body) || hasOwnRetriggerMarker(c.body)) {
+          if (c.user !== REVIEW_BOT_LOGIN) {
+            continue;
+          }
+
+          const classification = classifyCoderabbitComment(c.body);
+
+          if (classification === CodeRabbitCommentType.unknown) {
+            this.log.debug({ ...logCtx, repo: pr.repoFullName, pr: pr.prNumber, commentId: c.id }, 'Skipping comment with unknown classification');
+            continue;
+          }
+
+          if (hasOwnRetriggerMarker(c.body)) {
+            this.log.debug({ ...logCtx, repo: pr.repoFullName, pr: pr.prNumber, commentId: c.id }, 'Skipping own retrigger comment');
             continue;
           }
 
@@ -71,7 +75,7 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
             updatedAt: c.updatedAt.toISOString(),
             prTitle: pr.prTitle,
             body: c.body,
-            commentType: classifyCoderabbitComment(c.body),
+            commentType: classification,
           };
 
           await this.onDetected(comment, pr.pullRequestId);

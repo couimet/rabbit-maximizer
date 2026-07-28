@@ -95,6 +95,13 @@ export class ReviewDetectorProbe {
     );
   }
 
+  editDetectionFailed(error: unknown): void {
+    this.log.warn(
+      { fn: 'ReviewDetectorProbe.editDetectionFailed', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, error },
+      'Edit detection failed; falling through to Reviews API',
+    );
+  }
+
   caughtError(err: unknown): void {
     this.log.warn(
       { fn: 'ReviewDetectorProbe.caughtError', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, error: err },

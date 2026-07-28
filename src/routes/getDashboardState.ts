@@ -1,5 +1,5 @@
 import type { Config } from '../config.js';
-import { type EventRepository, type QueueOrderRepository, type SystemStateRepository } from '../db/index.js';
+import { type EventRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from '../db/index.js';
 import type { EventCountsMapper, QueueItemMapper } from '../mappers/index.js';
 import { MS_PER_SECOND, resolveDurationSince } from '../utils/index.js';
 
@@ -9,6 +9,7 @@ import { StatusCodes } from 'http-status-codes';
 
 export const createGetDashboardStateHandler = (
   queueOrderRepo: QueueOrderRepository,
+  queueRepo: QueueRepository,
   eventRepo: EventRepository,
   systemStateRepo: SystemStateRepository,
   queueItemMapper: QueueItemMapper,
@@ -20,14 +21,18 @@ export const createGetDashboardStateHandler = (
     try {
       const since = resolveDurationSince(req.query.duration);
 
-      const [items, eventCounts, paused, lastSchedulerTickAt] = await Promise.all([
+      const [items, eventCounts, paused, lastSchedulerTickAt, skippedQueueItems] = await Promise.all([
         queueOrderRepo.getEffectiveOrder(),
         eventRepo.countByType(since),
         systemStateRepo.isSchedulerPaused(),
         systemStateRepo.getLastSchedulerTickAt(),
+        queueRepo.getSkippedItems(),
       ]);
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
-      const pendingItems = await queueItemMapper.mapToQueueItemResponseList(items);
+      const [pendingItems, skippedItems] = await Promise.all([
+        queueItemMapper.mapToQueueItemResponseList(items),
+        queueItemMapper.mapToQueueItemResponseList(skippedQueueItems),
+      ]);
 
       const nextReviewAvailableAt: string | null = null;
 
@@ -38,6 +43,7 @@ export const createGetDashboardStateHandler = (
         lastSchedulerTickAt: lastSchedulerTickAt?.toISOString() ?? null,
         nextReviewAvailableAt,
         pendingItems,
+        skippedItems,
         eventCounts: activeEventCounts,
         paused,
         schedulerStale,

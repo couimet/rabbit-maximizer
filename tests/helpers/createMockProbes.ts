@@ -47,6 +47,7 @@ export interface MockDetectedProbe {
   alreadyQueued: jest.Mock;
   skipped: jest.Mock<() => Promise<unknown>>;
   alreadySkipped: jest.Mock;
+  alreadyReviewed: jest.Mock<any>;
 }
 export const createMockDetectedProbe = (): MockDetectedProbe => ({
   detected: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -57,6 +58,7 @@ export const createMockDetectedProbe = (): MockDetectedProbe => ({
   alreadyQueued: jest.fn(),
   skipped: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadySkipped: jest.fn(),
+  alreadyReviewed: jest.fn(),
 });
 
 export interface MockReviewDetectorProbe {
@@ -67,6 +69,7 @@ export interface MockReviewDetectorProbe {
   reviewedViaFallback: jest.Mock<any>;
   prClosedResolved: jest.Mock<any>;
   caughtError: jest.Mock<any>;
+  editDetectionFailed: jest.Mock<any>;
 }
 export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   withItem: jest.fn<any>(),
@@ -76,6 +79,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   reviewedViaFallback: jest.fn<any>(),
   prClosedResolved: jest.fn<any>(),
   caughtError: jest.fn<any>(),
+  editDetectionFailed: jest.fn<any>(),
 });
 
 export interface MockEnqueueProbe {
@@ -84,6 +88,8 @@ export interface MockEnqueueProbe {
   recentlyResolved: jest.Mock<any>;
   alreadyQueued: jest.Mock<any>;
   retriggeredReplaced: jest.Mock<any>;
+  resolvedReEnqueued: jest.Mock<any>;
+  resolvedNotEdited: jest.Mock<any>;
 }
 export const createMockEnqueueProbe = (): MockEnqueueProbe => ({
   enqueued: jest.fn<any>(),
@@ -91,6 +97,8 @@ export const createMockEnqueueProbe = (): MockEnqueueProbe => ({
   recentlyResolved: jest.fn<any>(),
   alreadyQueued: jest.fn<any>(),
   retriggeredReplaced: jest.fn<any>(),
+  resolvedReEnqueued: jest.fn<any>(),
+  resolvedNotEdited: jest.fn<any>(),
 });
 
 export interface MockSchedulerProbe {

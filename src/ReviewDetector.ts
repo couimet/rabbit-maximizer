@@ -1,9 +1,11 @@
 import type { PullRequestRepository, QueueRepository } from './db/index.js';
+import { RabbitMaximizerError } from './errors/index.js';
 import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
-import { MS_PER_SECOND } from './utils/index.js';
+import { MS_PER_SECOND, toReviewEventType } from './utils/index.js';
 import type { Config } from './config.js';
-import { CodeRabbitCommentType, EventType, IntervalService, PrState, Resolution, TYPES } from './domain.js';
+import { CodeRabbitCommentType, IntervalService, PrState, Resolution, TYPES } from './domain.js';
+import type { EditDetector } from './EditDetector.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -18,6 +20,7 @@ export class ReviewDetector extends IntervalService {
     @inject(TYPES.QueueRepository) private readonly queue: QueueRepository,
     @inject(TYPES.PullRequestRepository) private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.CoderabbitGitHubClient) private readonly github: CoderabbitGitHubClient,
+    @inject(TYPES.EditDetector) private readonly editDetector: EditDetector,
     @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
     @inject(TYPES.Config) cfg: Config,
@@ -62,9 +65,33 @@ export class ReviewDetector extends IntervalService {
           continue;
         }
 
-        const { owner, repo } = splitRepo(item.repo_full_name);
+        const result = await this.editDetector.detectEdit(item);
+        if (!result.success) {
+          probe.editDetectionFailed(result.error);
+          continue;
+        }
+        const editOutcome = result.value;
+        switch (editOutcome.action) {
+          case 'resolved':
+            await this.prisma.$transaction(async (tx) => {
+              await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
+              await this.pullRequests.recordReview(item.pull_request_id, editOutcome.reviewUrl, editOutcome.verdictState, tx);
+              await probe.reviewed(toReviewEventType(editOutcome.verdictState), editOutcome.reviewUrl, tx);
+            });
+            continue;
+          case 'fallback':
+            break;
+          default:
+            throw RabbitMaximizerError.forUnexpectedSwitchDefault(
+              'edit outcome action',
+              (editOutcome as { action: string }).action,
+              'ReviewDetector.executeTick',
+            );
+        }
+
         const lookbackSince = new Date(item.retriggered_at.getTime() - this.lookbackMs);
 
+        const { owner, repo } = splitRepo(item.repo_full_name);
         const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, lookbackSince);
 
         if (!completedReview) {
@@ -80,13 +107,12 @@ export class ReviewDetector extends IntervalService {
           continue;
         }
 
-        const eventType = completedReview.isApproval ? EventType.coderabbit_review_approved : EventType.coderabbit_review_changes_suggested;
         const verdictState = completedReview.isApproval ? CodeRabbitCommentType.review_approved : CodeRabbitCommentType.review_changes_suggested;
 
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
           await this.pullRequests.recordReview(item.pull_request_id, completedReview.htmlUrl, verdictState, tx);
-          await probe.reviewed(eventType, completedReview.htmlUrl, tx);
+          await probe.reviewed(toReviewEventType(verdictState), completedReview.htmlUrl, tx);
         });
       } catch (err: unknown) {
         probe.caughtError(err);

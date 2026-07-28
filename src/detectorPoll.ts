@@ -1,8 +1,8 @@
 import { type PullRequestRepository, StateKey, type SystemStateRepository } from './db/index.js';
 import {
+  classifyCoderabbitComment,
   type CoderabbitGitHubClient,
   hasOwnRetriggerMarker,
-  hasRateLimitMarker,
   parseGitHubRateLimitError,
   parseWaitSeconds,
   splitRepo,
@@ -10,7 +10,7 @@ import {
 import type { OnDetectedCallback } from './types/index.js';
 import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
-import { IntervalService, TYPES } from './domain.js';
+import { CodeRabbitCommentType, IntervalService, TYPES } from './domain.js';
 import type { DirectCommentChecker, PrScanner, StalePrRecoverer } from './services.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
@@ -73,8 +73,8 @@ export class PollDetector extends IntervalService {
         const { owner, repo } = splitRepo(c.repoFullName);
         const { body } = await this.github.fetchComment(owner, repo, c.commentId);
 
-        if (!hasRateLimitMarker(body)) {
-          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment without rate-limit marker');
+        if (classifyCoderabbitComment(body) === CodeRabbitCommentType.unknown) {
+          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with unknown classification');
           continue;
         }
 

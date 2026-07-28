@@ -1,7 +1,7 @@
 import type { EventRepository } from '../db/index.js';
 import { BypassReason, EventType } from '../domain.js';
 import type { ObservationContext } from '../observability/index.js';
-import type { EventLogEntry } from '../types/index.js';
+import type { AlreadyReviewedComment, EventLogEntry } from '../types/index.js';
 
 import { recordBypassEvent } from './index.js';
 
@@ -109,5 +109,9 @@ export class DetectedProbe {
 
   alreadySkipped(existingStatus: string): void {
     this.log.warn({ ...this.loggingCtx, existingStatus }, 'Skipped comment already recorded; skipping');
+  }
+
+  alreadyReviewed(comment: AlreadyReviewedComment): void {
+    this.log.info({ ...this.loggingCtx, commentId: comment.comment_id, commentUrl: comment.url }, 'PR already reviewed by CodeRabbit; skipping enqueue');
   }
 }

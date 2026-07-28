@@ -225,7 +225,7 @@ describe('PollDetector', () => {
       );
     });
 
-    it('skips comments that lack the rate-limit marker', async () => {
+    it('skips comments with unknown classification', async () => {
       const comment = generateDetectedCommentHydrationData();
       const bodyText = 'some unrelated comment body';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
@@ -240,8 +240,23 @@ describe('PollDetector', () => {
       expect(deps.onDetected).not.toHaveBeenCalled();
       expect(deps.logger.debug).toHaveBeenCalledWith(
         { fn: 'PollDetector.tick', owner, repo, commentId: comment.commentId },
-        'Skipping comment without rate-limit marker',
+        'Skipping comment with unknown classification',
       );
+    });
+
+    it('accepts review_skipped comments and fires onDetected callback', async () => {
+      const comment = generateDetectedCommentHydrationData();
+      const bodyText = 'skip review by coderabbit.ai some additional context';
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, pullRequestId);
     });
   });
 

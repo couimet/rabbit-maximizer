@@ -7,6 +7,7 @@ import {
   createMockEventRepo,
   createMockQueueItemMapper,
   createMockQueueOrderRepo,
+  createMockQueueRepo,
   createMockSystemStateRepository,
   fetchResponse,
   generateQueueItemHydrationData,
@@ -69,6 +70,7 @@ describe('getDashboardState', () => {
     queueOrderRepoOver: Record<string, unknown> = {},
     eventRepoOver: Record<string, unknown> = {},
     systemStateRepoOver: Record<string, unknown> = {},
+    queueRepoOver: Record<string, unknown> = {},
     config?: Config,
   ) => {
     const mergedSystemState = {
@@ -80,6 +82,7 @@ describe('getDashboardState', () => {
         '/api/dashboard-state',
         createGetDashboardStateHandler(
           createMockQueueOrderRepo(queueOrderRepoOver as any),
+          createMockQueueRepo(queueRepoOver as any),
           createMockEventRepo(eventRepoOver as any),
           createMockSystemStateRepository(mergedSystemState as any),
           queueItemMapper,
@@ -118,6 +121,7 @@ describe('getDashboardState', () => {
     expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)),
+      skippedItems: [],
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
       paused: false,
     });
@@ -134,6 +138,7 @@ describe('getDashboardState', () => {
     expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
+      skippedItems: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -164,6 +169,7 @@ describe('getDashboardState', () => {
     expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)),
+      skippedItems: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -193,6 +199,7 @@ describe('getDashboardState', () => {
     expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
+      skippedItems: [],
       eventCounts: { detected: 1, enqueued: 2, retriggered: 3, failed: 6 },
       paused: false,
     });
@@ -251,6 +258,7 @@ describe('getDashboardState', () => {
     expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
+      skippedItems: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: true,
     });
@@ -291,6 +299,24 @@ describe('getDashboardState', () => {
     const data3 = json as Record<string, unknown>;
     expect(typeof data3.lastSchedulerTickAt).toBe('string');
     expect(data3.schedulerStale).toBe(false);
+  });
+
+  it('includes skipped items from getSkippedItems mapped through queueItemMapper', async () => {
+    logger = createMockLogger();
+    const skipped = [generateQueueItemHydrationData({ id: 1 }), generateQueueItemHydrationData({ id: 2 })];
+    startServer({}, {}, {}, { getSkippedItems: jest.fn<any>().mockResolvedValue(skipped) });
+
+    const json = await getJson(port, '/api/dashboard-state');
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      skippedItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(skipped)),
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
+    });
   });
 
   it('returns 500 and logs error on getEffectiveOrder failure', async () => {

@@ -1,10 +1,13 @@
-import { PrState, QueueStatus, TriggerSource } from '../src/domain.js';
-import type { CoderabbitGitHubClient } from '../src/github/index.js';
+import { CodeRabbitCommentType, FallbackReason, PrState, QueueStatus, TriggerSource } from '../src/domain.js';
+import type { EditDetector } from '../src/EditDetector.js';
+import { buildCommentUrl, type CoderabbitGitHubClient } from '../src/github/index.js';
+import { RabbitResult } from '../src/RabbitResult.js';
 import { ReviewDetector } from '../src/services.js';
-import { type QueueItem } from '../src/types/index.js';
+import type { QueueItem } from '../src/types/index.js';
 
 import {
   createMockCoderabbitGitHubClient,
+  createMockEditDetector,
   createMockProbeFactory,
   createMockQueueRepo,
   createMockReviewDetectorProbe,
@@ -33,6 +36,7 @@ interface MockReviewDetectorDeps {
   queue: { getRetriggeredQueue: jest.Mock<any>; markResolved: jest.Mock<any> };
   pullRequests: { recordReview: jest.Mock<any>; getColumnMaps: jest.Mock<any> };
   github: jest.Mocked<CoderabbitGitHubClient>;
+  editDetector: jest.Mocked<EditDetector>;
   probeFactory: ReturnType<typeof createMockProbeFactory>;
   probe: ReturnType<typeof createMockReviewDetectorProbe>;
   prisma: { $transaction: jest.Mock<any> };
@@ -70,12 +74,15 @@ const setup = (): MockReviewDetectorDeps => {
     getColumnMaps: jest.fn<any>().mockResolvedValue({ pr_state: new Map(), last_coderabbit_review_at: new Map() }),
   };
   const github = createMockCoderabbitGitHubClient();
+  const editDetector = createMockEditDetector({
+    detectEdit: jest.fn<any>().mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound })),
+  });
   const probe = createMockReviewDetectorProbe();
   const probeFactory = createMockProbeFactory({ createReviewDetectorProbe: jest.fn<any>().mockReturnValue(probe) });
   const prisma = { $transaction: jest.fn<any>() };
   const logger = createMockLogger();
   const config = { POLL_INTERVAL_SEC: POLL_INTERVAL_SEC, REVIEW_DETECTION_LOOKBACK_SEC: LOOKBACK_SEC };
-  return { queue, pullRequests, github, probeFactory, probe, prisma, logger, config };
+  return { queue, pullRequests, github, editDetector, probeFactory, probe, prisma, logger, config };
 };
 
 describe('ReviewDetector', () => {
@@ -89,6 +96,7 @@ describe('ReviewDetector', () => {
       deps.queue as any,
       deps.pullRequests as any,
       deps.github,
+      deps.editDetector,
       deps.probeFactory as any,
       deps.prisma as unknown as PrismaClient,
       deps.config as any,
@@ -544,6 +552,158 @@ describe('ReviewDetector', () => {
       expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
       expect(deps.queue.markResolved).not.toHaveBeenCalled();
       expect(deps.probe.reviewedViaFallback).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('edit detection', () => {
+    it('delegates to editDetector and resolves queue item on resolved outcome', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, item.source_comment_id);
+      const editOutcome = {
+        action: 'resolved' as const,
+        reviewUrl,
+        verdictState: CodeRabbitCommentType.review_approved as CodeRabbitCommentType.review_approved,
+      };
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok(editOutcome));
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
+      expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, reviewUrl, 'review_approved', {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('delegates to editDetector and resolves on changes_suggested outcome', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, item.source_comment_id);
+      const editOutcome = {
+        action: 'resolved' as const,
+        reviewUrl,
+        verdictState: CodeRabbitCommentType.review_changes_suggested as CodeRabbitCommentType.review_changes_suggested,
+      };
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok(editOutcome));
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
+      expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, reviewUrl, 'review_changes_suggested', {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', reviewUrl, {});
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('falls through to Reviews API when editDetector returns fallback', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound }));
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+      expect(deps.github.findCompletedReview).toHaveBeenCalled();
+      expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
+    });
+
+    it('does not call Reviews API after a resolved edit outcome', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, item.source_comment_id);
+      const editOutcome = {
+        action: 'resolved' as const,
+        reviewUrl,
+        verdictState: CodeRabbitCommentType.review_approved as CodeRabbitCommentType.review_approved,
+      };
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok(editOutcome));
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('passes item to editDetector', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound }));
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+    });
+
+    it('calls probe.editDetectionFailed and falls through when detectEdit returns error', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const errorResult = RabbitResult.err({ code: 'TEST', message: 'fail' } as any);
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(errorResult);
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+      expect(deps.probe.editDetectionFailed).toHaveBeenCalledWith(errorResult.error);
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('throws on unexpected edit outcome action and catches via caughtError', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const badOutcome = { action: 'future_action_type', reviewUrl: 'u', verdictState: CodeRabbitCommentType.review_approved } as any;
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok(badOutcome));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.probe.caughtError).toHaveBeenCalledWith(expect.objectContaining({ code: 'UNEXPECTED_SWITCH_VALUE' }));
     });
   });
 });

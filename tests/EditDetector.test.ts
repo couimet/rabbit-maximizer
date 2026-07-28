@@ -1,0 +1,179 @@
+import { EditDetectorImpl } from '../src/EditDetector.js';
+import { RabbitMaximizerErrorCodes } from '../src/errors/index.js';
+
+import { createMockCoderabbitCommentRepo, createMockCoderabbitGitHubClient, generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
+
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
+import { describe, expect, it } from '@jest/globals';
+
+const ONE_MINUTE_MS = 60_000;
+
+describe('EditDetector', () => {
+  it('returns fallback when no matching coderabbit comment exists', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId });
+
+    comments.findByCommentId.mockResolvedValue(undefined);
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result.success).toBe(true);
+    expect(result.value).toStrictEqual({ action: 'fallback', reason: 'not_found' });
+    expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
+    expect(github.fetchComment).not.toHaveBeenCalled();
+  });
+
+  it('returns fallback when comment has not been edited', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId });
+    const lastSeenAt = getUniqueDate();
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      gh_updated_at: new Date(lastSeenAt.getTime() - ONE_MINUTE_MS),
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result.success).toBe(true);
+    expect(result.value).toStrictEqual({ action: 'fallback', reason: 'not_edited' });
+    expect(github.fetchComment).not.toHaveBeenCalled();
+  });
+
+  it('returns resolved when edited comment re-classifies as review_approved', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const ghCreatedAt = getUniqueDate();
+    const lastSeenAt = getUniqueDate();
+    const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+    const fetchBody = 'No actionable comments were generated in the recent review.';
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      url: ref.commentUrl,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result.success).toBe(true);
+    expect(result.value).toStrictEqual({
+      action: 'resolved',
+      reviewUrl: ref.commentUrl,
+      verdictState: 'review_approved',
+    });
+    expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
+    expect(github.fetchComment).toHaveBeenCalledWith(ref.owner, ref.repo, commentId);
+    expect(comments.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ comment_id: commentId, comment_type: 'review_approved', gh_updated_at: ghUpdatedAt }),
+    );
+  });
+
+  it('returns resolved when edited comment re-classifies as review_changes_suggested', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const ghCreatedAt = getUniqueDate();
+    const lastSeenAt = getUniqueDate();
+    const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+    const fetchBody = 'Actionable comments posted: 0';
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      url: ref.commentUrl,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result.success).toBe(true);
+    expect(result.value).toStrictEqual({
+      action: 'resolved',
+      reviewUrl: ref.commentUrl,
+      verdictState: 'review_changes_suggested',
+    });
+    expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
+    expect(comments.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ comment_id: commentId, comment_type: 'review_changes_suggested', gh_updated_at: ghUpdatedAt }),
+    );
+  });
+
+  it('upserts timestamps and returns fallback when edited comment is still rate-limited', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const ghCreatedAt = getUniqueDate();
+    const lastSeenAt = getUniqueDate();
+    const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+    const fetchBody = 'rate limited by coderabbit.ai';
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      url: ref.commentUrl,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result.success).toBe(true);
+    expect(result.value).toStrictEqual({ action: 'fallback', reason: 'not_a_review' });
+    expect(comments.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ comment_id: commentId, comment_type: 'review_limited', gh_updated_at: ghUpdatedAt }),
+    );
+  });
+
+  it('returns error result when fetchComment throws', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const lastSeenAt = getUniqueDate();
+    const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      gh_updated_at: ghUpdatedAt,
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+    github.fetchComment.mockRejectedValue(new Error('GitHub API error'));
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
+    expect(result.error!.code).toBe(RabbitMaximizerErrorCodes.EDIT_DETECTION_FAILED);
+  });
+});

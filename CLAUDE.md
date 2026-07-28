@@ -199,6 +199,31 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>Switching branches or rebasing onto a new base may bring in lockfile changes (dependency bumps, new packages). Without `pnpm install`, `node_modules` remains at the old versions. This produces false-negative test failures — matchers break, APIs change — that waste investigation time on "pre-existing" failures that are actually just stale installs. This has happened multiple times (20260722, earlier sessions).</rationale>
 </rule>
 
+<rule id="C014" priority="critical">
+  <title>Extract inline object types in method signatures into named interfaces</title>
+  <do>Define a named `export interface` for every object-typed parameter in a method signature. Place it in a standalone file under `src/types/` and re-export through the types barrel. Name the file after the interface.</do>
+  <never>Use an inline object literal type (`{ readonly a: string; readonly b: number }`) in a method signature. The only exception is for private methods where the type is truly local.</never>
+  <rationale>Inline types are not reusable, make refactoring harder (changing the type requires finding every inline occurrence), and can't be imported by tests or other consumers. A named interface documents intent and provides a single point of change.</rationale>
+  <bad-example>
+    ```typescript
+    // BAD: inline type cannot be imported or reused
+    alreadyReviewed(comment: { readonly comment_id: number; readonly url: string }): void {
+    ```
+  </bad-example>
+  <good-example>
+    ```typescript
+    // GOOD: named interface, exportable, single source of truth
+    export interface AlreadyReviewedComment {
+      readonly comment_id: number;
+      readonly url: string;
+    }
+
+    alreadyReviewed(comment: AlreadyReviewedComment): void {
+    ```
+
+  </good-example>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

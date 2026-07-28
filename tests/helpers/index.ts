@@ -1,7 +1,9 @@
 export { apiJson } from './apiJson.js';
 export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
+export { createMockCoderabbitCommentRepo } from './createMockCoderabbitCommentRepo.js';
 export { createMockCoderabbitGitHubClient } from './createMockCoderabbitGitHubClient.js';
 export { createMockDirectCommentChecker } from './createMockDirectCommentChecker.js';
+export { createMockEditDetector } from './createMockEditDetector.js';
 export { createMockEventRepo } from './createMockEventRepo.js';
 export { createMockFetch } from './createMockFetch.js';
 export type { MockIssuesRest, MockOctokitOptions, MockOctokitResult, MockPullsRest, MockSearchRest } from './createMockOctokit.js';

@@ -294,7 +294,37 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     });
   });
 
-  describe('findActiveByType', () => {
+  describe('findByCommentId', () => {
+    it('finds a comment by pull_request_id and comment_id', async () => {
+      const pullRequestId = getUniqueInt();
+      const commentId = getUniqueInt();
+      const row = generateCoderabbitCommentHydrationData({ comment_id: commentId });
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(row) },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      const result = await sut.findByCommentId(pullRequestId, commentId);
+
+      expect(coderabbitComment.findFirst).toHaveBeenCalledWith({
+        where: { pull_request_id: pullRequestId, comment_id: commentId },
+      });
+      expect(result).toStrictEqual(row);
+    });
+
+    it('returns undefined when no matching comment exists', async () => {
+      const { prisma } = createMockPrismaClient({
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null) },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      const result = await sut.findByCommentId(getUniqueInt(), getUniqueInt());
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('findByType', () => {
     it('returns the most recent active comment of a given type', async () => {
       const pullRequestId = getUniqueInt();
       const commentType = getRandomEnumValue(CodeRabbitCommentType);
@@ -304,7 +334,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       });
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
 
-      const result = await sut.findActiveByType(pullRequestId, commentType);
+      const result = await sut.findByType(pullRequestId, commentType);
 
       expect(coderabbitComment.findFirst).toHaveBeenCalledWith({
         where: { pull_request_id: pullRequestId, comment_type: commentType },
@@ -319,7 +349,40 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       });
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
 
-      const result = await sut.findActiveByType(getUniqueInt(), getRandomEnumValue(CodeRabbitCommentType));
+      const result = await sut.findByType(getUniqueInt(), getRandomEnumValue(CodeRabbitCommentType));
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('findCompletedReview', () => {
+    it('finds the most recent completed-review comment for a PR', async () => {
+      const pullRequestId = getUniqueInt();
+      const row = generateCoderabbitCommentHydrationData({ comment_type: CodeRabbitCommentType.review_approved });
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(row) },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      const result = await sut.findCompletedReview(pullRequestId);
+
+      expect(coderabbitComment.findFirst).toHaveBeenCalledWith({
+        where: {
+          pull_request_id: pullRequestId,
+          comment_type: { in: [CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested] },
+        },
+        orderBy: { gh_created_at: 'desc' },
+      });
+      expect(result).toStrictEqual(row);
+    });
+
+    it('returns undefined when no completed-review comment exists', async () => {
+      const { prisma } = createMockPrismaClient({
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null) },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      const result = await sut.findCompletedReview(getUniqueInt());
 
       expect(result).toBeUndefined();
     });

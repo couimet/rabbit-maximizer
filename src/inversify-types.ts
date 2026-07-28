@@ -15,6 +15,7 @@ export const TYPES = {
   Logger: Symbol.for('Logger'),
   ObservationContextProvider: Symbol.for('ObservationContextProvider'),
   DirectCommentChecker: Symbol.for('DirectCommentChecker'),
+  EditDetector: Symbol.for('EditDetector'),
   OnDetectedCallback: Symbol.for('OnDetectedCallback'),
   Octokit: Symbol.for('Octokit'),
   PollDetector: Symbol.for('PollDetector'),

@@ -7,6 +7,8 @@ import type { Logger } from '@couimet/logger-contract';
 import { type CoderabbitComment, Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
+const COMPLETED_REVIEW_TYPES: readonly CodeRabbitCommentType[] = [CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested];
+
 export interface UpsertCommentData {
   readonly comment_id: number;
   readonly pull_request_id: number;
@@ -21,7 +23,9 @@ export interface CoderabbitCommentRepository {
   upsert(data: UpsertCommentData, tx?: Prisma.TransactionClient): Promise<CoderabbitComment>;
   deactivate(commentId: number, tx?: Prisma.TransactionClient): Promise<void>;
   findByPr(pullRequestId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitComment[]>;
-  findActiveByType(pullRequestId: number, commentType: CodeRabbitCommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitComment | undefined>;
+  findByCommentId(pullRequestId: number, commentId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitComment | undefined>;
+  findByType(pullRequestId: number, commentType: CodeRabbitCommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitComment | undefined>;
+  findCompletedReview(pullRequestId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitComment | undefined>;
 }
 
 @injectable()
@@ -134,10 +138,34 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
   }
 
   // eslint-disable-next-line require-await
-  async findActiveByType(pullRequestId: number, commentType: CodeRabbitCommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitComment | undefined> {
+  async findByCommentId(pullRequestId: number, commentId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitComment | undefined> {
+    return this.enforceTx(tx, async (db) => {
+      const row = await db.coderabbitComment.findFirst({
+        where: { pull_request_id: pullRequestId, comment_id: commentId },
+      });
+      return row ?? undefined;
+    });
+  }
+
+  // eslint-disable-next-line require-await
+  async findByType(pullRequestId: number, commentType: CodeRabbitCommentType, tx?: Prisma.TransactionClient): Promise<CoderabbitComment | undefined> {
     return this.enforceTx(tx, async (db) => {
       const row = await db.coderabbitComment.findFirst({
         where: { pull_request_id: pullRequestId, comment_type: commentType },
+        orderBy: { gh_created_at: 'desc' },
+      });
+      return row ?? undefined;
+    });
+  }
+
+  // eslint-disable-next-line require-await
+  async findCompletedReview(pullRequestId: number, tx?: Prisma.TransactionClient): Promise<CoderabbitComment | undefined> {
+    return this.enforceTx(tx, async (db) => {
+      const row = await db.coderabbitComment.findFirst({
+        where: {
+          pull_request_id: pullRequestId,
+          comment_type: { in: [...COMPLETED_REVIEW_TYPES] },
+        },
         orderBy: { gh_created_at: 'desc' },
       });
       return row ?? undefined;

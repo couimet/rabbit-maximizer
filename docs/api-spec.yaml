@@ -530,7 +530,7 @@ components:
 
     DashboardState:
       type: object
-      required: [lastSchedulerTickAt, nextReviewAvailableAt, pendingItems, eventCounts, paused, schedulerStale]
+      required: [lastSchedulerTickAt, nextReviewAvailableAt, pendingItems, skippedItems, eventCounts, paused, schedulerStale]
       properties:
         lastSchedulerTickAt:
           type: string
@@ -541,6 +541,10 @@ components:
           format: date-time
           nullable: true
         pendingItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+        skippedItems:
           type: array
           items:
             $ref: '#/components/schemas/QueueItem'

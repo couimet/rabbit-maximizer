@@ -150,6 +150,21 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
+  describe('editDetectionFailed', () => {
+    it('logs warn with item context and error when edit detection fails', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const detectionError = new Error('fetchComment failed');
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.editDetectionFailed(detectionError);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.editDetectionFailed', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, error: detectionError },
+        'Edit detection failed; falling through to Reviews API',
+      );
+    });
+  });
+
   describe('caughtError', () => {
     it('logs warn with item context and error', () => {
       const ref = generateReviewRef();

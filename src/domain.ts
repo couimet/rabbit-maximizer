@@ -10,6 +10,7 @@ export { ActivityState } from './ActivityState.js';
 export { BypassReason } from './BypassReason.js';
 export { CodeRabbitCommentType } from './CodeRabbitCommentType.js';
 export { EventType } from './EventType.js';
+export { FallbackReason } from './FallbackReason.js';
 export { IntervalService } from './IntervalService.js';
 export { TYPES } from './inversify-types.js';
 export { isProduction } from './isProduction.js';

@@ -5,6 +5,7 @@
  */
 export { PollDetector } from './detectorPoll.js';
 export { type DirectCommentChecker, DirectCommentCheckerImpl } from './DirectCommentChecker.js';
+export { type EditDetector, EditDetectorImpl } from './EditDetector.js';
 export { EnqueueService } from './EnqueueService.js';
 export { type PrScanner, PrScannerImpl } from './prScanner.js';
 export { type PruneEvaluator, PruneEvaluatorImpl } from './PruneEvaluator.js';

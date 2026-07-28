@@ -6,8 +6,9 @@ export const createMockCoderabbitCommentRepo = (overrides?: Partial<jest.Mocked<
   ({
     upsert: jest.fn<any>(),
     deactivate: jest.fn<any>(),
-    findByCommentId: jest.fn<any>(),
     findByPr: jest.fn<any>(),
-    findActiveByType: jest.fn<any>(),
+    findByCommentId: jest.fn<any>(),
+    findByType: jest.fn<any>(),
+    findCompletedReview: jest.fn<any>(),
     ...overrides,
   }) as unknown as jest.Mocked<CoderabbitCommentRepository>;
