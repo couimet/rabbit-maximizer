@@ -343,4 +343,42 @@ describe('getDashboardState', () => {
     expect(await res.json()).toStrictEqual({ error: 'Failed to get dashboard state' });
     expect(logger.error).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: eventError }, 'Failed to get dashboard state');
   });
+
+  it('returns a countdown ISO string when stored nextReviewAvailableAt is in the future', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const futureNextReview = new Date(fixedNow + 5000);
+    startServer({}, {}, { getState: jest.fn<any>().mockResolvedValue(futureNextReview) });
+
+    const json = await getJson(port, '/api/dashboard-state');
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
+      nextReviewAvailableAt: futureNextReview.toISOString(),
+      pendingItems: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
+    });
+  });
+
+  it('returns null when stored nextReviewAvailableAt is in the past', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const pastNextReview = new Date(fixedNow - 5000);
+    startServer({}, {}, { getState: jest.fn<any>().mockResolvedValue(pastNextReview) });
+
+    const json = await getJson(port, '/api/dashboard-state');
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
+    });
+  });
 });
