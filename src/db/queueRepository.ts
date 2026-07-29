@@ -271,6 +271,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           where: { id },
           data: {
             attempts: { increment: 1 },
+            status: QueueStatus.retriggered,
           },
         }),
       'QueueRepositoryImpl.backoff',

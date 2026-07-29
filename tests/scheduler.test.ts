@@ -161,7 +161,7 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('backs off when ReviewTrigger returns stale skip', async () => {
+    it('resolves as stale comment when ReviewTrigger returns stale skip', async () => {
       const item = generateQueueItemHydrationData();
       const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
         code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
@@ -178,7 +178,8 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'stale_comment', deps.tx);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
 
       await stop();
     });
@@ -435,46 +436,35 @@ describe('Scheduler', () => {
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
     });
 
-    it('marks failed when retrigger_count >= MAX_RETRIGGER_ATTEMPTS on trigger failure', async () => {
-      const prId = getUniqueInt();
-      const item = generateQueueItemHydrationData({ pull_request_id: prId });
-      const maxRetrigger = 10;
-      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-        code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+    it('marks failed when attempts >= MAX_RETRIGGER_ATTEMPTS on trigger failure', async () => {
+      const item = generateQueueItemHydrationData({ attempts: 10 });
+      const otherErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+        code: 'SOME_OTHER_ERROR' as any,
         message: 'gone',
         functionName: 'test',
       });
-      const triggerResult = RabbitResult.err(staleErr);
+      const triggerResult = RabbitResult.err(otherErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
-
-      const retriggerMap = new Map([[prId, maxRetrigger]]);
-      deps.pullRequests.getColumnMaps.mockResolvedValue({ retrigger_count: retriggerMap } as any);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([prId], ['retrigger_count'], deps.tx);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
       expect(deps.queue.backoff).not.toHaveBeenCalled();
-      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(maxRetrigger, deps.tx);
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(item.attempts, deps.tx);
       expect(deps.mockProbe.triggerFailed).not.toHaveBeenCalled();
 
       await stop();
     });
 
-    it('marks failed when retrigger_count >= MAX_RETRIGGER_ATTEMPTS on unexpected exception', async () => {
-      const prId = getUniqueInt();
-      const item = generateQueueItemHydrationData({ pull_request_id: prId });
-      const maxRetrigger = 10;
+    it('marks failed when attempts >= MAX_RETRIGGER_ATTEMPTS on unexpected exception', async () => {
+      const item = generateQueueItemHydrationData({ attempts: 10 });
       const networkError = new Error('Network timeout');
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
-
-      const retriggerMap = new Map([[prId, maxRetrigger]]);
-      deps.pullRequests.getColumnMaps.mockResolvedValue({ retrigger_count: retriggerMap } as any);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();
@@ -483,27 +473,22 @@ describe('Scheduler', () => {
 
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
       expect(deps.queue.backoff).not.toHaveBeenCalled();
-      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(maxRetrigger, deps.tx);
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(item.attempts, deps.tx);
       expect(deps.mockProbe.backedOff).not.toHaveBeenCalled();
 
       await stop();
     });
 
-    it('backs off normally when retrigger_count is under the ceiling', async () => {
-      const prId = getUniqueInt();
-      const item = generateQueueItemHydrationData({ pull_request_id: prId });
-      const underMax = 2;
-      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-        code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+    it('backs off normally when attempts is under the ceiling', async () => {
+      const item = generateQueueItemHydrationData({ attempts: 2 });
+      const otherErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+        code: 'SOME_OTHER_ERROR' as any,
         message: 'gone',
         functionName: 'test',
       });
-      const triggerResult = RabbitResult.err(staleErr);
+      const triggerResult = RabbitResult.err(otherErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
-
-      const retriggerMap = new Map([[prId, underMax]]);
-      deps.pullRequests.getColumnMaps.mockResolvedValue({ retrigger_count: retriggerMap } as any);
 
       const scheduler = createScheduler();
       const { stop } = scheduler.start();

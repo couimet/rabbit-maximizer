@@ -5,4 +5,5 @@ export enum Resolution {
   PrClosedWithoutMerge = 'pr_closed_without_merge',
   Failed = 'failed',
   Skipped = 'skipped',
+  StaleComment = 'stale_comment',
 }

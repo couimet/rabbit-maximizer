@@ -930,7 +930,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { attempts: { increment: 1 } },
+        data: { attempts: { increment: 1 }, status: 'retriggered' },
       });
       expect(result.id).toBe(row.id);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.backoff', id: row.id }, 'Backoff applied');
