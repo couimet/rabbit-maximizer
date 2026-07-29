@@ -1,4 +1,4 @@
-import { PrState } from '../../src/domain.js';
+import { CodeRabbitCommentType, PrState, ReviewDetectionMethod } from '../../src/domain.js';
 import type { ObservationContext } from '../../src/observability/index.js';
 import { ReviewDetectorProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
@@ -78,7 +78,7 @@ describe('ReviewDetectorProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.reviewed(commentUrl, 'review_approved', 'edit_detection', tx);
+      await probe.reviewed(commentUrl, CodeRabbitCommentType.review_approved, ReviewDetectionMethod.EditDetection, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'coderabbit_review_approved',
