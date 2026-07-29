@@ -1,4 +1,4 @@
-import { EventType, PrState } from '../../src/domain.js';
+import { CodeRabbitCommentType, PrState, ReviewDetectionMethod } from '../../src/domain.js';
 import type { ObservationContext } from '../../src/observability/index.js';
 import { ReviewDetectorProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
@@ -78,7 +78,7 @@ describe('ReviewDetectorProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.reviewed(EventType.coderabbit_review_approved, commentUrl, tx);
+      await probe.reviewed(commentUrl, CodeRabbitCommentType.review_approved, ReviewDetectionMethod.EditDetection, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'coderabbit_review_approved',
@@ -87,7 +87,7 @@ describe('ReviewDetectorProbe', () => {
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
-          payload: { coderabbit_comment_url: commentUrl },
+          payload: { coderabbit_comment_url: commentUrl, verdict_state: 'review_approved', detected_via: 'edit_detection' },
         },
         tx,
       );
@@ -146,6 +146,21 @@ describe('ReviewDetectorProbe', () => {
       expect(logger.info).toHaveBeenCalledWith(
         { fn: 'ReviewDetectorProbe.prClosedResolved', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, prState: 'closed' },
         'PR is closed or merged; auto-resolving retriggered queue item',
+      );
+    });
+  });
+
+  describe('editDetectionFailed', () => {
+    it('logs warn with item context and error when edit detection fails', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const detectionError = new Error('fetchComment failed');
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.editDetectionFailed(detectionError);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.editDetectionFailed', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, error: detectionError },
+        'Edit detection failed; skipping retrigger check for this item',
       );
     });
   });

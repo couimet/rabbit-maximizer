@@ -1,4 +1,7 @@
 import type { BypassReason } from '../BypassReason.js';
+import type { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
+
+import type { CoderabbitReviewVerdictState } from './CoderabbitReviewVerdict.js';
 
 /**
  * Type-specific payloads for each event type. These are persisted as the JSON
@@ -21,11 +24,16 @@ export interface RetriggeredPayload {
 
 export interface CoderabbitReviewApprovedPayload {
   readonly coderabbit_comment_url?: string;
-  readonly detected_via?: string;
+  readonly source_ts?: Date;
+  readonly verdict_state?: CoderabbitReviewVerdictState;
+  readonly detected_via?: ReviewDetectionMethod;
 }
 
 export interface CoderabbitReviewChangesSuggestedPayload {
   readonly coderabbit_comment_url?: string;
+  readonly source_ts?: Date;
+  readonly verdict_state?: CoderabbitReviewVerdictState;
+  readonly detected_via?: ReviewDetectionMethod;
 }
 
 export interface CoderabbitReviewSkippedPayload {

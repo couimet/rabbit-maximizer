@@ -125,7 +125,7 @@ describe('PollDetector', () => {
 
       const [owner, repo] = comment.repoFullName.split('/');
       expect(deps.github.fetchComment).toHaveBeenCalledWith(owner, repo, comment.commentId);
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, pullRequestId);
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_limited' }, pullRequestId);
     });
 
     it('detects comment even when parseWaitSeconds returns undefined', async () => {
@@ -140,7 +140,7 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, pullRequestId);
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_limited' }, pullRequestId);
       expect(deps.systemStateRepo.setState).toHaveBeenCalledWith(
         StateKey.nextReviewAvailableAt,
         new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND),
@@ -201,7 +201,7 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, pullRequestId);
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_limited' }, pullRequestId);
     });
   });
 
@@ -225,7 +225,7 @@ describe('PollDetector', () => {
       );
     });
 
-    it('skips comments that lack the rate-limit marker', async () => {
+    it('skips comments with unknown classification', async () => {
       const comment = generateDetectedCommentHydrationData();
       const bodyText = 'some unrelated comment body';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
@@ -240,8 +240,23 @@ describe('PollDetector', () => {
       expect(deps.onDetected).not.toHaveBeenCalled();
       expect(deps.logger.debug).toHaveBeenCalledWith(
         { fn: 'PollDetector.tick', owner, repo, commentId: comment.commentId },
-        'Skipping comment without rate-limit marker',
+        'Skipping comment with unknown classification',
       );
+    });
+
+    it('accepts review_skipped comments and fires onDetected callback', async () => {
+      const comment = generateDetectedCommentHydrationData();
+      const bodyText = 'skip review by coderabbit.ai some additional context';
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_skipped' }, pullRequestId);
     });
   });
 
@@ -453,7 +468,7 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, pullRequestId);
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_limited' }, pullRequestId);
     });
 
     it('updates when new comment has an earlier available time than existing state', async () => {
@@ -496,7 +511,7 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.systemStateRepo.setState).not.toHaveBeenCalled();
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText }, pullRequestId);
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_limited' }, pullRequestId);
     });
 
     it('uses correct StateKey and Date values when upserting state', async () => {

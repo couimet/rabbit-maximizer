@@ -1,7 +1,8 @@
 import type { EventRepository } from '../db/index.js';
 import { BypassReason, EventType } from '../domain.js';
 import type { ObservationContext } from '../observability/index.js';
-import type { EventLogEntry } from '../types/index.js';
+import type { AlreadyReviewedComment, CoderabbitReviewVerdictState, EventLogEntry } from '../types/index.js';
+import { toReviewEventType } from '../utils/index.js';
 
 import { recordBypassEvent } from './index.js';
 
@@ -107,7 +108,32 @@ export class DetectedProbe {
     return event;
   }
 
+  async verdictResolved(tx: Prisma.TransactionClient, verdictState: CoderabbitReviewVerdictState): Promise<EventLogEntry> {
+    const event = await this.eventRepository.record(
+      {
+        type: toReviewEventType(verdictState),
+        repo_full_name: this.context.repo_full_name,
+        pr_number: this.context.pr_number,
+        correlation_id: this.observation.correlationId,
+        request_id: this.observation.requestId,
+        version: this.observation.version,
+        payload: {
+          coderabbit_comment_url: this.context.source_comment_url,
+          source_ts: this.context.source_ts,
+          verdict_state: verdictState,
+        },
+      },
+      tx,
+    );
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit review verdict detected; skipping enqueue');
+    return event;
+  }
+
   alreadySkipped(existingStatus: string): void {
     this.log.warn({ ...this.loggingCtx, existingStatus }, 'Skipped comment already recorded; skipping');
+  }
+
+  alreadyReviewed(comment: AlreadyReviewedComment): void {
+    this.log.info({ ...this.loggingCtx, commentId: comment.comment_id, commentUrl: comment.url }, 'PR already reviewed by CodeRabbit; skipping enqueue');
   }
 }

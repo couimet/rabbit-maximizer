@@ -1,3 +1,4 @@
+import { buildCommentUrl } from '../src/github/buildCommentUrl.js';
 import { DirectCommentCheckerImpl } from '../src/services.js';
 import type { OnDetectedCallback } from '../src/types/index.js';
 
@@ -6,6 +7,10 @@ import { createMockCoderabbitGitHubClient, createMockOnDetectedCallback, generat
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+
+const SKIPPED_COMMENT_BODY = 'skip review by coderabbit.ai';
+const APPROVED_COMMENT_BODY =
+  'No actionable comments were generated in the recent review.\n\n<!-- rabbit-maximizer\n{"version":"0.1.0","triggerSource":"scheduler"}\n-->';
 
 describe('DirectCommentCheckerImpl', () => {
   let github: ReturnType<typeof createMockCoderabbitGitHubClient>;
@@ -36,7 +41,7 @@ describe('DirectCommentCheckerImpl', () => {
     expect(github.listComments).toHaveBeenCalledWith(owner, repo, ref.prNumber);
     expect(onDetected).toHaveBeenCalledWith(
       {
-        url: `https://github.com/${ref.repoFullName}/pull/${ref.prNumber}#issuecomment-${commentId}`,
+        url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
         repoFullName: ref.repoFullName,
         prNumber: ref.prNumber,
         commentId,
@@ -48,13 +53,14 @@ describe('DirectCommentCheckerImpl', () => {
       },
       pullRequestId,
     );
-    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found rate-limit comments');
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
   });
 
-  it('skips comments without rate-limit marker', async () => {
+  it('skips comments with unknown classification', async () => {
     const ref = generateReviewRef();
+    const commentId = getUniqueInt();
     github.listComments.mockResolvedValue([
-      { user: 'coderabbitai[bot]', body: 'regular comment', id: getUniqueInt(), createdAt: getUniqueDate(), updatedAt: getUniqueDate() },
+      { user: 'coderabbitai[bot]', body: 'regular comment', id: commentId, createdAt: getUniqueDate(), updatedAt: getUniqueDate() },
     ]);
 
     await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: getUniqueInt(), prTitle: ref.prTitle }]);
@@ -62,6 +68,41 @@ describe('DirectCommentCheckerImpl', () => {
     expect(onDetected).not.toHaveBeenCalled();
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.info).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'DirectCommentChecker.check', repo: ref.repoFullName, pr: ref.prNumber, commentId },
+      'Skipping comment with unknown classification',
+    );
+  });
+
+  it('detects review_skipped comments and calls onDetected', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentCreatedAt = getUniqueDate();
+    const commentUpdatedAt = getUniqueDate();
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      { user: 'coderabbitai[bot]', body: SKIPPED_COMMENT_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentUpdatedAt },
+    ]);
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    const [owner, repo] = ref.repoFullName.split('/');
+    expect(github.listComments).toHaveBeenCalledWith(owner, repo, ref.prNumber);
+    expect(onDetected).toHaveBeenCalledWith(
+      {
+        url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
+        repoFullName: ref.repoFullName,
+        prNumber: ref.prNumber,
+        commentId,
+        createdAt: commentCreatedAt.toISOString(),
+        updatedAt: commentUpdatedAt.toISOString(),
+        prTitle: ref.prTitle,
+        body: SKIPPED_COMMENT_BODY,
+        commentType: 'review_skipped',
+      },
+      pullRequestId,
+    );
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
   });
 
   it('skips comments with own retrigger marker', async () => {
@@ -81,6 +122,41 @@ describe('DirectCommentCheckerImpl', () => {
     expect(onDetected).not.toHaveBeenCalled();
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  it('forwards review_approved comments with own retrigger marker (not skipped)', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentCreatedAt = getUniqueDate();
+    const commentUpdatedAt = getUniqueDate();
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      {
+        user: 'coderabbitai[bot]',
+        body: APPROVED_COMMENT_BODY,
+        id: commentId,
+        createdAt: commentCreatedAt,
+        updatedAt: commentUpdatedAt,
+      },
+    ]);
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(onDetected).toHaveBeenCalledWith(
+      {
+        url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
+        repoFullName: ref.repoFullName,
+        prNumber: ref.prNumber,
+        commentId,
+        createdAt: commentCreatedAt.toISOString(),
+        updatedAt: commentUpdatedAt.toISOString(),
+        prTitle: ref.prTitle,
+        body: APPROVED_COMMENT_BODY,
+        commentType: 'review_approved',
+      },
+      pullRequestId,
+    );
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
   });
 
   it('continues processing remaining PRs when listComments throws for one', async () => {

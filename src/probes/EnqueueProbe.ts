@@ -51,4 +51,12 @@ export class EnqueueProbe {
       'Recycled review-limit comment replaced stale retriggered item; marking old item reviewed',
     );
   }
+
+  resolvedReEnqueued(repo: string, pr: number, sourceCommentId: number): void {
+    this.log.info({ fn: 'EnqueueProbe.resolvedReEnqueued', repo, pr, sourceCommentId }, 'Resolved item re-enqueued after comment edit');
+  }
+
+  resolvedNotEdited(repo: string, pr: number, sourceCommentId: number): void {
+    this.log.debug({ fn: 'EnqueueProbe.resolvedNotEdited', repo, pr, sourceCommentId }, 'Resolved item exists for source comment; comment not edited');
+  }
 }

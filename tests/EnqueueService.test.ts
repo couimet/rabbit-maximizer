@@ -2,6 +2,7 @@ import type { ObservationContextProvider } from '../src/observability/index.js';
 import type { DetectedProbe, ProbeFactory } from '../src/probes/index.js';
 import { EnqueueService } from '../src/services.js';
 
+import { createMockCoderabbitCommentRepo } from './helpers/createMockCoderabbitCommentRepo.js';
 import {
   createMockDetectedProbe,
   createMockProbeFactory,
@@ -22,6 +23,7 @@ describe('EnqueueService', () => {
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let probes: ProbeFactory;
   let observation: ObservationContextProvider;
+  let coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
   let probe: ReturnType<typeof createMockDetectedProbe>;
@@ -42,12 +44,14 @@ describe('EnqueueService', () => {
     probe = createMockDetectedProbe();
     probes = createMockProbeFactory({ createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) });
 
+    coderabbitComments = createMockCoderabbitCommentRepo();
+
     observation = {
       current: jest.fn().mockReturnValue({ correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' }),
     } as unknown as ObservationContextProvider;
   });
 
-  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, observation);
+  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, coderabbitComments, observation);
 
   describe('handle', () => {
     it('creates probe, enqueues, and completes probe in a transaction with pullRequestId', async () => {
@@ -76,11 +80,60 @@ describe('EnqueueService', () => {
           prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
+          commentUpdatedAt: new Date(comment.updatedAt),
           pullRequestId,
         },
         tx,
       );
       expect(probe.enqueued).toHaveBeenCalledWith(tx);
+    });
+
+    it('persists the comment via coderabbitComments.upsert after classification', async () => {
+      const svc = createService();
+      const comment = generateDetectedCommentHydrationData({
+        body: 'No actionable comments were generated in the recent review.',
+      });
+      const pullRequestId = getUniqueInt();
+
+      await svc.handle(comment, pullRequestId);
+
+      expect(coderabbitComments.upsert).toHaveBeenCalledWith(
+        {
+          comment_id: comment.commentId,
+          pull_request_id: pullRequestId,
+          url: comment.url,
+          comment_type: 'review_approved',
+          body: comment.body,
+          gh_created_at: new Date(comment.createdAt),
+          gh_updated_at: new Date(comment.updatedAt),
+        },
+        tx,
+      );
+    });
+
+    it('skips enqueue when existing review_approved comment is found', async () => {
+      const reviewComment = { id: 1, comment_id: 99, url: 'https://gh/1', comment_type: 'review_approved' } as never;
+      coderabbitComments.findCompletedReview.mockResolvedValueOnce(reviewComment);
+      const svc = createService();
+      const comment = generateDetectedCommentHydrationData();
+      const pullRequestId = getUniqueInt();
+
+      await svc.handle(comment, pullRequestId);
+
+      expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(probe.alreadyReviewed).toHaveBeenCalledWith(reviewComment);
+    });
+
+    it('proceeds with enqueue when findCompletedReview returns no existing review', async () => {
+      const svc = createService();
+      const comment = generateDetectedCommentHydrationData();
+      const pullRequestId = getUniqueInt();
+
+      await svc.handle(comment, pullRequestId);
+
+      expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
     it('skips enqueued when enqueue returns created: false', async () => {
@@ -112,6 +165,7 @@ describe('EnqueueService', () => {
           prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
+          commentUpdatedAt: new Date(comment.updatedAt),
           pullRequestId,
         },
         tx,
@@ -154,6 +208,50 @@ describe('EnqueueService', () => {
 
         expect(probe.alreadySkipped).toHaveBeenCalledWith('resolved');
         expect(probe.skipped).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('verdict path', () => {
+      it('does not enqueue review_approved comments and records the review', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'No actionable comments were generated in the recent review.',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_approved', tx);
+        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_approved');
+        expect(queue.enqueue).not.toHaveBeenCalled();
+      });
+
+      it('does not enqueue review_changes_suggested comments and records the review', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'Actionable comments posted:',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_changes_suggested', tx);
+        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_changes_suggested');
+        expect(queue.enqueue).not.toHaveBeenCalled();
+      });
+
+      it('still enqueues review_limited (non-verdict) comments', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'rate limited by coderabbit.ai',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(queue.enqueue).toHaveBeenCalled();
+        expect(pullRequests.recordReview).not.toHaveBeenCalled();
+        expect(probe.verdictResolved).not.toHaveBeenCalled();
       });
     });
   });

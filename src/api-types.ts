@@ -318,6 +318,7 @@ export interface components {
       /** Format: date-time */
       nextReviewAvailableAt: string | null;
       pendingItems: components['schemas']['QueueItem'][];
+      skippedItems: components['schemas']['QueueItem'][];
       eventCounts: components['schemas']['EventCounts'];
       paused: boolean;
       schedulerStale: boolean;

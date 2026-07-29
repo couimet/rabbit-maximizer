@@ -1,5 +1,6 @@
-import { BypassReason, EventType } from '../domain.js';
+import { BypassReason, CodeRabbitCommentType, EventType } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
+import { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
 import type { EventEnvelope, EventLogEntry } from '../types/index.js';
 
 import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from './lengths.js';
@@ -28,11 +29,16 @@ export const BypassedPayloadSchema = z.object({
 
 export const CoderabbitReviewApprovedPayloadSchema = z.object({
   coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
-  detected_via: z.string().optional(),
+  source_ts: z.coerce.date().optional(),
+  verdict_state: z.enum([CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested]).optional(),
+  detected_via: z.enum(ReviewDetectionMethod).optional(),
 });
 
 export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
   coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
+  source_ts: z.coerce.date().optional(),
+  verdict_state: z.enum([CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested]).optional(),
+  detected_via: z.enum(ReviewDetectionMethod).optional(),
 });
 
 export const CoderabbitReviewSkippedPayloadSchema = z.object({

@@ -10,6 +10,8 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
 const COMPLETED_GUARD_WINDOW_MS = 5 * MS_PER_MINUTE;
+const MAX_SKIPPED_ITEMS = 50;
+const REOPENABLE_RESOLUTIONS: readonly Resolution[] = [Resolution.ReviewCompleted, Resolution.Failed, Resolution.Skipped] as const;
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -27,6 +29,7 @@ export interface QueueRepository {
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
+  getSkippedItems(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
 }
 
 @injectable()
@@ -102,22 +105,65 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
 
       return { item: this.mapper.fromReviewQueue(row), created: true };
     } catch (err) {
-      if (err instanceof PrismaUniqueConstraintViolationError) {
-        const existing = await db.reviewQueue.findFirst({
-          where: {
-            repo_full_name: repo,
-            pr_number: pr,
-            status: QueueStatus.pending,
-          },
-        });
-        if (existing) {
-          probe.alreadyQueued(repo, pr, existing.status);
-          return { item: this.mapper.fromReviewQueue(existing), created: false };
-        }
-      }
-      this.log.warn({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: err }, 'Enqueue failed; rethrowing');
-      throw err;
+      return this.handleEnqueueConflict(err, data, db, probe);
     }
+  }
+
+  private async handleEnqueueConflict(
+    err: unknown,
+    data: EnqueueData,
+    db: Prisma.TransactionClient,
+    probe: ReturnType<ProbeFactory['createEnqueueProbe']>,
+  ): Promise<EnqueueResult> {
+    const { repo, pr, prTitle, sourceCommentId } = data;
+
+    if (err instanceof PrismaUniqueConstraintViolationError) {
+      const existingPending = await db.reviewQueue.findFirst({
+        where: {
+          repo_full_name: repo,
+          pr_number: pr,
+          status: QueueStatus.pending,
+        },
+      });
+      if (existingPending) {
+        probe.alreadyQueued(repo, pr, existingPending.status);
+        return { item: this.mapper.fromReviewQueue(existingPending), created: false };
+      }
+
+      const existingResolved = await db.reviewQueue.findFirst({
+        where: {
+          source_comment_id: sourceCommentId,
+          status: QueueStatus.resolved,
+          resolution: { in: [...REOPENABLE_RESOLUTIONS] },
+        },
+      });
+      if (existingResolved) {
+        if (data.commentUpdatedAt && data.commentUpdatedAt > existingResolved.resolved_at!) {
+          const updated = await db.reviewQueue.update({
+            where: { id: existingResolved.id },
+            data: {
+              status: QueueStatus.pending,
+              resolution: null,
+              resolved_at: null,
+              pr_title: prTitle,
+            },
+          });
+
+          const existingOrder = await db.queueOrder.findUnique({ where: { queue_item_id: existingResolved.id } });
+          if (!existingOrder) {
+            await db.queueOrder.create({ data: { queue_item_id: existingResolved.id } });
+          }
+
+          await probe.enqueued({ repo, pr });
+          probe.resolvedReEnqueued(repo, pr, sourceCommentId);
+          return { item: this.mapper.fromReviewQueue(updated), created: true };
+        }
+        probe.resolvedNotEdited(repo, pr, sourceCommentId);
+        return { item: this.mapper.fromReviewQueue(existingResolved), created: false };
+      }
+    }
+    this.log.warn({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: err }, 'Enqueue failed; rethrowing');
+    throw err;
   }
 
   async markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem> {
@@ -382,6 +428,19 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       }
       this.log.debug({ fn: 'QueueRepositoryImpl.getCountsByStatus', counts }, 'Fetched queue counts by status');
       return counts;
+    });
+  }
+
+  // eslint-disable-next-line require-await
+  async getSkippedItems(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
+    return this.enforceTx(tx, async (db) => {
+      const rows = await db.reviewQueue.findMany({
+        where: { status: QueueStatus.resolved, resolution: Resolution.Skipped },
+        orderBy: { created_at: 'desc' },
+        take: MAX_SKIPPED_ITEMS,
+      });
+      this.log.debug({ fn: 'QueueRepositoryImpl.getSkippedItems', count: rows.length }, 'Fetched skipped items');
+      return rows.map((row) => this.mapper.fromReviewQueue(row));
     });
   }
 }
