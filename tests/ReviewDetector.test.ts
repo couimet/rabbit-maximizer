@@ -147,7 +147,7 @@ describe('ReviewDetector', () => {
       expect(deps.probe.withItem).toHaveBeenCalledWith(item);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, completedCommentUrl, 'review_approved', {});
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', completedCommentUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith(completedCommentUrl, 'review_approved', 'github_reviews_api', {});
     });
 
     it('records coderabbit_review_changes_suggested when completed review is not an approval', async () => {
@@ -170,7 +170,7 @@ describe('ReviewDetector', () => {
 
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, completedCommentUrl, 'review_changes_suggested', {});
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', completedCommentUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith(completedCommentUrl, 'review_changes_suggested', 'github_reviews_api', {});
     });
 
     it('skips item when no completed review is found and last_coderabbit_review_at is null', async () => {
@@ -309,7 +309,7 @@ describe('ReviewDetector', () => {
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith(reviewUrl, 'review_approved', 'github_reviews_api', {});
       expect(deps.probe.prClosedResolved).not.toHaveBeenCalled();
     });
 
@@ -396,7 +396,7 @@ describe('ReviewDetector', () => {
       expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at']);
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith(reviewUrl, 'review_approved', 'github_reviews_api', {});
       expect(deps.probe.prClosedResolved).not.toHaveBeenCalled();
     });
 
@@ -478,7 +478,7 @@ describe('ReviewDetector', () => {
 
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith(reviewUrl, 'review_approved', 'github_reviews_api', {});
     });
 
     it('uses last_coderabbit_review_at fallback when API returns nothing and column value is within the lookback window', async () => {
@@ -579,7 +579,7 @@ describe('ReviewDetector', () => {
       expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, reviewUrl, 'review_approved', {});
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_approved', reviewUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith(reviewUrl, 'review_approved', 'edit_detection', {});
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
@@ -606,7 +606,7 @@ describe('ReviewDetector', () => {
       expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, reviewUrl, 'review_changes_suggested', {});
-      expect(deps.probe.reviewed).toHaveBeenCalledWith('coderabbit_review_changes_suggested', reviewUrl, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith(reviewUrl, 'review_changes_suggested', 'edit_detection', {});
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 

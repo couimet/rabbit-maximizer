@@ -21,11 +21,16 @@ export interface RetriggeredPayload {
 
 export interface CoderabbitReviewApprovedPayload {
   readonly coderabbit_comment_url?: string;
+  readonly source_ts?: Date;
+  readonly verdict_state?: string;
   readonly detected_via?: string;
 }
 
 export interface CoderabbitReviewChangesSuggestedPayload {
   readonly coderabbit_comment_url?: string;
+  readonly source_ts?: Date;
+  readonly verdict_state?: string;
+  readonly detected_via?: string;
 }
 
 export interface CoderabbitReviewSkippedPayload {

@@ -118,8 +118,8 @@ export class DetectedProbe {
         request_id: this.observation.requestId,
         version: this.observation.version,
         payload: {
+          coderabbit_comment_url: this.context.source_comment_url,
           source_ts: this.context.source_ts,
-          comment_url: this.context.source_comment_url,
           verdict_state: verdictState,
         },
       },

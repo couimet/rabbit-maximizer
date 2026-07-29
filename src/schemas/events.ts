@@ -28,11 +28,16 @@ export const BypassedPayloadSchema = z.object({
 
 export const CoderabbitReviewApprovedPayloadSchema = z.object({
   coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
+  source_ts: z.coerce.date().optional(),
+  verdict_state: z.string().optional(),
   detected_via: z.string().optional(),
 });
 
 export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
   coderabbit_comment_url: COMMENT_URL_SCHEMA.optional(),
+  source_ts: z.coerce.date().optional(),
+  verdict_state: z.string().optional(),
+  detected_via: z.string().optional(),
 });
 
 export const CoderabbitReviewSkippedPayloadSchema = z.object({

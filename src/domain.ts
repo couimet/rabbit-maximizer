@@ -18,5 +18,6 @@ export { getPrStateFromGitHubValue, PrState } from './PrState.js';
 export { QueueStatus } from './QueueStatus.js';
 export { RabbitResult } from './RabbitResult.js';
 export { Resolution } from './Resolution.js';
+export { ReviewDetectionMethod } from './ReviewDetectionMethod.js';
 export { SchedulerStatus } from './SchedulerStatus.js';
 export { TriggerSource } from './TriggerSource.js';

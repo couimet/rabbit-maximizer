@@ -2,9 +2,9 @@ import type { PullRequestRepository, QueueRepository } from './db/index.js';
 import { RabbitMaximizerError } from './errors/index.js';
 import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
-import { MS_PER_SECOND, toReviewEventType } from './utils/index.js';
+import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { CodeRabbitCommentType, IntervalService, PrState, Resolution, TYPES } from './domain.js';
+import { CodeRabbitCommentType, IntervalService, PrState, Resolution, ReviewDetectionMethod, TYPES } from './domain.js';
 import type { EditDetector } from './EditDetector.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -76,7 +76,7 @@ export class ReviewDetector extends IntervalService {
             await this.prisma.$transaction(async (tx) => {
               await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
               await this.pullRequests.recordReview(item.pull_request_id, editOutcome.reviewUrl, editOutcome.verdictState, tx);
-              await probe.reviewed(toReviewEventType(editOutcome.verdictState), editOutcome.reviewUrl, tx);
+              await probe.reviewed(editOutcome.reviewUrl, editOutcome.verdictState, ReviewDetectionMethod.EditDetection, tx);
             });
             continue;
           case 'skipped':
@@ -117,7 +117,7 @@ export class ReviewDetector extends IntervalService {
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
           await this.pullRequests.recordReview(item.pull_request_id, completedReview.htmlUrl, verdictState, tx);
-          await probe.reviewed(toReviewEventType(verdictState), completedReview.htmlUrl, tx);
+          await probe.reviewed(completedReview.htmlUrl, verdictState, ReviewDetectionMethod.GitHubReviewsApi, tx);
         });
       } catch (err: unknown) {
         probe.caughtError(err);
