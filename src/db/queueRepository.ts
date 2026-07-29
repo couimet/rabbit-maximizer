@@ -137,7 +137,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         },
       });
       if (existingResolved) {
-        if (data.commentUpdatedAt && data.commentUpdatedAt > existingResolved.created_at) {
+        if (data.commentUpdatedAt && data.commentUpdatedAt > existingResolved.resolved_at!) {
           const updated = await db.reviewQueue.update({
             where: { id: existingResolved.id },
             data: {

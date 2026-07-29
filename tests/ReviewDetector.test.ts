@@ -703,7 +703,12 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.probe.caughtError).toHaveBeenCalledWith(expect.objectContaining({ code: 'UNEXPECTED_SWITCH_VALUE' }));
+      const caughtError = deps.probe.caughtError.mock.calls[0]?.[0];
+      expect(caughtError).toBeDetailedError('UNEXPECTED_SWITCH_VALUE', {
+        message: 'Unexpected edit outcome action: "future_action_type"',
+        functionName: 'ReviewDetector.executeTick',
+        details: { unexpectedValue: 'future_action_type' },
+      });
     });
   });
 });

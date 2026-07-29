@@ -369,7 +369,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       expect(coderabbitComment.findFirst).toHaveBeenCalledWith({
         where: {
           pull_request_id: pullRequestId,
-          comment_type: { in: [CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested] },
+          comment_type: { in: ['review_approved', 'review_changes_suggested'] },
         },
         orderBy: { gh_created_at: 'desc' },
       });

@@ -73,21 +73,25 @@ export class PollDetector extends IntervalService {
         const { owner, repo } = splitRepo(c.repoFullName);
         const { body } = await this.github.fetchComment(owner, repo, c.commentId);
 
-        if (classifyCoderabbitComment(body) === CodeRabbitCommentType.unknown) {
+        const classification = classifyCoderabbitComment(body);
+
+        if (classification === CodeRabbitCommentType.unknown) {
           this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with unknown classification');
           continue;
         }
 
-        if (hasOwnRetriggerMarker(body)) {
+        if (classification === CodeRabbitCommentType.review_limited && hasOwnRetriggerMarker(body)) {
           this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with own retrigger marker');
           continue;
         }
 
-        const waitSeconds = parseWaitSeconds(body);
-        const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
-        const candidate = new Date(new Date(c.updatedAt).getTime() + effectiveWait * MS_PER_SECOND);
-        if (!earliestNextReview || candidate < earliestNextReview) {
-          earliestNextReview = candidate;
+        if (classification === CodeRabbitCommentType.review_limited) {
+          const waitSeconds = parseWaitSeconds(body);
+          const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
+          const candidate = new Date(new Date(c.updatedAt).getTime() + effectiveWait * MS_PER_SECOND);
+          if (!earliestNextReview || candidate < earliestNextReview) {
+            earliestNextReview = candidate;
+          }
         }
 
         const existingPr = await this.pullRequests.findByRepoAndPr(c.repoFullName, c.prNumber);

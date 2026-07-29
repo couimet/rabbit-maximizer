@@ -80,9 +80,15 @@ describe('EditDetector', () => {
     });
     expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
     expect(github.fetchComment).toHaveBeenCalledWith(ref.owner, ref.repo, commentId);
-    expect(comments.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ comment_id: commentId, comment_type: 'review_approved', gh_updated_at: ghUpdatedAt }),
-    );
+    expect(comments.upsert).toHaveBeenCalledWith({
+      comment_id: commentId,
+      pull_request_id: item.pull_request_id,
+      url: ref.commentUrl,
+      comment_type: 'review_approved',
+      body: fetchBody,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+    });
   });
 
   it('returns resolved when edited comment re-classifies as review_changes_suggested', async () => {
@@ -116,9 +122,15 @@ describe('EditDetector', () => {
       verdictState: 'review_changes_suggested',
     });
     expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
-    expect(comments.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ comment_id: commentId, comment_type: 'review_changes_suggested', gh_updated_at: ghUpdatedAt }),
-    );
+    expect(comments.upsert).toHaveBeenCalledWith({
+      comment_id: commentId,
+      pull_request_id: item.pull_request_id,
+      url: ref.commentUrl,
+      comment_type: 'review_changes_suggested',
+      body: fetchBody,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+    });
   });
 
   it('upserts timestamps and returns fallback when edited comment is still rate-limited', async () => {
@@ -147,9 +159,15 @@ describe('EditDetector', () => {
 
     expect(result.success).toBe(true);
     expect(result.value).toStrictEqual({ action: 'fallback', reason: 'not_a_review' });
-    expect(comments.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ comment_id: commentId, comment_type: 'review_limited', gh_updated_at: ghUpdatedAt }),
-    );
+    expect(comments.upsert).toHaveBeenCalledWith({
+      comment_id: commentId,
+      pull_request_id: item.pull_request_id,
+      url: ref.commentUrl,
+      comment_type: 'review_limited',
+      body: fetchBody,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+    });
   });
 
   it('returns error result when fetchComment throws', async () => {

@@ -24,16 +24,24 @@ const TEN_MINUTES_MS = 10 * 60 * 1000;
 
 describe('QueueRepositoryImpl', () => {
   let frozenNow: Date;
+  let correlationId: string;
   let logger: ReturnType<typeof createMockLogger>;
   let observation: ReturnType<typeof createMockObservationContextProvider>;
   let probeEvents: { record: jest.Mock<any>; listForPr: jest.Mock<any> };
   let probeFactory: ProbeFactory;
+  let requestId: string;
   let mapper: ReviewQueueToQueueItemMapper;
+  let version: string;
 
   beforeEach(() => {
     frozenNow = getUniqueDate();
+    correlationId = getUuid();
+    requestId = getUuid();
+    version = '1.0.0-test';
     logger = createMockLogger();
-    observation = createMockObservationContextProvider();
+    observation = createMockObservationContextProvider({
+      current: jest.fn<any>().mockReturnValue({ correlationId, requestId, version }),
+    });
     probeEvents = { record: jest.fn<any>().mockResolvedValue({ uuid: getUuid() }), listForPr: jest.fn<any>() };
     probeFactory = new ProbeFactory(probeEvents as any, observation as any, logger);
     mapper = new ReviewQueueToQueueItemMapper();
@@ -386,10 +394,17 @@ describe('QueueRepositoryImpl', () => {
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: existingResolved.id } });
       expect(created).toBe(true);
       expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
-      expect(probeEvents.record).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'enqueued', repo_full_name: ref.repoFullName, pr_number: ref.prNumber }),
-        expect.anything(),
-      );
+      const [recordedEvent, recordedTx] = probeEvents.record.mock.lastCall!;
+      expect(recordedEvent).toStrictEqual({
+        type: 'enqueued',
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        correlation_id: correlationId,
+        request_id: requestId,
+        version,
+        payload: {},
+      });
+      expect(recordedTx).toBe(prisma);
       expect(logger.info).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.resolvedReEnqueued', repo: ref.repoFullName, pr: ref.prNumber, sourceCommentId: commentId },
         'Resolved item re-enqueued after comment edit',

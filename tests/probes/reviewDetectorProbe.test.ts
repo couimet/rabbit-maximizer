@@ -160,7 +160,7 @@ describe('ReviewDetectorProbe', () => {
       probe.editDetectionFailed(detectionError);
       expect(logger.warn).toHaveBeenCalledWith(
         { fn: 'ReviewDetectorProbe.editDetectionFailed', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, error: detectionError },
-        'Edit detection failed; falling through to Reviews API',
+        'Edit detection failed; skipping retrigger check for this item',
       );
     });
   });
