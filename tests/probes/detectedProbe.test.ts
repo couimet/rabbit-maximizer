@@ -1,4 +1,5 @@
 import type { EventRepository } from '../../src/db/index.js';
+import { CodeRabbitCommentType } from '../../src/domain.js';
 import { DetectedProbe } from '../../src/probes/index.js';
 import type { EventLogEntry } from '../../src/types/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
@@ -340,6 +341,86 @@ describe('DetectedProbe', () => {
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, commentId, commentUrl },
       'PR already reviewed by CodeRabbit; skipping enqueue',
+    );
+  });
+
+  it('records a coderabbit_review_approved event and logs when verdict is approved', async () => {
+    const ref = generateReviewRef();
+    const observation = generateObservationContextHydrationData();
+    const sourceTs = getUniqueDate();
+    const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+    const entryUuid = getUuid();
+    const tx = createMockTx();
+
+    const entry = { uuid: entryUuid } as unknown as EventLogEntry;
+    const { eventRepository, record } = makeEventRepository(entry);
+    const logger = createMockLogger();
+
+    const probe = new DetectedProbe(
+      { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+      eventRepository,
+      observation,
+      logger,
+    );
+
+    const result = await probe.verdictResolved(tx, CodeRabbitCommentType.review_approved);
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        type: 'coderabbit_review_approved',
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        correlation_id: observation.correlationId,
+        request_id: observation.requestId,
+        version: observation.version,
+        payload: { coderabbit_comment_url: sourceCommentUrl, source_ts: sourceTs, verdict_state: 'review_approved' },
+      },
+      tx,
+    );
+    expect(result).toBe(entry);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid },
+      'CodeRabbit review verdict detected; skipping enqueue',
+    );
+  });
+
+  it('records a coderabbit_review_changes_suggested event when verdict is changes requested', async () => {
+    const ref = generateReviewRef();
+    const observation = generateObservationContextHydrationData();
+    const sourceTs = getUniqueDate();
+    const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+    const entryUuid = getUuid();
+    const tx = createMockTx();
+
+    const entry = { uuid: entryUuid } as unknown as EventLogEntry;
+    const { eventRepository, record } = makeEventRepository(entry);
+    const logger = createMockLogger();
+
+    const probe = new DetectedProbe(
+      { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+      eventRepository,
+      observation,
+      logger,
+    );
+
+    const result = await probe.verdictResolved(tx, CodeRabbitCommentType.review_changes_suggested);
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        type: 'coderabbit_review_changes_suggested',
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        correlation_id: observation.correlationId,
+        request_id: observation.requestId,
+        version: observation.version,
+        payload: { coderabbit_comment_url: sourceCommentUrl, source_ts: sourceTs, verdict_state: 'review_changes_suggested' },
+      },
+      tx,
+    );
+    expect(result).toBe(entry);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid },
+      'CodeRabbit review verdict detected; skipping enqueue',
     );
   });
 });
