@@ -21,6 +21,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
 const TEN_MINUTES_MS = 10 * 60 * 1000;
+const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
 describe('QueueRepositoryImpl', () => {
   let frozenNow: Date;
@@ -365,7 +366,7 @@ describe('QueueRepositoryImpl', () => {
       };
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
 
-      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+      const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(existingResolved),
           create: jest.fn<any>().mockRejectedValue(p2002),
@@ -391,7 +392,6 @@ describe('QueueRepositoryImpl', () => {
         where: { id: existingResolved.id },
         data: { status: 'pending', resolution: null, resolved_at: null, pr_title: 'Re-enqueued PR title' },
       });
-      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: existingResolved.id } });
       expect(created).toBe(true);
       expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
       const [recordedEvent, recordedTx] = probeEvents.record.mock.lastCall!;
@@ -432,7 +432,7 @@ describe('QueueRepositoryImpl', () => {
       };
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
 
-      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+      const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(existingResolved),
           create: jest.fn<any>().mockRejectedValue(p2002),
@@ -458,7 +458,6 @@ describe('QueueRepositoryImpl', () => {
         where: { id: existingResolved.id },
         data: { status: 'pending', resolution: null, resolved_at: null, pr_title: 'Re-enqueued PR title' },
       });
-      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: existingResolved.id } });
       expect(created).toBe(true);
       expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
     });
@@ -467,7 +466,7 @@ describe('QueueRepositoryImpl', () => {
       const ref = generateReviewRef();
       const commentId = getUniqueInt();
       const tenMinAgo = new Date(frozenNow.getTime() - TEN_MINUTES_MS);
-      const commentUpdatedAt = new Date(tenMinAgo.getTime() - 5 * 60 * 1000); // Before created_at
+      const commentUpdatedAt = new Date(tenMinAgo.getTime() - FIVE_MINUTES_MS); // Before resolved_at
       const existingResolved = generateReviewQueueHydrationData({
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,

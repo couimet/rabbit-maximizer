@@ -39,13 +39,15 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
+    // Fresh fetch returns an updatedAt <= last_seen_at, so the NotEdited guard fires
+    github.fetchComment.mockResolvedValue({ body: '', updatedAt: lastSeenAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result.success).toBe(true);
     expect(result.value).toStrictEqual({ action: 'fallback', reason: 'not_edited' });
-    expect(github.fetchComment).not.toHaveBeenCalled();
+    expect(github.fetchComment).toHaveBeenCalled();
   });
 
   it('returns resolved when edited comment re-classifies as review_approved', async () => {
@@ -193,5 +195,44 @@ describe('EditDetector', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
     expect(result.error!.code).toBe(RabbitMaximizerErrorCodes.EDIT_DETECTION_FAILED);
+  });
+
+  it('returns skipped when edited comment re-classifies as review_skipped', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const ghCreatedAt = getUniqueDate();
+    const lastSeenAt = getUniqueDate();
+    const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+    const fetchBody = 'skip review by coderabbit.ai';
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      url: ref.commentUrl,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result.success).toBe(true);
+    expect(result.value).toStrictEqual({ action: 'skipped', reviewUrl: ref.commentUrl });
+    expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
+    expect(github.fetchComment).toHaveBeenCalledWith(ref.owner, ref.repo, commentId);
+    expect(comments.upsert).toHaveBeenCalledWith({
+      comment_id: commentId,
+      pull_request_id: item.pull_request_id,
+      url: ref.commentUrl,
+      comment_type: 'review_skipped',
+      body: fetchBody,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+    });
   });
 });

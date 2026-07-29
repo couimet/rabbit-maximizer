@@ -210,5 +210,49 @@ describe('EnqueueService', () => {
         expect(probe.skipped).not.toHaveBeenCalled();
       });
     });
+
+    describe('verdict path', () => {
+      it('does not enqueue review_approved comments and records the review', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'No actionable comments were generated in the recent review.',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_approved', tx);
+        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_approved');
+        expect(queue.enqueue).not.toHaveBeenCalled();
+      });
+
+      it('does not enqueue review_changes_suggested comments and records the review', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'Actionable comments posted:',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_changes_suggested', tx);
+        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_changes_suggested');
+        expect(queue.enqueue).not.toHaveBeenCalled();
+      });
+
+      it('still enqueues review_limited (non-verdict) comments', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'rate limited by coderabbit.ai',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(queue.enqueue).toHaveBeenCalled();
+        expect(pullRequests.recordReview).not.toHaveBeenCalled();
+        expect(probe.verdictResolved).not.toHaveBeenCalled();
+      });
+    });
   });
 });

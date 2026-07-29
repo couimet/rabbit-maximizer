@@ -48,6 +48,7 @@ export interface MockDetectedProbe {
   skipped: jest.Mock<() => Promise<unknown>>;
   alreadySkipped: jest.Mock;
   alreadyReviewed: jest.Mock<any>;
+  verdictResolved: jest.Mock<() => Promise<unknown>>;
 }
 export const createMockDetectedProbe = (): MockDetectedProbe => ({
   detected: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
@@ -59,6 +60,7 @@ export const createMockDetectedProbe = (): MockDetectedProbe => ({
   skipped: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadySkipped: jest.fn(),
   alreadyReviewed: jest.fn(),
+  verdictResolved: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
 });
 
 export interface MockReviewDetectorProbe {

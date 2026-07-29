@@ -1,3 +1,4 @@
+import { buildCommentUrl } from '../src/github/buildCommentUrl.js';
 import { DirectCommentCheckerImpl } from '../src/services.js';
 import type { OnDetectedCallback } from '../src/types/index.js';
 
@@ -48,7 +49,7 @@ describe('DirectCommentCheckerImpl', () => {
       },
       pullRequestId,
     );
-    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found rate-limit comments');
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
   });
 
   it('skips comments with unknown classification', async () => {
@@ -92,7 +93,7 @@ describe('DirectCommentCheckerImpl', () => {
       },
       pullRequestId,
     );
-    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found rate-limit comments');
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
   });
 
   it('skips comments with own retrigger marker', async () => {
@@ -112,6 +113,40 @@ describe('DirectCommentCheckerImpl', () => {
     expect(onDetected).not.toHaveBeenCalled();
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.info).not.toHaveBeenCalled();
+  });
+
+  it('forwards review_approved comments with own retrigger marker (not skipped)', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentCreatedAt = getUniqueDate();
+    const commentUpdatedAt = getUniqueDate();
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      {
+        user: 'coderabbitai[bot]',
+        body: 'No actionable comments were generated in the recent review.\n\n<!-- rabbit-maximizer\n{"version":"0.1.0","triggerSource":"scheduler"}\n-->',
+        id: commentId,
+        createdAt: commentCreatedAt,
+        updatedAt: commentUpdatedAt,
+      },
+    ]);
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(onDetected).toHaveBeenCalledWith(
+      {
+        url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
+        repoFullName: ref.repoFullName,
+        prNumber: ref.prNumber,
+        commentId,
+        createdAt: commentCreatedAt.toISOString(),
+        updatedAt: commentUpdatedAt.toISOString(),
+        prTitle: ref.prTitle,
+        body: 'No actionable comments were generated in the recent review.\n\n<!-- rabbit-maximizer\n{"version":"0.1.0","triggerSource":"scheduler"}\n-->',
+        commentType: 'review_approved',
+      },
+      pullRequestId,
+    );
   });
 
   it('continues processing remaining PRs when listComments throws for one', async () => {

@@ -652,6 +652,27 @@ describe('ReviewDetector', () => {
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
+    it('resolves queue item with Resolution.Skipped when editDetector returns skipped outcome', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, item.source_comment_id);
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'skipped', reviewUrl }));
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'skipped', {});
+      expect(deps.pullRequests.recordReview).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
     it('passes item to editDetector', async () => {
       const retriggeredAt = getUniqueDate();
       const ref = generateReviewRef();

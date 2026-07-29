@@ -61,7 +61,7 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
             continue;
           }
 
-          if (hasOwnRetriggerMarker(c.body)) {
+          if (classification === CodeRabbitCommentType.review_limited && hasOwnRetriggerMarker(c.body)) {
             this.log.debug({ ...logCtx, repo: pr.repoFullName, pr: pr.prNumber, commentId: c.id }, 'Skipping own retrigger comment');
             continue;
           }
@@ -87,7 +87,7 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
     }
 
     if (found > 0) {
-      this.log.info({ ...logCtx, found, checked: effectivePRs.length }, 'Direct comment check found rate-limit comments');
+      this.log.info({ ...logCtx, found, checked: effectivePRs.length }, 'Direct comment check found comments');
     }
   }
 }

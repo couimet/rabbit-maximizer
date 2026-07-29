@@ -8,4 +8,5 @@ export type EditDetectionOutcome =
       readonly reviewUrl: string;
       readonly verdictState: CoderabbitReviewVerdictState;
     }
+  | { readonly action: 'skipped'; readonly reviewUrl: string }
   | { readonly action: 'fallback'; readonly reason: FallbackReason };

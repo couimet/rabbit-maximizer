@@ -79,6 +79,11 @@ export class ReviewDetector extends IntervalService {
               await probe.reviewed(toReviewEventType(editOutcome.verdictState), editOutcome.reviewUrl, tx);
             });
             continue;
+          case 'skipped':
+            await this.prisma.$transaction(async (tx) => {
+              await this.queue.markResolved(item.id, Resolution.Skipped, tx);
+            });
+            continue;
           case 'fallback':
             break;
           default:

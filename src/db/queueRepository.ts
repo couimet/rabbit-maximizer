@@ -147,7 +147,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               pr_title: prTitle,
             },
           });
-          await db.queueOrder.create({ data: { queue_item_id: updated.id } });
           await probe.enqueued({ repo, pr });
           probe.resolvedReEnqueued(repo, pr, sourceCommentId);
           return { item: this.mapper.fromReviewQueue(updated), created: true };

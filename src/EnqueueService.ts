@@ -3,6 +3,7 @@ import { classifyCoderabbitComment } from './github/index.js';
 import type { ObservationContextProvider } from './observability/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
+import { isReviewVerdictState } from './utils/index.js';
 import { TYPES } from './domain.js';
 
 import { type PrismaClient } from '@prisma/client';
@@ -82,6 +83,12 @@ export class EnqueueService {
         } else {
           probe.alreadySkipped(item.status);
         }
+        return;
+      }
+
+      if (isReviewVerdictState(classification)) {
+        await this.pullRequests.recordReview(pullRequestId, comment.url, classification, tx);
+        await probe.verdictResolved(tx, classification);
         return;
       }
 

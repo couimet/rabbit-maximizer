@@ -3,7 +3,7 @@ import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.
 import { classifyCoderabbitComment, type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import { type EditDetectionOutcome, type QueueItem } from './types/index.js';
 import { isReviewVerdictState } from './utils/index.js';
-import { FallbackReason, TYPES } from './domain.js';
+import { CodeRabbitCommentType, FallbackReason, TYPES } from './domain.js';
 import { RabbitResult } from './RabbitResult.js';
 
 import { inject, injectable } from 'inversify';
@@ -31,12 +31,14 @@ export class EditDetectorImpl implements EditDetector {
         return RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound });
       }
 
-      if (matchingComment.gh_updated_at <= matchingComment.last_seen_at) {
+      const { owner, repo } = splitRepo(item.repo_full_name);
+      const fetchResult = await this.github.fetchComment(owner, repo, item.source_comment_id);
+
+      const freshGhUpdatedAt = new Date(fetchResult.updatedAt);
+      if (freshGhUpdatedAt <= matchingComment.last_seen_at) {
         return RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotEdited });
       }
 
-      const { owner, repo } = splitRepo(item.repo_full_name);
-      const fetchResult = await this.github.fetchComment(owner, repo, item.source_comment_id);
       const newType = classifyCoderabbitComment(fetchResult.body);
 
       const updatedComment = {
@@ -46,12 +48,12 @@ export class EditDetectorImpl implements EditDetector {
         comment_type: newType,
         body: fetchResult.body,
         gh_created_at: matchingComment.gh_created_at,
-        gh_updated_at: new Date(fetchResult.updatedAt),
+        gh_updated_at: freshGhUpdatedAt,
       };
 
-      if (isReviewVerdictState(newType)) {
-        await this.coderabbitComments.upsert(updatedComment);
+      await this.coderabbitComments.upsert(updatedComment);
 
+      if (isReviewVerdictState(newType)) {
         return RabbitResult.ok({
           action: 'resolved',
           reviewUrl: matchingComment.url,
@@ -59,7 +61,10 @@ export class EditDetectorImpl implements EditDetector {
         });
       }
 
-      await this.coderabbitComments.upsert(updatedComment);
+      if (newType === CodeRabbitCommentType.review_skipped) {
+        return RabbitResult.ok({ action: 'skipped', reviewUrl: matchingComment.url });
+      }
+
       return RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotAReview });
     } catch (err: unknown) {
       return RabbitResult.err(
