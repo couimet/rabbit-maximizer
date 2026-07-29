@@ -100,7 +100,7 @@ export class PollDetector extends IntervalService {
           continue;
         }
 
-        await this.onDetected({ ...c, body }, existingPr.id);
+        await this.onDetected({ ...c, body, commentType: classification }, existingPr.id);
       }
 
       try {

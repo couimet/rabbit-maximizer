@@ -366,12 +366,13 @@ describe('QueueRepositoryImpl', () => {
       };
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
 
-      const { prisma, reviewQueue } = createMockPrismaClient({
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: {
           findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(existingResolved),
           create: jest.fn<any>().mockRejectedValue(p2002),
           update: createResolvedMock(updatedRow),
         },
+        queueOrder: { findUnique: createResolvedMock({ queue_item_id: existingResolved.id }) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
@@ -409,6 +410,8 @@ describe('QueueRepositoryImpl', () => {
         { fn: 'EnqueueProbe.resolvedReEnqueued', repo: ref.repoFullName, pr: ref.prNumber, sourceCommentId: commentId },
         'Resolved item re-enqueued after comment edit',
       );
+      expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: existingResolved.id } });
+      expect(queueOrder.create).not.toHaveBeenCalled();
     });
 
     it('re-enqueues a resolved failed item when the comment was edited', async () => {
@@ -432,12 +435,13 @@ describe('QueueRepositoryImpl', () => {
       };
       const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
 
-      const { prisma, reviewQueue } = createMockPrismaClient({
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: {
           findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(existingResolved),
           create: jest.fn<any>().mockRejectedValue(p2002),
           update: createResolvedMock(updatedRow),
         },
+        queueOrder: { findUnique: createResolvedMock({ queue_item_id: existingResolved.id }) },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
@@ -460,6 +464,8 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(created).toBe(true);
       expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
+      expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: existingResolved.id } });
+      expect(queueOrder.create).not.toHaveBeenCalled();
     });
 
     it('returns existing resolved item with created:false when the comment was NOT edited', async () => {
@@ -506,6 +512,60 @@ describe('QueueRepositoryImpl', () => {
         { fn: 'EnqueueProbe.resolvedNotEdited', repo: ref.repoFullName, pr: ref.prNumber, sourceCommentId: commentId },
         'Resolved item exists for source comment; comment not edited',
       );
+    });
+
+    it('re-enqueues a resolved skipped item and creates queueOrder when comment was edited', async () => {
+      const ref = generateReviewRef();
+      const commentId = getUniqueInt();
+      const tenMinAgo = new Date(frozenNow.getTime() - TEN_MINUTES_MS);
+      const existingResolved = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_id: commentId,
+        status: QueueStatus.resolved,
+        resolution: Resolution.Skipped,
+        created_at: tenMinAgo,
+        resolved_at: tenMinAgo,
+      });
+      const updatedRow = {
+        ...existingResolved,
+        status: QueueStatus.pending as const,
+        resolution: null,
+        resolved_at: null,
+      };
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint', { code: 'P2002', clientVersion: '7.8.0' });
+
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(existingResolved),
+          create: jest.fn<any>().mockRejectedValue(p2002),
+          update: createResolvedMock(updatedRow),
+        },
+        queueOrder: { findUnique: createResolvedMock(null) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const { item: result, created } = await sut.enqueue(
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Re-enqueued PR title',
+          sourceCommentUrl: ref.commentUrl,
+          sourceCommentId: commentId,
+          commentUpdatedAt: frozenNow,
+          pullRequestId: getUniqueInt(),
+        },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: existingResolved.id },
+        data: { status: 'pending', resolution: null, resolved_at: null, pr_title: 'Re-enqueued PR title' },
+      });
+      expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: existingResolved.id } });
+      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: existingResolved.id } });
+      expect(created).toBe(true);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
     });
   });
 

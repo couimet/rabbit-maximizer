@@ -1,5 +1,4 @@
 import { EditDetectorImpl } from '../src/EditDetector.js';
-import { RabbitMaximizerErrorCodes } from '../src/errors/index.js';
 
 import { createMockCoderabbitCommentRepo, createMockCoderabbitGitHubClient, generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
 
@@ -187,14 +186,21 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockRejectedValue(new Error('GitHub API error'));
+    const fetchError = new Error('GitHub API error');
+    github.fetchComment.mockRejectedValue(fetchError);
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result.success).toBe(false);
-    expect(result.error).toBeDefined();
-    expect(result.error!.code).toBe(RabbitMaximizerErrorCodes.EDIT_DETECTION_FAILED);
+    expect(result.error).toBeDetailedError('EDIT_DETECTION_FAILED', {
+      message: 'Edit detection failed',
+      functionName: 'EditDetectorImpl.detectEdit',
+      details: {
+        queueItemId: item.id,
+        sourceCommentId: item.source_comment_id,
+        error: { message: fetchError.message, name: fetchError.name, stack: fetchError.stack },
+      },
+    });
   });
 
   it('returns skipped when edited comment re-classifies as review_skipped', async () => {

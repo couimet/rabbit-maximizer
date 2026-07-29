@@ -11,6 +11,7 @@ import { inject, injectable } from 'inversify';
 
 const COMPLETED_GUARD_WINDOW_MS = 5 * MS_PER_MINUTE;
 const MAX_SKIPPED_ITEMS = 50;
+const REOPENABLE_RESOLUTIONS: readonly Resolution[] = [Resolution.ReviewCompleted, Resolution.Failed, Resolution.Skipped] as const;
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -133,7 +134,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         where: {
           source_comment_id: sourceCommentId,
           status: QueueStatus.resolved,
-          resolution: { in: [Resolution.ReviewCompleted, Resolution.Failed] },
+          resolution: { in: [...REOPENABLE_RESOLUTIONS] },
         },
       });
       if (existingResolved) {
@@ -147,6 +148,12 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               pr_title: prTitle,
             },
           });
+
+          const existingOrder = await db.queueOrder.findUnique({ where: { queue_item_id: existingResolved.id } });
+          if (!existingOrder) {
+            await db.queueOrder.create({ data: { queue_item_id: existingResolved.id } });
+          }
+
           await probe.enqueued({ repo, pr });
           probe.resolvedReEnqueued(repo, pr, sourceCommentId);
           return { item: this.mapper.fromReviewQueue(updated), created: true };
