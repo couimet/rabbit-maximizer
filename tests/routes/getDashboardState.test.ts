@@ -1,4 +1,5 @@
 import type { Config } from '../../src/config.js';
+import { StateKey } from '../../src/db/index.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { EventCountsMapper } from '../../src/mappers/index.js';
 import { createGetDashboardStateHandler } from '../../src/routes/index.js';
@@ -349,7 +350,8 @@ describe('getDashboardState', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
     const futureNextReview = new Date(fixedNow + 5000);
-    startServer({}, {}, { getState: jest.fn<any>().mockResolvedValue(futureNextReview) });
+    const getState = jest.fn<any>().mockResolvedValue(futureNextReview);
+    startServer({}, {}, { getState });
 
     const json = await getJson(port, '/api/dashboard-state');
     expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
@@ -358,9 +360,12 @@ describe('getDashboardState', () => {
     expect(restJson).toStrictEqual({
       nextReviewAvailableAt: futureNextReview.toISOString(),
       pendingItems: [],
+      skippedItems: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
+
+    expect(getState).toHaveBeenCalledWith(StateKey.nextReviewAvailableAt);
   });
 
   it('returns null when stored nextReviewAvailableAt is in the past', async () => {
@@ -368,7 +373,8 @@ describe('getDashboardState', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
     const pastNextReview = new Date(fixedNow - 5000);
-    startServer({}, {}, { getState: jest.fn<any>().mockResolvedValue(pastNextReview) });
+    const getState = jest.fn<any>().mockResolvedValue(pastNextReview);
+    startServer({}, {}, { getState });
 
     const json = await getJson(port, '/api/dashboard-state');
     expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
@@ -377,8 +383,11 @@ describe('getDashboardState', () => {
     expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
+      skippedItems: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
+
+    expect(getState).toHaveBeenCalledWith(StateKey.nextReviewAvailableAt);
   });
 });
