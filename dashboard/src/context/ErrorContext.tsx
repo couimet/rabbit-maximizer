@@ -2,12 +2,13 @@ import { createContext, type ReactNode, useCallback, useContext, useState } from
 
 export interface ErrorEntry {
   id: string;
+  label?: string;
   message: string;
 }
 
 interface ErrorContextValue {
   errors: ErrorEntry[];
-  reportError: (id: string, message: string) => void;
+  reportError: (id: string, label: string, message: string) => void;
   dismissError: (id: string) => void;
 }
 
@@ -16,12 +17,12 @@ const ErrorContext = createContext<ErrorContextValue | null>(null);
 export const ErrorProvider = ({ children }: { children: ReactNode }) => {
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
 
-  const reportError = useCallback((id: string, message: string) => {
+  const reportError = useCallback((id: string, label: string, message: string) => {
     setErrors((prev) => {
       const existing = prev.find((e) => e.id === id);
-      if (existing && existing.message === message) return prev;
+      if (existing && existing.label === label && existing.message === message) return prev;
       const filtered = prev.filter((e) => e.id !== id);
-      return [...filtered, { id, message }];
+      return [...filtered, { id, label, message }];
     });
   }, []);
 

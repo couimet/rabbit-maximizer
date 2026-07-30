@@ -5,7 +5,7 @@ import { fetchTriggered, markResolved } from '../api.js';
 import { useErrorContext } from '../context/index.js';
 import { prUrl } from '../githubUrl.js';
 
-import { DurationSelect, STATE_CLASS, STATE_LABEL } from './index.js';
+import { DurationSelect, formatElapsed, STATE_CLASS, STATE_LABEL } from './index.js';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -22,7 +22,7 @@ const formatRetriggeredTime = (item: QueueItemResponse): string => (item.retrigg
 const formatApprovalBadge = (subState: string | undefined): string =>
   subState === 'review_approved' ? ' ✓' : subState === 'review_changes_suggested' ? ' Δ' : '';
 
-const RecentlyTriggered = () => {
+const RecentlyTriggered = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale: boolean; lastSchedulerTickAt: string | null }) => {
   const [items, setItems] = useState<QueueItemResponse[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
@@ -40,6 +40,7 @@ const RecentlyTriggered = () => {
     };
   }, []);
 
+  const lastUpdatedRef = useRef<Date | null>(null);
   const requestIdRef = useRef(0);
 
   const fetchData = useCallback(
@@ -52,6 +53,7 @@ const RecentlyTriggered = () => {
           /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
           if (!mountedRef.current) return;
           if (requestId !== requestIdRef.current) return;
+          lastUpdatedRef.current = new Date();
           dismissError('recently-triggered');
           setTotal(res.total);
           if (append) {
@@ -65,7 +67,7 @@ const RecentlyTriggered = () => {
           /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
           if (!mountedRef.current) return;
           if (requestId !== requestIdRef.current) return;
-          reportError('recently-triggered', err.message);
+          reportError('recently-triggered', 'Recently triggered', err.message);
           setLoading(false);
         });
     },
@@ -97,7 +99,7 @@ const RecentlyTriggered = () => {
     /* c8 ignore next — safety fallback: total is always set when items are displayed */
     setTotal((t) => (t !== null ? t - 1 : null));
     markResolved(uuid).catch((err: Error) => {
-      reportError('recently-triggered-mark-resolved', err.message);
+      reportError('recently-triggered-mark-resolved', 'Recently triggered', err.message);
       fetchData(1, false);
     });
   };
@@ -135,6 +137,12 @@ const RecentlyTriggered = () => {
         <input type="checkbox" checked={includeResolved} onChange={(e) => setIncludeResolved(e.target.checked)} /> Show resolved
       </label>
 
+      {schedulerStale && (
+        <div className="scheduler-stale-banner">
+          <div>Scheduler may be down — no heartbeat for {formatElapsed(lastSchedulerTickAt) ?? 'unknown'}</div>
+          {lastUpdatedRef.current !== null && <div>Data refreshed {formatRelativeTime(lastUpdatedRef.current.toISOString())}</div>}
+        </div>
+      )}
       {loading && items.length === 0 ? (
         <div className="loading">Loading triggered items…</div>
       ) : items.length === 0 ? (
@@ -163,7 +171,12 @@ const RecentlyTriggered = () => {
                   <td>{renderStatusPill(item)}</td>
                   <td>
                     {item.status !== 'resolved' && (
-                      <button className="mark-reviewed-button" onClick={() => handleMarkResolved(item.uuid)} title="Mark as resolved">
+                      <button
+                        className="mark-reviewed-button"
+                        onClick={() => handleMarkResolved(item.uuid)}
+                        title={schedulerStale ? 'Unavailable while scheduler is down' : 'Mark as resolved'}
+                        disabled={schedulerStale}
+                      >
                         ✓
                       </button>
                     )}

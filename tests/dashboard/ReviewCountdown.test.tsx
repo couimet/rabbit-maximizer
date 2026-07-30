@@ -6,7 +6,9 @@ import '@testing-library/jest-dom/jest-globals';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 
-const DEFAULT_PROPS = { onTogglePaused: jest.fn(), toggling: false };
+const DEFAULT_PROPS = { onTogglePaused: jest.fn(), toggling: false, schedulerStale: false, lastSchedulerTickAt: null };
+const LAST_TICK_ISO = '2026-01-01T00:00:00Z';
+const SYSTEM_TIME_ISO = '2026-01-01T00:05:00Z';
 
 afterEach(() => {
   cleanup();
@@ -83,7 +85,7 @@ describe('ReviewCountdown', () => {
 
     it('calls onTogglePaused when toggle button is clicked', () => {
       const onTogglePaused = jest.fn();
-      const { getByText } = render(<ReviewCountdown target={null} paused={false} onTogglePaused={onTogglePaused} toggling={false} />);
+      const { getByText } = render(<ReviewCountdown {...DEFAULT_PROPS} target={null} paused={false} onTogglePaused={onTogglePaused} toggling={false} />);
 
       fireEvent.click(getByText('Pause'));
 
@@ -93,6 +95,41 @@ describe('ReviewCountdown', () => {
     it('disables toggle button when toggling', () => {
       const { getByLabelText } = render(<ReviewCountdown target={null} paused={false} {...DEFAULT_PROPS} toggling={true} />);
 
+      expect(getByLabelText('Pause scheduler')).toBeDisabled();
+    });
+  });
+
+  describe('stale scheduler', () => {
+    it('shows Status unknown label when scheduler is stale', () => {
+      const { queryByText } = render(<ReviewCountdown target={null} paused={false} {...DEFAULT_PROPS} schedulerStale={true} lastSchedulerTickAt={null} />);
+      expect(queryByText('Status unknown')).toBeInTheDocument();
+    });
+
+    it('shows No heartbeat for X when scheduler is stale with a tick timestamp', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(SYSTEM_TIME_ISO));
+
+      const { queryByText } = render(
+        <ReviewCountdown target={null} paused={false} {...DEFAULT_PROPS} schedulerStale={true} lastSchedulerTickAt={LAST_TICK_ISO} />,
+      );
+
+      expect(queryByText(/No heartbeat for 5 minutes/)).toBeInTheDocument();
+    });
+
+    it('shows No heartbeat yet when scheduler is stale with null tick', () => {
+      const { queryByText } = render(<ReviewCountdown target={null} paused={false} {...DEFAULT_PROPS} schedulerStale={true} lastSchedulerTickAt={null} />);
+      expect(queryByText('No heartbeat yet')).toBeInTheDocument();
+    });
+
+    it('disables toggle button when scheduler is stale', () => {
+      const { getByLabelText } = render(<ReviewCountdown target={null} paused={false} {...DEFAULT_PROPS} schedulerStale={true} lastSchedulerTickAt={null} />);
+      expect(getByLabelText('Pause scheduler')).toBeDisabled();
+    });
+
+    it('disables toggle button when both stale and toggling', () => {
+      const { getByLabelText } = render(
+        <ReviewCountdown target={null} paused={false} {...DEFAULT_PROPS} schedulerStale={true} lastSchedulerTickAt={null} toggling={true} />,
+      );
       expect(getByLabelText('Pause scheduler')).toBeDisabled();
     });
   });

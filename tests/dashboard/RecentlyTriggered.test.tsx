@@ -7,15 +7,18 @@ import { generateQueueItemResponseData, generateReviewRef } from '../helpers/ind
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StatusCodes } from 'http-status-codes';
 import { type ReactElement, StrictMode } from 'react';
 
+const EMPTY_TOTAL = 0;
+const FIRST_PAGE = 1;
 const PAGE_SIZE = 50;
-const TRIGGERED_RESPONSE = { data: [], total: 0, page: 1, pageSize: PAGE_SIZE };
+const TRIGGERED_RESPONSE = { data: [], total: EMPTY_TOTAL, page: FIRST_PAGE, pageSize: PAGE_SIZE };
 
 const mockTriggeredEndpoint = (data: Record<string, unknown> = TRIGGERED_RESPONSE) => {
   globalThis.fetch = jest.fn((url: string) => {
     if (typeof url === 'string' && url.includes('/queue/triggered')) {
-      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response);
+      return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(data) } as Response);
     }
     return Promise.reject(new Error('Unexpected fetch: ' + url));
   }) as unknown as typeof fetch;
@@ -29,7 +32,7 @@ const renderRecentlyTriggered = (ui?: ReactElement) =>
   render(
     <ErrorProvider>
       <GlobalErrorBanner />
-      {ui ?? <RecentlyTriggered />}
+      {ui ?? <RecentlyTriggered schedulerStale={false} lastSchedulerTickAt={null} />}
     </ErrorProvider>,
   );
 
@@ -158,11 +161,11 @@ describe('RecentlyTriggered', () => {
       globalThis.fetch = jest.fn((url: string) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
           if (url.includes('page=2')) {
-            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(page2Data) } as Response);
+            return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(page2Data) } as Response);
           }
           return Promise.resolve({
             ok: true,
-            status: 200,
+            status: StatusCodes.OK,
             json: () => Promise.resolve({ data: [item1], total: 60, page: 1, pageSize: PAGE_SIZE }),
           } as Response);
         }
@@ -195,7 +198,11 @@ describe('RecentlyTriggered', () => {
 
       globalThis.fetch = jest.fn((url: string) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [], total: 0, page: 1, pageSize: PAGE_SIZE }) } as Response);
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve({ data: [], total: 0, page: 1, pageSize: PAGE_SIZE }),
+          } as Response);
         }
         return Promise.reject(new Error('Unexpected fetch: ' + url));
       }) as unknown as typeof fetch;
@@ -216,7 +223,7 @@ describe('RecentlyTriggered', () => {
       globalThis.fetch = jest.fn(() => Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
       renderRecentlyTriggered();
 
-      await waitFor(() => expect(screen.getByText('Network error')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Recently triggered: Network error')).toBeInTheDocument());
     });
 
     it('shows error page when duration change triggers a failed fetch with no existing data', async () => {
@@ -230,7 +237,7 @@ describe('RecentlyTriggered', () => {
 
       fireEvent.change(screen.getByRole('combobox', { name: 'Triggered time range' }), { target: { value: '24h' } });
 
-      await waitFor(() => expect(screen.getByText('Refresh failed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Recently triggered: Refresh failed')).toBeInTheDocument());
     });
   });
 
@@ -266,7 +273,7 @@ describe('RecentlyTriggered', () => {
           if (callCount === 1) {
             return Promise.resolve({
               ok: true,
-              status: 200,
+              status: StatusCodes.OK,
               json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE }),
             } as Response);
           }
@@ -283,7 +290,7 @@ describe('RecentlyTriggered', () => {
         jest.advanceTimersByTime(60_000);
       });
 
-      await waitFor(() => expect(screen.getByText('Poll failed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Recently triggered: Poll failed')).toBeInTheDocument());
       expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument();
     });
   });
@@ -293,10 +300,14 @@ describe('RecentlyTriggered', () => {
       const item = makeItem();
       globalThis.fetch = jest.fn((url: string, _init?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }),
+          } as Response);
         }
         if (typeof url === 'string' && url.includes('/mark-reviewed')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response);
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve({ ok: true }) } as Response);
         }
         return Promise.reject(new Error('Unexpected fetch'));
       }) as unknown as typeof fetch;
@@ -314,7 +325,11 @@ describe('RecentlyTriggered', () => {
       const item = makeItem();
       globalThis.fetch = jest.fn((url: string, _init?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }),
+          } as Response);
         }
         if (typeof url === 'string' && url.includes('/mark-reviewed')) {
           return Promise.reject(new Error('API error'));
@@ -339,7 +354,7 @@ describe('RecentlyTriggered', () => {
         <ErrorProvider>
           <GlobalErrorBanner />
           <StrictMode>
-            <RecentlyTriggered />
+            <RecentlyTriggered schedulerStale={false} lastSchedulerTickAt={null} />
           </StrictMode>
         </ErrorProvider>,
       );
@@ -350,6 +365,128 @@ describe('RecentlyTriggered', () => {
       mockTriggeredEndpoint();
       const { unmount } = renderRecentlyTriggered();
       unmount();
+    });
+  });
+
+  describe('stale banner', () => {
+    it('shows stale banner when schedulerStale is true and items are present', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      const tickAt = new Date().toISOString();
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={tickAt} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+      expect(screen.getByText(/no heartbeat for/)).toBeInTheDocument();
+    });
+
+    it('shows "Data refreshed" line when lastUpdatedRef is set', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={new Date().toISOString()} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+      expect(screen.getByText(/Data refreshed/)).toBeInTheDocument();
+    });
+
+    it('shows "unknown" in stale banner when lastSchedulerTickAt is null', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={null} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText(/no heartbeat for unknown/)).toBeInTheDocument());
+    });
+
+    it('does not show stale banner when schedulerStale is false', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderRecentlyTriggered();
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
+    });
+
+    it('shows stale banner when items are empty and schedulerStale is true', async () => {
+      mockTriggeredEndpoint();
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={new Date().toISOString()} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText('No triggered items in this time window.')).toBeInTheDocument());
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+    });
+
+    it('shows stale banner during loading when schedulerStale is true', async () => {
+      let resolveTriggered!: (value: unknown) => void;
+      const triggeredPromise = new Promise((resolve) => {
+        resolveTriggered = resolve;
+      });
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/queue/triggered')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => triggeredPromise } as Response);
+        }
+        return Promise.reject(new Error('Unexpected fetch: ' + url));
+      }) as unknown as typeof fetch;
+
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={new Date().toISOString()} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText('Loading triggered items…')).toBeInTheDocument());
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+
+      await act(() => {
+        resolveTriggered({ data: [], total: EMPTY_TOTAL, page: FIRST_PAGE, pageSize: PAGE_SIZE });
+      });
+    });
+  });
+
+  describe('mark resolved disabled when stale', () => {
+    it('disables "Mark as resolved" button when schedulerStale is true', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={new Date().toISOString()} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      const button = screen.getByTitle('Unavailable while scheduler is down');
+      expect(button).toBeDisabled();
+    });
+
+    it('does not disable "Mark as resolved" button when schedulerStale is false', async () => {
+      const item = makeItem();
+      mockTriggeredEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderRecentlyTriggered();
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      const button = screen.getByTitle('Mark as resolved');
+      expect(button).not.toBeDisabled();
     });
   });
 });

@@ -14,7 +14,7 @@ export const GlobalErrorBanner = () => {
           <span className="global-error-banner-icon" aria-hidden="true">
             ⚠️
           </span>
-          <span className="global-error-banner-message">{err.message}</span>
+          <span className="global-error-banner-message">{err.label ? `${err.label}: ${err.message}` : err.message}</span>
           <button className="global-error-banner-dismiss" onClick={() => dismissError(err.id)} aria-label={`Dismiss error`}>
             ×
           </button>

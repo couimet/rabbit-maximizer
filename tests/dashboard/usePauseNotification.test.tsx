@@ -5,6 +5,7 @@ import { MS_PER_SECOND } from '../../src/utils/index.js';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
+import { StatusCodes } from 'http-status-codes';
 
 const MOCK_CONFIG = {
   pauseNotificationInitialDelaySec: 1800,
@@ -18,7 +19,7 @@ describe('usePauseNotification', () => {
     globalThis.fetch = jest.fn(() =>
       Promise.resolve({
         ok: true,
-        status: 200,
+        status: StatusCodes.OK,
         json: () => Promise.resolve(MOCK_CONFIG),
       } as Response),
     ) as unknown as typeof fetch;
@@ -254,7 +255,7 @@ describe('usePauseNotification', () => {
     // Resolve the fetch — .then() should see cancelled=true and return early
     resolveFetch!({
       ok: true,
-      status: 200,
+      status: StatusCodes.OK,
       json: () => Promise.resolve(MOCK_CONFIG),
     } as Response);
 
@@ -286,7 +287,7 @@ describe('usePauseNotification', () => {
     // Resolve the fetch — .then() should see mountedRef.current=false
     resolveFetch!({
       ok: true,
-      status: 200,
+      status: StatusCodes.OK,
       json: () => Promise.resolve(MOCK_CONFIG),
     } as Response);
 
