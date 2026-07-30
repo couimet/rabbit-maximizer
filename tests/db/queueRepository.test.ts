@@ -788,7 +788,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { attempts: { increment: 1 }, source_comment_id: commentId, source_comment_url: commentUrl },
+        data: { attempts: { increment: 1 }, source_comment_id: commentId, source_comment_url: commentUrl, retriggered_at: frozenNow },
       });
       expect(result.id).toBe(row.id);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
@@ -930,7 +930,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { attempts: { increment: 1 } },
+        data: { attempts: { increment: 1 }, status: 'retriggered', retriggered_at: frozenNow },
       });
       expect(result.id).toBe(row.id);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.backoff', id: row.id }, 'Backoff applied');
