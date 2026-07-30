@@ -232,6 +232,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               attempts: { increment: 1 },
               source_comment_id: sourceComment.commentId,
               source_comment_url: sourceComment.commentUrl,
+              retriggered_at: new Date(),
             },
           }),
         'QueueRepositoryImpl.reschedule',
@@ -272,6 +273,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           data: {
             attempts: { increment: 1 },
             status: QueueStatus.retriggered,
+            retriggered_at: new Date(),
           },
         }),
       'QueueRepositoryImpl.backoff',
