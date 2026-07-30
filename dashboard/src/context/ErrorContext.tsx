@@ -20,7 +20,7 @@ export const ErrorProvider = ({ children }: { children: ReactNode }) => {
   const reportError = useCallback((id: string, label: string, message: string) => {
     setErrors((prev) => {
       const existing = prev.find((e) => e.id === id);
-      if (existing && existing.message === message) return prev;
+      if (existing && existing.label === label && existing.message === message) return prev;
       const filtered = prev.filter((e) => e.id !== id);
       return [...filtered, { id, label, message }];
     });

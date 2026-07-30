@@ -9,10 +9,10 @@ import { type ReactElement, useEffect } from 'react';
 
 const renderBanner = (ui?: ReactElement) => render(<ErrorProvider>{ui ?? <GlobalErrorBanner />}</ErrorProvider>);
 
-const ErrorReporter = ({ id, label, message }: { id: string; label?: string; message: string }) => {
+const ErrorReporter = ({ id, label, message }: { id: string; label: string; message: string }) => {
   const { reportError } = useErrorContext();
   useEffect(() => {
-    reportError(id, label ?? '', message);
+    reportError(id, label, message);
   }, [id, label, message, reportError]);
   return null;
 };
@@ -26,7 +26,7 @@ describe('GlobalErrorBanner', () => {
   it('renders a single error message', () => {
     renderBanner(
       <>
-        <ErrorReporter id="test-1" message="Something went wrong" />
+        <ErrorReporter id="test-1" label="" message="Something went wrong" />
         <GlobalErrorBanner />
       </>,
     );
@@ -37,8 +37,8 @@ describe('GlobalErrorBanner', () => {
   it('renders multiple errors stacked', () => {
     renderBanner(
       <>
-        <ErrorReporter id="err-a" message="First error" />
-        <ErrorReporter id="err-b" message="Second error" />
+        <ErrorReporter id="err-a" label="" message="First error" />
+        <ErrorReporter id="err-b" label="" message="Second error" />
         <GlobalErrorBanner />
       </>,
     );
@@ -49,8 +49,8 @@ describe('GlobalErrorBanner', () => {
   it('dismisses an individual error on button click', () => {
     renderBanner(
       <>
-        <ErrorReporter id="err-a" message="First error" />
-        <ErrorReporter id="err-b" message="Second error" />
+        <ErrorReporter id="err-a" label="" message="First error" />
+        <ErrorReporter id="err-b" label="" message="Second error" />
         <GlobalErrorBanner />
       </>,
     );
@@ -92,7 +92,7 @@ describe('GlobalErrorBanner', () => {
   it('renders only message when label is absent', () => {
     renderBanner(
       <>
-        <ErrorReporter id="test-1" message="Something went wrong" />
+        <ErrorReporter id="test-1" label="" message="Something went wrong" />
         <GlobalErrorBanner />
       </>,
     );
@@ -103,7 +103,7 @@ describe('GlobalErrorBanner', () => {
   it('replaces error with same id when message changes', () => {
     const { rerender } = renderBanner(
       <>
-        <ErrorReporter id="test-1" message="First message" />
+        <ErrorReporter id="test-1" label="" message="First message" />
         <GlobalErrorBanner />
       </>,
     );
@@ -111,11 +111,30 @@ describe('GlobalErrorBanner', () => {
 
     rerender(
       <ErrorProvider>
-        <ErrorReporter id="test-1" message="Updated message" />
+        <ErrorReporter id="test-1" label="" message="Updated message" />
         <GlobalErrorBanner />
       </ErrorProvider>,
     );
     expect(screen.queryByText('First message')).not.toBeInTheDocument();
     expect(screen.getByText('Updated message')).toBeInTheDocument();
+  });
+
+  it('replaces error with same id when label changes but message stays the same', () => {
+    const { rerender } = renderBanner(
+      <>
+        <ErrorReporter id="test-1" label="Old label" message="Same message" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('Old label: Same message')).toBeInTheDocument();
+
+    rerender(
+      <ErrorProvider>
+        <ErrorReporter id="test-1" label="New label" message="Same message" />
+        <GlobalErrorBanner />
+      </ErrorProvider>,
+    );
+    expect(screen.queryByText('Old label: Same message')).not.toBeInTheDocument();
+    expect(screen.getByText('New label: Same message')).toBeInTheDocument();
   });
 });

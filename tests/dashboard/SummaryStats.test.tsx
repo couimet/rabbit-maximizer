@@ -23,6 +23,7 @@ const DEFAULT_EVENT_COUNTS = { detected: 8, enqueued: 7, retriggered: 3, failed:
 const TRIGGERED_RESPONSE = { data: [], total: 0, page: 1, pageSize: 50 };
 
 const DEFAULT_CONFIG_RESPONSE = { pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 };
+const RECENT_TICK_AGE_MS = 10_000;
 
 const mockDashboardState = (data: Record<string, unknown>) => {
   globalThis.fetch = jest.fn((url: string) => {
@@ -794,7 +795,7 @@ describe('SummaryStats', () => {
 
     it('does not add staleness suffix when recent tick is known', async () => {
       const now = new Date();
-      const tickTime = new Date(now.getTime() - 10_000).toISOString(); // 10s ago, under 40s threshold
+      const tickTime = new Date(now.getTime() - RECENT_TICK_AGE_MS).toISOString(); // 10s ago, under 40s threshold
       mockDashboardState({
         lastSchedulerTickAt: tickTime,
         nextReviewAvailableAt: null,

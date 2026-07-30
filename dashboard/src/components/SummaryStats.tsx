@@ -21,6 +21,7 @@ const SummaryStats = () => {
 
   const mountedRef = useRef(false);
   const lastKnownTickRef = useRef<string | null>(null);
+  const lastKnownSchedulerStaleRef = useRef(false);
   const lastUpdatedRef = useRef<Date | null>(null);
   const requestIdRef = useRef(0);
 
@@ -55,6 +56,7 @@ const SummaryStats = () => {
         }
         lastUpdatedRef.current = new Date();
         setLocalStale(false);
+        lastKnownSchedulerStaleRef.current = res.schedulerStale;
         setData(res);
       })
       .catch((err: Error) => {
@@ -63,7 +65,7 @@ const SummaryStats = () => {
 
         const lastTick = lastKnownTickRef.current;
         const isStale =
-          data?.schedulerStale ||
+          lastKnownSchedulerStaleRef.current ||
           (() => {
             if (!lastTick) return true;
             return Date.now() - new Date(lastTick).getTime() > staleThresholdMs;
@@ -74,7 +76,6 @@ const SummaryStats = () => {
         reportError('summary-stats', 'Summary', isStale ? `${err.message} — data may not reflect current state` : err.message);
       });
     /* c8 ignore next 1 — eslint: data is not a dep to avoid recreating the callback on every data change; lastKnownTickRef.current provides the current tick state via ref */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration, dismissError, reportError, staleThresholdMs]);
 
   useEffect(() => {

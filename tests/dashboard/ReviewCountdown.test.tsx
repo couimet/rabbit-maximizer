@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 
 const DEFAULT_PROPS = { onTogglePaused: jest.fn(), toggling: false, schedulerStale: false, lastSchedulerTickAt: null };
+const LAST_TICK_ISO = '2026-01-01T00:00:00Z';
+const SYSTEM_TIME_ISO = '2026-01-01T00:05:00Z';
 
 afterEach(() => {
   cleanup();
@@ -105,10 +107,10 @@ describe('ReviewCountdown', () => {
 
     it('shows No heartbeat for X when scheduler is stale with a tick timestamp', () => {
       jest.useFakeTimers();
-      jest.setSystemTime(new Date('2026-01-01T00:05:00Z'));
+      jest.setSystemTime(new Date(SYSTEM_TIME_ISO));
 
       const { queryByText } = render(
-        <ReviewCountdown target={null} paused={false} {...DEFAULT_PROPS} schedulerStale={true} lastSchedulerTickAt="2026-01-01T00:00:00Z" />,
+        <ReviewCountdown target={null} paused={false} {...DEFAULT_PROPS} schedulerStale={true} lastSchedulerTickAt={LAST_TICK_ISO} />,
       );
 
       expect(queryByText(/No heartbeat for 5 minutes/)).toBeInTheDocument();

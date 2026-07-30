@@ -181,7 +181,7 @@ const QueueOrder = ({
         <>
           {schedulerStale && (
             <div className="section-stale-banner">
-              <div>Scheduler may be down — no heartbeat for {formatElapsed(lastSchedulerTickAt)}</div>
+              <div>Scheduler may be down — no heartbeat for {formatElapsed(lastSchedulerTickAt) ?? 'unknown'}</div>
               {lastUpdatedAt !== null && <div>Data refreshed {formatRelativeTime(lastUpdatedAt.toISOString())}</div>}
             </div>
           )}
