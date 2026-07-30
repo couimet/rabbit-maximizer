@@ -1,4 +1,5 @@
 import type { Config } from '../../src/config.js';
+import { StateKey } from '../../src/db/index.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { EventCountsMapper } from '../../src/mappers/index.js';
 import { createGetDashboardStateHandler } from '../../src/routes/index.js';
@@ -342,5 +343,51 @@ describe('getDashboardState', () => {
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get dashboard state' });
     expect(logger.error).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: eventError }, 'Failed to get dashboard state');
+  });
+
+  it('returns a countdown ISO string when stored nextReviewAvailableAt is in the future', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const futureNextReview = new Date(fixedNow + 5000);
+    const getState = jest.fn<any>().mockResolvedValue(futureNextReview);
+    startServer({}, {}, { getState });
+
+    const json = await getJson(port, '/api/dashboard-state');
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
+      nextReviewAvailableAt: futureNextReview.toISOString(),
+      pendingItems: [],
+      skippedItems: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
+    });
+
+    expect(getState).toHaveBeenCalledWith(StateKey.nextReviewAvailableAt);
+  });
+
+  it('returns null when stored nextReviewAvailableAt is in the past', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const pastNextReview = new Date(fixedNow - 5000);
+    const getState = jest.fn<any>().mockResolvedValue(pastNextReview);
+    startServer({}, {}, { getState });
+
+    const json = await getJson(port, '/api/dashboard-state');
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      skippedItems: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
+    });
+
+    expect(getState).toHaveBeenCalledWith(StateKey.nextReviewAvailableAt);
   });
 });
