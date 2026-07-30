@@ -380,7 +380,8 @@ describe('RecentlyTriggered', () => {
         </ErrorProvider>,
       );
 
-      await waitFor(() => expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
       expect(screen.getByText(/Data refreshed/)).toBeInTheDocument();
     });
 
@@ -406,7 +407,7 @@ describe('RecentlyTriggered', () => {
       expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
     });
 
-    it('does not show stale banner when items are empty even if schedulerStale is true', async () => {
+    it('shows stale banner when items are empty and schedulerStale is true', async () => {
       mockTriggeredEndpoint();
       render(
         <ErrorProvider>
@@ -416,7 +417,34 @@ describe('RecentlyTriggered', () => {
       );
 
       await waitFor(() => expect(screen.getByText('No triggered items in this time window.')).toBeInTheDocument());
-      expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+    });
+
+    it('shows stale banner during loading when schedulerStale is true', async () => {
+      let resolveTriggered!: (value: unknown) => void;
+      const triggeredPromise = new Promise((resolve) => {
+        resolveTriggered = resolve;
+      });
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/queue/triggered')) {
+          return Promise.resolve({ ok: true, status: 200, json: () => triggeredPromise } as Response);
+        }
+        return Promise.reject(new Error('Unexpected fetch: ' + url));
+      }) as unknown as typeof fetch;
+
+      render(
+        <ErrorProvider>
+          <GlobalErrorBanner />
+          <RecentlyTriggered schedulerStale={true} lastSchedulerTickAt={new Date().toISOString()} />
+        </ErrorProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByText('Loading triggered items…')).toBeInTheDocument());
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+
+      await act(() => {
+        resolveTriggered({ data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
+      });
     });
   });
 

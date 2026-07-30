@@ -288,8 +288,8 @@ describe('SummaryStats', () => {
         schedulerStale: true,
       });
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument());
-      expect(screen.getByText(/no heartbeat for 2 minutes/)).toBeInTheDocument();
+      await waitFor(() => expect(screen.getAllByText(/Scheduler may be down/)[0]).toBeInTheDocument());
+      expect(screen.getAllByText(/no heartbeat for 2 minutes/)[0]).toBeInTheDocument();
     });
 
     it('renders "no heartbeat yet" when lastSchedulerTickAt is null', async () => {
@@ -331,7 +331,7 @@ describe('SummaryStats', () => {
         schedulerStale: true,
       });
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(/no heartbeat for 30 seconds/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getAllByText(/no heartbeat for 30 seconds/)[0]).toBeInTheDocument());
     });
 
     it('shows hours for very old heartbeat', async () => {
@@ -346,7 +346,7 @@ describe('SummaryStats', () => {
         schedulerStale: true,
       });
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(/no heartbeat for 2 hours/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getAllByText(/no heartbeat for 2 hours/)[0]).toBeInTheDocument());
     });
   });
 
@@ -842,7 +842,7 @@ describe('SummaryStats', () => {
         schedulerStale: true,
       });
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getAllByText(/Scheduler may be down/)[0]).toBeInTheDocument());
       expect(screen.getByText('Retry now')).toBeInTheDocument();
     });
 
@@ -856,7 +856,7 @@ describe('SummaryStats', () => {
         schedulerStale: true,
       });
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getAllByText(/Scheduler may be down/)[0]).toBeInTheDocument());
 
       const fetchCallsBefore = (globalThis.fetch as jest.Mock).mock.calls.length;
       fireEvent.click(screen.getByText('Retry now'));

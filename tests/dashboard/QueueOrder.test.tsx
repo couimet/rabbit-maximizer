@@ -702,6 +702,44 @@ describe('QueueOrder', () => {
       expect(screen.queryByText(/scheduler is currently paused. Retrigger anyway/)).not.toBeInTheDocument();
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
+
+    it('does not call retriggerNow when confirming after scheduler became stale', () => {
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(undefined) } as Response),
+      ) as unknown as typeof fetch;
+      const items = [makeQueueItem({ status: 'pending' })];
+
+      const { rerender } = render(
+        <QueueOrder
+          items={items}
+          schedulerStale={false}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={true}
+        />,
+      );
+
+      fireEvent.click(screen.getByLabelText(/^Retrigger now/));
+      expect(screen.getByText('Retrigger anyway')).toBeInTheDocument();
+
+      rerender(
+        <QueueOrder
+          items={items}
+          schedulerStale={true}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={true}
+        />,
+      );
+
+      fireEvent.click(screen.getByText('Retrigger anyway'));
+
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
   });
 
   describe('move to top', () => {
@@ -901,7 +939,7 @@ describe('QueueOrder', () => {
       expect(screen.queryByText(/Data refreshed/)).not.toBeInTheDocument();
     });
 
-    it('does not render stale banner when items is empty', () => {
+    it('shows stale banner when items is empty', () => {
       renderQueueOrder({
         items: [],
         onMoveComplete: jest.fn(),
@@ -911,11 +949,11 @@ describe('QueueOrder', () => {
         lastSchedulerTickAt: '2026-07-28T10:00:00Z',
       });
 
-      expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
       expect(screen.getByText('No items in queue.')).toBeInTheDocument();
     });
 
-    it('does not render stale banner when items is null (loading)', () => {
+    it('shows stale banner when items is null (loading)', () => {
       renderQueueOrder({
         items: null,
         onMoveComplete: jest.fn(),
@@ -925,7 +963,7 @@ describe('QueueOrder', () => {
         lastSchedulerTickAt: '2026-07-28T10:00:00Z',
       });
 
-      expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
       expect(screen.getByText('Loading queue order…')).toBeInTheDocument();
     });
 
@@ -945,7 +983,7 @@ describe('QueueOrder', () => {
       const retriggerButtons = screen.getAllByLabelText(/^Retrigger now/);
       const moveToTopButtons = screen.getAllByLabelText('Move to top');
 
-      for (const btn of [...upButtons, ...downButtons, ...retriggerButtons, ...moveToTopButtons]) {
+      for (const btn of [...upButtons, ...downButtons, ...retriggerButtons, ...moveToTopButtons, screen.getByText('Move Up'), screen.getByText('Move Down')]) {
         expect(btn).toBeDisabled();
       }
     });

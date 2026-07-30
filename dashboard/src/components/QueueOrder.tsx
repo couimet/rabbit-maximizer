@@ -138,6 +138,7 @@ const QueueOrder = ({
   };
 
   const executeRetrigger = (uuid: string) => {
+    if (schedulerStale) return;
     setRetriggeringUuid(uuid);
     retriggerNow(uuid, paused)
       .then(() => {
@@ -162,7 +163,20 @@ const QueueOrder = ({
 
   const Heading = headingLevel;
 
-  if (!items) return <div className="loading">Loading queue order…</div>;
+  const staleBanner = schedulerStale ? (
+    <div className="section-stale-banner">
+      <div>Scheduler may be down — no heartbeat for {formatElapsed(lastSchedulerTickAt) ?? 'unknown'}</div>
+      {lastUpdatedAt !== null && <div>Data refreshed {formatRelativeTime(lastUpdatedAt.toISOString())}</div>}
+    </div>
+  ) : null;
+
+  if (!items)
+    return (
+      <>
+        {staleBanner}
+        <div className="loading">Loading queue order…</div>
+      </>
+    );
 
   const hasSelection = selectedUuids.size > 0;
   const pendingCount = items.filter((i) => i.status === QueueStatus.pending).length;
@@ -175,16 +189,11 @@ const QueueOrder = ({
       <Heading>Queue Order{headingCount ? ` — ${headingCount}` : ''}</Heading>
       {moveError && <div className="error">Move failed: {moveError}</div>}
       {toast && <div className={'toast toast-' + toast.variant}>{toast.message}</div>}
+      {staleBanner}
       {items.length === 0 ? (
         <p>No items in queue.</p>
       ) : (
         <>
-          {schedulerStale && (
-            <div className="section-stale-banner">
-              <div>Scheduler may be down — no heartbeat for {formatElapsed(lastSchedulerTickAt) ?? 'unknown'}</div>
-              {lastUpdatedAt !== null && <div>Data refreshed {formatRelativeTime(lastUpdatedAt.toISOString())}</div>}
-            </div>
-          )}
           <div className="queue-order-toolbar">
             <button
               disabled={!hasSelection || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}

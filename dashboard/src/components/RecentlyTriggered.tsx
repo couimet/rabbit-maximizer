@@ -137,18 +137,18 @@ const RecentlyTriggered = ({ schedulerStale, lastSchedulerTickAt }: { schedulerS
         <input type="checkbox" checked={includeResolved} onChange={(e) => setIncludeResolved(e.target.checked)} /> Show resolved
       </label>
 
+      {schedulerStale && (
+        <div className="scheduler-stale-banner">
+          <div>Scheduler may be down — no heartbeat for {formatElapsed(lastSchedulerTickAt) ?? 'unknown'}</div>
+          {lastUpdatedRef.current !== null && <div>Data refreshed {formatRelativeTime(lastUpdatedRef.current.toISOString())}</div>}
+        </div>
+      )}
       {loading && items.length === 0 ? (
         <div className="loading">Loading triggered items…</div>
       ) : items.length === 0 ? (
         <p>No triggered items in this time window.</p>
       ) : (
         <>
-          {schedulerStale && (
-            <div className="scheduler-stale-banner">
-              <div>Scheduler may be down — no heartbeat for {formatElapsed(lastSchedulerTickAt) ?? 'unknown'}</div>
-              {lastUpdatedRef.current !== null && <div>Data refreshed {formatRelativeTime(lastUpdatedRef.current.toISOString())}</div>}
-            </div>
-          )}
           <table className="data-table triggered-table">
             <thead>
               <tr>
