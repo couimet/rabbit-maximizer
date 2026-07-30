@@ -6,6 +6,7 @@ import { createMockFetch, generateQueueItemResponseData } from '../helpers/index
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StatusCodes } from 'http-status-codes';
 import { StrictMode } from 'react';
 
 const defaultOnMoveComplete = jest.fn();
@@ -160,7 +161,7 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => movePromise,
         } as Response),
       ) as unknown as typeof fetch;
@@ -190,7 +191,7 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => Promise.resolve({ data: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })] }),
         } as Response),
       ) as unknown as typeof fetch;
@@ -517,7 +518,7 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => retriggerPromise,
         } as Response),
       ) as unknown as typeof fetch;
@@ -555,7 +556,7 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => retriggerPromise,
         } as Response),
       ) as unknown as typeof fetch;
@@ -705,7 +706,7 @@ describe('QueueOrder', () => {
 
     it('does not call retriggerNow when confirming after scheduler became stale', () => {
       globalThis.fetch = jest.fn(() =>
-        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(undefined) } as Response),
+        Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(undefined) } as Response),
       ) as unknown as typeof fetch;
       const items = [makeQueueItem({ status: 'pending' })];
 
@@ -825,7 +826,7 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => moveToTopPromise,
         } as Response),
       ) as unknown as typeof fetch;
@@ -852,7 +853,7 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => moveToTopPromise,
         } as Response),
       ) as unknown as typeof fetch;

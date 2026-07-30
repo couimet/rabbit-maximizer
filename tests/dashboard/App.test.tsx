@@ -5,6 +5,7 @@ import { App } from '../../dashboard/src/index.js';
 import '@testing-library/jest-dom/jest-globals';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StatusCodes } from 'http-status-codes';
 
 const emptyDashboardState = {
   nextReviewAvailableAt: null,
@@ -26,7 +27,7 @@ describe('App', () => {
     globalThis.fetch = jest.fn((url: string) =>
       Promise.resolve({
         ok: true,
-        status: 200,
+        status: StatusCodes.OK,
         json: () => Promise.resolve(responses[url] ?? {}),
       } as Response),
     ) as unknown as typeof fetch;

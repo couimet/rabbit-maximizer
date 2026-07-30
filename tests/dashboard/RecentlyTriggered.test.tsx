@@ -7,15 +7,18 @@ import { generateQueueItemResponseData, generateReviewRef } from '../helpers/ind
 import '@testing-library/jest-dom/jest-globals';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StatusCodes } from 'http-status-codes';
 import { type ReactElement, StrictMode } from 'react';
 
+const EMPTY_TOTAL = 0;
+const FIRST_PAGE = 1;
 const PAGE_SIZE = 50;
-const TRIGGERED_RESPONSE = { data: [], total: 0, page: 1, pageSize: PAGE_SIZE };
+const TRIGGERED_RESPONSE = { data: [], total: EMPTY_TOTAL, page: FIRST_PAGE, pageSize: PAGE_SIZE };
 
 const mockTriggeredEndpoint = (data: Record<string, unknown> = TRIGGERED_RESPONSE) => {
   globalThis.fetch = jest.fn((url: string) => {
     if (typeof url === 'string' && url.includes('/queue/triggered')) {
-      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response);
+      return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(data) } as Response);
     }
     return Promise.reject(new Error('Unexpected fetch: ' + url));
   }) as unknown as typeof fetch;
@@ -158,11 +161,11 @@ describe('RecentlyTriggered', () => {
       globalThis.fetch = jest.fn((url: string) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
           if (url.includes('page=2')) {
-            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(page2Data) } as Response);
+            return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(page2Data) } as Response);
           }
           return Promise.resolve({
             ok: true,
-            status: 200,
+            status: StatusCodes.OK,
             json: () => Promise.resolve({ data: [item1], total: 60, page: 1, pageSize: PAGE_SIZE }),
           } as Response);
         }
@@ -195,7 +198,11 @@ describe('RecentlyTriggered', () => {
 
       globalThis.fetch = jest.fn((url: string) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [], total: 0, page: 1, pageSize: PAGE_SIZE }) } as Response);
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve({ data: [], total: 0, page: 1, pageSize: PAGE_SIZE }),
+          } as Response);
         }
         return Promise.reject(new Error('Unexpected fetch: ' + url));
       }) as unknown as typeof fetch;
@@ -266,7 +273,7 @@ describe('RecentlyTriggered', () => {
           if (callCount === 1) {
             return Promise.resolve({
               ok: true,
-              status: 200,
+              status: StatusCodes.OK,
               json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE }),
             } as Response);
           }
@@ -293,10 +300,14 @@ describe('RecentlyTriggered', () => {
       const item = makeItem();
       globalThis.fetch = jest.fn((url: string, _init?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }),
+          } as Response);
         }
         if (typeof url === 'string' && url.includes('/mark-reviewed')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response);
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve({ ok: true }) } as Response);
         }
         return Promise.reject(new Error('Unexpected fetch'));
       }) as unknown as typeof fetch;
@@ -314,7 +325,11 @@ describe('RecentlyTriggered', () => {
       const item = makeItem();
       globalThis.fetch = jest.fn((url: string, _init?: RequestInit) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }) } as Response);
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve({ data: [item], total: 1, page: 1, pageSize: 50 }),
+          } as Response);
         }
         if (typeof url === 'string' && url.includes('/mark-reviewed')) {
           return Promise.reject(new Error('API error'));
@@ -427,7 +442,7 @@ describe('RecentlyTriggered', () => {
       });
       globalThis.fetch = jest.fn((url: string) => {
         if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => triggeredPromise } as Response);
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => triggeredPromise } as Response);
         }
         return Promise.reject(new Error('Unexpected fetch: ' + url));
       }) as unknown as typeof fetch;
@@ -443,7 +458,7 @@ describe('RecentlyTriggered', () => {
       expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
 
       await act(() => {
-        resolveTriggered({ data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
+        resolveTriggered({ data: [], total: EMPTY_TOTAL, page: FIRST_PAGE, pageSize: PAGE_SIZE });
       });
     });
   });
