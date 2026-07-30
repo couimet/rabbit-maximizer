@@ -1,5 +1,5 @@
 import type { Config } from '../config.js';
-import { type EventRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from '../db/index.js';
+import { type EventRepository, type QueueOrderRepository, type QueueRepository, StateKey, type SystemStateRepository } from '../db/index.js';
 import type { EventCountsMapper, QueueItemMapper } from '../mappers/index.js';
 import { MS_PER_SECOND, resolveDurationSince } from '../utils/index.js';
 
@@ -21,12 +21,13 @@ export const createGetDashboardStateHandler = (
     try {
       const since = resolveDurationSince(req.query.duration);
 
-      const [items, eventCounts, paused, lastSchedulerTickAt, skippedQueueItems] = await Promise.all([
+      const [items, eventCounts, paused, lastSchedulerTickAt, skippedQueueItems, storedNextReviewAt] = await Promise.all([
         queueOrderRepo.getEffectiveOrder(),
         eventRepo.countByType(since),
         systemStateRepo.isSchedulerPaused(),
         systemStateRepo.getLastSchedulerTickAt(),
         queueRepo.getSkippedItems(),
+        systemStateRepo.getState(StateKey.nextReviewAvailableAt),
       ]);
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
       const [pendingItems, skippedItems] = await Promise.all([
@@ -34,7 +35,7 @@ export const createGetDashboardStateHandler = (
         queueItemMapper.mapToQueueItemResponseList(skippedQueueItems),
       ]);
 
-      const nextReviewAvailableAt: string | null = null;
+      const nextReviewAvailableAt = storedNextReviewAt && storedNextReviewAt.getTime() > Date.now() ? storedNextReviewAt.toISOString() : null;
 
       const staleThresholdMs = config.SCHEDULER_STALE_TICK_MULTIPLIER * config.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND;
       const schedulerStale = lastSchedulerTickAt === undefined || Date.now() - lastSchedulerTickAt.getTime() > staleThresholdMs;

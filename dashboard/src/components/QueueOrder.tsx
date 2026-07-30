@@ -226,7 +226,7 @@ const QueueOrder = ({
                       </a>{' '}
                       by {item.author_login}
                     </td>
-                    <td>{renderQueueOrderStatus(item)}</td>
+                    <td>{index === 0 ? renderQueueOrderStatus(item) : <span className="queue-order-carrots">{'🥕'.repeat(index)}</span>}</td>
                     <td className="col-actions">
                       <button
                         className="btn-retrigger"
