@@ -286,7 +286,6 @@ export interface components {
        */
       pr_state?: 'open' | 'merged' | 'closed' | null;
       status: components['schemas']['QueueStatus'];
-      /** @description Terminal reason when status='resolved' */
       resolution?: string | null;
       /** Format: date-time */
       retriggered_at?: string | null;
@@ -299,27 +298,22 @@ export interface components {
       retrigger_comment_url?: string | null;
       source_comment_url: string;
       last_review_url?: string | null;
-      /**
-       * @enum {string|null}
-       */
+      /** @enum {string|null} */
       last_review_state?: 'review_approved' | 'review_changes_suggested' | null;
       review_count: number;
       retrigger_count: number;
       /** Format: date-time */
       last_coderabbit_acknowledged_at?: string | null;
-      /**
-       * Format: date-time
-       * @description Most recent activity timestamp
-       */
+      /** Format: date-time */
       last_activity_at: string;
     };
     /** @enum {string} */
     EventType:
-      | 'dismissed'
       | 'coderabbit_review_approved'
       | 'coderabbit_review_changes_suggested'
       | 'coderabbit_review_skipped'
       | 'detected'
+      | 'dismissed'
       | 'enqueued'
       | 'failed'
       | 'retriggered';
@@ -382,14 +376,14 @@ export interface components {
       eventCounts: components['schemas']['EventCounts'];
       oldestPending: components['schemas']['QueueItem'] | null;
     };
-    PaginatedActivityList: {
-      data: components['schemas']['ActivityListItem'][];
+    PaginatedQueue: {
+      data: components['schemas']['QueueItem'][];
       total: number;
       page: number;
       pageSize: number;
     };
-    PaginatedQueue: {
-      data: components['schemas']['QueueItem'][];
+    PaginatedActivityList: {
+      data: components['schemas']['ActivityListItem'][];
       total: number;
       page: number;
       pageSize: number;
