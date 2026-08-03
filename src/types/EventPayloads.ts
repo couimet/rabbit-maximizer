@@ -1,4 +1,4 @@
-import type { BypassReason } from '../BypassReason.js';
+import type { DismissalReason } from '../DismissalReason.js';
 import type { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
 
 import type { CoderabbitReviewVerdictState } from './CoderabbitReviewVerdict.js';
@@ -48,9 +48,8 @@ export interface FailedPayload {
   readonly max?: number;
 }
 
-export interface BypassedPayload {
-  readonly reason: BypassReason;
-  readonly detail?: string;
+export interface DismissedPayload {
+  readonly reason: DismissalReason;
 }
 
 /** Rarely-queried provenance, persisted as the JSON `metadata` column. */

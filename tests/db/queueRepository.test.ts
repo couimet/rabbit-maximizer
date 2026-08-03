@@ -1085,6 +1085,20 @@ describe('QueueRepositoryImpl', () => {
     });
   });
 
+  describe('getActiveQueue', () => {
+    it('returns pending and retriggered items ordered by id', async () => {
+      const rows = [generateReviewQueueHydrationData({ status: QueueStatus.pending }), generateReviewQueueHydrationData({ status: QueueStatus.retriggered })];
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.getActiveQueue();
+
+      expect(reviewQueue.findMany).toHaveBeenCalledWith({ where: { status: { in: ['pending', 'retriggered'] } }, orderBy: { id: 'asc' } });
+      expect(result).toHaveLength(2);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getActiveQueue', count: 2 }, 'Fetched active queue');
+    });
+  });
+
   describe('getPendingQueue', () => {
     it('returns pending items ordered by id', async () => {
       const rows = [generateReviewQueueHydrationData({ status: QueueStatus.pending }), generateReviewQueueHydrationData({ status: QueueStatus.pending })];
@@ -1191,11 +1205,11 @@ describe('QueueRepositoryImpl', () => {
     });
   });
 
-  describe('getTriggered', () => {
-    it('returns retriggered items since date ordered by retriggered_at desc', async () => {
+  describe('getActivityList', () => {
+    it('returns items since date ordered by created_at desc', async () => {
       const since = getUniqueDate();
-      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 1000) });
-      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 2000) });
+      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, created_at: new Date(since.getTime() + 1000) });
+      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, created_at: new Date(since.getTime() + 2000) });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row2, row1]),
@@ -1204,54 +1218,29 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const result = await sut.getTriggered(since, 0, 50, false);
+      const result = await sut.getActivityList(since, 0, 50);
 
+      expect(result.items).toHaveLength(2);
+      expect(result.total).toBe(2);
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
-        orderBy: { retriggered_at: 'desc' },
+        where: { created_at: { gte: since } },
+        orderBy: { created_at: 'desc' },
         skip: 0,
         take: 50,
       });
       expect(reviewQueue.count).toHaveBeenCalledWith({
-        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+        where: { created_at: { gte: since } },
       });
-      expect(result).toStrictEqual({ items: [mapper.fromReviewQueue(row2), mapper.fromReviewQueue(row1)], total: 2 });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.getTriggered', since, skip: 0, take: 50, includeResolved: false, count: 2, total: 2 },
-        'Fetched triggered queue',
+        { fn: 'QueueRepositoryImpl.getActivityList', since, skip: 0, take: 50, count: 2, total: 2 },
+        'Fetched activity list',
       );
-    });
-
-    it('includes resolved items when includeResolved is true', async () => {
-      const since = getUniqueDate();
-      const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: since });
-      const resolvedRow = generateReviewQueueHydrationData({ status: QueueStatus.resolved, retriggered_at: since });
-      const { prisma, reviewQueue } = createMockPrismaClient({
-        reviewQueue: {
-          findMany: createResolvedMock([row, resolvedRow]),
-          count: createResolvedMock(2),
-        },
-      });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
-
-      const result = await sut.getTriggered(since, 0, 50, true);
-
-      expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'resolved'] } },
-        orderBy: { retriggered_at: 'desc' },
-        skip: 0,
-        take: 50,
-      });
-      expect(reviewQueue.count).toHaveBeenCalledWith({
-        where: { retriggered_at: { gte: since }, status: { in: ['retriggered', 'resolved'] } },
-      });
-      expect(result.items).toStrictEqual([mapper.fromReviewQueue(row), mapper.fromReviewQueue(resolvedRow)]);
     });
 
     it('respects skip and take for pagination', async () => {
       const since = getUniqueDate();
-      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 4000) });
-      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, retriggered_at: new Date(since.getTime() + 3000) });
+      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, created_at: new Date(since.getTime() + 4000) });
+      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, created_at: new Date(since.getTime() + 3000) });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row1, row2]),
@@ -1260,18 +1249,19 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const result = await sut.getTriggered(since, 1, 2, false);
+      const result = await sut.getActivityList(since, 1, 2);
 
+      expect(result.items).toHaveLength(2);
+      expect(result.total).toBe(4);
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
-        orderBy: { retriggered_at: 'desc' },
+        where: { created_at: { gte: since } },
+        orderBy: { created_at: 'desc' },
         skip: 1,
         take: 2,
       });
       expect(reviewQueue.count).toHaveBeenCalledWith({
-        where: { retriggered_at: { gte: since }, status: { in: ['retriggered'] } },
+        where: { created_at: { gte: since } },
       });
-      expect(result).toStrictEqual({ items: [mapper.fromReviewQueue(row1), mapper.fromReviewQueue(row2)], total: 4 });
     });
   });
 

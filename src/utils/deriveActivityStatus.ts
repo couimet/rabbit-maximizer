@@ -1,10 +1,22 @@
 import { ActivityState, CodeRabbitCommentType } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
-import type { ActivityStatus, QueueItemResponse } from '../types/index.js';
+import type { ActivityStatus } from '../types/index.js';
 
 import { isReviewVerdictState } from './isReviewVerdictState.js';
 
-export const deriveActivityStatus = (item: QueueItemResponse): ActivityStatus => {
+interface DeriveStatusInput {
+  readonly status: string;
+  readonly resolution?: string | null | undefined;
+  readonly last_coderabbit_acknowledged_at?: string | null | undefined;
+  readonly retrigger_comment_url?: string | null | undefined;
+  readonly source_comment_url?: string;
+  readonly coderabbit_review_state?: string | null;
+  readonly coderabbit_review_url?: string | null;
+  readonly last_review_state?: string | null;
+  readonly last_review_url?: string | null;
+}
+
+export const deriveActivityStatus = (item: DeriveStatusInput): ActivityStatus => {
   switch (item.status) {
     case 'resolved':
       return resolvedStatus(item);
@@ -17,7 +29,7 @@ export const deriveActivityStatus = (item: QueueItemResponse): ActivityStatus =>
   }
 };
 
-const resolvedStatus = (item: QueueItemResponse): ActivityStatus => {
+const resolvedStatus = (item: DeriveStatusInput): ActivityStatus => {
   // Legacy items may have a null resolution; guard before the switch.
   if (item.resolution == null) {
     return { state: ActivityState.reviewCompleted, linkUrl: undefined };
@@ -40,30 +52,32 @@ const resolvedStatus = (item: QueueItemResponse): ActivityStatus => {
   }
 };
 
-const reviewedStatus = (item: QueueItemResponse): ActivityStatus => {
+const reviewedStatus = (item: DeriveStatusInput): ActivityStatus => {
   let subState: ActivityStatus['subState'] = undefined;
-  const reviewState: CodeRabbitCommentType | null | undefined = item.coderabbit_review_state as CodeRabbitCommentType | null | undefined;
+  const reviewState: CodeRabbitCommentType | null | undefined =
+    (item.coderabbit_review_state as CodeRabbitCommentType | null | undefined) ?? (item.last_review_state as CodeRabbitCommentType | null | undefined);
   if (isReviewVerdictState(reviewState)) {
     subState = reviewState;
   }
+  const reviewUrl = item.coderabbit_review_url ?? item.last_review_url ?? undefined;
   return {
     state: ActivityState.reviewCompleted,
-    linkUrl: item.coderabbit_review_url ?? undefined,
+    linkUrl: reviewUrl,
     ...(subState ? { subState } : {}),
   };
 };
 
-const retriggeredStatus = (item: QueueItemResponse): ActivityStatus => {
-  if (item.last_coderabbit_acknowledged_at) {
-    return {
-      state: ActivityState.reviewInProgress,
-      linkUrl: item.retrigger_comment_url ?? undefined,
-    };
-  }
+const retriggeredStatus = (item: DeriveStatusInput): ActivityStatus => {
   if (item.source_comment_url) {
     return {
       state: ActivityState.reviewLimited,
       linkUrl: item.source_comment_url,
+    };
+  }
+  if (item.last_coderabbit_acknowledged_at) {
+    return {
+      state: ActivityState.reviewInProgress,
+      linkUrl: item.retrigger_comment_url ?? undefined,
     };
   }
   return {
@@ -72,7 +86,7 @@ const retriggeredStatus = (item: QueueItemResponse): ActivityStatus => {
   };
 };
 
-const pendingStatus = (item: QueueItemResponse): ActivityStatus => {
+const pendingStatus = (item: DeriveStatusInput): ActivityStatus => {
   if (item.source_comment_url) {
     return {
       state: ActivityState.reviewLimited,

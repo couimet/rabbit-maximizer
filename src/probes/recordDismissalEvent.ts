@@ -1,22 +1,22 @@
 import type { EventRepository } from '../db/index.js';
-import { BypassReason, EventType } from '../domain.js';
+import { DismissalReason, EventType } from '../domain.js';
 import type { ObservationContext } from '../observability/index.js';
 
 import type { Prisma } from '@prisma/client';
 
-export interface BypassEventParams {
+export interface DismissalEventParams {
   readonly events: EventRepository;
   readonly tx: Prisma.TransactionClient;
-  readonly reason: BypassReason;
+  readonly reason: DismissalReason;
   readonly observation: ObservationContext;
   readonly repo_full_name: string;
   readonly pr_number: number;
 }
 
-export const recordBypassEvent = (params: BypassEventParams) =>
+export const recordDismissalEvent = (params: DismissalEventParams) =>
   params.events.record(
     {
-      type: EventType.bypassed,
+      type: EventType.dismissed,
       repo_full_name: params.repo_full_name,
       pr_number: params.pr_number,
       correlation_id: params.observation.correlationId,

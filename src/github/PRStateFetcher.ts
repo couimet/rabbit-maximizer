@@ -24,7 +24,7 @@ export class PRStateFetcherImpl implements PRStateFetcher {
     try {
       return await this.github.getPRState(repo, pr);
     } catch (err: unknown) {
-      this.log.warn({ fn, repo, pr, error: err }, 'Failed to fetch PR state; proceeding without it');
+      this.log.warn({ fn: `${fn}::PRStateFetcher.fetch`, repo, pr, error: err }, 'Failed to fetch PR state');
       return undefined;
     }
   }

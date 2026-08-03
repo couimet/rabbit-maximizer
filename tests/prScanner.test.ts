@@ -16,7 +16,7 @@ import {
   type MockPrScannerProbe,
 } from './helpers/index.js';
 
-import { getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -72,11 +72,16 @@ describe('PrScannerImpl', () => {
     expect(prScannerProbe.completed).toHaveBeenCalledWith(1, 1, 0);
   });
 
-  it('detects closures: updates DB PRs not in GitHub open list with correct prState', async () => {
+  it('detects closures: updates DB PRs not in GitHub open list with correct prState and timestamps', async () => {
     const openRef = generateReviewRef();
     const mergedRef = generateReviewRef();
     const closedRef = generateReviewRef();
     const { prTitle, authorLogin } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
+
+    const mergedDate = getUniqueDate();
+    const closedDate = getUniqueDate();
+    const mergedAt = mergedDate.toISOString();
+    const closedAt = closedDate.toISOString();
 
     const discoveredPR: DiscoveredPR = { repoFullName: openRef.repoFullName, prNumber: openRef.prNumber, prTitle, authorLogin };
     const dbOpenPRs = [
@@ -87,13 +92,15 @@ describe('PrScannerImpl', () => {
 
     github.listOpenPRs.mockResolvedValue([discoveredPR]);
     pullRequests.findByPrState.mockResolvedValue(dbOpenPRs);
-    github.getPRState.mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01T00:00:00Z' }).mockResolvedValueOnce({ state: 'closed', merged_at: null });
+    github.getPRState
+      .mockResolvedValueOnce({ state: 'closed', merged_at: mergedAt, closed_at: mergedAt })
+      .mockResolvedValueOnce({ state: 'closed', merged_at: null, closed_at: closedAt });
 
     const scanner = createScanner();
     await scanner.scan();
 
-    expect(pullRequests.upsert).toHaveBeenCalledWith(mergedRef.repoFullName, mergedRef.prNumber, { prState: 'merged' });
-    expect(pullRequests.upsert).toHaveBeenCalledWith(closedRef.repoFullName, closedRef.prNumber, { prState: 'closed' });
+    expect(pullRequests.upsert).toHaveBeenCalledWith(mergedRef.repoFullName, mergedRef.prNumber, { prState: 'merged', mergedAt: mergedDate });
+    expect(pullRequests.upsert).toHaveBeenCalledWith(closedRef.repoFullName, closedRef.prNumber, { prState: 'closed', closedAt: closedDate });
     expect(github.getPRState).toHaveBeenCalledTimes(2);
     expect(prScannerProbe.detectedClosures).toHaveBeenCalledWith(2);
     expect(prScannerProbe.completed).toHaveBeenCalledWith(1, 0, 2);

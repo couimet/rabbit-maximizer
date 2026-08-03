@@ -8,4 +8,6 @@ export interface EnrichedQueueItem extends QueueItem {
   readonly lastCoderabbitAcknowledgedAt: Date | undefined;
   readonly authorLogin: string;
   readonly coderabbitReview?: CoderabbitReviewVerdict;
+  readonly retriggerCount: number;
+  readonly reviewCount: number;
 }

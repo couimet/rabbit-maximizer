@@ -100,10 +100,10 @@ export class PrScannerImpl implements PrScanner {
             const prState = await this.github.getPRState(dbPR.repo_full_name, dbPR.pr_number);
             void getPrStateFromGitHubValue(prState.state);
             if (isPRMerged(prState)) {
-              await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: PrState.merged });
+              await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: PrState.merged, mergedAt: new Date(prState.merged_at!) });
               closed++;
             } else if (isPRClosedWithoutMerge(prState)) {
-              await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: PrState.closed });
+              await this.pullRequests.upsert(dbPR.repo_full_name, dbPR.pr_number, { prState: PrState.closed, closedAt: new Date(prState.closed_at!) });
               closed++;
             }
           } catch (err: unknown) {

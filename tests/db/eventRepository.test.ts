@@ -297,11 +297,11 @@ describe('EventRepositoryImpl', () => {
   describe('countByType', () => {
     it('returns counts keyed by EventType for events since the given date', async () => {
       const since = getUniqueDate();
-      const { detectedCnt, enqueuedCnt, retriggeredCnt, bypassedCnt, approvedCnt, changesReqCnt, skippedCnt, failedCnt } = getUniqueIntsNamed([
+      const { detectedCnt, enqueuedCnt, retriggeredCnt, dismissedCnt, approvedCnt, changesReqCnt, skippedCnt, failedCnt } = getUniqueIntsNamed([
         'detectedCnt',
         'enqueuedCnt',
         'retriggeredCnt',
-        'bypassedCnt',
+        'dismissedCnt',
         'approvedCnt',
         'changesReqCnt',
         'skippedCnt',
@@ -311,7 +311,7 @@ describe('EventRepositoryImpl', () => {
         { type: 'detected', _count: { type: detectedCnt } },
         { type: 'enqueued', _count: { type: enqueuedCnt } },
         { type: 'retriggered', _count: { type: retriggeredCnt } },
-        { type: 'bypassed', _count: { type: bypassedCnt } },
+        { type: 'dismissed', _count: { type: dismissedCnt } },
         { type: 'coderabbit_review_approved', _count: { type: approvedCnt } },
         { type: 'coderabbit_review_changes_suggested', _count: { type: changesReqCnt } },
         { type: 'coderabbit_review_skipped', _count: { type: skippedCnt } },
@@ -332,7 +332,7 @@ describe('EventRepositoryImpl', () => {
         _count: { type: true },
       });
       expect(result).toStrictEqual({
-        bypassed: bypassedCnt,
+        dismissed: dismissedCnt,
         coderabbit_review_approved: approvedCnt,
         coderabbit_review_changes_suggested: changesReqCnt,
         coderabbit_review_skipped: skippedCnt,
@@ -345,7 +345,7 @@ describe('EventRepositoryImpl', () => {
         {
           fn: 'EventRepositoryImpl.countByType',
           counts: {
-            bypassed: bypassedCnt,
+            dismissed: dismissedCnt,
             coderabbit_review_approved: approvedCnt,
             coderabbit_review_changes_suggested: changesReqCnt,
             coderabbit_review_skipped: skippedCnt,

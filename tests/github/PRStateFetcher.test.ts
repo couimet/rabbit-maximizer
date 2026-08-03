@@ -20,7 +20,7 @@ describe('PRStateFetcher', () => {
   describe('fetch', () => {
     it('returns PR state on success', async () => {
       const ref = generateReviewRef();
-      const prState: PRState = { state: 'open', merged_at: null };
+      const prState: PRState = { state: 'open', merged_at: null, closed_at: null };
       github.getPRState.mockResolvedValue(prState);
 
       const fetcher = createFetcher();
@@ -39,8 +39,8 @@ describe('PRStateFetcher', () => {
 
       expect(result).toBeUndefined();
       expect(logger.warn).toHaveBeenCalledWith(
-        { fn: 'testFn', repo: ref.repoFullName, pr: ref.prNumber, error: apiError },
-        'Failed to fetch PR state; proceeding without it',
+        { fn: 'testFn::PRStateFetcher.fetch', repo: ref.repoFullName, pr: ref.prNumber, error: apiError },
+        'Failed to fetch PR state',
       );
     });
   });

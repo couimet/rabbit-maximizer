@@ -1,10 +1,11 @@
-import type { PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import { type PullRequestRepository, type QueueOrderRepository, type QueueRepository, StateKey, type SystemStateRepository } from './db/index.js';
 import { RabbitMaximizerErrorCodes } from './errors/index.js';
-import type { ProbeFactory } from './probes/index.js';
+import { isPRClosedWithoutMerge, isPRMerged, type PRStateFetcher } from './github/index.js';
+import type { ProbeFactory, SchedulerProbe } from './probes/index.js';
 import type { QueueItem } from './types/index.js';
 import { computeSchedulerBackoff, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { IntervalService, Resolution, TriggerSource, TYPES } from './domain.js';
+import { IntervalService, PrState, Resolution, TriggerSource, TYPES } from './domain.js';
 import { type Pruner, ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -41,6 +42,8 @@ export class Scheduler extends IntervalService {
     private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.SystemStateRepository)
     private readonly systemState: SystemStateRepository,
+    @inject(TYPES.PRStateFetcher)
+    private readonly prStateFetcher: PRStateFetcher,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(log, cfg.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND);
@@ -92,8 +95,12 @@ export class Scheduler extends IntervalService {
         }
       }
 
-      const eligible = await this.queueOrder.getEffectiveOrder();
-      item = eligible[0];
+      const nextReviewAvailableAt = await this.systemState.getState(StateKey.nextReviewAvailableAt);
+      if (nextReviewAvailableAt !== undefined && nextReviewAvailableAt.getTime() > Date.now()) {
+        return;
+      }
+
+      item = await this.selectNextEligibleItem(probe);
       if (!item) {
         probe.noItemsDue();
         return;
@@ -139,7 +146,7 @@ export class Scheduler extends IntervalService {
       if (error.status !== undefined && TERMINAL_HTTP_STATUSES.includes(error.status)) {
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markResolved(item!.id, Resolution.Failed, tx);
-          await probe.prClosedOrMerged(error.status!, tx);
+          await probe.prDeleted(error.status!, tx);
         });
         return;
       }
@@ -162,5 +169,33 @@ export class Scheduler extends IntervalService {
         this.log.error({ fn: 'Scheduler.executeTick', error }, 'Failed to persist scheduler heartbeat');
       }
     }
+  }
+
+  private async selectNextEligibleItem(probe: SchedulerProbe): Promise<QueueItem | undefined> {
+    const eligible = await this.queueOrder.getEffectiveOrder();
+
+    for (const candidate of eligible) {
+      const prState = await this.prStateFetcher.fetch(candidate.repo_full_name, candidate.pr_number, 'Scheduler.selectNextEligibleItem');
+      if (prState === undefined) {
+        continue;
+      }
+      if (isPRMerged(prState)) {
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.markResolved(candidate.id, Resolution.PrMerged, tx);
+          await probe.prClosedDuringScan(candidate.repo_full_name, candidate.pr_number, PrState.merged, tx);
+        });
+        continue;
+      }
+      if (isPRClosedWithoutMerge(prState)) {
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.markResolved(candidate.id, Resolution.PrClosedWithoutMerge, tx);
+          await probe.prClosedDuringScan(candidate.repo_full_name, candidate.pr_number, PrState.closed, tx);
+        });
+        continue;
+      }
+      return candidate;
+    }
+
+    return undefined;
   }
 }

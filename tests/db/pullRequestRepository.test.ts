@@ -142,6 +142,8 @@ describe('PullRequestRepositoryImpl', () => {
           title: '<unknown>',
           author_login: '<unknown>',
           pr_state: 'closed',
+          merged_at: null,
+          closed_at: null,
           first_seen_at: frozenNow,
         },
       });
@@ -170,6 +172,8 @@ describe('PullRequestRepositoryImpl', () => {
           title: '<unknown>',
           author_login: authorLogin,
           pr_state: 'open',
+          merged_at: null,
+          closed_at: null,
           first_seen_at: frozenNow,
         },
       });
@@ -177,6 +181,32 @@ describe('PullRequestRepositoryImpl', () => {
         { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
+    });
+
+    it('creates with mergedAt on create', async () => {
+      const row = { id: getUniqueInt() };
+      const mergedAt = getUniqueDate();
+      const mockCreate = jest.fn<any>().mockResolvedValue(row);
+
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(null), create: mockCreate },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.merged, mergedAt });
+
+      expect(mockCreate).toHaveBeenCalledWith({
+        data: {
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          title: '<unknown>',
+          author_login: '<unknown>',
+          pr_state: 'merged',
+          merged_at: mergedAt,
+          closed_at: null,
+          first_seen_at: frozenNow,
+        },
+      });
     });
 
     it('updates prState on existing PR', async () => {
@@ -191,6 +221,46 @@ describe('PullRequestRepositoryImpl', () => {
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id: existing.id },
         data: { pr_state: 'merged' },
+      });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+        'PullRequest already exists',
+      );
+    });
+
+    it('updates mergedAt on existing PR', async () => {
+      const existing = { id: getUniqueInt() };
+      const mergedAt = getUniqueDate();
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(existing) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.merged, mergedAt });
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id: existing.id },
+        data: { pr_state: 'merged', merged_at: mergedAt },
+      });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+        'PullRequest already exists',
+      );
+    });
+
+    it('updates closedAt on existing PR', async () => {
+      const existing = { id: getUniqueInt() };
+      const closedAt = getUniqueDate();
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock(existing) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.closed, closedAt });
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id: existing.id },
+        data: { pr_state: 'closed', closed_at: closedAt },
       });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },

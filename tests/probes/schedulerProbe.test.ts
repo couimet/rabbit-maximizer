@@ -1,3 +1,4 @@
+import { PrState } from '../../src/domain.js';
 import { RabbitMaximizerError } from '../../src/errors/index.js';
 import type { ObservationContext } from '../../src/observability/index.js';
 import { SchedulerProbe } from '../../src/probes/index.js';
@@ -149,30 +150,78 @@ describe('SchedulerProbe', () => {
     });
   });
 
-  describe('prClosedOrMerged', () => {
-    it('records event and logs info', async () => {
+  describe('prClosedDuringScan', () => {
+    it('records a dismissed event with prMerged reason for merged PRs', async () => {
+      const ref = generateReviewRef();
+      const tx = createMockTx();
+      const probe = createProbe();
+      await probe.prClosedDuringScan(ref.repoFullName, ref.prNumber, PrState.merged, tx);
+      expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'dismissed',
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          correlation_id: observation.correlationId,
+          request_id: observation.requestId,
+          version: observation.version,
+          payload: { reason: 'prMerged' },
+        },
+        tx,
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'SchedulerProbe.prClosedDuringScan', repo: ref.repoFullName, pr: ref.prNumber, prState: 'merged', reason: 'prMerged' },
+        'PR closed or merged during scheduler scan; dismissed',
+      );
+    });
+
+    it('records a dismissed event with prClosedWithoutMerge reason for closed PRs', async () => {
+      const ref = generateReviewRef();
+      const tx = createMockTx();
+      const probe = createProbe();
+      await probe.prClosedDuringScan(ref.repoFullName, ref.prNumber, PrState.closed, tx);
+      expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'dismissed',
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          correlation_id: observation.correlationId,
+          request_id: observation.requestId,
+          version: observation.version,
+          payload: { reason: 'prClosedWithoutMerge' },
+        },
+        tx,
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'SchedulerProbe.prClosedDuringScan', repo: ref.repoFullName, pr: ref.prNumber, prState: 'closed', reason: 'prClosedWithoutMerge' },
+        'PR closed or merged during scheduler scan; dismissed',
+      );
+    });
+  });
+
+  describe('prDeleted', () => {
+    it('records a dismissed event and logs info', async () => {
       const ref = generateReviewRef();
       const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const status = getUniqueInt();
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.prClosedOrMerged(status, tx);
+      await probe.prDeleted(status, tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
-          type: 'failed',
+          type: 'dismissed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
           correlation_id: observation.correlationId,
           request_id: observation.requestId,
           version: observation.version,
-          payload: { reason: 'PR closed or merged' },
+          payload: { reason: 'prDeleted' },
         },
         tx,
       );
       expect(logger.info).toHaveBeenCalledWith(
-        { fn: 'SchedulerProbe.prClosedOrMerged', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, status },
-        'PR closed or merged; marked failed',
+        { fn: 'SchedulerProbe.prDeleted', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, status },
+        'PR not found (deleted); dismissed',
       );
     });
   });

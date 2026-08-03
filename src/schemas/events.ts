@@ -1,5 +1,4 @@
-import { BypassReason, CodeRabbitCommentType, EventType } from '../domain.js';
-import { RabbitMaximizerError } from '../errors/index.js';
+import { CodeRabbitCommentType, DismissalReason, EventType } from '../domain.js';
 import { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
 import type { EventEnvelope, EventLogEntry } from '../types/index.js';
 
@@ -22,9 +21,8 @@ export const RetriggeredPayloadSchema = z.object({
   retriggered_comment_url: COMMENT_URL_SCHEMA,
 });
 
-export const BypassedPayloadSchema = z.object({
-  reason: z.enum(BypassReason),
-  detail: z.string().max(REASON_MAX_LENGTH).optional(),
+export const DismissedPayloadSchema = z.object({
+  reason: z.enum(DismissalReason),
 });
 
 export const CoderabbitReviewApprovedPayloadSchema = z.object({
@@ -95,11 +93,11 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         type: EventType.retriggered,
         payload: RetriggeredPayloadSchema.parse(payload),
       };
-    case EventType.bypassed:
+    case EventType.dismissed:
       return {
         ...envelope,
-        type: EventType.bypassed,
-        payload: BypassedPayloadSchema.parse(payload),
+        type: EventType.dismissed,
+        payload: DismissedPayloadSchema.parse(payload),
       };
     case EventType.coderabbit_review_approved:
       return {
@@ -126,6 +124,10 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         payload: FailedPayloadSchema.parse(payload),
       };
     default:
-      throw RabbitMaximizerError.forUnexpectedSwitchDefault('event type', row.type, 'parseEventRow');
+      return {
+        ...envelope,
+        type: row.type,
+        payload: typeof payload === 'object' ? payload : { raw: payload },
+      } as EventLogEntry;
   }
 };

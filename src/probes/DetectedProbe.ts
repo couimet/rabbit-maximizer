@@ -1,10 +1,10 @@
 import type { EventRepository } from '../db/index.js';
-import { BypassReason, EventType } from '../domain.js';
+import { DismissalReason, EventType } from '../domain.js';
 import type { ObservationContext } from '../observability/index.js';
 import type { AlreadyReviewedComment, CoderabbitReviewVerdictState, EventLogEntry } from '../types/index.js';
 import { toReviewEventType } from '../utils/index.js';
 
-import { recordBypassEvent } from './index.js';
+import { recordDismissalEvent } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -32,8 +32,8 @@ export class DetectedProbe {
     };
   }
 
-  private async recordBypass(tx: Prisma.TransactionClient, reason: BypassReason, message: string): Promise<EventLogEntry> {
-    const event = await recordBypassEvent({
+  private async recordDismissal(tx: Prisma.TransactionClient, reason: DismissalReason, message: string): Promise<EventLogEntry> {
+    const event = await recordDismissalEvent({
       events: this.eventRepository,
       tx,
       reason,
@@ -72,15 +72,15 @@ export class DetectedProbe {
   }
 
   prMerged(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
-    return this.recordBypass(tx, BypassReason.prMerged, 'Review-limit comment bypassed: PR already merged');
+    return this.recordDismissal(tx, DismissalReason.prMerged, 'Review-limit comment dismissed: PR already merged');
   }
 
   prClosedWithoutMerge(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
-    return this.recordBypass(tx, BypassReason.prClosedWithoutMerge, 'Review-limit comment bypassed: PR closed without merge');
+    return this.recordDismissal(tx, DismissalReason.prClosedWithoutMerge, 'Review-limit comment dismissed: PR closed without merge');
   }
 
   prNotRegistered(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
-    return this.recordBypass(tx, BypassReason.prNotRegistered, 'Review-limit comment bypassed: PR not yet registered by scanner');
+    return this.recordDismissal(tx, DismissalReason.prNotRegistered, 'Review-limit comment dismissed: PR not yet registered by scanner');
   }
 
   alreadyQueued(): void {

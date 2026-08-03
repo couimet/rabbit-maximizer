@@ -59,4 +59,13 @@ export abstract class IntervalService {
       this.tickPromise = null;
     }
   }
+
+  /**
+   * Runs a single tick synchronously and awaits its completion. Used during
+   * startup bootstrapping when one service must complete its first tick before
+   * another service starts.
+   */
+  async bootstrapTick(): Promise<void> {
+    await this.tick();
+  }
 }

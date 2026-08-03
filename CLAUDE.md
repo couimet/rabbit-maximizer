@@ -338,12 +338,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 </rule>
 
 <rule id="T009" priority="critical">
-  <title>Extract shared test literals into constants</title>
-  <do>Extract any literal (string, number, date) used in a test setup block that is also referenced in assertions into a named SCREAMING_SNAKE_CASE constant</do>
+  <title>Extract shared test literals into module-level constants</title>
+  <do>Extract any literal (string, number, date) used in a test setup block that is also referenced in assertions into a named SCREAMING_SNAKE_CASE constant at module level</do>
   <do>For timestamps shared between setup (ISO format) and assertions (display format), define the ISO constant and derive the display constant via `formatDate(ISO_CONST, 'UTC')`</do>
   <never>Duplicate a literal in both a `beforeEach`/setup block and an assertion — extract it so the two stays are linked by a single source of truth</never>
   <rationale>Prevents "magic number" drift between setup data and expected values. When a test fails because the setup value changed, the assertion message shows the constant name rather than a stale literal.</rationale>
   <see>T003 — T009 takes precedence over T003 for test-internal plumbing values (mock props, fixture data). T003 governs assertions against production contract values (enums, user-facing text). Favor `getUniqueString()` or `getUniqueInt()` from `@couimet/dynamic-testing` over static literals for shared constants — dynamic values prove the value is passed through rather than matching a hardcoded default at the destination. Exception: UI component tests (React Testing Library) that look up elements by text content (`getByText`, `getByRole`) need static literal strings that match what the component renders.</see>
+  <see>T011 — SCREAMING_SNAKE_CASE constants go at module level only. Values inside test functions use camelCase per T011.</see>
 </rule>
 
 <rule id="T010" priority="critical">
@@ -378,6 +379,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Reserve SCREAMING_SNAKE_CASE for module-level constants and values shared between `beforeEach`/setup blocks and assertions (see T009)</do>
   <never>Use SCREAMING_SNAKE_CASE for `const` variables declared inside `it()` blocks — they are regular local variables, not contract constants</never>
   <rationale>SCREAMING_SNAKE_CASE signals "this value is a frozen contract" (per T003, T009). Local test variables are plumbing, not contracts. Using the wrong case misleads the reader about the variable's role.</rationale>
+  <see>T009 — T009 is the ONLY exception: constants shared between beforeEach/setup and assertions go at module level in SCREAMING_SNAKE_CASE. Everything inside test functions uses camelCase.</see>
   <bad-example>
     ```typescript
     it('returns the correct value', () => {
@@ -400,6 +402,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 
 <rule id="P001" priority="critical">
   <title>No magic numbers</title>
+  <scope>Applies to production code only. Test constants follow T009 (module-level SCREAMING_SNAKE_CASE for values shared between setup and assertions) and T011 (local camelCase inside test functions).</scope>
   <do>Define named constants for all numeric literals with semantic meaning</do>
   <do>Use SCREAMING_SNAKE_CASE for constant names</do>
 </rule>

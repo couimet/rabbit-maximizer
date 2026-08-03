@@ -1,9 +1,9 @@
 import type { EventRepository } from '../db/index.js';
-import { EventType } from '../domain.js';
+import { DismissalReason, EventType, PrState } from '../domain.js';
 import { type RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import type { ObservationContext } from '../observability/index.js';
 import type { QueueItem } from '../types/index.js';
-import { computeSchedulerBackoff } from '../utils/index.js';
+import { computeSchedulerBackoff, dismissalReasonFromPrState } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -70,22 +70,39 @@ export class SchedulerProbe {
     );
   }
 
-  async prClosedOrMerged(status: number, tx: Prisma.TransactionClient): Promise<void> {
+  async prClosedDuringScan(repo: string, pr: number, prState: PrState, tx: Prisma.TransactionClient): Promise<void> {
+    const reason = dismissalReasonFromPrState(prState);
     await this.events.record(
       {
-        type: EventType.failed,
+        type: EventType.dismissed,
+        repo_full_name: repo,
+        pr_number: pr,
+        correlation_id: this.observation.correlationId,
+        request_id: this.observation.requestId,
+        version: this.observation.version,
+        payload: { reason },
+      },
+      tx,
+    );
+    this.log.info({ fn: 'SchedulerProbe.prClosedDuringScan', repo, pr, prState, reason }, 'PR closed or merged during scheduler scan; dismissed');
+  }
+
+  async prDeleted(status: number, tx: Prisma.TransactionClient): Promise<void> {
+    await this.events.record(
+      {
+        type: EventType.dismissed,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
         correlation_id: this.observation.correlationId,
         request_id: this.observation.requestId,
         version: this.observation.version,
-        payload: { reason: 'PR closed or merged' },
+        payload: { reason: DismissalReason.prDeleted },
       },
       tx,
     );
     this.log.info(
-      { fn: 'SchedulerProbe.prClosedOrMerged', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, status },
-      'PR closed or merged; marked failed',
+      { fn: 'SchedulerProbe.prDeleted', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, status },
+      'PR not found (deleted); dismissed',
     );
   }
 

@@ -1,11 +1,11 @@
 import { EventType } from '../domain.js';
 
 import type {
-  BypassedPayload,
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
   CoderabbitReviewSkippedPayload,
   DetectedPayload,
+  DismissedPayload,
   EnqueuedPayload,
   EventMetadata,
   FailedPayload,
@@ -28,12 +28,12 @@ export interface EventEnvelope {
 // Keep union members in alphabetical order by EventType.
 export type EventLogEntry =
   | (EventEnvelope & {
-      readonly type: EventType.bypassed;
-      readonly payload: BypassedPayload;
-    })
-  | (EventEnvelope & {
       readonly type: EventType.detected;
       readonly payload: DetectedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.dismissed;
+      readonly payload: DismissedPayload;
     })
   | (EventEnvelope & {
       readonly type: EventType.enqueued;
@@ -58,4 +58,8 @@ export type EventLogEntry =
   | (EventEnvelope & {
       readonly type: EventType.coderabbit_review_skipped;
       readonly payload: CoderabbitReviewSkippedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: string;
+      readonly payload: unknown;
     });

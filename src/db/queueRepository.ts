@@ -12,6 +12,7 @@ import { inject, injectable } from 'inversify';
 const COMPLETED_GUARD_WINDOW_MS = 5 * MS_PER_MINUTE;
 const MAX_SKIPPED_ITEMS = 50;
 const REOPENABLE_RESOLUTIONS: readonly Resolution[] = [Resolution.ReviewCompleted, Resolution.Failed, Resolution.Skipped] as const;
+const ACTIVE_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -25,7 +26,8 @@ export interface QueueRepository {
   resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getTriggered(since: Date, skip: number, take: number, includeResolved: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
+  getActiveQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  getActivityList(since: Date, skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
@@ -375,21 +377,32 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
 
   // eslint-disable-next-line require-await
-  async getTriggered(since: Date, skip: number, take: number, includeResolved: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+  async getActiveQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
     return this.enforceTx(tx, async (db) => {
-      const statuses = includeResolved ? [QueueStatus.retriggered, QueueStatus.resolved] : [QueueStatus.retriggered];
-      const where = { retriggered_at: { gte: since }, status: { in: statuses } };
+      const rows = await db.reviewQueue.findMany({
+        where: { status: { in: [...ACTIVE_STATUSES] } },
+        orderBy: { id: 'asc' },
+      });
+      this.log.debug({ fn: 'QueueRepositoryImpl.getActiveQueue', count: rows.length }, 'Fetched active queue');
+      return rows.map((row) => this.mapper.fromReviewQueue(row));
+    });
+  }
+
+  // eslint-disable-next-line require-await
+  async getActivityList(since: Date, skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+    return this.enforceTx(tx, async (db) => {
+      const where = { created_at: { gte: since } };
       const [rows, total] = await Promise.all([
         db.reviewQueue.findMany({
           where,
-          orderBy: { retriggered_at: 'desc' },
+          orderBy: { created_at: 'desc' },
           skip,
           take,
         }),
         db.reviewQueue.count({ where }),
       ]);
 
-      this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeResolved, count: rows.length, total }, 'Fetched triggered queue');
+      this.log.debug({ fn: 'QueueRepositoryImpl.getActivityList', since, skip, take, count: rows.length, total }, 'Fetched activity list');
       return {
         items: rows.map((row) => this.mapper.fromReviewQueue(row)),
         total,

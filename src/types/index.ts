@@ -1,6 +1,7 @@
 export type { AcknowledgementResult } from './AcknowledgementResult.js';
 export type { ActivityStatus } from './ActivityStatus.js';
 export type { AlreadyReviewedComment } from './AlreadyReviewedComment.js';
+export type { ActivityListItemResponse } from './api.js';
 export type {
   DashboardStateResponse,
   EventCountsResponse,
@@ -27,11 +28,11 @@ export type { EnrichedItem } from './EnrichedItem.js';
 export type { EnrichedQueueItem } from './EnrichedQueueItem.js';
 export type { EventEnvelope, EventLogEntry } from './EventLogEntry.js';
 export type {
-  BypassedPayload,
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
   CoderabbitReviewSkippedPayload,
   DetectedPayload,
+  DismissedPayload,
   EnqueuedPayload,
   EventMetadata,
   FailedPayload,

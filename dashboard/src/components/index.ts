@@ -1,3 +1,4 @@
+export { default as ActivityList } from './ActivityList.js';
 export { STATE_CLASS, STATE_LABEL } from './activityStateMeta.js';
 export { default as ConfirmDialog } from './ConfirmDialog.js';
 export { default as DurationSelect } from './DurationSelect.js';
@@ -6,7 +7,6 @@ export { formatElapsed } from './formatElapsed.js';
 export { GlobalErrorBanner } from './GlobalErrorBanner.js';
 export { default as Pagination } from './Pagination.js';
 export { default as QueueOrder } from './QueueOrder.js';
-export { default as RecentlyTriggered } from './RecentlyTriggered.js';
 export { default as ReviewCountdown } from './ReviewCountdown.js';
 export { default as SummaryStats } from './SummaryStats.js';
 export { usePauseNotification } from './usePauseNotification.js';

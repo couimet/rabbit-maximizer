@@ -31,6 +31,7 @@ export const TYPES = {
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
   ReviewDetector: Symbol.for('ReviewDetector'),
+  ReviewQueueToActivityListItemMapper: Symbol.for('ReviewQueueToActivityListItemMapper'),
   ReviewQueueToQueueItemMapper: Symbol.for('ReviewQueueToQueueItemMapper'),
   ReviewTrigger: Symbol.for('ReviewTrigger'),
   Scheduler: Symbol.for('Scheduler'),

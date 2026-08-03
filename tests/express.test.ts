@@ -9,8 +9,14 @@ const viteMock = createMockVite();
 
 jest.unstable_mockModule('vite', () => viteMock);
 
-const { createMockEventRepo, createMockQueueItemEnricher, createMockQueueOrderRepo, createMockQueueRepo, createMockSystemStateRepository } =
-  await import('./helpers/index.js');
+const {
+  createMockActivityListMapper,
+  createMockEventRepo,
+  createMockQueueItemEnricher,
+  createMockQueueOrderRepo,
+  createMockQueueRepo,
+  createMockSystemStateRepository,
+} = await import('./helpers/index.js');
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
 const { setupExpress } = await import('../src/express.js');
@@ -26,6 +32,7 @@ describe('setupExpress', () => {
 
   const start = async (logger?: ReturnType<typeof createMockLogger>) => {
     const app = await setupExpress({
+      activityListMapper: createMockActivityListMapper(),
       config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
       eventCountsMapper: new EventCountsMapper(),
       eventEntryMapper: new EventEntryMapper(),
@@ -96,6 +103,7 @@ describe('setupExpress', () => {
     try {
       await expect(
         setupExpress({
+          activityListMapper: createMockActivityListMapper(),
           config: { SCHEDULER_TICK_INTERVAL_SEC: 10 } as any,
           eventCountsMapper: new EventCountsMapper(),
           eventEntryMapper: new EventEntryMapper(),

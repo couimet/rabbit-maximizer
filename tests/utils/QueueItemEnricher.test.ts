@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
-const BASE_COLUMNS = ['author_login', 'last_coderabbit_acknowledged_at', 'last_review_state', 'last_review_url', 'pr_state'];
+const BASE_COLUMNS = ['author_login', 'last_coderabbit_acknowledged_at', 'last_review_state', 'last_review_url', 'pr_state', 'retrigger_count', 'review_count'];
 
 const BASE_MAPS = {
   pr_state: new Map(),
@@ -15,9 +15,18 @@ const BASE_MAPS = {
   author_login: new Map(),
   last_review_url: new Map(),
   last_review_state: new Map(),
+  retrigger_count: new Map(),
+  review_count: new Map(),
 };
 
-const ENRICHED_DEFAULTS = { prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: '<unknown>', coderabbitReview: undefined };
+const ENRICHED_DEFAULTS = {
+  prState: undefined,
+  lastCoderabbitAcknowledgedAt: undefined,
+  authorLogin: '<unknown>',
+  coderabbitReview: undefined,
+  retriggerCount: 0,
+  reviewCount: 0,
+};
 
 describe('QueueItemEnricher', () => {
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;

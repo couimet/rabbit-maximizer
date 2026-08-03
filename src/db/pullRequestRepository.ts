@@ -79,6 +79,12 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
         if (data.authorLogin !== undefined) {
           updateData.author_login = data.authorLogin;
         }
+        if (data.mergedAt !== undefined) {
+          updateData.merged_at = data.mergedAt;
+        }
+        if (data.closedAt !== undefined) {
+          updateData.closed_at = data.closedAt;
+        }
         if (Object.keys(updateData).length > 0) {
           await this.withPrismaErrorHandling(() => db.pullRequest.update({ where: { id: existing.id }, data: updateData }), 'PullRequestRepositoryImpl.upsert');
         }
@@ -93,6 +99,8 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
           title: data.prTitle ?? '<unknown>',
           author_login: data.authorLogin ?? '<unknown>',
           pr_state: data.prState,
+          merged_at: data.mergedAt ?? null,
+          closed_at: data.closedAt ?? null,
           first_seen_at: new Date(),
         },
       });
