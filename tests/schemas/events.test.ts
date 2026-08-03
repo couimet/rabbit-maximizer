@@ -184,6 +184,13 @@ describe('parseEventRow', () => {
     expect(result.type).toBe('bogus');
     expect(result.payload).toStrictEqual({ raw: 'just a string' });
   });
+
+  it('wraps a null payload in a raw envelope for an unknown event type', () => {
+    const row = baseRow({ type: 'bogus', payload: 'null' });
+    const result = parseEventRow(row);
+    expect(result.type).toBe('bogus');
+    expect(result.payload).toStrictEqual({ raw: null });
+  });
 });
 
 describe('payload length limits', () => {

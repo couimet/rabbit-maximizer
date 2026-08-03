@@ -107,7 +107,7 @@ describe('ReviewDetector', () => {
     it('fires the first tick immediately and starts an interval', async () => {
       deps.queue.getRetriggeredQueue.mockResolvedValue([]);
       const detector = createDetector();
-      const { stop } = detector.start();
+      const { stop } = await detector.start();
       expect(deps.queue.getRetriggeredQueue).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'ReviewDetector.start', pollIntervalSec: POLL_INTERVAL_SEC }, 'Starting review detector');
       await stop();
@@ -115,7 +115,7 @@ describe('ReviewDetector', () => {
     it('stop clears the interval', async () => {
       deps.queue.getRetriggeredQueue.mockResolvedValue([]);
       const detector = createDetector();
-      const { stop } = detector.start();
+      const { stop } = await detector.start();
       await stop();
       jest.advanceTimersByTime(POLL_INTERVAL_MS * 2);
       expect(deps.queue.getRetriggeredQueue).toHaveBeenCalledTimes(1);
@@ -138,7 +138,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -164,7 +164,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -179,7 +179,7 @@ describe('ReviewDetector', () => {
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -193,7 +193,7 @@ describe('ReviewDetector', () => {
     it('delegates to probe when no retriggered items exist', async () => {
       deps.queue.getRetriggeredQueue.mockResolvedValue([]);
       const detector = createDetector();
-      detector.start();
+      await detector.start();
       await drainMicrotasks(TICK_DEPTH);
       expect(deps.probe.noRetriggeredItemFound).toHaveBeenCalled();
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
@@ -204,7 +204,7 @@ describe('ReviewDetector', () => {
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -218,7 +218,7 @@ describe('ReviewDetector', () => {
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -235,7 +235,7 @@ describe('ReviewDetector', () => {
       deps.queue.getRetriggeredQueue.mockReturnValue(queuePromise);
 
       const detector = createDetector();
-      const { stop } = detector.start();
+      const starting = detector.start();
 
       await Promise.resolve();
 
@@ -246,6 +246,7 @@ describe('ReviewDetector', () => {
       expect(deps.queue.getRetriggeredQueue).toHaveBeenCalledTimes(1);
 
       resolveQueue!([]);
+      const { stop } = await starting;
       await stop();
     });
   });
@@ -260,7 +261,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -279,7 +280,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -302,7 +303,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -328,7 +329,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -347,7 +348,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -366,7 +367,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -389,7 +390,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -415,7 +416,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -432,7 +433,7 @@ describe('ReviewDetector', () => {
       deps.queue.getRetriggeredQueue.mockRejectedValue(error);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -448,7 +449,7 @@ describe('ReviewDetector', () => {
       deps.github.findCompletedReview.mockRejectedValueOnce(perItemError).mockResolvedValueOnce(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -472,7 +473,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -498,7 +499,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -522,7 +523,7 @@ describe('ReviewDetector', () => {
       });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -545,7 +546,7 @@ describe('ReviewDetector', () => {
       });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -572,7 +573,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -599,7 +600,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -620,7 +621,7 @@ describe('ReviewDetector', () => {
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -645,7 +646,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -663,7 +664,7 @@ describe('ReviewDetector', () => {
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -683,7 +684,7 @@ describe('ReviewDetector', () => {
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -701,7 +702,7 @@ describe('ReviewDetector', () => {
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -720,7 +721,7 @@ describe('ReviewDetector', () => {
       deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok(badOutcome));
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 

@@ -43,6 +43,9 @@ export class SchedulerProbe {
   tickSkippedAwaitingAcknowledgement(): void {
     this.log.info({ fn: 'SchedulerProbe.tickSkippedAwaitingAcknowledgement' }, 'Awaiting CodeRabbit acknowledgement; skipping tick');
   }
+  tickSkippedCooldown(): void {
+    this.log.debug({ fn: 'SchedulerProbe.tickSkippedCooldown' }, 'Tick skipped: review cooldown active');
+  }
   noItemsDue(): void {
     this.log.debug({ fn: 'SchedulerProbe.noItemsDue' }, 'No items due for retrigger');
   }

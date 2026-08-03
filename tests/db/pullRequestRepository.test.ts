@@ -207,6 +207,10 @@ describe('PullRequestRepositoryImpl', () => {
           first_seen_at: frozenNow,
         },
       });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
+        'Created PullRequest',
+      );
     });
 
     it('updates prState on existing PR', async () => {

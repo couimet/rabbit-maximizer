@@ -61,7 +61,7 @@ describe('getSummary', () => {
           detected,
           enqueued,
           retriggered,
-          bypassed: getUniqueInt(),
+          dismissed: getUniqueInt(),
           coderabbit_review_approved: getUniqueInt(),
           coderabbit_review_changes_suggested: getUniqueInt(),
           failed,
@@ -100,7 +100,7 @@ describe('getSummary', () => {
     expect(logger.error).toHaveBeenCalledWith({ fn: 'api.getSummary', error: repoError }, 'Failed to get summary');
   });
 
-  it('response omits bypassed, coderabbit_review_approved, and coderabbit_review_changes_suggested from eventCounts', async () => {
+  it('response omits dismissed, coderabbit_review_approved, and coderabbit_review_changes_suggested from eventCounts', async () => {
     logger = createMockLogger();
     const detected = getUniqueInt();
     const enqueued = getUniqueInt();
@@ -113,7 +113,7 @@ describe('getSummary', () => {
           detected,
           enqueued,
           retriggered,
-          bypassed: getUniqueInt(),
+          dismissed: getUniqueInt(),
           coderabbit_review_approved: getUniqueInt(),
           coderabbit_review_changes_suggested: getUniqueInt(),
           failed,

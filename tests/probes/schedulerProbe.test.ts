@@ -62,6 +62,14 @@ describe('SchedulerProbe', () => {
     });
   });
 
+  describe('tickSkippedCooldown', () => {
+    it('logs debug', () => {
+      const probe = createProbe();
+      probe.tickSkippedCooldown();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'SchedulerProbe.tickSkippedCooldown' }, 'Tick skipped: review cooldown active');
+    });
+  });
+
   describe('noItemsDue', () => {
     it('logs debug', () => {
       const probe = createProbe();

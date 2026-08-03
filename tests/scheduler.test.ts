@@ -133,7 +133,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -157,7 +157,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -179,7 +179,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -202,7 +202,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -224,7 +224,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -241,7 +241,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockRejectedValue(notFoundError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -258,7 +258,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockRejectedValue(goneError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -275,7 +275,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -289,7 +289,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([]);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await drainMicrotasks(SHORT_DRAIN);
 
@@ -304,7 +304,7 @@ describe('Scheduler', () => {
       deps.systemState.isSchedulerPaused.mockResolvedValue(true);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -321,10 +321,11 @@ describe('Scheduler', () => {
       deps.systemState.getState.mockResolvedValue(new Date(Date.now() + TICK_INTERVAL_MS));
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
+      expect(deps.mockProbe.tickSkippedCooldown).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
       expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
 
@@ -335,7 +336,7 @@ describe('Scheduler', () => {
       deps.systemState.isSchedulerPaused.mockResolvedValue(true);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -350,7 +351,7 @@ describe('Scheduler', () => {
       deps.queue.resolveStaleRetriggered.mockResolvedValue(3);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -371,7 +372,7 @@ describe('Scheduler', () => {
       };
       deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
       await awaitTick(scheduler);
       expect(deps.mockProbe.tickSkippedAwaitingAcknowledgement).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
@@ -385,7 +386,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -402,7 +403,7 @@ describe('Scheduler', () => {
       deps.systemState.setLastSchedulerTickAt.mockRejectedValue(heartbeatError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -416,7 +417,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockRejectedValue(dbError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -429,7 +430,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockRejectedValue('raw string failure');
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -440,7 +441,7 @@ describe('Scheduler', () => {
 
     it('logs start and stop messages', async () => {
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
 
@@ -450,7 +451,7 @@ describe('Scheduler', () => {
 
     it('does not throw when stop is called multiple times', async () => {
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await stop();
       await stop();
@@ -470,7 +471,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -489,7 +490,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -513,7 +514,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -536,7 +537,7 @@ describe('Scheduler', () => {
         deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
         const scheduler = createScheduler();
-        const { stop } = scheduler.start();
+        const { stop } = await scheduler.start();
 
         await awaitTick(scheduler);
 
@@ -557,7 +558,7 @@ describe('Scheduler', () => {
         deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
         const scheduler = createScheduler();
-        const { stop } = scheduler.start();
+        const { stop } = await scheduler.start();
 
         await awaitTick(scheduler);
 
@@ -579,7 +580,7 @@ describe('Scheduler', () => {
         deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
         const scheduler = createScheduler();
-        const { stop } = scheduler.start();
+        const { stop } = await scheduler.start();
 
         await awaitTick(scheduler);
 
@@ -601,7 +602,7 @@ describe('Scheduler', () => {
         deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, closedItem]);
 
         const scheduler = createScheduler();
-        const { stop } = scheduler.start();
+        const { stop } = await scheduler.start();
 
         await awaitTick(scheduler);
 
@@ -621,7 +622,7 @@ describe('Scheduler', () => {
         deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem]);
 
         const scheduler = createScheduler();
-        const { stop } = scheduler.start();
+        const { stop } = await scheduler.start();
 
         await awaitTick(scheduler);
 

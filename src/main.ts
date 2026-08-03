@@ -39,18 +39,14 @@ const prisma = container.get<PrismaClient>(TYPES.PrismaClient);
 log.info({ fn: 'main' }, `Connected to ${describeDatabaseUrl(config.DATABASE_URL)}`);
 
 const detector = container.get<PollDetector>(TYPES.PollDetector);
-log.info({ fn: 'main' }, 'Bootstrapping PollDetector: running first tick to populate cooldown state before Scheduler starts');
-const bootstrapStart = Date.now();
-await detector.bootstrapTick();
-log.info({ fn: 'main', elapsedMs: Date.now() - bootstrapStart }, 'PollDetector bootstrap complete; cooldown state populated');
-const { stop: stopDetector } = detector.start();
+const { stop: stopDetector } = await detector.start();
 
 const reviewDetector = container.get<ReviewDetector>(TYPES.ReviewDetector);
-const { stop: stopReviewDetector } = reviewDetector.start();
+const { stop: stopReviewDetector } = await reviewDetector.start();
 
 const scheduler = container.get<Scheduler>(TYPES.Scheduler);
 log.info({ fn: 'main' }, 'Starting Scheduler (cooldown state ready)');
-const { stop: stopScheduler } = scheduler.start();
+const { stop: stopScheduler } = await scheduler.start();
 
 const queueRepo = container.get<QueueRepository>(TYPES.QueueRepository);
 const queueOrderRepo = container.get<QueueOrderRepository>(TYPES.QueueOrderRepository);

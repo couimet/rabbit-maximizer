@@ -97,6 +97,7 @@ export class Scheduler extends IntervalService {
 
       const nextReviewAvailableAt = await this.systemState.getState(StateKey.nextReviewAvailableAt);
       if (nextReviewAvailableAt !== undefined && nextReviewAvailableAt.getTime() > Date.now()) {
+        probe.tickSkippedCooldown();
         return;
       }
 
@@ -180,22 +181,23 @@ export class Scheduler extends IntervalService {
         continue;
       }
       if (isPRMerged(prState)) {
-        await this.prisma.$transaction(async (tx) => {
-          await this.queue.markResolved(candidate.id, Resolution.PrMerged, tx);
-          await probe.prClosedDuringScan(candidate.repo_full_name, candidate.pr_number, PrState.merged, tx);
-        });
+        await this.resolveTerminalCandidate(candidate, Resolution.PrMerged, PrState.merged, probe);
         continue;
       }
       if (isPRClosedWithoutMerge(prState)) {
-        await this.prisma.$transaction(async (tx) => {
-          await this.queue.markResolved(candidate.id, Resolution.PrClosedWithoutMerge, tx);
-          await probe.prClosedDuringScan(candidate.repo_full_name, candidate.pr_number, PrState.closed, tx);
-        });
+        await this.resolveTerminalCandidate(candidate, Resolution.PrClosedWithoutMerge, PrState.closed, probe);
         continue;
       }
       return candidate;
     }
 
     return undefined;
+  }
+
+  private async resolveTerminalCandidate(candidate: QueueItem, resolution: Resolution, prState: PrState, probe: SchedulerProbe): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.queue.markResolved(candidate.id, resolution, tx);
+      await probe.prClosedDuringScan(candidate.repo_full_name, candidate.pr_number, prState, tx);
+    });
   }
 }

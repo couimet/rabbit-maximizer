@@ -115,6 +115,9 @@ export class EventRepositoryImpl implements EventRepository {
       retriggered: 0,
     };
     for (const row of rows) {
+      if (!Object.hasOwn(counts, row.type)) {
+        continue;
+      }
       counts[row.type as EventType] = row._count.type;
     }
 

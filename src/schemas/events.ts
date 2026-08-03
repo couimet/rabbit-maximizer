@@ -127,7 +127,7 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
       return {
         ...envelope,
         type: row.type,
-        payload: typeof payload === 'object' ? payload : { raw: payload },
+        payload: typeof payload === 'object' && payload !== null ? payload : { raw: payload },
       } as EventLogEntry;
   }
 };

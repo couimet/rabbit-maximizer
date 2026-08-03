@@ -80,7 +80,7 @@ describe('Pruner', () => {
         { item: retriggeredItem, outcome: 'closed-without-merge' },
       ]);
       await createPruner().prune();
-      expect(queue.getActiveQueue).toHaveBeenCalled();
+      expect(queue.getActiveQueue).toHaveBeenCalledTimes(1);
       expect(pruneEvaluator.evaluate).toHaveBeenCalledWith([pendingItem, retriggeredItem]);
       expect(queue.markResolved).toHaveBeenCalledWith(pendingItem.id, 'pr_merged', tx);
       expect(queue.markResolved).toHaveBeenCalledWith(retriggeredItem.id, 'pr_closed_without_merge', tx);

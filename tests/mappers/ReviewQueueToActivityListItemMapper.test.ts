@@ -6,6 +6,8 @@ import { getUniqueDate } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const ONE_DAY_MS = 86_400_000;
+const REVIEW_URL = 'https://gh/r/1';
+const REVIEW_STATE = 'review_approved';
 
 describe('ReviewQueueToActivityListItemMapper', () => {
   let enricher: { enrich: jest.Mock<any> };
@@ -124,7 +126,7 @@ describe('ReviewQueueToActivityListItemMapper', () => {
         prState: PrState.merged,
         lastCoderabbitAcknowledgedAt: undefined,
         authorLogin: 'author',
-        coderabbitReview: { htmlUrl: 'https://gh/r/1', state: 'review_approved' as const },
+        coderabbitReview: { htmlUrl: REVIEW_URL, state: REVIEW_STATE },
         reviewCount: 1,
         retriggerCount: 2,
       },
@@ -132,8 +134,8 @@ describe('ReviewQueueToActivityListItemMapper', () => {
 
     const [result] = await mapper.mapToList([item]);
 
-    expect(result.last_review_url).toBe('https://gh/r/1');
-    expect(result.last_review_state).toBe('review_approved');
+    expect(result.last_review_url).toBe(REVIEW_URL);
+    expect(result.last_review_state).toBe(REVIEW_STATE);
     expect(result.review_count).toBe(1);
     expect(result.retrigger_count).toBe(2);
   });

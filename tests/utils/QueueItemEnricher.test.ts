@@ -201,4 +201,28 @@ describe('QueueItemEnricher', () => {
     expect(logger.warn).not.toHaveBeenCalled();
     expect(logger.debug).not.toHaveBeenCalled();
   });
+
+  it('enriches items with retrigger_count from repository', async () => {
+    const item = generateQueueItemHydrationData();
+    const retriggerCount = getUniqueInt();
+    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, retrigger_count: new Map([[item.pull_request_id, retriggerCount]]) });
+
+    const result = await enricher.enrich([item]);
+
+    expect(result).toStrictEqual([{ ...item, ...ENRICHED_DEFAULTS, retriggerCount }]);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
+  });
+
+  it('enriches items with review_count from repository', async () => {
+    const item = generateQueueItemHydrationData();
+    const reviewCount = getUniqueInt();
+    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, review_count: new Map([[item.pull_request_id, reviewCount]]) });
+
+    const result = await enricher.enrich([item]);
+
+    expect(result).toStrictEqual([{ ...item, ...ENRICHED_DEFAULTS, reviewCount }]);
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(logger.debug).not.toHaveBeenCalled();
+  });
 });

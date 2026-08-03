@@ -100,6 +100,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     ```
   </good-example>
   <exception>Test fixture functions marked with `/** @testFixture */` may use default parameter values. These are functions in test files or tests/helpers/ whose sole purpose is creating test servers, mock data, or mock clients. Defaults eliminate {} boilerplate for the common case. The @testFixture tag signals the defaults were reviewed and the function is not exposed to production code.</exception>
+  <exception>Test mock factory functions (files matching `tests/helpers/createMock*.ts`) may use optional `overrides` parameters with `?:` to let callers omit overrides when no mocks need customization. This avoids `{}` boilerplate at every call site.</exception>
 </rule>
 
 <rule id="C009" priority="critical">
@@ -341,7 +342,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <title>Extract shared test literals into module-level constants</title>
   <do>Extract any literal (string, number, date) used in a test setup block that is also referenced in assertions into a named SCREAMING_SNAKE_CASE constant at module level</do>
   <do>For timestamps shared between setup (ISO format) and assertions (display format), define the ISO constant and derive the display constant via `formatDate(ISO_CONST, 'UTC')`</do>
-  <never>Duplicate a literal in both a `beforeEach`/setup block and an assertion — extract it so the two stays are linked by a single source of truth</never>
+  <never>Duplicate a literal in both a `beforeEach`/setup block and an assertion — extract it so the two occurrences are linked by a single source of truth</never>
   <rationale>Prevents "magic number" drift between setup data and expected values. When a test fails because the setup value changed, the assertion message shows the constant name rather than a stale literal.</rationale>
   <see>T003 — T009 takes precedence over T003 for test-internal plumbing values (mock props, fixture data). T003 governs assertions against production contract values (enums, user-facing text). Favor `getUniqueString()` or `getUniqueInt()` from `@couimet/dynamic-testing` over static literals for shared constants — dynamic values prove the value is passed through rather than matching a hardcoded default at the destination. Exception: UI component tests (React Testing Library) that look up elements by text content (`getByText`, `getByRole`) need static literal strings that match what the component renders.</see>
   <see>T011 — SCREAMING_SNAKE_CASE constants go at module level only. Values inside test functions use camelCase per T011.</see>

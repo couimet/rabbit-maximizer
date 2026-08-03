@@ -21,9 +21,9 @@ export abstract class IntervalService {
     return !this.stopped && this.tickPromise === null;
   }
 
-  start(): { stop(): Promise<void> } {
+  async start(): Promise<{ stop(): Promise<void> }> {
     this.onStart();
-    this.tick();
+    await this.bootstrapTick();
     this.intervalId = setInterval(() => {
       this.tick();
     }, this.intervalMs);
@@ -61,11 +61,15 @@ export abstract class IntervalService {
   }
 
   /**
-   * Runs a single tick synchronously and awaits its completion. Used during
-   * startup bootstrapping when one service must complete its first tick before
-   * another service starts.
+   * Runs the initial tick and awaits its completion so start() only returns
+   * after the first tick has settled. If a tick is already in flight, awaits
+   * it instead of starting a second concurrent one.
    */
   async bootstrapTick(): Promise<void> {
-    await this.tick();
+    if (this.tickPromise) {
+      await this.tickPromise;
+    } else {
+      await this.tick();
+    }
   }
 }

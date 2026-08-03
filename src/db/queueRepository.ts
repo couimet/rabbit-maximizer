@@ -391,11 +391,11 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   // eslint-disable-next-line require-await
   async getActivityList(since: Date, skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
     return this.enforceTx(tx, async (db) => {
-      const where = { created_at: { gte: since } };
+      const where = { updated_at: { gte: since } };
       const [rows, total] = await Promise.all([
         db.reviewQueue.findMany({
           where,
-          orderBy: { created_at: 'desc' },
+          orderBy: { updated_at: 'desc' },
           skip,
           take,
         }),

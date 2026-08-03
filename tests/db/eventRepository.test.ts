@@ -358,6 +358,38 @@ describe('EventRepositoryImpl', () => {
         'Counted events by type',
       );
     });
+
+    it('excludes rows with undeclared event types', async () => {
+      const since = getUniqueDate();
+      const { detectedCnt, enqueuedCnt } = getUniqueIntsNamed(['detectedCnt', 'enqueuedCnt']);
+      const unknownCnt = getUniqueInt();
+      const rows = [
+        { type: 'detected', _count: { type: detectedCnt } },
+        { type: 'enqueued', _count: { type: enqueuedCnt } },
+        { type: 'undeclared_type', _count: { type: unknownCnt } },
+      ];
+      const expectedCounts = {
+        dismissed: 0,
+        coderabbit_review_approved: 0,
+        coderabbit_review_changes_suggested: 0,
+        coderabbit_review_skipped: 0,
+        detected: detectedCnt,
+        enqueued: enqueuedCnt,
+        failed: 0,
+        retriggered: 0,
+      };
+
+      const { prisma } = createMockPrismaClient({
+        event: { groupBy: createResolvedMock(rows) },
+      });
+      const logger = createMockLogger();
+      const sut = new EventRepositoryImpl(prisma, logger);
+
+      const result = await sut.countByType(since);
+
+      expect(result).toStrictEqual(expectedCounts);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.countByType', counts: expectedCounts }, 'Counted events by type');
+    });
   });
 
   describe('container binding', () => {

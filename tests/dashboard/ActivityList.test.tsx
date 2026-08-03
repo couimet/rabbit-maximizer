@@ -25,7 +25,14 @@ const mockActivityListEndpoint = (data: Record<string, unknown> = ACTIVITY_LIST_
 
 /** @testFixture */
 const makeItem = (over: Record<string, unknown> = {}) =>
-  generateQueueItemResponseData({ status: 'retriggered', retrigger_comment_url: generateReviewRef().commentUrl, ...over } as Record<string, unknown>);
+  generateQueueItemResponseData({
+    status: 'retriggered',
+    retrigger_comment_url: generateReviewRef().commentUrl,
+    review_count: 0,
+    retrigger_count: 0,
+    last_activity_at: new Date().toISOString(),
+    ...over,
+  } as Record<string, unknown>);
 
 const renderActivityList = (ui?: ReactElement) =>
   render(

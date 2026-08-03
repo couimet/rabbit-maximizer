@@ -176,7 +176,7 @@ describe('getDashboardState', () => {
     });
   });
 
-  it('eventCounts excludes bypassed, coderabbit_review_approved, and coderabbit_review_changes_suggested', async () => {
+  it('eventCounts excludes dismissed, coderabbit_review_approved, and coderabbit_review_changes_suggested', async () => {
     logger = createMockLogger();
     startServer(
       {},
@@ -185,7 +185,7 @@ describe('getDashboardState', () => {
           detected: 1,
           enqueued: 2,
           retriggered: 3,
-          bypassed: 4,
+          dismissed: 4,
           coderabbit_review_approved: 3,
           coderabbit_review_changes_suggested: 2,
           failed: 6,

@@ -107,6 +107,7 @@ export interface MockSchedulerProbe {
   pruningCompleted: jest.Mock<any>;
   schedulerPaused: jest.Mock<any>;
   tickSkippedAwaitingAcknowledgement: jest.Mock<any>;
+  tickSkippedCooldown: jest.Mock<any>;
   noItemsDue: jest.Mock<any>;
   staleRetriggeredResolved: jest.Mock<any>;
   tickFailed: jest.Mock<any>;
@@ -125,6 +126,7 @@ export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
   pruningCompleted: jest.fn<any>(),
   schedulerPaused: jest.fn<any>(),
   tickSkippedAwaitingAcknowledgement: jest.fn<any>(),
+  tickSkippedCooldown: jest.fn<any>(),
   noItemsDue: jest.fn<any>(),
   tickFailed: jest.fn<any>(),
   rescheduled: jest.fn<any>(),

@@ -1206,10 +1206,10 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('getActivityList', () => {
-    it('returns items since date ordered by created_at desc', async () => {
+    it('returns items since date ordered by updated_at desc', async () => {
       const since = getUniqueDate();
-      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, created_at: new Date(since.getTime() + 1000) });
-      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, created_at: new Date(since.getTime() + 2000) });
+      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, updated_at: new Date(since.getTime() + 1000) });
+      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, updated_at: new Date(since.getTime() + 2000) });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row2, row1]),
@@ -1223,13 +1223,13 @@ describe('QueueRepositoryImpl', () => {
       expect(result.items).toHaveLength(2);
       expect(result.total).toBe(2);
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { created_at: { gte: since } },
-        orderBy: { created_at: 'desc' },
+        where: { updated_at: { gte: since } },
+        orderBy: { updated_at: 'desc' },
         skip: 0,
         take: 50,
       });
       expect(reviewQueue.count).toHaveBeenCalledWith({
-        where: { created_at: { gte: since } },
+        where: { updated_at: { gte: since } },
       });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.getActivityList', since, skip: 0, take: 50, count: 2, total: 2 },
@@ -1239,8 +1239,8 @@ describe('QueueRepositoryImpl', () => {
 
     it('respects skip and take for pagination', async () => {
       const since = getUniqueDate();
-      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, created_at: new Date(since.getTime() + 4000) });
-      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, created_at: new Date(since.getTime() + 3000) });
+      const row1 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, updated_at: new Date(since.getTime() + 4000) });
+      const row2 = generateReviewQueueHydrationData({ status: QueueStatus.retriggered, updated_at: new Date(since.getTime() + 3000) });
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
           findMany: createResolvedMock([row1, row2]),
@@ -1254,13 +1254,13 @@ describe('QueueRepositoryImpl', () => {
       expect(result.items).toHaveLength(2);
       expect(result.total).toBe(4);
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { created_at: { gte: since } },
-        orderBy: { created_at: 'desc' },
+        where: { updated_at: { gte: since } },
+        orderBy: { updated_at: 'desc' },
         skip: 1,
         take: 2,
       });
       expect(reviewQueue.count).toHaveBeenCalledWith({
-        where: { created_at: { gte: since } },
+        where: { updated_at: { gte: since } },
       });
     });
   });
