@@ -50,7 +50,7 @@ const setup = (): MockSchedulerDeps => {
   const queue = createMockQueueRepo();
   const reviewTrigger = { trigger: jest.fn() } as unknown as jest.Mocked<ReviewTrigger>;
 
-  const tx = {} as Prisma.TransactionClient;
+  const tx = { reviewQueue: { update: jest.fn() } } as unknown as Prisma.TransactionClient;
 
   const prisma = {
     $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)),
@@ -127,7 +127,7 @@ describe('Scheduler', () => {
   describe('tick', () => {
     const makeTriggerOk = () => RabbitResult.ok({ retriggeredCommentUrl: getUniqueString() });
 
-    it('delegates to ReviewTrigger on success', async () => {
+    it('delegates to ReviewTrigger on success and increments attempts', async () => {
       const item = generateQueueItemHydrationData();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
@@ -138,7 +138,25 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+      expect(deps.tx.reviewQueue.update).toHaveBeenCalledWith({ where: { id: item.id }, data: { attempts: 1 } });
       expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+
+      await stop();
+    });
+
+    it('resolves item when successful retriggers reach MAX_RETRIGGER_ATTEMPTS', async () => {
+      const item = generateQueueItemHydrationData({ attempts: 9 });
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', expect.any(Object));
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(10, expect.any(Object));
+      expect(deps.tx.reviewQueue.update).not.toHaveBeenCalled();
 
       await stop();
     });

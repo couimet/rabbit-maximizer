@@ -65,9 +65,13 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       }
       await db.reviewQueue.update({
         where: { id: recentRetriggered.id },
-        data: { status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: new Date() },
+        data: { source_comment_url: sourceCommentUrl, source_comment_id: sourceCommentId },
       });
       probe.retriggeredReplaced(repo, pr, recentRetriggered.source_comment_id, sourceCommentId);
+      return {
+        item: this.mapper.fromReviewQueue({ ...recentRetriggered, source_comment_url: sourceCommentUrl, source_comment_id: sourceCommentId }),
+        created: false,
+      };
     }
 
     const recentResolved = await db.reviewQueue.findFirst({

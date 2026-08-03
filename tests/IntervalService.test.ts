@@ -51,15 +51,25 @@ class GatedService extends IntervalService {
 }
 
 describe('IntervalService', () => {
-  it('calls onStart, fires an initial tick, sets an interval, and stops cleanly via onStop', async () => {
+  it('fires ticks on the interval after bootstrap', async () => {
+    jest.useFakeTimers();
     const log = createMockLogger();
     const svc = new StubService(log);
 
     const { stop } = await svc.start();
-    expect(svc.executeTickCalls).toBeGreaterThanOrEqual(1);
+    const afterBootstrap = svc.executeTickCalls;
+    expect(afterBootstrap).toBeGreaterThanOrEqual(1);
+
+    jest.advanceTimersByTime(TICK_MS);
+    await Promise.resolve();
+    expect(svc.executeTickCalls).toBe(afterBootstrap + 1);
+
+    jest.advanceTimersByTime(TICK_MS);
+    await Promise.resolve();
+    expect(svc.executeTickCalls).toBe(afterBootstrap + 2);
 
     await stop();
-    expect(svc['stopped']).toBe(true);
+    jest.useRealTimers();
   });
 
   it('tickGuard returns false when stopped', async () => {
@@ -75,6 +85,15 @@ describe('IntervalService', () => {
     const svc = new StubService(log);
     (svc as any).tickPromise = Promise.resolve();
     expect(svc['tickGuard']()).toBe(false);
+  });
+
+  it('tick returns early when tickGuard is false', async () => {
+    const log = createMockLogger();
+    const svc = new StubService(log);
+    (svc as any).tickPromise = Promise.resolve();
+    const initialCalls = svc.executeTickCalls;
+    await svc['tick']();
+    expect(svc.executeTickCalls).toBe(initialCalls);
   });
 
   it('logs a warning and continues when executeTick throws', async () => {
@@ -122,5 +141,26 @@ describe('IntervalService', () => {
     svc.releaseGate();
     const { stop } = await startPromise;
     await stop();
+  });
+
+  it('stop awaits an in-flight tick before calling onStop', async () => {
+    const log = createMockLogger();
+    const svc = new GatedService(log);
+
+    svc['tick']();
+    const tickPromise = svc['tickPromise'];
+    expect(tickPromise).toBeDefined();
+
+    let stopped = false;
+    const stopPromise = svc['stop']().then(() => {
+      stopped = true;
+    });
+    await Promise.resolve();
+    expect(stopped).toBe(false);
+
+    svc.releaseGate();
+    await stopPromise;
+    expect(stopped).toBe(true);
+    expect(svc['stopped']).toBe(true);
   });
 });

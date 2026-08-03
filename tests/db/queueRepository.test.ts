@@ -156,7 +156,7 @@ describe('QueueRepositoryImpl', () => {
       expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
     });
 
-    it('marks old retriggered item as resolved and creates a new pending item when source_comment_id differs', async () => {
+    it('updates the retriggered item source comment and returns created: false when source_comment_id differs', async () => {
       const ref = generateReviewRef();
       const oldCommentId = getUniqueInt();
       const newCommentId = getUniqueInt();
@@ -166,24 +166,16 @@ describe('QueueRepositoryImpl', () => {
         status: QueueStatus.retriggered,
         source_comment_id: oldCommentId,
       });
-      const newRow = generateReviewQueueHydrationData({
-        repo_full_name: ref.repoFullName,
-        pr_number: ref.prNumber,
-        status: QueueStatus.pending,
-        source_comment_id: newCommentId,
-      });
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: {
-          findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered).mockResolvedValueOnce(null),
-          create: createResolvedMock(newRow),
+          findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered),
           update: createResolvedMock({}),
         },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
       const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
-      const pullRequestId = getUniqueInt();
 
       const { item: result, created } = await sut.enqueue(
         {
@@ -192,30 +184,19 @@ describe('QueueRepositoryImpl', () => {
           prTitle: 'Test PR title',
           sourceCommentUrl: newCommentUrl,
           sourceCommentId: newCommentId,
-
-          pullRequestId,
+          pullRequestId: getUniqueInt(),
         },
         prisma as unknown as Prisma.TransactionClient,
       );
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: oldRetriggered.id },
-        data: { status: 'resolved', resolution: 'review_completed', resolved_at: frozenNow },
+        data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId },
       });
-      expect(reviewQueue.create).toHaveBeenCalledWith({
-        data: {
-          pull_request_id: pullRequestId,
-          repo_full_name: ref.repoFullName,
-          pr_number: ref.prNumber,
-          pr_title: 'Test PR title',
-          source_comment_url: newCommentUrl,
-          source_comment_id: newCommentId,
-          trigger_source: 'scheduler',
-        },
-      });
-      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
-      expect(created).toBe(true);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(newRow));
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(queueOrder.create).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue({ ...oldRetriggered, source_comment_url: newCommentUrl, source_comment_id: newCommentId }));
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.retriggeredReplaced',
@@ -224,7 +205,7 @@ describe('QueueRepositoryImpl', () => {
           oldCommentId,
           newCommentId,
         },
-        'Recycled review-limit comment replaced stale retriggered item; marking old item reviewed',
+        'Recycled review-limit comment detected; updating retriggered item source comment to prevent duplicate items',
       );
     });
 

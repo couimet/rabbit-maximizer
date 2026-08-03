@@ -136,6 +136,21 @@ export class Scheduler extends IntervalService {
         });
         return;
       }
+
+      // Cap total retriggers to prevent indefinite retrigger loops.
+      // Attempts are incremented on both success and failure so the item
+      // eventually resolves even when every retrigger succeeds.
+      const newAttempts = item_!.attempts + 1;
+      if (newAttempts >= this.maxRetriggerAttempts) {
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.markResolved(item_!.id, Resolution.Failed, tx);
+          await probe.maxRetriggersExceeded(newAttempts, tx);
+        });
+      } else {
+        await this.prisma.$transaction(async (tx) => {
+          await tx.reviewQueue.update({ where: { id: item_!.id }, data: { attempts: newAttempts } });
+        });
+      }
     } catch (err: unknown) {
       if (!item) {
         probe.tickFailed(err);
