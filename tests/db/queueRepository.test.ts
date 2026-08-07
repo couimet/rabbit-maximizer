@@ -190,7 +190,7 @@ describe('QueueRepositoryImpl', () => {
       );
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
-        where: { id: oldRetriggered.id, status: QueueStatus.retriggered },
+        where: { id: oldRetriggered.id, status: 'retriggered' },
         data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId, retriggered_at: expect.any(Date) as Date },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
@@ -248,7 +248,7 @@ describe('QueueRepositoryImpl', () => {
       );
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
-        where: { id: oldRetriggered.id, status: QueueStatus.retriggered },
+        where: { id: oldRetriggered.id, status: 'retriggered' },
         data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId, retriggered_at: expect.any(Date) as Date },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();

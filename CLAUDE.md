@@ -275,6 +275,17 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     ```
 
   </good-example>
+  <good-example>
+    ```typescript
+    // GOOD: Same value — enum in setup (type safety), literal in toHaveBeenCalledWith (freeze contract)
+    const retriggered = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
+
+    expect(repo.updateMany).toHaveBeenCalledWith({
+      where: { id: retriggered.id, status: 'retriggered' },
+    });
+    ```
+
+  </good-example>
 </rule>
 
 <rule id="T004" priority="critical">
