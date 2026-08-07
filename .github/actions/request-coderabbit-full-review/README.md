@@ -50,7 +50,7 @@ Cross-repository (overrides the default `github.token`):
 
 ## Comment format
 
-```
+```text
 @coderabbitai full review
 
 ⚡ Review requested by rabbit-maximizer-restacker workflow
