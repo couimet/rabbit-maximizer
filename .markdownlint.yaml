@@ -1,0 +1,4 @@
+# MD013/line-length: disabled — project documentation uses long lines
+# (code references, URLs, detailed explanations) that don't benefit
+# from hard wrapping at 80 characters.
+MD013: false

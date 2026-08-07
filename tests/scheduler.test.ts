@@ -138,7 +138,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
-      expect(deps.tx.reviewQueue.update).toHaveBeenCalledWith({ where: { id: item.id }, data: { attempts: 1 } });
+      expect(deps.queue.incrementAttempts).toHaveBeenCalledWith(item.id, 1, deps.tx);
       expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
 
       await stop();

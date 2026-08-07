@@ -32,6 +32,7 @@ export interface QueueRepository {
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
   getSkippedItems(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  incrementAttempts(id: number, attempts: number, tx: Prisma.TransactionClient): Promise<void>;
 }
 
 @injectable()
@@ -63,13 +64,22 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         probe.recentlyRetriggered(repo, pr);
         return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
       }
-      await db.reviewQueue.update({
-        where: { id: recentRetriggered.id },
-        data: { source_comment_url: sourceCommentUrl, source_comment_id: sourceCommentId },
+      const { count } = await db.reviewQueue.updateMany({
+        where: { id: recentRetriggered.id, status: QueueStatus.retriggered },
+        data: { source_comment_url: sourceCommentUrl, source_comment_id: sourceCommentId, retriggered_at: new Date() },
       });
+      if (count === 0) {
+        probe.recentlyRetriggered(repo, pr);
+        return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
+      }
       probe.retriggeredReplaced(repo, pr, recentRetriggered.source_comment_id, sourceCommentId);
       return {
-        item: this.mapper.fromReviewQueue({ ...recentRetriggered, source_comment_url: sourceCommentUrl, source_comment_id: sourceCommentId }),
+        item: this.mapper.fromReviewQueue({
+          ...recentRetriggered,
+          source_comment_url: sourceCommentUrl,
+          source_comment_id: sourceCommentId,
+          retriggered_at: new Date(),
+        }),
         created: false,
       };
     }
@@ -461,6 +471,13 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       });
       this.log.debug({ fn: 'QueueRepositoryImpl.getSkippedItems', count: rows.length }, 'Fetched skipped items');
       return rows.map((row) => this.mapper.fromReviewQueue(row));
+    });
+  }
+
+  async incrementAttempts(id: number, attempts: number, tx: Prisma.TransactionClient): Promise<void> {
+    await this.client(tx).reviewQueue.update({
+      where: { id },
+      data: { attempts },
     });
   }
 }

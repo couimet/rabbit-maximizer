@@ -170,7 +170,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: {
           findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered),
-          update: createResolvedMock({}),
+          updateMany: createResolvedMock({ count: 1 }),
         },
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
@@ -189,14 +189,19 @@ describe('QueueRepositoryImpl', () => {
         prisma as unknown as Prisma.TransactionClient,
       );
 
-      expect(reviewQueue.update).toHaveBeenCalledWith({
-        where: { id: oldRetriggered.id },
-        data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId },
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id: oldRetriggered.id, status: QueueStatus.retriggered },
+        data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId, retriggered_at: expect.any(Date) as Date },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(queueOrder.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue({ ...oldRetriggered, source_comment_url: newCommentUrl, source_comment_id: newCommentId }));
+      expect(result.source_comment_url).toBe(newCommentUrl);
+      expect(result.source_comment_id).toBe(newCommentId);
+      expect(result.retriggered_at).toStrictEqual(expect.any(Date));
+      expect(result.id).toBe(oldRetriggered.id);
+      expect(result.repo_full_name).toBe(oldRetriggered.repo_full_name);
+      expect(result.pr_number).toBe(oldRetriggered.pr_number);
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.retriggeredReplaced',
@@ -206,6 +211,57 @@ describe('QueueRepositoryImpl', () => {
           newCommentId,
         },
         'Recycled review-limit comment detected; updating retriggered item source comment to prevent duplicate items',
+      );
+    });
+
+    it('falls back to recentRetriggered probe when updateMany affects zero rows (lost the race)', async () => {
+      const ref = generateReviewRef();
+      const oldCommentId = getUniqueInt();
+      const newCommentId = getUniqueInt();
+      const oldRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: oldCommentId,
+      });
+
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered),
+          updateMany: createResolvedMock({ count: 0 }),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
+
+      const { item: result, created } = await sut.enqueue(
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Test PR title',
+          sourceCommentUrl: newCommentUrl,
+          sourceCommentId: newCommentId,
+          pullRequestId: getUniqueInt(),
+        },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id: oldRetriggered.id, status: QueueStatus.retriggered },
+        data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId, retriggered_at: expect.any(Date) as Date },
+      });
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(queueOrder.create).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(oldRetriggered));
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          fn: 'EnqueueProbe.recentlyRetriggered',
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+        },
+        'PR was recently retriggered; skipping',
       );
     });
 
@@ -1183,6 +1239,26 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(result).toHaveLength(0);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getSkippedItems', count: 0 }, 'Fetched skipped items');
+    });
+  });
+
+  describe('incrementAttempts', () => {
+    it('updates the attempts column via the transaction client', async () => {
+      const id = getUniqueInt();
+      const attempts = getUniqueInt();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          update: createResolvedMock({}),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      await sut.incrementAttempts(id, attempts, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id },
+        data: { attempts },
+      });
     });
   });
 

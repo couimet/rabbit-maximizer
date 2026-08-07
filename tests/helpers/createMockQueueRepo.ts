@@ -21,5 +21,6 @@ export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueReposit
     getAll: jest.fn<any>().mockResolvedValue({ items: [], total: 0 }),
     getCountsByStatus: jest.fn<any>().mockResolvedValue({ pending: 0, retriggered: 0, resolved: 0 }),
     getSkippedItems: jest.fn<any>().mockResolvedValue([]),
+    incrementAttempts: jest.fn<any>(),
     ...overrides,
   }) as unknown as jest.Mocked<QueueRepository>;

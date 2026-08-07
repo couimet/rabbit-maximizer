@@ -19,6 +19,7 @@ jobs:
       pull-requests: write
     with:
       pre-install-command: 'cp .env.ci .env'
+      build-artifact-paths: ''
       test-command: 'pnpm ci:test'
 
   shellcheck:

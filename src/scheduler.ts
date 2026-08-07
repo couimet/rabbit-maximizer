@@ -148,7 +148,7 @@ export class Scheduler extends IntervalService {
         });
       } else {
         await this.prisma.$transaction(async (tx) => {
-          await tx.reviewQueue.update({ where: { id: item_!.id }, data: { attempts: newAttempts } });
+          await this.queue.incrementAttempts(item_!.id, newAttempts, tx);
         });
       }
     } catch (err: unknown) {

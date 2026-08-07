@@ -38,7 +38,7 @@ const logger = createMockLogger();
 // logger.debug, logger.info, logger.warn, logger.error are all jest.fn()
 ```
 
-Local stand-in for `@couimet/logger-contract-testing`'s `createMockLogger`, which cannot run under ESM Jest until https://github.com/couimet/ts-npm-packages/issues/29 ships.
+Local stand-in for `@couimet/logger-contract-testing`'s `createMockLogger`, which cannot run under ESM Jest until <https://github.com/couimet/ts-npm-packages/issues/29> ships.
 
 ## createResolvedMock
 
