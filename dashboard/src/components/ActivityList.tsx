@@ -1,7 +1,7 @@
-import type { QueueItemResponse } from '../../../src/types/index.js';
+import type { ActivityListItemResponse } from '../../../src/types/index.js';
 import { type Duration, formatRelativeTime, resolveDurationSince } from '../../../src/utils/index.js';
 import { safeDeriveActivityStatus } from '../activityState.js';
-import { fetchTriggered, markResolved } from '../api.js';
+import { fetchActivityList, markResolved } from '../api.js';
 import { useErrorContext } from '../context/index.js';
 import { prUrl } from '../githubUrl.js';
 
@@ -13,23 +13,18 @@ const PAGE_SIZE = 50;
 const POLL_INTERVAL_MS = 30_000;
 const RELATIVE_TIME_REFRESH_MS = 60_000;
 
-const TRIGGERED_DEFAULT_DURATION = '2d';
+const ACTIVITY_LIST_DEFAULT_DURATION = '2d';
 
 /* c8 ignore next 2 — both branches tested but V8 coverage cannot track arrow-function ternaries in React render paths */
-const formatRetriggeredTime = (item: QueueItemResponse): string => (item.retriggered_at != null ? formatRelativeTime(item.retriggered_at) : '—');
+const formatActivityTime = (item: ActivityListItemResponse): string => (item.last_activity_at != null ? formatRelativeTime(item.last_activity_at) : '—');
 
-/* c8 ignore next 2 — both branches tested but V8 coverage cannot track nested ternaries in React render paths */
-const formatApprovalBadge = (subState: string | undefined): string =>
-  subState === 'review_approved' ? ' ✓' : subState === 'review_changes_suggested' ? ' Δ' : '';
-
-const RecentlyTriggered = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale: boolean; lastSchedulerTickAt: string | null }) => {
-  const [items, setItems] = useState<QueueItemResponse[]>([]);
+const ActivityList = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale: boolean; lastSchedulerTickAt: string | null }) => {
+  const [items, setItems] = useState<ActivityListItemResponse[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const { reportError, dismissError } = useErrorContext();
-  const [duration, setDuration] = useState<Duration>(TRIGGERED_DEFAULT_DURATION);
-  const [includeResolved, setIncludeResolved] = useState(false);
+  const [duration, setDuration] = useState<Duration>(ACTIVITY_LIST_DEFAULT_DURATION);
   const [, setTick] = useState(0);
 
   const mountedRef = useRef(false);
@@ -48,13 +43,13 @@ const RecentlyTriggered = ({ schedulerStale, lastSchedulerTickAt }: { schedulerS
       requestIdRef.current += 1;
       const requestId = requestIdRef.current;
       setLoading(true);
-      fetchTriggered(resolveDurationSince(duration), pageNum, PAGE_SIZE, includeResolved)
+      fetchActivityList(resolveDurationSince(duration), pageNum, PAGE_SIZE)
         .then((res) => {
           /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
           if (!mountedRef.current) return;
           if (requestId !== requestIdRef.current) return;
           lastUpdatedRef.current = new Date();
-          dismissError('recently-triggered');
+          dismissError('activity-list');
           setTotal(res.total);
           if (append) {
             setItems((prev) => [...prev, ...res.data]);
@@ -67,11 +62,11 @@ const RecentlyTriggered = ({ schedulerStale, lastSchedulerTickAt }: { schedulerS
           /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
           if (!mountedRef.current) return;
           if (requestId !== requestIdRef.current) return;
-          reportError('recently-triggered', 'Recently triggered', err.message);
+          reportError('activity-list', 'Activity list', err.message);
           setLoading(false);
         });
     },
-    [duration, includeResolved, reportError, dismissError],
+    [duration, reportError, dismissError],
   );
 
   useEffect(() => {
@@ -99,43 +94,32 @@ const RecentlyTriggered = ({ schedulerStale, lastSchedulerTickAt }: { schedulerS
     /* c8 ignore next — safety fallback: total is always set when items are displayed */
     setTotal((t) => (t !== null ? t - 1 : null));
     markResolved(uuid).catch((err: Error) => {
-      reportError('recently-triggered-mark-resolved', 'Recently triggered', err.message);
+      reportError('activity-list-mark-resolved', 'Activity list', err.message);
       fetchData(1, false);
     });
   };
 
   const hasMore = total !== null && items.length < total;
 
-  const renderStatusPill = (item: QueueItemResponse) => {
-    const { state, linkUrl, subState } = safeDeriveActivityStatus(item);
+  const renderStatusPill = (item: ActivityListItemResponse) => {
+    const { state, linkUrl } = safeDeriveActivityStatus(item);
     const label = STATE_LABEL[state];
     const className = `status-pill ${STATE_CLASS[state]}`;
-    const badge = formatApprovalBadge(subState);
     if (linkUrl) {
       return (
         <a href={linkUrl} className={className} target="_blank" rel="noopener noreferrer">
           {label}
-          {badge}
         </a>
       );
     }
-    return (
-      <span className={className}>
-        {label}
-        {badge}
-      </span>
-    );
+    return <span className={className}>{label}</span>;
   };
 
   return (
     <div className="section-card">
       <h3>
-        Recently Triggered — <DurationSelect value={duration} onChange={setDuration} aria-label="Triggered time range" />
+        Activity List — <DurationSelect value={duration} onChange={setDuration} aria-label="Activity time range" />
       </h3>
-
-      <label className="show-reviewed-toggle">
-        <input type="checkbox" checked={includeResolved} onChange={(e) => setIncludeResolved(e.target.checked)} /> Show resolved
-      </label>
 
       {schedulerStale && (
         <div className="scheduler-stale-banner">
@@ -144,30 +128,30 @@ const RecentlyTriggered = ({ schedulerStale, lastSchedulerTickAt }: { schedulerS
         </div>
       )}
       {loading && items.length === 0 ? (
-        <div className="loading">Loading triggered items…</div>
+        <div className="loading">Loading activity list…</div>
       ) : items.length === 0 ? (
-        <p>No triggered items in this time window.</p>
+        <p>No activity in this time window.</p>
       ) : (
         <>
-          <table className="data-table triggered-table">
+          <table className="data-table activity-table">
             <thead>
               <tr>
                 <th>Repo / PR</th>
-                <th>Retriggered</th>
+                <th>Last activity</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.uuid} className={item.status === 'resolved' ? 'row-status-reviewed' : ''}>
+                <tr key={item.uuid}>
                   <td>
                     <a href={item.retrigger_comment_url ?? prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noreferrer">
                       {item.pr_title} (#{item.pr_number})
                     </a>{' '}
                     by {item.author_login}
                   </td>
-                  <td>{formatRetriggeredTime(item)}</td>
+                  <td>{formatActivityTime(item)}</td>
                   <td>{renderStatusPill(item)}</td>
                   <td>
                     {item.status !== 'resolved' && (
@@ -199,4 +183,4 @@ const RecentlyTriggered = ({ schedulerStale, lastSchedulerTickAt }: { schedulerS
   );
 };
 
-export default RecentlyTriggered;
+export default ActivityList;

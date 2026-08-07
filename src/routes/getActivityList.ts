@@ -1,5 +1,5 @@
 import type { QueueRepository } from '../db/index.js';
-import type { QueueItemMapper } from '../mappers/index.js';
+import type { ReviewQueueToActivityListItemMapper } from '../mappers/index.js';
 
 import { DEFAULT_PAGE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from './index.js';
 
@@ -7,9 +7,9 @@ import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 
-const TRIGGERED_PAGE_SIZE = 50;
+const ACTIVITY_LIST_PAGE_SIZE = 50;
 
-export const createGetTriggeredHandler = (queueRepo: QueueRepository, queueItemMapper: QueueItemMapper, logger: Logger) => {
+export const createGetActivityListHandler = (queueRepo: QueueRepository, activityListMapper: ReviewQueueToActivityListItemMapper, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const sinceRaw = req.query.since;
@@ -24,17 +24,16 @@ export const createGetTriggeredHandler = (queueRepo: QueueRepository, queueItemM
       }
 
       const page = Math.max(DEFAULT_PAGE, parseInt(String(req.query.page)) || DEFAULT_PAGE);
-      const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(MIN_PAGE_SIZE, parseInt(String(req.query.pageSize)) || TRIGGERED_PAGE_SIZE));
-      const includeResolved = req.query.include_resolved === 'true';
+      const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(MIN_PAGE_SIZE, parseInt(String(req.query.pageSize)) || ACTIVITY_LIST_PAGE_SIZE));
       const skip = (page - 1) * pageSize;
 
-      const { items, total } = await queueRepo.getTriggered(since, skip, pageSize, includeResolved);
-      const data = await queueItemMapper.mapToQueueItemResponseList(items);
+      const { items, total } = await queueRepo.getActivityList(since, skip, pageSize);
+      const data = await activityListMapper.mapToList(items);
 
       res.json({ data, total, page, pageSize });
     } catch (error) {
-      logger.error({ fn: 'api.getTriggered', error }, 'Failed to get triggered items');
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get triggered items' });
+      logger.error({ fn: 'api.getActivityList', error }, 'Failed to get activity list');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get activity list' });
     }
   };
 };

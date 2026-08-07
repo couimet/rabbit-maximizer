@@ -97,7 +97,7 @@ describe('DetectedProbe', () => {
     );
   });
 
-  it('records a bypassed event for merged PRs', async () => {
+  it('records a dismissed event for merged PRs', async () => {
     const ref = generateReviewRef();
     const observation = generateObservationContextHydrationData();
     const entryUuid = getUuid();
@@ -123,7 +123,7 @@ describe('DetectedProbe', () => {
 
     expect(record).toHaveBeenCalledWith(
       {
-        type: 'bypassed',
+        type: 'dismissed',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
         correlation_id: observation.correlationId,
@@ -136,11 +136,11 @@ describe('DetectedProbe', () => {
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid },
-      'Review-limit comment bypassed: PR already merged',
+      'Review-limit comment dismissed: PR already merged',
     );
   });
 
-  it('records a bypassed event for closed-without-merge PRs', async () => {
+  it('records a dismissed event for closed-without-merge PRs', async () => {
     const ref = generateReviewRef();
     const observation = generateObservationContextHydrationData();
     const entryUuid = getUuid();
@@ -166,7 +166,7 @@ describe('DetectedProbe', () => {
 
     expect(record).toHaveBeenCalledWith(
       {
-        type: 'bypassed',
+        type: 'dismissed',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
         correlation_id: observation.correlationId,
@@ -179,11 +179,11 @@ describe('DetectedProbe', () => {
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid },
-      'Review-limit comment bypassed: PR closed without merge',
+      'Review-limit comment dismissed: PR closed without merge',
     );
   });
 
-  it('records a bypassed event for unregistered PRs', async () => {
+  it('records a dismissed event for unregistered PRs', async () => {
     const ref = generateReviewRef();
     const observation = generateObservationContextHydrationData();
     const entryUuid = getUuid();
@@ -209,7 +209,7 @@ describe('DetectedProbe', () => {
 
     expect(record).toHaveBeenCalledWith(
       {
-        type: 'bypassed',
+        type: 'dismissed',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
         correlation_id: observation.correlationId,
@@ -222,7 +222,7 @@ describe('DetectedProbe', () => {
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid },
-      'Review-limit comment bypassed: PR not yet registered by scanner',
+      'Review-limit comment dismissed: PR not yet registered by scanner',
     );
   });
 

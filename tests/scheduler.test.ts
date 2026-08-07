@@ -3,9 +3,11 @@ import type { QueueOrderRepository, QueueRepository } from '../src/db/index.js';
 import { RabbitResult } from '../src/domain.js';
 import type { ProbeFactory } from '../src/probes/index.js';
 import { type Pruner, ReviewTrigger, Scheduler } from '../src/services.js';
+import type { PRState } from '../src/types/index.js';
 
 import {
   createMockProbeFactory,
+  createMockPRStateFetcher,
   createMockPruner,
   createMockPullRequestRepo,
   createMockQueueOrderRepo,
@@ -40,6 +42,7 @@ interface MockSchedulerDeps {
   reviewTrigger: jest.Mocked<ReviewTrigger>;
   systemState: ReturnType<typeof createMockSystemStateRepository>;
   pullRequests: ReturnType<typeof createMockPullRequestRepo>;
+  prStateFetcher: ReturnType<typeof createMockPRStateFetcher>;
 }
 
 const setup = (): MockSchedulerDeps => {
@@ -47,7 +50,7 @@ const setup = (): MockSchedulerDeps => {
   const queue = createMockQueueRepo();
   const reviewTrigger = { trigger: jest.fn() } as unknown as jest.Mocked<ReviewTrigger>;
 
-  const tx = {} as Prisma.TransactionClient;
+  const tx = { reviewQueue: { update: jest.fn() } } as unknown as Prisma.TransactionClient;
 
   const prisma = {
     $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)),
@@ -63,6 +66,8 @@ const setup = (): MockSchedulerDeps => {
   const systemState = createMockSystemStateRepository();
 
   const pullRequests = createMockPullRequestRepo();
+
+  const prStateFetcher = createMockPRStateFetcher();
 
   const config: Config = {
     DETECTION_MODE: 'poll',
@@ -88,7 +93,7 @@ const setup = (): MockSchedulerDeps => {
     SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000,
   };
 
-  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState, pullRequests };
+  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState, pullRequests, prStateFetcher };
 };
 
 describe('Scheduler', () => {
@@ -113,6 +118,7 @@ describe('Scheduler', () => {
       deps.probeFactory,
       deps.pullRequests,
       deps.systemState,
+      deps.prStateFetcher,
       deps.logger,
     );
 
@@ -121,18 +127,36 @@ describe('Scheduler', () => {
   describe('tick', () => {
     const makeTriggerOk = () => RabbitResult.ok({ retriggeredCommentUrl: getUniqueString() });
 
-    it('delegates to ReviewTrigger on success', async () => {
+    it('delegates to ReviewTrigger on success and increments attempts', async () => {
       const item = generateQueueItemHydrationData();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+      expect(deps.queue.incrementAttempts).toHaveBeenCalledWith(item.id, 1, deps.tx);
       expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+
+      await stop();
+    });
+
+    it('resolves item when successful retriggers reach MAX_RETRIGGER_ATTEMPTS', async () => {
+      const item = generateQueueItemHydrationData({ attempts: 9 });
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', expect.any(Object));
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(10, expect.any(Object));
+      expect(deps.tx.reviewQueue.update).not.toHaveBeenCalled();
 
       await stop();
     });
@@ -151,7 +175,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -173,7 +197,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -196,7 +220,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -218,7 +242,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -235,11 +259,11 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockRejectedValue(notFoundError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(404, deps.tx);
+      expect(deps.mockProbe.prDeleted).toHaveBeenCalledWith(404, deps.tx);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
 
       await stop();
@@ -252,11 +276,11 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockRejectedValue(goneError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(410, deps.tx);
+      expect(deps.mockProbe.prDeleted).toHaveBeenCalledWith(410, deps.tx);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
 
       await stop();
@@ -269,11 +293,11 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.mockProbe.prClosedOrMerged).not.toHaveBeenCalled();
+      expect(deps.mockProbe.prDeleted).not.toHaveBeenCalled();
       expect(deps.mockProbe.backedOff).toHaveBeenCalledWith(BASE_BACKOFF_MS, 0, networkError, deps.tx);
 
       await stop();
@@ -283,7 +307,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([]);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await drainMicrotasks(SHORT_DRAIN);
 
@@ -298,7 +322,7 @@ describe('Scheduler', () => {
       deps.systemState.isSchedulerPaused.mockResolvedValue(true);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -309,11 +333,28 @@ describe('Scheduler', () => {
       await stop();
     });
 
+    it('skips processing when next_review_available_at is in the future', async () => {
+      const item = generateQueueItemHydrationData();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.systemState.getState.mockResolvedValue(new Date(Date.now() + TICK_INTERVAL_MS));
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.mockProbe.tickSkippedCooldown).toHaveBeenCalled();
+      expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+
+      await stop();
+    });
+
     it('prunes before checking pause state', async () => {
       deps.systemState.isSchedulerPaused.mockResolvedValue(true);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -328,7 +369,7 @@ describe('Scheduler', () => {
       deps.queue.resolveStaleRetriggered.mockResolvedValue(3);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -349,7 +390,7 @@ describe('Scheduler', () => {
       };
       deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
       await awaitTick(scheduler);
       expect(deps.mockProbe.tickSkippedAwaitingAcknowledgement).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
@@ -363,7 +404,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -380,7 +421,7 @@ describe('Scheduler', () => {
       deps.systemState.setLastSchedulerTickAt.mockRejectedValue(heartbeatError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -394,7 +435,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockRejectedValue(dbError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -407,7 +448,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockRejectedValue('raw string failure');
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -418,7 +459,7 @@ describe('Scheduler', () => {
 
     it('logs start and stop messages', async () => {
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
 
@@ -428,7 +469,7 @@ describe('Scheduler', () => {
 
     it('does not throw when stop is called multiple times', async () => {
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await stop();
       await stop();
@@ -448,7 +489,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -467,7 +508,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -491,7 +532,7 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -500,6 +541,115 @@ describe('Scheduler', () => {
       expect(deps.mockProbe.maxRetriggersExceeded).not.toHaveBeenCalled();
 
       await stop();
+    });
+
+    describe('PR state scan loop', () => {
+      it('selects the first open PR and skips merged PRs', async () => {
+        const mergedItem = generateQueueItemHydrationData();
+        const openItem = generateQueueItemHydrationData();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch
+          .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
+          .mockResolvedValueOnce({ state: 'open', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, openItem]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(2);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
+        expect(deps.mockProbe.prClosedDuringScan).toHaveBeenCalledWith(mergedItem.repo_full_name, mergedItem.pr_number, 'merged', deps.tx);
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(openItem, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('skips items whose PR state fetch fails', async () => {
+        const failedItem = generateQueueItemHydrationData();
+        const openItem = generateQueueItemHydrationData();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch.mockResolvedValueOnce(undefined).mockResolvedValueOnce({ state: 'open', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([failedItem, openItem]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(2);
+        expect(deps.queue.markResolved).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(openItem, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('resolves closed-without-merge PR and continues to next item', async () => {
+        const closedItem = generateQueueItemHydrationData();
+        const openItem = generateQueueItemHydrationData();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch
+          .mockResolvedValueOnce({ state: 'closed', merged_at: null, closed_at: null } satisfies PRState)
+          .mockResolvedValueOnce({ state: 'open', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([closedItem, openItem]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(2);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(closedItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.mockProbe.prClosedDuringScan).toHaveBeenCalledWith(closedItem.repo_full_name, closedItem.pr_number, 'closed', deps.tx);
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(openItem, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('calls noItemsDue when all candidates are merged or closed', async () => {
+        const mergedItem = generateQueueItemHydrationData();
+        const closedItem = generateQueueItemHydrationData();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch
+          .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
+          .mockResolvedValueOnce({ state: 'closed', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, closedItem]);
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(2);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(closedItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('resolves without unnecessary transaction when single item is merged', async () => {
+        const mergedItem = generateQueueItemHydrationData();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch.mockResolvedValue({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem]);
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(1);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+
+        await stop();
+      });
     });
   });
 });

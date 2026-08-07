@@ -1,6 +1,7 @@
 export type { AcknowledgementResult } from './AcknowledgementResult.js';
 export type { ActivityStatus } from './ActivityStatus.js';
 export type { AlreadyReviewedComment } from './AlreadyReviewedComment.js';
+export type { ActivityListItemResponse } from './api.js';
 export type {
   DashboardStateResponse,
   EventCountsResponse,
@@ -19,6 +20,7 @@ export type { CreateSkippedData } from './CreateSkippedData.js';
 export type { DetectedComment } from './DetectedComment.js';
 export type { DirectCheckPR } from './DirectCheckPR.js';
 export type { DiscoveredPR } from './DiscoveredPR.js';
+export type { DismissalEventParams } from './DismissalEventParams.js';
 export type { EditDetectionOutcome } from './EditDetectionOutcome.js';
 export type { EditDetectionResult } from './EditDetectionResult.js';
 export type { EnqueueData } from './EnqueueData.js';
@@ -27,11 +29,11 @@ export type { EnrichedItem } from './EnrichedItem.js';
 export type { EnrichedQueueItem } from './EnrichedQueueItem.js';
 export type { EventEnvelope, EventLogEntry } from './EventLogEntry.js';
 export type {
-  BypassedPayload,
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
   CoderabbitReviewSkippedPayload,
   DetectedPayload,
+  DismissedPayload,
   EnqueuedPayload,
   EventMetadata,
   FailedPayload,

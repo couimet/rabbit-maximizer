@@ -185,10 +185,11 @@ describe('deriveActivityStatus', () => {
       });
     });
 
-    it('returns review_in_progress state when last_coderabbit_acknowledged_at is present', () => {
+    it('returns review_in_progress state when last_coderabbit_acknowledged_at is present and no source_comment_url', () => {
       const item = generateQueueItemResponseData({
         status: 'retriggered',
         last_coderabbit_acknowledged_at: acknowledgedAtIso,
+        source_comment_url: undefined,
         retrigger_comment_url: retriggerCommentUrl,
       });
 
@@ -201,7 +202,12 @@ describe('deriveActivityStatus', () => {
     });
 
     it('returns undefined link when review in progress and retrigger_comment_url is null', () => {
-      const item = generateQueueItemResponseData({ status: 'retriggered', last_coderabbit_acknowledged_at: acknowledgedAtIso, retrigger_comment_url: null });
+      const item = generateQueueItemResponseData({
+        status: 'retriggered',
+        last_coderabbit_acknowledged_at: acknowledgedAtIso,
+        source_comment_url: undefined,
+        retrigger_comment_url: null,
+      });
 
       const result = deriveActivityStatus(item);
 
@@ -211,7 +217,7 @@ describe('deriveActivityStatus', () => {
       });
     });
 
-    it('review_in_progress takes priority over review_limited when both ack and source_comment_url exist', () => {
+    it('review_limited takes priority over review_in_progress when both ack and source_comment_url exist', () => {
       const item = generateQueueItemResponseData({
         status: 'retriggered',
         last_coderabbit_acknowledged_at: acknowledgedAtIso,
@@ -222,8 +228,8 @@ describe('deriveActivityStatus', () => {
       const result = deriveActivityStatus(item);
 
       expect(result).toStrictEqual({
-        state: 'review_in_progress',
-        linkUrl: retriggerCommentUrl,
+        state: 'review_limited',
+        linkUrl: sourceCommentUrl,
       });
     });
 

@@ -1,48 +1,56 @@
 import { isPRClosedWithoutMerge, isPRMerged } from '../../src/github/index.js';
-import type { PRState } from '../../src/types/index.js';
 
-import { describe, expect, it } from '@jest/globals';
+import { getUniqueDate } from '@couimet/dynamic-testing';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('isPRMerged', () => {
+  let closedAt: string;
+  let mergedAt: string;
+
+  beforeEach(() => {
+    closedAt = getUniqueDate().toISOString();
+    mergedAt = getUniqueDate().toISOString();
+  });
+
   it('returns true for a closed PR with a merge date', () => {
-    const prState: PRState = { state: 'closed', merged_at: '2026-01-01T00:00:00Z' };
-    expect(isPRMerged(prState)).toBe(true);
+    expect(isPRMerged({ state: 'closed', merged_at: mergedAt, closed_at: mergedAt })).toBe(true);
   });
 
   it('returns false for an open PR', () => {
-    const prState: PRState = { state: 'open', merged_at: null };
-    expect(isPRMerged(prState)).toBe(false);
+    expect(isPRMerged({ state: 'open', merged_at: null, closed_at: null })).toBe(false);
   });
 
   it('returns false for a closed PR without a merge date', () => {
-    const prState: PRState = { state: 'closed', merged_at: null };
-    expect(isPRMerged(prState)).toBe(false);
+    expect(isPRMerged({ state: 'closed', merged_at: null, closed_at: closedAt })).toBe(false);
   });
 
   it('returns false when merged_at is a falsy empty string', () => {
-    const prState: PRState = { state: 'closed', merged_at: '' };
-    expect(isPRMerged(prState)).toBe(false);
+    expect(isPRMerged({ state: 'closed', merged_at: '', closed_at: closedAt })).toBe(false);
   });
 });
 
 describe('isPRClosedWithoutMerge', () => {
+  let closedAt: string;
+  let mergedAt: string;
+
+  beforeEach(() => {
+    closedAt = getUniqueDate().toISOString();
+    mergedAt = getUniqueDate().toISOString();
+  });
+
   it('returns true for a closed PR without a merge date', () => {
-    const prState: PRState = { state: 'closed', merged_at: null };
-    expect(isPRClosedWithoutMerge(prState)).toBe(true);
+    expect(isPRClosedWithoutMerge({ state: 'closed', merged_at: null, closed_at: closedAt })).toBe(true);
   });
 
   it('returns false for an open PR', () => {
-    const prState: PRState = { state: 'open', merged_at: null };
-    expect(isPRClosedWithoutMerge(prState)).toBe(false);
+    expect(isPRClosedWithoutMerge({ state: 'open', merged_at: null, closed_at: null })).toBe(false);
   });
 
   it('returns false for a closed PR with a merge date', () => {
-    const prState: PRState = { state: 'closed', merged_at: '2026-01-01T00:00:00Z' };
-    expect(isPRClosedWithoutMerge(prState)).toBe(false);
+    expect(isPRClosedWithoutMerge({ state: 'closed', merged_at: mergedAt, closed_at: mergedAt })).toBe(false);
   });
 
   it('returns true when merged_at is a falsy empty string', () => {
-    const prState: PRState = { state: 'closed', merged_at: '' };
-    expect(isPRClosedWithoutMerge(prState)).toBe(true);
+    expect(isPRClosedWithoutMerge({ state: 'closed', merged_at: '', closed_at: closedAt })).toBe(true);
   });
 });

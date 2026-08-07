@@ -1,4 +1,4 @@
-import { BypassReason, EventType } from '../../src/domain.js';
+import { DismissalReason, EventType } from '../../src/domain.js';
 import { EventEntryMapper } from '../../src/mappers/index.js';
 import { type DetectedPayload, type EnqueuedPayload, type FailedPayload, type RetriggeredPayload } from '../../src/types/EventPayloads.js';
 import type { EventLogEntry } from '../../src/types/index.js';
@@ -11,8 +11,6 @@ describe('EventEntryMapper', () => {
   const mapper = new EventEntryMapper();
 
   let ref: ReturnType<typeof generateReviewRef>;
-  let id: number;
-  let uuid: string;
   let correlationId: string;
   let ts: Date;
   let requestId: string;
@@ -20,8 +18,6 @@ describe('EventEntryMapper', () => {
 
   beforeEach(() => {
     ref = generateReviewRef();
-    id = getUniqueInt();
-    uuid = getUuid();
     correlationId = getUuid();
     ts = getUniqueDate();
     requestId = getUniqueString({ prefix: 'req-' });
@@ -29,8 +25,8 @@ describe('EventEntryMapper', () => {
   });
 
   const makeDetectedEntry = (): EventLogEntry => ({
-    id,
-    uuid,
+    id: getUniqueInt(),
+    uuid: getUuid(),
     ts,
     type: EventType.detected,
     repo_full_name: ref.repoFullName,
@@ -42,7 +38,7 @@ describe('EventEntryMapper', () => {
   });
 
   const makeEnqueuedEntry = (): EventLogEntry => ({
-    id: id + 1,
+    id: getUniqueInt(),
     uuid: getUuid(),
     ts,
     type: EventType.enqueued,
@@ -54,7 +50,7 @@ describe('EventEntryMapper', () => {
   });
 
   const makeRetriggeredEntry = (): EventLogEntry => ({
-    id: id + 2,
+    id: getUniqueInt(),
     uuid: getUuid(),
     ts,
     type: EventType.retriggered,
@@ -66,7 +62,7 @@ describe('EventEntryMapper', () => {
   });
 
   const makeFailedEntry = (): EventLogEntry => ({
-    id: id + 3,
+    id: getUniqueInt(),
     uuid: getUuid(),
     ts,
     type: EventType.failed,
@@ -77,16 +73,16 @@ describe('EventEntryMapper', () => {
     payload: { reason: 'Rate limited' } as FailedPayload,
   });
 
-  const makeBypassedEntry = (): EventLogEntry => ({
-    id: id + 4,
+  const makeDismissedEntry = (): EventLogEntry => ({
+    id: getUniqueInt(),
     uuid: getUuid(),
     ts,
-    type: EventType.bypassed,
+    type: EventType.dismissed,
     repo_full_name: ref.repoFullName,
     pr_number: ref.prNumber,
     correlation_id: correlationId,
     version,
-    payload: { reason: BypassReason.prMerged },
+    payload: { reason: DismissalReason.prMerged },
   });
 
   describe('mapToEventEntryResponse', () => {
@@ -94,8 +90,8 @@ describe('EventEntryMapper', () => {
       const input = makeDetectedEntry();
       const result = mapper.mapToEventEntryResponse(input);
 
-      expect(result.id).toBe(id);
-      expect(result.uuid).toBe(uuid);
+      expect(result.id).toBe(input.id);
+      expect(result.uuid).toBe(input.uuid);
       expect(result.repo_full_name).toBe(ref.repoFullName);
       expect(result.pr_number).toBe(ref.prNumber);
       expect(result.correlation_id).toBe(correlationId);
@@ -164,11 +160,11 @@ describe('EventEntryMapper', () => {
       expect(result.payload).toStrictEqual({ reason: 'Rate limited' });
     });
 
-    it('handles bypassed event type', () => {
-      const input = makeBypassedEntry();
+    it('handles dismissed event type', () => {
+      const input = makeDismissedEntry();
       const result = mapper.mapToEventEntryResponse(input);
 
-      expect(result.type).toBe('bypassed');
+      expect(result.type).toBe('dismissed');
       expect(result.payload).toStrictEqual({ reason: 'prMerged' });
     });
   });

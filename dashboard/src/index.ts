@@ -1,5 +1,6 @@
 export { default as App } from './App.js';
 export {
+  ActivityList,
   ConfirmDialog,
   DurationSelect,
   EventHistory,
@@ -7,7 +8,6 @@ export {
   GlobalErrorBanner,
   Pagination,
   QueueOrder,
-  RecentlyTriggered,
   ReviewCountdown,
   SummaryStats,
   usePauseNotification,

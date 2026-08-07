@@ -1,15 +1,15 @@
 import { ActivityState } from '../../../src/domain.js';
 
 export const STATE_LABEL: Record<ActivityState, string> = {
-  [ActivityState.reviewCompleted]: 'Reviewed',
+  [ActivityState.reviewCompleted]: 'CodeRabbit: completed analysis',
   [ActivityState.manualReview]: 'Manual review',
   [ActivityState.failed]: 'Failed',
-  [ActivityState.prMerged]: 'Merged',
+  [ActivityState.prMerged]: 'PR merged',
   [ActivityState.prClosed]: 'Closed',
   [ActivityState.skipped]: 'Skipped',
-  [ActivityState.reviewInProgress]: 'In progress',
-  [ActivityState.reviewLimited]: 'Review limited',
-  [ActivityState.awaitingReview]: 'Awaiting review',
+  [ActivityState.reviewInProgress]: 'CodeRabbit: review in progress',
+  [ActivityState.reviewLimited]: 'CodeRabbit review-limited',
+  [ActivityState.awaitingReview]: 'Awaiting CodeRabbit review',
   [ActivityState.pending]: 'Pending',
 };
 

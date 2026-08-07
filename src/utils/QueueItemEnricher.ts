@@ -10,7 +10,14 @@ import { inject, injectable } from 'inversify';
 
 const UNKNOWN_AUTHOR_LOGIN = '<unknown>';
 
-const EMPTY_ENRICHMENT = { prState: undefined, lastCoderabbitAcknowledgedAt: undefined, authorLogin: UNKNOWN_AUTHOR_LOGIN, coderabbitReview: undefined };
+const EMPTY_ENRICHMENT = {
+  prState: undefined,
+  lastCoderabbitAcknowledgedAt: undefined,
+  authorLogin: UNKNOWN_AUTHOR_LOGIN,
+  coderabbitReview: undefined,
+  retriggerCount: 0,
+  reviewCount: 0,
+};
 
 @injectable()
 export class QueueItemEnricher {
@@ -46,12 +53,16 @@ export class QueueItemEnricher {
       author_login: authorLoginMap,
       last_review_url: reviewUrlMap,
       last_review_state: reviewStateMap,
+      retrigger_count: retriggerCountMap,
+      review_count: reviewCountMap,
     } = await this.pullRequests.getColumnMaps(validIds, [
       'author_login',
       'last_coderabbit_acknowledged_at',
       'last_review_state',
       'last_review_url',
       'pr_state',
+      'retrigger_count',
+      'review_count',
     ]);
 
     return items.map((item) => {
@@ -64,9 +75,11 @@ export class QueueItemEnricher {
       const authorLogin = authorLoginMap.get(pid) ?? UNKNOWN_AUTHOR_LOGIN;
       const reviewUrl = reviewUrlMap.get(pid) ?? undefined;
       const reviewState = reviewStateMap.get(pid) ?? undefined;
+      const retriggerCount = retriggerCountMap.get(pid) ?? 0;
+      const reviewCount = reviewCountMap.get(pid) ?? 0;
       const coderabbitReview: CoderabbitReviewVerdict | undefined =
         reviewUrl != null && isReviewVerdictState(reviewState) ? { htmlUrl: reviewUrl, state: reviewState } : undefined;
-      return { ...item, prState, lastCoderabbitAcknowledgedAt: ackValue, authorLogin, coderabbitReview };
+      return { ...item, prState, lastCoderabbitAcknowledgedAt: ackValue, authorLogin, coderabbitReview, retriggerCount, reviewCount };
     });
   }
 }

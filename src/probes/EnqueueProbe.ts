@@ -48,7 +48,7 @@ export class EnqueueProbe {
   retriggeredReplaced(repo: string, pr: number, oldCommentId: number, newCommentId: number): void {
     this.log.info(
       { fn: 'EnqueueProbe.retriggeredReplaced', repo, pr, oldCommentId, newCommentId },
-      'Recycled review-limit comment replaced stale retriggered item; marking old item reviewed',
+      'Recycled review-limit comment detected; updating retriggered item source comment to prevent duplicate items',
     );
   }
 

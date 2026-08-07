@@ -1,11 +1,11 @@
-/** Event lifecycle stage. Sorted by lifecycle: detection first, then processing, then review outcomes last. */
+/** Event lifecycle stage. Alphabetically sorted. */
 export enum EventType {
-  detected = 'detected',
-  enqueued = 'enqueued',
-  retriggered = 'retriggered',
-  bypassed = 'bypassed',
-  failed = 'failed',
   coderabbit_review_approved = 'coderabbit_review_approved',
   coderabbit_review_changes_suggested = 'coderabbit_review_changes_suggested',
   coderabbit_review_skipped = 'coderabbit_review_skipped',
+  detected = 'detected',
+  dismissed = 'dismissed',
+  enqueued = 'enqueued',
+  failed = 'failed',
+  retriggered = 'retriggered',
 }

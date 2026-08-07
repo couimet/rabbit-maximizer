@@ -1,9 +1,9 @@
 import type { EventRepository } from '../db/index.js';
-import { BypassReason } from '../domain.js';
+import { DismissalReason } from '../domain.js';
 import type { ObservationContext } from '../observability/index.js';
 import type { QueueItem } from '../types/index.js';
 
-import { recordBypassEvent } from './index.js';
+import { recordDismissalEvent } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -26,10 +26,10 @@ export class PrunerProbe {
   }
 
   async prMerged(tx: Prisma.TransactionClient): Promise<void> {
-    await recordBypassEvent({
+    await recordDismissalEvent({
       events: this.events,
       tx,
-      reason: BypassReason.prMerged,
+      reason: DismissalReason.prMerged,
       observation: this.observation,
       repo_full_name: this.item!.repo_full_name,
       pr_number: this.item!.pr_number,
@@ -41,10 +41,10 @@ export class PrunerProbe {
   }
 
   async prClosedWithoutMerge(tx: Prisma.TransactionClient): Promise<void> {
-    await recordBypassEvent({
+    await recordDismissalEvent({
       events: this.events,
       tx,
-      reason: BypassReason.prClosedWithoutMerge,
+      reason: DismissalReason.prClosedWithoutMerge,
       observation: this.observation,
       repo_full_name: this.item!.repo_full_name,
       pr_number: this.item!.pr_number,

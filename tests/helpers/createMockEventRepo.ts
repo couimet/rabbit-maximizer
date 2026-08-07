@@ -10,7 +10,7 @@ export const createMockEventRepo = (overrides?: Partial<jest.Mocked<EventReposit
       detected: 0,
       enqueued: 0,
       retriggered: 0,
-      bypassed: 0,
+      dismissed: 0,
       failed: 0,
       coderabbit_review_approved: 0,
       coderabbit_review_changes_suggested: 0,

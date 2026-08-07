@@ -70,7 +70,7 @@ The dashboard shows current system status across three tabs:
 
 Rabbit Maximizer needs a GitHub **fine-grained personal access token** (classic tokens also work but fine-grained is recommended). The token must be issued by a **user account** (not a GitHub App) — CodeRabbit ignores `[bot]` identities. A user PAT works for both user-owned and organization-owned repos, as long as your account has access to them.
 
-1. Go to https://github.com/settings/personal-access-tokens/new
+1. Go to <https://github.com/settings/personal-access-tokens/new>
 2. Under **Resource owner**, select your user account
 3. Under **Repository access**, choose "All repositories" or "Selected repositories". Do **not** choose "Public repositories" — that option hides the Issues permission from the dropdown below, which means you cannot grant write access. If you pick "Selected repositories", add the repos you want Rabbit Maximizer to watch. Selecting specific repos limits exposure if the token leaks.
 4. Under **Permissions** → **Repository permissions**, set both **Issues** and **Pull requests** to "Read and write". Both default to "No access", so you must change them explicitly. Issues write is required to post retrigger comments; Pull requests read/write is required to check PR state.

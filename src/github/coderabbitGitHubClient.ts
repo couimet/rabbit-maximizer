@@ -213,7 +213,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       pull_number: pr,
     });
 
-    return { state: response.data.state, merged_at: response.data.merged_at };
+    return { state: response.data.state, merged_at: response.data.merged_at, closed_at: response.data.closed_at };
   }
 
   async findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined> {

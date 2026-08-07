@@ -688,14 +688,15 @@ describe('client', () => {
     it('maps response to PRState', async () => {
       const { fullName } = getUniqueGitHubRepoRef();
       const mergedAt = getUniqueDate().toISOString();
+      const closedAt = getUniqueDate().toISOString();
       pulls.get.mockResolvedValue({
-        data: { state: 'closed', merged_at: mergedAt },
+        data: { state: 'closed', merged_at: mergedAt, closed_at: closedAt },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
       const result = await client.getPRState(fullName, prNumber);
 
-      expect(result).toStrictEqual({ state: 'closed', merged_at: mergedAt });
+      expect(result).toStrictEqual({ state: 'closed', merged_at: mergedAt, closed_at: closedAt });
     });
   });
 

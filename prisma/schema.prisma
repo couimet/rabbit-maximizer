@@ -31,6 +31,10 @@ model PullRequest {
   author_login              String
   /// One of 'open', 'merged', 'closed'. Enforced by CHECK in migration.
   pr_state                  String    @default("open")
+  /// NULL until the PR is merged.
+  merged_at                 DateTime?
+  /// NULL until the PR is closed without merge. Enforced: merged_at OR closed_at may be set, never both (CHECK in migration).
+  closed_at                 DateTime?
   first_seen_at             DateTime
   first_review_limit_at     DateTime?
   last_review_limit_at      DateTime?
@@ -126,7 +130,7 @@ model Event {
   /// Max 36 (UUID v4).
   uuid           String   @unique @default(uuid())
   ts             DateTime @default(now())
-  /// Max 40; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'failed' | 'coderabbit_review_approved' | 'coderabbit_review_changes_suggested' | 'coderabbit_review_skipped' (CHECK in the init + bypass + fix migration).
+  /// Max 40; validated by Zod schema in src/schemas/events.ts, not by DB CHECK constraint.
   type           String
   pull_request_id Int?
   /// Max 140: GitHub owner/org + "/" + repo. See review_queue / init migration for sources.

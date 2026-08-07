@@ -1,4 +1,11 @@
-import type { DashboardStateResponse, EventEntryResponse, PublicConfigResponse, QueueItemResponse, SummaryResponse } from '../../src/types/index.js';
+import type {
+  ActivityListItemResponse,
+  DashboardStateResponse,
+  EventEntryResponse,
+  PublicConfigResponse,
+  QueueItemResponse,
+  SummaryResponse,
+} from '../../src/types/index.js';
 
 import { buildQueryString } from './queryParams.js';
 
@@ -36,10 +43,8 @@ export const fetchDashboardState = (duration?: string): Promise<DashboardStateRe
 export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedResponse<QueueItemResponse>> =>
   fetchJson<PaginatedResponse<QueueItemResponse>>(`${API_BASE}/queue${buildQueryString({ page, pageSize })}`);
 
-export const fetchTriggered = (since: Date, page: number, pageSize: number, includeResolved: boolean): Promise<PaginatedResponse<QueueItemResponse>> =>
-  fetchJson<PaginatedResponse<QueueItemResponse>>(
-    `${API_BASE}/queue/triggered${buildQueryString({ since, page, pageSize, include_resolved: includeResolved })}`,
-  );
+export const fetchActivityList = (since: Date, page: number, pageSize: number): Promise<PaginatedResponse<ActivityListItemResponse>> =>
+  fetchJson<PaginatedResponse<ActivityListItemResponse>>(`${API_BASE}/activity-list${buildQueryString({ since, page, pageSize })}`);
 
 export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedResponse<EventEntryResponse>> =>
   fetchJson<PaginatedResponse<EventEntryResponse>>(`${API_BASE}/events${buildQueryString({ page, pageSize })}`);

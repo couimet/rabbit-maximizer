@@ -579,7 +579,7 @@ a:hover {
   cursor: default;
 }
 
-/* RecentlyTriggered */
+/* ActivityList */
 .show-reviewed-toggle {
   display: inline-flex;
   align-items: center;

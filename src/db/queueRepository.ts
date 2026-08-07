@@ -12,6 +12,7 @@ import { inject, injectable } from 'inversify';
 const COMPLETED_GUARD_WINDOW_MS = 5 * MS_PER_MINUTE;
 const MAX_SKIPPED_ITEMS = 50;
 const REOPENABLE_RESOLUTIONS: readonly Resolution[] = [Resolution.ReviewCompleted, Resolution.Failed, Resolution.Skipped] as const;
+const ACTIVE_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
 
 export interface QueueRepository {
   enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -25,11 +26,13 @@ export interface QueueRepository {
   resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getTriggered(since: Date, skip: number, take: number, includeResolved: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
+  getActiveQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  getActivityList(since: Date, skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
   getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
   getSkippedItems(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
+  incrementAttempts(id: number, attempts: number, tx: Prisma.TransactionClient): Promise<void>;
 }
 
 @injectable()
@@ -61,11 +64,24 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         probe.recentlyRetriggered(repo, pr);
         return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
       }
-      await db.reviewQueue.update({
-        where: { id: recentRetriggered.id },
-        data: { status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: new Date() },
+      const { count } = await db.reviewQueue.updateMany({
+        where: { id: recentRetriggered.id, status: QueueStatus.retriggered },
+        data: { source_comment_url: sourceCommentUrl, source_comment_id: sourceCommentId, retriggered_at: new Date() },
       });
+      if (count === 0) {
+        probe.recentlyRetriggered(repo, pr);
+        return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
+      }
       probe.retriggeredReplaced(repo, pr, recentRetriggered.source_comment_id, sourceCommentId);
+      return {
+        item: this.mapper.fromReviewQueue({
+          ...recentRetriggered,
+          source_comment_url: sourceCommentUrl,
+          source_comment_id: sourceCommentId,
+          retriggered_at: new Date(),
+        }),
+        created: false,
+      };
     }
 
     const recentResolved = await db.reviewQueue.findFirst({
@@ -210,7 +226,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             }),
           'QueueRepositoryImpl.markResolvedByUuid',
         );
-        await probe.queueItemMarkedReviewed(updated);
+        probe.queueItemMarkedReviewed(updated);
         return this.mapper.fromReviewQueue(updated);
       } catch (err) {
         if (err instanceof PrismaRecordNotFoundError) {
@@ -375,21 +391,32 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   }
 
   // eslint-disable-next-line require-await
-  async getTriggered(since: Date, skip: number, take: number, includeResolved: boolean, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+  async getActiveQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]> {
     return this.enforceTx(tx, async (db) => {
-      const statuses = includeResolved ? [QueueStatus.retriggered, QueueStatus.resolved] : [QueueStatus.retriggered];
-      const where = { retriggered_at: { gte: since }, status: { in: statuses } };
+      const rows = await db.reviewQueue.findMany({
+        where: { status: { in: [...ACTIVE_STATUSES] } },
+        orderBy: { id: 'asc' },
+      });
+      this.log.debug({ fn: 'QueueRepositoryImpl.getActiveQueue', count: rows.length }, 'Fetched active queue');
+      return rows.map((row) => this.mapper.fromReviewQueue(row));
+    });
+  }
+
+  // eslint-disable-next-line require-await
+  async getActivityList(since: Date, skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
+    return this.enforceTx(tx, async (db) => {
+      const where = { updated_at: { gte: since } };
       const [rows, total] = await Promise.all([
         db.reviewQueue.findMany({
           where,
-          orderBy: { retriggered_at: 'desc' },
+          orderBy: { updated_at: 'desc' },
           skip,
           take,
         }),
         db.reviewQueue.count({ where }),
       ]);
 
-      this.log.debug({ fn: 'QueueRepositoryImpl.getTriggered', since, skip, take, includeResolved, count: rows.length, total }, 'Fetched triggered queue');
+      this.log.debug({ fn: 'QueueRepositoryImpl.getActivityList', since, skip, take, count: rows.length, total }, 'Fetched activity list');
       return {
         items: rows.map((row) => this.mapper.fromReviewQueue(row)),
         total,
@@ -444,6 +471,13 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       });
       this.log.debug({ fn: 'QueueRepositoryImpl.getSkippedItems', count: rows.length }, 'Fetched skipped items');
       return rows.map((row) => this.mapper.fromReviewQueue(row));
+    });
+  }
+
+  async incrementAttempts(id: number, attempts: number, tx: Prisma.TransactionClient): Promise<void> {
+    await this.client(tx).reviewQueue.update({
+      where: { id },
+      data: { attempts },
     });
   }
 }

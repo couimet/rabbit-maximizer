@@ -164,14 +164,14 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/queue/triggered': {
+  '/api/activity-list': {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get: operations['getTriggered'];
+    get: operations['getActivityList'];
     put?: never;
     post?: never;
     delete?: never;
@@ -273,13 +273,47 @@ export interface components {
       /** Format: date-time */
       updated_at: string;
     };
+    ActivityListItem: {
+      uuid: string;
+      repo_full_name: string;
+      pr_number: number;
+      pr_title: string;
+      /** @description GitHub login of the PR author */
+      author_login: string;
+      /**
+       * @description PR state from GitHub (open, merged, closed)
+       * @enum {string|null}
+       */
+      pr_state?: 'open' | 'merged' | 'closed' | null;
+      status: components['schemas']['QueueStatus'];
+      resolution?: string | null;
+      /** Format: date-time */
+      retriggered_at?: string | null;
+      /** Format: date-time */
+      resolved_at?: string | null;
+      /** Format: date-time */
+      failed_at?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      retrigger_comment_url?: string | null;
+      source_comment_url: string;
+      last_review_url?: string | null;
+      /** @enum {string|null} */
+      last_review_state?: 'review_approved' | 'review_changes_suggested' | null;
+      review_count: number;
+      retrigger_count: number;
+      /** Format: date-time */
+      last_coderabbit_acknowledged_at?: string | null;
+      /** Format: date-time */
+      last_activity_at: string;
+    };
     /** @enum {string} */
     EventType:
-      | 'bypassed'
       | 'coderabbit_review_approved'
       | 'coderabbit_review_changes_suggested'
       | 'coderabbit_review_skipped'
       | 'detected'
+      | 'dismissed'
       | 'enqueued'
       | 'failed'
       | 'retriggered';
@@ -344,6 +378,12 @@ export interface components {
     };
     PaginatedQueue: {
       data: components['schemas']['QueueItem'][];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    PaginatedActivityList: {
+      data: components['schemas']['ActivityListItem'][];
       total: number;
       page: number;
       pageSize: number;
@@ -710,13 +750,12 @@ export interface operations {
       500: components['responses']['InternalError'];
     };
   };
-  getTriggered: {
+  getActivityList: {
     parameters: {
       query: {
         since: string;
         page?: number;
         pageSize?: number;
-        include_resolved?: boolean;
       };
       header?: never;
       path?: never;
@@ -724,13 +763,13 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Paginated triggered items */
+      /** @description Paginated activity list */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['PaginatedQueue'];
+          'application/json': components['schemas']['PaginatedActivityList'];
         };
       };
       /** @description Validation error */
