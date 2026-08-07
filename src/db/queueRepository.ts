@@ -226,7 +226,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             }),
           'QueueRepositoryImpl.markResolvedByUuid',
         );
-        await probe.queueItemMarkedReviewed(updated);
+        probe.queueItemMarkedReviewed(updated);
         return this.mapper.fromReviewQueue(updated);
       } catch (err) {
         if (err instanceof PrismaRecordNotFoundError) {

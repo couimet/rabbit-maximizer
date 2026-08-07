@@ -120,17 +120,17 @@ export class Scheduler extends IntervalService {
             // new comment's notBefore with updated source_comment data. Not a failure.
             const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
             await this.queue.reschedule(item!.id, details.sourceComment, tx);
-            await probe.triggerFailed(err, tx);
+            probe.triggerFailed(err, tx);
           } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP) {
             await this.queue.markResolved(item!.id, Resolution.StaleComment, tx);
-            await probe.triggerFailed(err, tx);
+            probe.triggerFailed(err, tx);
           } else {
             if (item!.attempts >= this.maxRetriggerAttempts) {
               await this.queue.markResolved(item!.id, Resolution.Failed, tx);
               await probe.maxRetriggersExceeded(item!.attempts, tx);
             } else {
               await this.queue.backoff(item!.id, tx);
-              await probe.triggerFailed(err, tx);
+              probe.triggerFailed(err, tx);
             }
           }
         });
@@ -175,7 +175,7 @@ export class Scheduler extends IntervalService {
           await probe.maxRetriggersExceeded(item!.attempts, tx);
         } else {
           await this.queue.backoff(item!.id, tx);
-          await probe.backedOff(backoffMs, item!.attempts, err, tx);
+          probe.backedOff(backoffMs, item!.attempts, err, tx);
         }
       });
     } finally {
