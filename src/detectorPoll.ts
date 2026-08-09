@@ -64,7 +64,7 @@ export class PollDetector extends IntervalService {
       const stalePRs = await this.stalePrRecoverer.recover();
 
       const mergedPRs = mergeByPullRequestId(scannedPRs, stalePRs);
-      await this.directCommentChecker.check(mergedPRs);
+      const directCandidates = await this.directCommentChecker.check(mergedPRs);
 
       const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;
@@ -101,6 +101,14 @@ export class PollDetector extends IntervalService {
         }
 
         await this.onDetected({ ...c, body, commentType: classification }, existingPr.id);
+      }
+
+      for (const c of directCandidates) {
+        const effectiveWait = c.waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
+        const candidate = new Date(c.updatedAt.getTime() + effectiveWait * MS_PER_SECOND);
+        if (!earliestNextReview || candidate < earliestNextReview) {
+          earliestNextReview = candidate;
+        }
       }
 
       try {

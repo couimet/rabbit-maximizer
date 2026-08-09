@@ -84,6 +84,21 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       };
     }
 
+    if (data.notBefore && Date.now() < data.notBefore.getTime()) {
+      const cooldownResolved = await db.reviewQueue.findFirst({
+        where: {
+          repo_full_name: repo,
+          pr_number: pr,
+          source_comment_id: sourceCommentId,
+          status: QueueStatus.resolved,
+        },
+      });
+      if (cooldownResolved) {
+        probe.recentlyResolved(repo, pr, cooldownResolved.uuid, sourceCommentId, cooldownResolved.resolved_at!);
+        return { item: this.mapper.fromReviewQueue(cooldownResolved), created: false };
+      }
+    }
+
     const recentResolved = await db.reviewQueue.findFirst({
       where: {
         repo_full_name: repo,

@@ -1,5 +1,13 @@
-import { buildCommentUrl, classifyCoderabbitComment, type CoderabbitGitHubClient, hasOwnRetriggerMarker, REVIEW_BOT_LOGIN, splitRepo } from './github/index.js';
-import type { DirectCheckPR, OnDetectedCallback } from './types/index.js';
+import {
+  buildCommentUrl,
+  classifyCoderabbitComment,
+  type CoderabbitGitHubClient,
+  hasOwnRetriggerMarker,
+  parseWaitSeconds,
+  REVIEW_BOT_LOGIN,
+  splitRepo,
+} from './github/index.js';
+import type { DirectCheckPR, OnDetectedCallback, ReviewLimitCandidate } from './types/index.js';
 import { CodeRabbitCommentType, TYPES } from './domain.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
@@ -8,7 +16,7 @@ import { inject, injectable } from 'inversify';
 const MAX_DIRECT_CHECK_PRS = 125;
 
 export interface DirectCommentChecker {
-  check(prs: readonly DirectCheckPR[]): Promise<void>;
+  check(prs: readonly DirectCheckPR[]): Promise<ReviewLimitCandidate[]>;
 }
 
 @injectable()
@@ -29,8 +37,9 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
    * ~840 API calls/hr, well under the 5000/hr authenticated rate limit. Revisit if
    * the monitored PR count grows past ~125.
    */
-  async check(prs: readonly DirectCheckPR[]): Promise<void> {
+  async check(prs: readonly DirectCheckPR[]): Promise<ReviewLimitCandidate[]> {
     const logCtx: LoggingContext = { fn: 'DirectCommentChecker.check' };
+    const candidates: ReviewLimitCandidate[] = [];
     let found = 0;
 
     let effectivePRs: typeof prs;
@@ -66,6 +75,10 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
             continue;
           }
 
+          if (classification === CodeRabbitCommentType.review_limited) {
+            candidates.push({ updatedAt: c.updatedAt, waitSeconds: parseWaitSeconds(c.body) });
+          }
+
           const comment = {
             url: buildCommentUrl(pr.repoFullName, pr.prNumber, c.id),
             repoFullName: pr.repoFullName,
@@ -89,5 +102,7 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
     if (found > 0) {
       this.log.info({ ...logCtx, found, checked: effectivePRs.length }, 'Direct comment check found comments');
     }
+
+    return candidates;
   }
 }

@@ -562,5 +562,60 @@ describe('PollDetector', () => {
       expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
       expect(deps.onDetected).toHaveBeenCalledTimes(2);
     });
+
+    it('merges direct candidates from DirectCommentChecker into earliestNextReview', async () => {
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+      const directCandidateDate = getUniqueDate();
+      deps.directCommentChecker.check.mockResolvedValue([{ updatedAt: directCandidateDate, waitSeconds: 120 }]);
+
+      deps.systemStateRepo.getState.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      const expectedDate = new Date(directCandidateDate.getTime() + 120 * MS_PER_SECOND);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
+    });
+
+    it('uses REVIEW_LIMIT_FALLBACK_WAIT_SEC when direct candidate has no parsed waitSeconds', async () => {
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+      const directCandidateDate = getUniqueDate();
+      deps.directCommentChecker.check.mockResolvedValue([{ updatedAt: directCandidateDate, waitSeconds: undefined }]);
+
+      deps.systemStateRepo.getState.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      const expectedDate = new Date(directCandidateDate.getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
+    });
+
+    it('picks earliest candidate across direct and search results', async () => {
+      const directEarly = getUniqueDate();
+      const searchLater = new Date(directEarly.getTime() + MS_PER_HOUR);
+      const searchComment = generateDetectedCommentHydrationData({ updatedAt: searchLater.toISOString() });
+      const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
+      deps.github.searchReviewLimitComments.mockResolvedValue([searchComment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: searchComment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.directCommentChecker.check.mockResolvedValue([{ updatedAt: directEarly, waitSeconds: 120 }]);
+
+      deps.systemStateRepo.getState.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      const directExpected = new Date(directEarly.getTime() + 120 * MS_PER_SECOND);
+      const searchExpected = new Date(searchLater.getTime() + 600 * MS_PER_SECOND);
+      expect(directExpected.getTime()).toBeLessThan(searchExpected.getTime());
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, directExpected);
+    });
   });
 });

@@ -49,6 +49,7 @@ export type { QueueItem } from './QueueItem.js';
 export type { ReEnqueueAction } from './ReEnqueueAction.js';
 export type { ReEnqueueDecision } from './ReEnqueueDecision.js';
 export type { RepoFilter } from './RepoFilter.js';
+export type { ReviewLimitCandidate } from './ReviewLimitCandidate.js';
 export type { ReviewLimitComment } from './ReviewLimitComment.js';
 export type { ScannedPR } from './ScannedPR.js';
 export type { ScanResult } from './ScanResult.js';

@@ -352,6 +352,83 @@ describe('QueueRepositoryImpl', () => {
       );
     });
 
+    it('blocks re-enqueue when notBefore is in the future and any resolved item exists for the same source_comment_id', async () => {
+      const ref = generateReviewRef();
+      const oldResolved = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.resolved,
+        source_comment_id: ref.commentId,
+        resolved_at: new Date(frozenNow.getTime() - TEN_MINUTES_MS),
+      });
+      const futureNotBefore = new Date(frozenNow.getTime() + 30 * 60 * 1000);
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(oldResolved),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const { created } = await sut.enqueue(
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Test PR title',
+          sourceCommentUrl: ref.commentUrl,
+          sourceCommentId: ref.commentId,
+          notBefore: futureNotBefore,
+          pullRequestId: getUniqueInt(),
+        },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(created).toBe(false);
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith(
+        {
+          fn: 'EnqueueProbe.recentlyResolved',
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          existingUuid: oldResolved.uuid,
+          sourceCommentId: ref.commentId,
+          elapsedMs: expect.any(Number) as number,
+        },
+        'Loop detected: same source_comment_id re-enqueued within guard window',
+      );
+    });
+
+    it('falls back to 5-minute window guard when notBefore is in the past', async () => {
+      const ref = generateReviewRef();
+      const pastNotBefore = new Date(frozenNow.getTime() - 60 * 60 * 1000);
+      const newRow = generateReviewQueueHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: QueueStatus.pending });
+
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: createResolvedMock(null),
+          create: createResolvedMock(newRow),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const { created } = await sut.enqueue(
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Test PR title',
+          sourceCommentUrl: ref.commentUrl,
+          sourceCommentId: ref.commentId,
+          notBefore: pastNotBefore,
+          pullRequestId: getUniqueInt(),
+        },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(created).toBe(true);
+      expect(reviewQueue.create).toHaveBeenCalled();
+      expect(queueOrder.create).toHaveBeenCalled();
+    });
+
     it('creates a new pending item when the resolved item is outside the guard window', async () => {
       const ref = generateReviewRef();
       const newRow = generateReviewQueueHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: QueueStatus.pending });
