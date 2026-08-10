@@ -32,6 +32,12 @@ const FIND_STALE_OPEN_PRS_SQL = `
       WHERE rq.pull_request_id = pr.id
         AND rq.status IN ('pending', 'retriggered')
     )
+    AND NOT EXISTS (
+      SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
+      WHERE rq.pull_request_id = pr.id
+        AND rq.status = 'resolved'
+        AND rq.resolved_at > datetime('now', '-5 minutes')
+    )
 `;
 
 export interface PullRequestRepository {

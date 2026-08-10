@@ -5,7 +5,7 @@ import { ProbeFactory, type ReviewRetriggerProbe } from './probes/index.js';
 import type { QueueItem } from './types/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { RabbitResult, TriggerSource, TYPES } from './domain.js';
+import { QueueStatus, RabbitResult, TriggerSource, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -43,6 +43,18 @@ export class ReviewTrigger {
   /* c8 ignore stop */
 
   async trigger(item: QueueItem, triggerSource: TriggerSource): Promise<RabbitResult<TriggerDetails>> {
+    if (item.status !== QueueStatus.pending) {
+      this.log.warn({ fn: 'ReviewTrigger.trigger', queueId: item.id, status: item.status }, 'Item not pending; refusing to trigger');
+      return RabbitResult.err(
+        new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.RETRIGGER_ITEM_NOT_PENDING,
+          message: 'Item is not in pending status',
+          functionName: 'ReviewTrigger.trigger',
+          details: { status: item.status },
+        }),
+      );
+    }
+
     const probe = this.probeFactory.createReviewRetriggerProbe(item);
     const { owner, repo } = splitRepo(item.repo_full_name);
 

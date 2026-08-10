@@ -638,7 +638,7 @@ describe('PullRequestRepositoryImpl', () => {
 
       expect(queryRawUnsafe).toHaveBeenCalledWith(
         expect.toEqualIgnoringWhitespace(
-          "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered'))",
+          "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status = 'resolved' AND rq.resolved_at > datetime('now', '-5 minutes'))",
         ),
       );
       expect(result).toStrictEqual(

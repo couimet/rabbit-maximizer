@@ -5,7 +5,7 @@ import type { ProbeFactory, SchedulerProbe } from './probes/index.js';
 import type { QueueItem } from './types/index.js';
 import { computeSchedulerBackoff, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { IntervalService, PrState, Resolution, TriggerSource, TYPES } from './domain.js';
+import { IntervalService, PrState, QueueStatus, Resolution, TriggerSource, TYPES } from './domain.js';
 import { type Pruner, ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -115,7 +115,9 @@ export class Scheduler extends IntervalService {
       if (!result.success) {
         await this.prisma.$transaction(async (tx) => {
           const err = result.error;
-          if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
+          if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_ITEM_NOT_PENDING) {
+            this.log.warn({ fn: 'Scheduler.executeTick', queueId: item!.id, error: err }, 'Item not pending at trigger time; skipping');
+          } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
             // Source comment was replaced by a newer rate-limit comment: reschedule to the
             // new comment's notBefore with updated source_comment data. Not a failure.
             const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
@@ -188,7 +190,7 @@ export class Scheduler extends IntervalService {
   }
 
   private async selectNextEligibleItem(probe: SchedulerProbe): Promise<QueueItem | undefined> {
-    const eligible = await this.queueOrder.getEffectiveOrder();
+    const eligible = (await this.queueOrder.getEffectiveOrder()).filter((item) => item.status === QueueStatus.pending);
 
     for (const candidate of eligible) {
       const prState = await this.prStateFetcher.fetch(candidate.repo_full_name, candidate.pr_number, 'Scheduler.selectNextEligibleItem');

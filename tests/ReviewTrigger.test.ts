@@ -1,4 +1,4 @@
-import { TriggerSource } from '../src/domain.js';
+import { QueueStatus, TriggerSource } from '../src/domain.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import { ReviewTrigger } from '../src/services.js';
 
@@ -51,7 +51,7 @@ describe('ReviewTrigger', () => {
 
   it('returns ok with retriggeredCommentUrl when source comment is valid', async () => {
     const { github, probeFactory, logger, reviewTrigger, queue, pullRequests, tx } = setup();
-    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     github.fetchComment.mockResolvedValue({ body: 'rate limited by coderabbit.ai', updatedAt: getUniqueDate().toISOString() });
     github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
     const probe = {
@@ -76,7 +76,7 @@ describe('ReviewTrigger', () => {
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found and source body is non-empty', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
-    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     github.fetchComment.mockResolvedValue({ body: 'stale body without rate-limit marker', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue(undefined);
     const probe = {
@@ -89,14 +89,16 @@ describe('ReviewTrigger', () => {
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
-    expect(result.success).toBe(false);
     expect(probe.staleCommentSkipped).toHaveBeenCalled();
-    expect(result.error.code).toBe('RETRIGGER_STALE_COMMENT_SKIP');
+    expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_SKIP', {
+      message: 'No replacement rate-limit comment found',
+      functionName: 'ReviewTrigger.trigger',
+    });
   });
 
   it('posts retrigger without reply target when source comment is deleted and no replacement exists', async () => {
     const { github, probeFactory, reviewTrigger, queue, tx, logger } = setup();
-    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     github.fetchComment.mockRejectedValue({ status: 404 });
     github.findLatestReviewLimitComment.mockResolvedValue(undefined);
     github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
@@ -121,7 +123,7 @@ describe('ReviewTrigger', () => {
 
   it('returns err with RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED when replacement is deleted', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
-    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     const replacementRef = generateReviewRef();
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
@@ -143,14 +145,16 @@ describe('ReviewTrigger', () => {
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
-    expect(result.success).toBe(false);
     expect(probe.staleCommentReplacementDeleted).toHaveBeenCalledWith(newCommentId);
-    expect(result.error.code).toBe('RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED');
+    expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED', {
+      message: 'Replacement comment was deleted before fetch',
+      functionName: 'ReviewTrigger.trigger',
+    });
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_RESCHEDULE when source comment was replaced', async () => {
     const { github, probeFactory, reviewTrigger } = setup();
-    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     const replacementRef = generateReviewRef();
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
@@ -172,14 +176,17 @@ describe('ReviewTrigger', () => {
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
-    expect(result.success).toBe(false);
     expect(probe.staleCommentRescheduled).toHaveBeenCalledWith(expect.any(Date));
-    expect(result.error.code).toBe('RETRIGGER_STALE_COMMENT_RESCHEDULE');
+    expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_RESCHEDULE', {
+      message: 'Source comment was replaced; item must be rescheduled',
+      functionName: 'ReviewTrigger.trigger',
+      details: { rescheduleEarliest: expect.any(String) as unknown as string, sourceComment: expect.any(Object) as unknown as Record<string, unknown> },
+    });
   });
 
   it('throws when fetchComment fails with non-terminal error', async () => {
     const { github, reviewTrigger } = setup();
-    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     github.fetchComment.mockRejectedValue({ status: 500 });
 
     await expect(reviewTrigger.trigger(item, TriggerSource.scheduler)).rejects.toStrictEqual({ status: 500 });
@@ -187,7 +194,7 @@ describe('ReviewTrigger', () => {
 
   it('throws when replacement comment fetch fails with non-terminal error', async () => {
     const { github, reviewTrigger } = setup();
-    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId });
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     const replacementRef = generateReviewRef();
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
@@ -201,5 +208,19 @@ describe('ReviewTrigger', () => {
     github.fetchComment.mockRejectedValueOnce({ status: 500 });
 
     await expect(reviewTrigger.trigger(item, TriggerSource.scheduler)).rejects.toStrictEqual({ status: 500 });
+  });
+
+  it('returns err with RETRIGGER_ITEM_NOT_PENDING when item is not pending', async () => {
+    const { reviewTrigger, logger } = setup();
+    const item = generateQueueItemHydrationData({ status: QueueStatus.retriggered });
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(result).toHaveDetailedError('RETRIGGER_ITEM_NOT_PENDING', {
+      message: 'Item is not in pending status',
+      functionName: 'ReviewTrigger.trigger',
+      details: { status: 'retriggered' },
+    });
+    expect(logger.warn).toHaveBeenCalledWith({ fn: 'ReviewTrigger.trigger', queueId: item.id, status: 'retriggered' }, 'Item not pending; refusing to trigger');
   });
 });

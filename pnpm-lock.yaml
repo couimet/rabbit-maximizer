@@ -84,6 +84,9 @@ importers:
       '@couimet/detailed-error-testing':
         specifier: ^0.1.5
         version: 0.1.5(@couimet/detailed-error@1.0.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
+      '@couimet/detailed-result-testing':
+        specifier: ^0.2.1
+        version: 0.2.1(@couimet/detailed-error-testing@0.1.5(@couimet/detailed-error@1.0.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0)))(@couimet/detailed-error@1.0.0)(@couimet/detailed-result@0.1.1(@couimet/detailed-error@1.0.0))(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
       '@couimet/dynamic-testing':
         specifier: ^1.0.0
         version: 1.0.0(@couimet/detailed-error@1.0.0)(decimal.js@10.6.0)
@@ -359,6 +362,21 @@ packages:
 
   '@couimet/detailed-error@1.0.0':
     resolution: {integrity: sha512-ksnDR9N0AOGnImfZ6mu+cNjW2TNdbCzUnkrtsG36+feAFBDrm7oVmsRregU8TuFNeYQoLsJh0PzEUoWWhEQrkQ==}
+
+  '@couimet/detailed-result-testing@0.2.1':
+    resolution: {integrity: sha512-EGhcT+/WUInT81s6esD4KBUVe6jRFRefIzsWLUyVgoBEL3xuEVuV6KBA8323NLiVhvZysCgyvyiwI+IV+NMcxg==}
+    peerDependencies:
+      '@couimet/detailed-error': '>=1.0.0'
+      '@couimet/detailed-error-testing': '>=0.1.5'
+      '@couimet/detailed-result': '>=0.1.0'
+      '@jest/expect': '>=30.0.0'
+      '@jest/globals': '>=30.0.0'
+      jest: '>=29.7.0'
+    peerDependenciesMeta:
+      '@couimet/detailed-error':
+        optional: true
+      '@jest/expect':
+        optional: true
 
   '@couimet/detailed-result@0.1.1':
     resolution: {integrity: sha512-opp8960EFhpy62PdxR/o9XYLw/glyRM2VF/8Anmq3zob9GHeAAtbF3VYJaVgwDWWnEpRYeffs1cSbEvwb6K0NQ==}
@@ -4321,6 +4339,16 @@ snapshots:
       '@jest/expect': 30.4.1
 
   '@couimet/detailed-error@1.0.0': {}
+
+  '@couimet/detailed-result-testing@0.2.1(@couimet/detailed-error-testing@0.1.5(@couimet/detailed-error@1.0.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0)))(@couimet/detailed-error@1.0.0)(@couimet/detailed-result@0.1.1(@couimet/detailed-error@1.0.0))(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))':
+    dependencies:
+      '@couimet/detailed-error-testing': 0.1.5(@couimet/detailed-error@1.0.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.0.0))
+      '@couimet/detailed-result': 0.1.1(@couimet/detailed-error@1.0.0)
+      '@jest/globals': 30.4.1
+      jest: 30.4.2(@types/node@26.0.0)
+    optionalDependencies:
+      '@couimet/detailed-error': 1.0.0
+      '@jest/expect': 30.4.1
 
   '@couimet/detailed-result@0.1.1(@couimet/detailed-error@1.0.0)':
     dependencies:

@@ -1,6 +1,7 @@
 import type { Config } from '../src/config.js';
 import type { QueueOrderRepository, QueueRepository } from '../src/db/index.js';
-import { RabbitResult } from '../src/domain.js';
+import { QueueStatus, RabbitResult } from '../src/domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../src/errors/index.js';
 import type { ProbeFactory } from '../src/probes/index.js';
 import { type Pruner, ReviewTrigger, Scheduler } from '../src/services.js';
 import type { PRState } from '../src/types/index.js';
@@ -24,6 +25,9 @@ import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
+
+const pendingItem = (overrides?: Parameters<typeof generateQueueItemHydrationData>[0]) =>
+  generateQueueItemHydrationData({ status: QueueStatus.pending, ...overrides });
 
 const TICK_INTERVAL_MS = 10_000;
 const SHORT_DRAIN = 5;
@@ -128,7 +132,7 @@ describe('Scheduler', () => {
     const makeTriggerOk = () => RabbitResult.ok({ retriggeredCommentUrl: getUniqueString() });
 
     it('delegates to ReviewTrigger on success and increments attempts', async () => {
-      const item = generateQueueItemHydrationData();
+      const item = pendingItem();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
@@ -145,7 +149,7 @@ describe('Scheduler', () => {
     });
 
     it('resolves item when successful retriggers reach MAX_RETRIGGER_ATTEMPTS', async () => {
-      const item = generateQueueItemHydrationData({ attempts: 9 });
+      const item = pendingItem({ attempts: 9 });
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
@@ -162,10 +166,10 @@ describe('Scheduler', () => {
     });
 
     it('reschedules when ReviewTrigger returns stale reschedule', async () => {
-      const item = generateQueueItemHydrationData();
+      const item = pendingItem();
       const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
-      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-        code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
+      const staleErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE,
         message: 'stale',
         functionName: 'test',
         details: { rescheduleEarliest: new Date(frozenNow.getTime() + 60_000).toISOString(), sourceComment: newComment },
@@ -186,9 +190,9 @@ describe('Scheduler', () => {
     });
 
     it('resolves as stale comment when ReviewTrigger returns stale skip', async () => {
-      const item = generateQueueItemHydrationData();
-      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-        code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+      const item = pendingItem();
+      const staleErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP,
         message: 'gone',
         functionName: 'test',
       });
@@ -209,9 +213,9 @@ describe('Scheduler', () => {
     });
 
     it('backs off when ReviewTrigger returns stale replacement deleted', async () => {
-      const item = generateQueueItemHydrationData();
-      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-        code: 'RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED' as any,
+      const item = pendingItem();
+      const staleErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED,
         message: 'gone',
         functionName: 'test',
       });
@@ -230,9 +234,37 @@ describe('Scheduler', () => {
       await stop();
     });
 
+    it('logs warning and skips when ReviewTrigger returns RETRIGGER_ITEM_NOT_PENDING', async () => {
+      const item = pendingItem();
+      const notPendingErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_ITEM_NOT_PENDING,
+        message: 'Item is not in pending status',
+        functionName: 'ReviewTrigger.trigger',
+        details: { status: 'retriggered' },
+      });
+      const triggerResult = RabbitResult.err(notPendingErr);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'Scheduler.executeTick', queueId: item.id, error: notPendingErr },
+        'Item not pending at trigger time; skipping',
+      );
+      expect(deps.queue.markResolved).not.toHaveBeenCalled();
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+      expect(deps.mockProbe.triggerFailed).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
     it('backs off on unexpected error code from ReviewTrigger', async () => {
-      const item = generateQueueItemHydrationData();
-      const unexpectedErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+      const item = pendingItem();
+      const unexpectedErr = new RabbitMaximizerError({
         code: 'UNKNOWN_CODE' as any,
         message: 'unexpected',
         functionName: 'test',
@@ -253,7 +285,7 @@ describe('Scheduler', () => {
     });
 
     it('marks failed and records failed event on HTTP 404 from trigger', async () => {
-      const item = generateQueueItemHydrationData();
+      const item = pendingItem();
       const notFoundError = { status: 404 };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(notFoundError);
@@ -270,7 +302,7 @@ describe('Scheduler', () => {
     });
 
     it('marks failed on HTTP 410 from trigger', async () => {
-      const item = generateQueueItemHydrationData();
+      const item = pendingItem();
       const goneError = { status: 410 };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(goneError);
@@ -287,7 +319,7 @@ describe('Scheduler', () => {
     });
 
     it('backs off on unknown error from trigger', async () => {
-      const item = generateQueueItemHydrationData();
+      const item = pendingItem();
       const networkError = new Error('Network timeout');
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
@@ -398,7 +430,7 @@ describe('Scheduler', () => {
     });
 
     it('proceeds normally when schedulerStatus is running', async () => {
-      const item = generateQueueItemHydrationData();
+      const item = pendingItem();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.systemState.isSchedulerPaused.mockResolvedValue(false);
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
@@ -414,7 +446,7 @@ describe('Scheduler', () => {
     });
 
     it('logs error when heartbeat persistence fails', async () => {
-      const item = generateQueueItemHydrationData();
+      const item = pendingItem();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
       const heartbeatError = new Error('DB write failed');
@@ -478,8 +510,8 @@ describe('Scheduler', () => {
     });
 
     it('marks failed when attempts >= MAX_RETRIGGER_ATTEMPTS on trigger failure', async () => {
-      const item = generateQueueItemHydrationData({ attempts: 10 });
-      const otherErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+      const item = pendingItem({ attempts: 10 });
+      const otherErr = new RabbitMaximizerError({
         code: 'SOME_OTHER_ERROR' as any,
         message: 'gone',
         functionName: 'test',
@@ -502,7 +534,7 @@ describe('Scheduler', () => {
     });
 
     it('marks failed when attempts >= MAX_RETRIGGER_ATTEMPTS on unexpected exception', async () => {
-      const item = generateQueueItemHydrationData({ attempts: 10 });
+      const item = pendingItem({ attempts: 10 });
       const networkError = new Error('Network timeout');
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
@@ -521,8 +553,8 @@ describe('Scheduler', () => {
     });
 
     it('backs off normally when attempts is under the ceiling', async () => {
-      const item = generateQueueItemHydrationData({ attempts: 2 });
-      const otherErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+      const item = pendingItem({ attempts: 2 });
+      const otherErr = new RabbitMaximizerError({
         code: 'SOME_OTHER_ERROR' as any,
         message: 'gone',
         functionName: 'test',
@@ -545,8 +577,8 @@ describe('Scheduler', () => {
 
     describe('PR state scan loop', () => {
       it('selects the first open PR and skips merged PRs', async () => {
-        const mergedItem = generateQueueItemHydrationData();
-        const openItem = generateQueueItemHydrationData();
+        const mergedItem = pendingItem();
+        const openItem = pendingItem();
         deps.prStateFetcher.fetch.mockReset();
         deps.prStateFetcher.fetch
           .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
@@ -568,8 +600,8 @@ describe('Scheduler', () => {
       });
 
       it('skips items whose PR state fetch fails', async () => {
-        const failedItem = generateQueueItemHydrationData();
-        const openItem = generateQueueItemHydrationData();
+        const failedItem = pendingItem();
+        const openItem = pendingItem();
         deps.prStateFetcher.fetch.mockReset();
         deps.prStateFetcher.fetch.mockResolvedValueOnce(undefined).mockResolvedValueOnce({ state: 'open', merged_at: null, closed_at: null } satisfies PRState);
         deps.queueOrder.getEffectiveOrder.mockResolvedValue([failedItem, openItem]);
@@ -588,8 +620,8 @@ describe('Scheduler', () => {
       });
 
       it('resolves closed-without-merge PR and continues to next item', async () => {
-        const closedItem = generateQueueItemHydrationData();
-        const openItem = generateQueueItemHydrationData();
+        const closedItem = pendingItem();
+        const openItem = pendingItem();
         deps.prStateFetcher.fetch.mockReset();
         deps.prStateFetcher.fetch
           .mockResolvedValueOnce({ state: 'closed', merged_at: null, closed_at: null } satisfies PRState)
@@ -611,8 +643,8 @@ describe('Scheduler', () => {
       });
 
       it('calls noItemsDue when all candidates are merged or closed', async () => {
-        const mergedItem = generateQueueItemHydrationData();
-        const closedItem = generateQueueItemHydrationData();
+        const mergedItem = pendingItem();
+        const closedItem = pendingItem();
         deps.prStateFetcher.fetch.mockReset();
         deps.prStateFetcher.fetch
           .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
@@ -634,7 +666,7 @@ describe('Scheduler', () => {
       });
 
       it('resolves without unnecessary transaction when single item is merged', async () => {
-        const mergedItem = generateQueueItemHydrationData();
+        const mergedItem = pendingItem();
         deps.prStateFetcher.fetch.mockReset();
         deps.prStateFetcher.fetch.mockResolvedValue({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState);
         deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem]);

@@ -1,4 +1,5 @@
 import '@couimet/detailed-error-testing/setup';
+import '@couimet/detailed-result-testing/setup';
 import '@testing-library/jest-dom';
 import { afterEach, jest } from '@jest/globals';
 
