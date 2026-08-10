@@ -95,7 +95,7 @@ export class EnqueueService {
 
       const waitSeconds = parseWaitSeconds(comment.body);
       const effectiveWait = (waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC) * MS_PER_SECOND;
-      const notBefore = new Date(new Date(comment.updatedAt).getTime() + effectiveWait);
+      const cooldownUntil = new Date(new Date(comment.updatedAt).getTime() + effectiveWait);
 
       const { created } = await this.queue.enqueue(
         {
@@ -105,7 +105,7 @@ export class EnqueueService {
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
           commentUpdatedAt: new Date(comment.updatedAt),
-          notBefore,
+          cooldownUntil,
           pullRequestId,
         },
         tx,

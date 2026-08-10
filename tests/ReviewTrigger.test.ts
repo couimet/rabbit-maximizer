@@ -156,6 +156,10 @@ describe('ReviewTrigger', () => {
     const { github, probeFactory, reviewTrigger } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     const replacementRef = generateReviewRef();
+    const updatedAt = frozenNow;
+    const waitSeconds = 3600;
+    const bufferSeconds = 60;
+    const rescheduleEarliest = new Date(updatedAt.getTime() + (waitSeconds + bufferSeconds) * MS_PER_SECOND);
     github.fetchComment.mockResolvedValueOnce({ body: 'stale body', updatedAt: getUniqueDate().toISOString() });
     github.findLatestReviewLimitComment.mockResolvedValue({
       commentId: newCommentId,
@@ -163,7 +167,7 @@ describe('ReviewTrigger', () => {
       repoFullName: replacementRef.repoFullName,
       prNumber: replacementRef.prNumber,
       createdAt: getUniqueDate().toISOString(),
-      updatedAt: getUniqueDate().toISOString(),
+      updatedAt: updatedAt.toISOString(),
     });
     github.fetchComment.mockResolvedValueOnce({ body: '[rate limit](...) wait 3600 seconds', updatedAt: getUniqueDate().toISOString() });
     const probe = {
@@ -176,11 +180,11 @@ describe('ReviewTrigger', () => {
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
-    expect(probe.staleCommentRescheduled).toHaveBeenCalledWith(expect.any(Date));
+    expect(probe.staleCommentRescheduled).toHaveBeenCalledWith(rescheduleEarliest);
     expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_RESCHEDULE', {
       message: 'Source comment was replaced; item must be rescheduled',
       functionName: 'ReviewTrigger.trigger',
-      details: { rescheduleEarliest: expect.any(String) as unknown as string, sourceComment: expect.any(Object) as unknown as Record<string, unknown> },
+      details: { rescheduleEarliest: rescheduleEarliest.toISOString(), sourceComment: { commentId: newCommentId, commentUrl: newCommentUrl } },
     });
   });
 
@@ -211,7 +215,7 @@ describe('ReviewTrigger', () => {
   });
 
   it('returns err with RETRIGGER_ITEM_NOT_PENDING when item is not pending', async () => {
-    const { reviewTrigger, logger } = setup();
+    const { github, probeFactory, reviewTrigger, logger } = setup();
     const item = generateQueueItemHydrationData({ status: QueueStatus.retriggered });
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
@@ -222,5 +226,8 @@ describe('ReviewTrigger', () => {
       details: { status: 'retriggered' },
     });
     expect(logger.warn).toHaveBeenCalledWith({ fn: 'ReviewTrigger.trigger', queueId: item.id, status: 'retriggered' }, 'Item not pending; refusing to trigger');
+    expect(github.fetchComment).not.toHaveBeenCalled();
+    expect(github.postRetrigger).not.toHaveBeenCalled();
+    expect(probeFactory.createReviewRetriggerProbe).not.toHaveBeenCalled();
   });
 });

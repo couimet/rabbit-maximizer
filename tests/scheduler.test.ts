@@ -168,11 +168,12 @@ describe('Scheduler', () => {
     it('reschedules when ReviewTrigger returns stale reschedule', async () => {
       const item = pendingItem();
       const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
+      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000).toISOString();
       const staleErr = new RabbitMaximizerError({
         code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE,
         message: 'stale',
         functionName: 'test',
-        details: { rescheduleEarliest: new Date(frozenNow.getTime() + 60_000).toISOString(), sourceComment: newComment },
+        details: { rescheduleEarliest, sourceComment: newComment },
       });
       const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);

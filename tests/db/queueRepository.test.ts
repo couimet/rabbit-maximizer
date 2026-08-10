@@ -352,7 +352,7 @@ describe('QueueRepositoryImpl', () => {
       );
     });
 
-    it('blocks re-enqueue when notBefore is in the future and any resolved item exists for the same source_comment_id', async () => {
+    it('blocks re-enqueue when cooldownUntil is in the future and any resolved item exists for the same source_comment_id', async () => {
       const ref = generateReviewRef();
       const oldResolved = generateReviewQueueHydrationData({
         repo_full_name: ref.repoFullName,
@@ -361,7 +361,7 @@ describe('QueueRepositoryImpl', () => {
         source_comment_id: ref.commentId,
         resolved_at: new Date(frozenNow.getTime() - TEN_MINUTES_MS),
       });
-      const futureNotBefore = new Date(frozenNow.getTime() + 30 * 60 * 1000);
+      const futureCooldownUntil = new Date(frozenNow.getTime() + 30 * 60 * 1000);
 
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: {
@@ -377,7 +377,7 @@ describe('QueueRepositoryImpl', () => {
           prTitle: 'Test PR title',
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
-          notBefore: futureNotBefore,
+          cooldownUntil: futureCooldownUntil,
           pullRequestId: getUniqueInt(),
         },
         prisma as unknown as Prisma.TransactionClient,
@@ -398,9 +398,9 @@ describe('QueueRepositoryImpl', () => {
       );
     });
 
-    it('falls back to 5-minute window guard when notBefore is in the past', async () => {
+    it('falls back to 5-minute window guard when cooldownUntil is in the past', async () => {
       const ref = generateReviewRef();
-      const pastNotBefore = new Date(frozenNow.getTime() - 60 * 60 * 1000);
+      const pastCooldownUntil = new Date(frozenNow.getTime() - 60 * 60 * 1000);
       const newRow = generateReviewQueueHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: QueueStatus.pending });
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
@@ -418,7 +418,7 @@ describe('QueueRepositoryImpl', () => {
           prTitle: 'Test PR title',
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
-          notBefore: pastNotBefore,
+          cooldownUntil: pastCooldownUntil,
           pullRequestId: getUniqueInt(),
         },
         prisma as unknown as Prisma.TransactionClient,

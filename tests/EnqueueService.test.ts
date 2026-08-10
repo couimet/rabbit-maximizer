@@ -60,7 +60,7 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData();
       const pullRequestId = getUniqueInt();
-      const expectedNotBefore = new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
+      const expectedCooldownUntil = new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
 
       await svc.handle(comment, pullRequestId);
 
@@ -84,7 +84,7 @@ describe('EnqueueService', () => {
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
           commentUpdatedAt: new Date(comment.updatedAt),
-          notBefore: expectedNotBefore,
+          cooldownUntil: expectedCooldownUntil,
           pullRequestId,
         },
         tx,
@@ -159,7 +159,7 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData();
       const pullRequestId = getUniqueInt();
-      const expectedNotBefore = new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
+      const expectedCooldownUntil = new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
 
       await svc.handle(comment, pullRequestId);
 
@@ -171,7 +171,7 @@ describe('EnqueueService', () => {
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
           commentUpdatedAt: new Date(comment.updatedAt),
-          notBefore: expectedNotBefore,
+          cooldownUntil: expectedCooldownUntil,
           pullRequestId,
         },
         tx,

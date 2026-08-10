@@ -118,9 +118,9 @@ export class Scheduler extends IntervalService {
           if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_ITEM_NOT_PENDING) {
             this.log.warn({ fn: 'Scheduler.executeTick', queueId: item!.id, error: err }, 'Item not pending at trigger time; skipping');
           } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
-            // Source comment was replaced by a newer rate-limit comment: reschedule to the
-            // new comment's notBefore with updated source_comment data. Not a failure.
-            const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
+            // Source comment was replaced by a newer rate-limit comment: reschedule with
+            // updated source_comment data. Not a failure.
+            const details = err.details as { sourceComment: { commentId: number; commentUrl: string } };
             await this.queue.reschedule(item!.id, details.sourceComment, tx);
             probe.triggerFailed(err, tx);
           } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP) {

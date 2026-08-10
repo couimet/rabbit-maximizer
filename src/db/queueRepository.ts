@@ -84,7 +84,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       };
     }
 
-    if (data.notBefore && Date.now() < data.notBefore.getTime()) {
+    if (data.cooldownUntil && Date.now() < data.cooldownUntil.getTime()) {
       const cooldownResolved = await db.reviewQueue.findFirst({
         where: {
           repo_full_name: repo,

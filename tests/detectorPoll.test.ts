@@ -577,6 +577,10 @@ describe('PollDetector', () => {
 
       const expectedDate = new Date(directCandidateDate.getTime() + 120 * MS_PER_SECOND);
       expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'PollDetector.start', pollIntervalSec: POLL_INTERVAL_SEC, repoCount: EXPECTED_REPO_COUNT },
+        'Starting poll detector',
+      );
     });
 
     it('uses REVIEW_LIMIT_FALLBACK_WAIT_SEC when direct candidate has no parsed waitSeconds', async () => {
@@ -593,6 +597,10 @@ describe('PollDetector', () => {
 
       const expectedDate = new Date(directCandidateDate.getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
       expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'PollDetector.start', pollIntervalSec: POLL_INTERVAL_SEC, repoCount: EXPECTED_REPO_COUNT },
+        'Starting poll detector',
+      );
     });
 
     it('picks earliest candidate across direct and search results', async () => {
@@ -616,6 +624,10 @@ describe('PollDetector', () => {
       const searchExpected = new Date(searchLater.getTime() + 600 * MS_PER_SECOND);
       expect(directExpected.getTime()).toBeLessThan(searchExpected.getTime());
       expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, directExpected);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'PollDetector.start', pollIntervalSec: POLL_INTERVAL_SEC, repoCount: EXPECTED_REPO_COUNT },
+        'Starting poll detector',
+      );
     });
   });
 });

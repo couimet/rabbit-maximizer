@@ -226,6 +226,7 @@ describe('DirectCommentCheckerImpl', () => {
 
     expect(candidates).toStrictEqual([{ updatedAt: commentUpdatedAt, waitSeconds: 2040 }]);
     expect(onDetected).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
   });
 
   it('returns empty array for review_skipped comments', async () => {
@@ -239,6 +240,7 @@ describe('DirectCommentCheckerImpl', () => {
 
     expect(candidates).toStrictEqual([]);
     expect(onDetected).toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
   });
 
   it('truncates and warns when PR count exceeds the direct-check limit', async () => {
