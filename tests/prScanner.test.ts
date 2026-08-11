@@ -108,14 +108,14 @@ describe('PrScannerImpl', () => {
 
   it('respects interval gate: skips via probe when last scan is within interval', async () => {
     const intervalMs = INTERVAL_SEC * MS_PER_SECOND;
-    systemState.getState.mockResolvedValue(new Date());
+    systemState.getLastScanCompletedAt.mockResolvedValue(new Date());
 
     const scanner = createScanner();
     await scanner.scan();
 
     expect(prScannerProbe.scanStarted).toHaveBeenCalledTimes(1);
     expect(prScannerProbe.skipped).toHaveBeenCalledWith(expect.any(Number), intervalMs);
-    expect(systemState.setState).not.toHaveBeenCalled();
+    expect(systemState.setLastScanStartedAt).not.toHaveBeenCalled();
   });
 
   it('handles per-PR errors gracefully without stopping the scan', async () => {
@@ -177,7 +177,8 @@ describe('PrScannerImpl', () => {
 
   it('handles setState failure gracefully and still completes', async () => {
     const setStateError = new Error('DB write failed');
-    systemState.setState.mockRejectedValue(setStateError);
+    systemState.setLastScanStartedAt.mockRejectedValue(setStateError);
+    systemState.setLastScanCompletedAt.mockRejectedValue(setStateError);
     github.listOpenPRs.mockResolvedValue([]);
     pullRequests.findByPrState.mockResolvedValue([]);
 
@@ -194,7 +195,7 @@ describe('PrScannerImpl', () => {
     const scanError = new Error('GitHub API unreachable');
     const setStateError = new Error('DB write failed');
     github.listOpenPRs.mockRejectedValue(scanError);
-    systemState.setState.mockRejectedValue(setStateError);
+    systemState.setLastScanStartedAt.mockRejectedValue(setStateError);
 
     const scanner = createScanner();
     await scanner.scan();
@@ -211,14 +212,14 @@ describe('PrScannerImpl', () => {
     const scanner = createScanner();
     await scanner.scan();
 
-    expect(systemState.setState).toHaveBeenCalledWith('last_scan_started_at', expect.any(Date));
-    expect(systemState.setState).not.toHaveBeenCalledWith('last_scan_completed_at', expect.any(Date));
+    expect(systemState.setLastScanStartedAt).toHaveBeenCalledWith(expect.any(Date));
+    expect(systemState.setLastScanCompletedAt).not.toHaveBeenCalledWith(expect.any(Date));
     expect(prScannerProbe.failed).toHaveBeenCalledWith(scanError);
   });
 
   it('handles getState rejection and calls probe.failed', async () => {
     const stateError = new Error('DB read failed');
-    systemState.getState.mockRejectedValue(stateError);
+    systemState.getLastScanCompletedAt.mockRejectedValue(stateError);
 
     const scanner = createScanner();
     const result = await scanner.scan();

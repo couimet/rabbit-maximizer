@@ -7,6 +7,7 @@ export { HOURS_PER_DAY, MINUTES_PER_HOUR, MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE
 export { formatDate } from './formatDate.js';
 export { formatRelativeFuture } from './formatRelativeFuture.js';
 export { formatRelativeTime } from './formatRelativeTime.js';
+export { generateRunId } from './generateRunId.js';
 export { isReviewVerdictState } from './isReviewVerdictState.js';
 export { isValidTimezone } from './isValidTimezone.js';
 export { mergeByPullRequestId } from './mergeByPullRequestId.js';

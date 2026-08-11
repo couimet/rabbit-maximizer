@@ -1,5 +1,4 @@
 import type { Config } from '../../src/config.js';
-import { StateKey } from '../../src/db/index.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { EventCountsMapper } from '../../src/mappers/index.js';
 import { createGetDashboardStateHandler } from '../../src/routes/index.js';
@@ -21,6 +20,7 @@ import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
 const STALE_CONFIG: Config = {
+  CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600,
   DATABASE_URL: 'file:./data/test.db',
   DETECTION_MODE: 'poll',
   GITHUB_API_TIMEOUT_SEC: 10,
@@ -35,7 +35,6 @@ const STALE_CONFIG: Config = {
   REVIEW_LIMIT_BUFFER_SEC: 60,
   REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
   SCHEDULER_MAX_RETRIGGER_AGE_SEC: 259200,
-  SCHEDULER_POST_COOLDOWN_SEC: 3600,
   SCHEDULER_RETRIGGER_SPACING_SEC: 180,
   SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
   SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
@@ -75,7 +74,7 @@ describe('getDashboardState', () => {
     config?: Config,
   ) => {
     const mergedSystemState = {
-      getLastSchedulerTickAt: jest.fn<any>().mockResolvedValue(new Date()),
+      getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: new Date(), nextReviewAvailableAt: undefined }),
       ...systemStateRepoOver,
     };
     const result = startTestServer(logger, (app) => {
@@ -250,7 +249,11 @@ describe('getDashboardState', () => {
 
   it('returns paused true when schedulerStatus is paused', async () => {
     logger = createMockLogger();
-    startServer({}, {}, { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) });
+    startServer(
+      {},
+      {},
+      { getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: true, lastSchedulerTickAt: new Date(), nextReviewAvailableAt: undefined }) },
+    );
 
     const json = await getJson(port, '/api/dashboard-state');
     expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
@@ -267,7 +270,11 @@ describe('getDashboardState', () => {
 
   it('sets schedulerStale: true when lastSchedulerTickAt has never been written', async () => {
     logger = createMockLogger();
-    startServer({}, {}, { getLastSchedulerTickAt: jest.fn<any>().mockResolvedValue(undefined) });
+    startServer(
+      {},
+      {},
+      { getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: undefined, nextReviewAvailableAt: undefined }) },
+    );
 
     const json = await getJson(port, '/api/dashboard-state');
     const data = json as Record<string, unknown>;
@@ -281,7 +288,11 @@ describe('getDashboardState', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
     const staleTick = new Date(fixedNow - STALE_TICK_OFFSET_MS);
-    startServer({}, {}, { getLastSchedulerTickAt: jest.fn<any>().mockResolvedValue(staleTick) });
+    startServer(
+      {},
+      {},
+      { getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: staleTick, nextReviewAvailableAt: undefined }) },
+    );
 
     const json = await getJson(port, '/api/dashboard-state');
     const data2 = json as Record<string, unknown>;
@@ -294,7 +305,11 @@ describe('getDashboardState', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
     const recentTick = new Date(fixedNow - RECENT_TICK_OFFSET_MS);
-    startServer({}, {}, { getLastSchedulerTickAt: jest.fn<any>().mockResolvedValue(recentTick) });
+    startServer(
+      {},
+      {},
+      { getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: recentTick, nextReviewAvailableAt: undefined }) },
+    );
 
     const json = await getJson(port, '/api/dashboard-state');
     const data3 = json as Record<string, unknown>;
@@ -350,8 +365,10 @@ describe('getDashboardState', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
     const futureNextReview = new Date(fixedNow + 5000);
-    const getState = jest.fn<any>().mockResolvedValue(futureNextReview);
-    startServer({}, {}, { getState });
+    const getDashboardSystemState = jest
+      .fn<any>()
+      .mockResolvedValue({ paused: false, lastSchedulerTickAt: new Date(), nextReviewAvailableAt: futureNextReview });
+    startServer({}, {}, { getDashboardSystemState });
 
     const json = await getJson(port, '/api/dashboard-state');
     expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
@@ -365,7 +382,7 @@ describe('getDashboardState', () => {
       paused: false,
     });
 
-    expect(getState).toHaveBeenCalledWith(StateKey.nextReviewAvailableAt);
+    expect(getDashboardSystemState).toHaveBeenCalledWith();
   });
 
   it('returns null when stored nextReviewAvailableAt is in the past', async () => {
@@ -373,8 +390,8 @@ describe('getDashboardState', () => {
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
     const pastNextReview = new Date(fixedNow - 5000);
-    const getState = jest.fn<any>().mockResolvedValue(pastNextReview);
-    startServer({}, {}, { getState });
+    const getDashboardSystemState = jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: new Date(), nextReviewAvailableAt: pastNextReview });
+    startServer({}, {}, { getDashboardSystemState });
 
     const json = await getJson(port, '/api/dashboard-state');
     expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
@@ -388,6 +405,6 @@ describe('getDashboardState', () => {
       paused: false,
     });
 
-    expect(getState).toHaveBeenCalledWith(StateKey.nextReviewAvailableAt);
+    expect(getDashboardSystemState).toHaveBeenCalledWith();
   });
 });

@@ -74,6 +74,7 @@ const setup = (): MockSchedulerDeps => {
   const prStateFetcher = createMockPRStateFetcher();
 
   const config: Config = {
+    CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600,
     DETECTION_MODE: 'poll',
     GITHUB_API_TIMEOUT_SEC: 10,
     GITHUB_PAT: 'test-pat',
@@ -86,7 +87,6 @@ const setup = (): MockSchedulerDeps => {
     REVIEW_DETECTION_LOOKBACK_SEC: 7200,
     DATABASE_URL: 'file:./data/test.db',
     WEB_PORT: 3000,
-    SCHEDULER_POST_COOLDOWN_SEC: 3600,
     SCHEDULER_RETRIGGER_SPACING_SEC: 180,
     SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
     SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
@@ -369,7 +369,7 @@ describe('Scheduler', () => {
     it('skips processing when next_review_available_at is in the future', async () => {
       const item = generateQueueItemHydrationData();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.systemState.getState.mockResolvedValue(new Date(Date.now() + TICK_INTERVAL_MS));
+      deps.systemState.getNextReviewAvailableAt.mockResolvedValue(new Date(Date.now() + TICK_INTERVAL_MS));
 
       const scheduler = createScheduler();
       const { stop } = await scheduler.start();

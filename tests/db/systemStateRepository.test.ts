@@ -418,6 +418,7 @@ describe('SystemStateRepositoryImpl', () => {
           updated_at: frozenNow.toISOString(),
         },
       });
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'setLastSchedulerTickAt', ts: tickAt }, 'Last scheduler tick updated');
     });
   });
 
@@ -455,6 +456,178 @@ describe('SystemStateRepositoryImpl', () => {
 
       expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'last_scheduler_tick_at' } });
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getNextReviewAvailableAt', () => {
+    it('returns the Date stored at next_review_available_at', async () => {
+      const now = getUniqueDate();
+      const row = {
+        state_key: 'next_review_available_at',
+        value_text: null,
+        value_integer: null,
+        value_float: null,
+        value_datetime: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+
+      const { prisma } = createMockPrismaClient({
+        systemState: { findUnique: createResolvedMock(row) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.getNextReviewAvailableAt();
+
+      expect(result).toBeInstanceOf(Date);
+      expect(result!.getTime()).toBe(now.getTime());
+    });
+  });
+
+  describe('setNextReviewAvailableAt', () => {
+    it('upserts next_review_available_at and logs at info level', async () => {
+      const now = getUniqueDate();
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { upsert: jest.fn<any>() },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.setNextReviewAvailableAt(now);
+
+      expect(systemState.upsert).toHaveBeenCalledWith({
+        where: { state_key: 'next_review_available_at' },
+        create: expect.objectContaining({ state_key: 'next_review_available_at', value_datetime: now.toISOString() }),
+        update: expect.objectContaining({ state_key: 'next_review_available_at', value_datetime: now.toISOString() }),
+      });
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'setNextReviewAvailableAt', earliest: now }, 'Global review cooldown updated');
+    });
+  });
+
+  describe('getLastScanCompletedAt', () => {
+    it('returns the Date stored at last_scan_completed_at', async () => {
+      const now = getUniqueDate();
+      const row = {
+        state_key: 'last_scan_completed_at',
+        value_text: null,
+        value_integer: null,
+        value_float: null,
+        value_datetime: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+
+      const { prisma } = createMockPrismaClient({
+        systemState: { findUnique: createResolvedMock(row) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.getLastScanCompletedAt();
+
+      expect(result).toBeInstanceOf(Date);
+      expect(result!.getTime()).toBe(now.getTime());
+    });
+  });
+
+  describe('setLastScanCompletedAt', () => {
+    it('upserts last_scan_completed_at and logs at info level', async () => {
+      const now = getUniqueDate();
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { upsert: jest.fn<any>() },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.setLastScanCompletedAt(now);
+
+      expect(systemState.upsert).toHaveBeenCalledWith({
+        where: { state_key: 'last_scan_completed_at' },
+        create: expect.objectContaining({ state_key: 'last_scan_completed_at', value_datetime: now.toISOString() }),
+        update: expect.objectContaining({ state_key: 'last_scan_completed_at', value_datetime: now.toISOString() }),
+      });
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'setLastScanCompletedAt', ts: now }, 'Last scan completed timestamp updated');
+    });
+  });
+
+  describe('setLastScanStartedAt', () => {
+    it('upserts last_scan_started_at and logs at info level', async () => {
+      const now = getUniqueDate();
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { upsert: jest.fn<any>() },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.setLastScanStartedAt(now);
+
+      expect(systemState.upsert).toHaveBeenCalledWith({
+        where: { state_key: 'last_scan_started_at' },
+        create: expect.objectContaining({ state_key: 'last_scan_started_at', value_datetime: now.toISOString() }),
+        update: expect.objectContaining({ state_key: 'last_scan_started_at', value_datetime: now.toISOString() }),
+      });
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'setLastScanStartedAt', ts: now }, 'Last scan started timestamp updated');
+    });
+  });
+
+  describe('getDashboardSystemState', () => {
+    it('returns all three values from a single findMany call', async () => {
+      const tickAt = getUniqueDate();
+      const reviewAt = getUniqueDate();
+      const rows = [
+        {
+          state_key: 'scheduler_status',
+          value_text: 'paused',
+          value_integer: null,
+          value_float: null,
+          value_datetime: null,
+          updated_at: getUniqueDate().toISOString(),
+        },
+        {
+          state_key: 'last_scheduler_tick_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: tickAt.toISOString(),
+          updated_at: tickAt.toISOString(),
+        },
+        {
+          state_key: 'next_review_available_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: reviewAt.toISOString(),
+          updated_at: reviewAt.toISOString(),
+        },
+      ];
+
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { findMany: createResolvedMock(rows) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.getDashboardSystemState();
+
+      expect(systemState.findMany).toHaveBeenCalledWith({
+        where: { state_key: { in: ['scheduler_status', 'last_scheduler_tick_at', 'next_review_available_at'] } },
+      });
+      expect(result).toStrictEqual({
+        paused: true,
+        lastSchedulerTickAt: tickAt,
+        nextReviewAvailableAt: reviewAt,
+      });
+    });
+
+    it('returns undefined for missing keys', async () => {
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { findMany: createResolvedMock([]) },
+      });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      const result = await sut.getDashboardSystemState();
+
+      expect(systemState.findMany).toHaveBeenCalledWith({
+        where: { state_key: { in: ['scheduler_status', 'last_scheduler_tick_at', 'next_review_available_at'] } },
+      });
+      expect(result).toStrictEqual({
+        paused: false,
+        lastSchedulerTickAt: undefined,
+        nextReviewAvailableAt: undefined,
+      });
     });
   });
 

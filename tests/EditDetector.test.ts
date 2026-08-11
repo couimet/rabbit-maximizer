@@ -39,7 +39,7 @@ describe('EditDetector', () => {
       is_not_deleted: true,
     } as any);
     // Fresh fetch returns an updatedAt <= last_seen_at, so the NotEdited guard fires
-    github.fetchComment.mockResolvedValue({ body: '', updatedAt: lastSeenAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: '', createdAt: lastSeenAt.toISOString(), updatedAt: lastSeenAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
@@ -68,7 +68,7 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
@@ -111,7 +111,7 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
@@ -153,7 +153,7 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
@@ -222,7 +222,7 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);

@@ -1,4 +1,4 @@
-import { type PullRequestRepository, StateKey, type SystemStateRepository } from './db/index.js';
+import { type PullRequestRepository, type SystemStateRepository } from './db/index.js';
 import { type CoderabbitGitHubClient, isPRClosedWithoutMerge, isPRMerged } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import type { ScannedPR, ScanResult } from './types/index.js';
@@ -45,7 +45,7 @@ export class PrScannerImpl implements PrScanner {
     probe.scanStarted();
 
     try {
-      const lastScanCompletedAt = await this.systemState.getState(StateKey.lastScanCompletedAt);
+      const lastScanCompletedAt = await this.systemState.getLastScanCompletedAt();
       if (lastScanCompletedAt) {
         const elapsedMs = now.getTime() - lastScanCompletedAt.getTime();
         const intervalMs = this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND;
@@ -60,7 +60,7 @@ export class PrScannerImpl implements PrScanner {
     }
 
     try {
-      await this.systemState.setState(StateKey.lastScanStartedAt, now);
+      await this.systemState.setLastScanStartedAt(now);
     } catch (err: unknown) {
       probe.failedToPersistScanStartedAt(err);
     }
@@ -117,7 +117,7 @@ export class PrScannerImpl implements PrScanner {
       }
 
       try {
-        await this.systemState.setState(StateKey.lastScanCompletedAt, new Date());
+        await this.systemState.setLastScanCompletedAt(new Date());
       } catch (err: unknown) {
         probe.failedToPersistScanCompletedAt(err);
       }

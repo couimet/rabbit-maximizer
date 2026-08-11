@@ -1,5 +1,5 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { TriggerSource, TYPES } from '../../src/domain.js';
+import { CodeRabbitCommentType, MatchedMarker, TriggerSource, TYPES } from '../../src/domain.js';
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/index.js';
 import type { RepoFilter } from '../../src/types/index.js';
 import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockSearchRest } from '../helpers/index.js';
@@ -61,7 +61,7 @@ describe('client', () => {
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
       const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
-      const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.scheduler);
+      const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.scheduler, undefined);
 
       const expectedBody = [
         '@coderabbitai full review',
@@ -119,7 +119,7 @@ describe('client', () => {
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
       const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
-      const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.dashboard_retrigger_now);
+      const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.dashboard_retrigger_now, undefined);
 
       const expectedBody = [
         '@coderabbitai full review',
@@ -164,15 +164,86 @@ describe('client', () => {
         'Posting retrigger comment',
       );
     });
+
+    it('passes diagnosis to buildCommentBody when provided', async () => {
+      const { owner, repo, fullName } = getUniqueGitHubRepoRef();
+      const responseCommentId = getUniqueInt();
+      issues.createComment.mockResolvedValue({
+        data: {
+          html_url: `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${responseCommentId}`,
+        },
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+
+      const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
+      const sourceCreatedAt = new Date(frozenDate.getTime() - 2 * 3_600_000);
+
+      const diagnosis = {
+        sourceComment: {
+          url: triggerUrl,
+          createdAt: sourceCreatedAt.toISOString(),
+          updatedAt: sourceCreatedAt.toISOString(),
+          classification: CodeRabbitCommentType.review_limited,
+          matchedMarker: MatchedMarker.rate_limit,
+        },
+        waitSeconds: 1800,
+        decision: 'source',
+      } as const;
+
+      await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+
+      const expectedBody = [
+        '@coderabbitai full review',
+        '',
+        `↩ Triggered by: ${triggerUrl}`,
+        '\u{1F50D} Source: review_limited comment from 2h ago',
+        '',
+        '---',
+        '',
+        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`,
+        '',
+        `<!-- rabbit-maximizer\n${JSON.stringify(
+          {
+            version: VERSION,
+            runId,
+            triggerSource: 'scheduler',
+            sourceCommentUrl: triggerUrl,
+            timestamp: frozenDate.toISOString(),
+            diagnosis: {
+              sourceComment: {
+                url: triggerUrl,
+                createdAt: sourceCreatedAt.toISOString(),
+                updatedAt: sourceCreatedAt.toISOString(),
+                classification: 'review_limited',
+                matchedMarker: 'rate limited by coderabbit.ai',
+              },
+              waitSeconds: 1800,
+              decision: 'source',
+            },
+          },
+          null,
+          2,
+        )}\n-->`,
+      ].join('\n');
+
+      expect(issues.createComment).toHaveBeenCalledWith({
+        owner,
+        repo,
+        issue_number: prNumber,
+        body: expectedBody,
+      });
+    });
   });
 
   describe('fetchComment', () => {
-    it('returns the comment body and updatedAt from the API response', async () => {
+    it('returns the comment body, createdAt, and updatedAt from the API response', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
       const bodyText = getRandomString();
+      const createdAt = getUniqueDate();
       const updatedAt = getUniqueDate();
       issues.getComment.mockResolvedValue({
-        data: { body: bodyText, updated_at: updatedAt.toISOString() },
+        data: { body: bodyText, created_at: createdAt.toISOString(), updated_at: updatedAt.toISOString() },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
@@ -184,22 +255,23 @@ describe('client', () => {
         repo,
         comment_id: fetchCommentId,
       });
-      expect(result).toStrictEqual({ body: bodyText, updatedAt: updatedAt.toISOString() });
+      expect(result).toStrictEqual({ body: bodyText, createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString() });
 
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'fetchComment', owner, repo, commentId: fetchCommentId }, 'Fetching comment body');
     });
 
     it('returns empty body when the comment body is null', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
+      const createdAt = getUniqueDate();
       const updatedAt = getUniqueDate();
       issues.getComment.mockResolvedValue({
-        data: { body: null, updated_at: updatedAt.toISOString() },
+        data: { body: null, created_at: createdAt.toISOString(), updated_at: updatedAt.toISOString() },
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
       const result = await client.fetchComment(owner, repo, fetchCommentId);
-      expect(result).toStrictEqual({ body: '<EMPTY_BODY>', updatedAt: updatedAt.toISOString() });
+      expect(result).toStrictEqual({ body: '<EMPTY_BODY>', createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString() });
 
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'fetchComment', owner, repo, commentId: fetchCommentId }, 'Fetching comment body');
     });

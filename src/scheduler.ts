@@ -1,4 +1,4 @@
-import { type PullRequestRepository, type QueueOrderRepository, type QueueRepository, StateKey, type SystemStateRepository } from './db/index.js';
+import { type PullRequestRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from './db/index.js';
 import { RabbitMaximizerErrorCodes } from './errors/index.js';
 import { isPRClosedWithoutMerge, isPRMerged, type PRStateFetcher } from './github/index.js';
 import type { ProbeFactory, SchedulerProbe } from './probes/index.js';
@@ -95,7 +95,7 @@ export class Scheduler extends IntervalService {
         }
       }
 
-      const nextReviewAvailableAt = await this.systemState.getState(StateKey.nextReviewAvailableAt);
+      const nextReviewAvailableAt = await this.systemState.getNextReviewAvailableAt();
       if (nextReviewAvailableAt !== undefined && nextReviewAvailableAt.getTime() > Date.now()) {
         probe.tickSkippedCooldown();
         return;

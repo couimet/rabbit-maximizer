@@ -1,5 +1,6 @@
 import { SchedulerStatus, TYPES } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
+import type { DashboardSystemState } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -29,6 +30,8 @@ const STATE_KEY_CONFIG: Record<StateKey, { column: ValueColumn }> = {
   [StateKey.nextReviewAvailableAt]: { column: 'value_datetime' },
 };
 
+const DASHBOARD_STATE_KEYS: readonly StateKey[] = [StateKey.schedulerStatus, StateKey.lastSchedulerTickAt, StateKey.nextReviewAvailableAt];
+
 interface SystemStateRow {
   state_key: string;
   value_text: string | null;
@@ -57,19 +60,38 @@ export const VALUE_SETTER: Record<ValueColumn, (base: SystemStateRow, value: unk
 };
 
 export interface SystemStateRepository {
-  getState<K extends StateKey>(key: K, tx?: Prisma.TransactionClient): Promise<StateKeyToType[K] | undefined>;
-  setState<K extends StateKey>(key: K, value: StateKeyToType[K], tx?: Prisma.TransactionClient): Promise<void>;
+  getDashboardSystemState(): Promise<DashboardSystemState>;
   isSchedulerPaused(tx?: Prisma.TransactionClient): Promise<boolean>;
   pauseScheduler(tx?: Prisma.TransactionClient): Promise<void>;
   resumeScheduler(tx?: Prisma.TransactionClient): Promise<void>;
+  getNextReviewAvailableAt(tx?: Prisma.TransactionClient): Promise<Date | undefined>;
+  setNextReviewAvailableAt(earliest: Date, tx?: Prisma.TransactionClient): Promise<void>;
   getLastSchedulerTickAt(tx?: Prisma.TransactionClient): Promise<Date | undefined>;
   setLastSchedulerTickAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void>;
+  getLastScanCompletedAt(tx?: Prisma.TransactionClient): Promise<Date | undefined>;
+  setLastScanCompletedAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void>;
+  setLastScanStartedAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void>;
 }
 
 @injectable()
 export class SystemStateRepositoryImpl extends BasePrismaRepository implements SystemStateRepository {
   constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
     super(prisma, Prisma.ModelName.SystemState, log);
+  }
+
+  private parseStateRow<K extends StateKey>(key: K, row: SystemStateRow): StateKeyToType[K] | undefined {
+    const config = STATE_KEY_CONFIG[key];
+    const rawValue = row[config.column];
+    if (rawValue === null || rawValue === undefined) return undefined;
+    if (config.column === 'value_datetime') return new Date(rawValue as string) as StateKeyToType[K];
+    return rawValue as StateKeyToType[K];
+  }
+
+  private buildReadValue(map: Map<string, SystemStateRow>) {
+    return <K extends StateKey>(key: K): StateKeyToType[K] | undefined => {
+      const row = map.get(key);
+      return row ? this.parseStateRow(key, row) : undefined;
+    };
   }
 
   // eslint-disable-next-line require-await
@@ -79,15 +101,7 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
         where: { state_key: key },
       });
       if (!row) return undefined;
-
-      const config = STATE_KEY_CONFIG[key];
-      const rawValue = row[config.column];
-      if (rawValue === null || rawValue === undefined) return undefined;
-
-      if (config.column === 'value_datetime') {
-        return new Date(rawValue as string) as StateKeyToType[K];
-      }
-      return rawValue as StateKeyToType[K];
+      return this.parseStateRow(key, row);
     });
   }
 
@@ -123,6 +137,24 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
     });
   }
 
+  // eslint-disable-next-line require-await
+  async getDashboardSystemState(): Promise<DashboardSystemState> {
+    return this.enforceTx(undefined, async (db) => {
+      const rows = await db.systemState.findMany({
+        where: { state_key: { in: [...DASHBOARD_STATE_KEYS] } },
+      });
+
+      const map = new Map(rows.map((r) => [r.state_key, r]));
+      const readValue = this.buildReadValue(map);
+
+      return {
+        paused: SchedulerStatus.paused === readValue(StateKey.schedulerStatus),
+        lastSchedulerTickAt: readValue(StateKey.lastSchedulerTickAt),
+        nextReviewAvailableAt: readValue(StateKey.nextReviewAvailableAt),
+      };
+    });
+  }
+
   async isSchedulerPaused(tx?: Prisma.TransactionClient): Promise<boolean> {
     const status = await this.getState(StateKey.schedulerStatus, tx);
     return status === SchedulerStatus.paused;
@@ -143,5 +175,31 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
 
   async setLastSchedulerTickAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void> {
     await this.setState(StateKey.lastSchedulerTickAt, ts, tx);
+    this.log.info({ fn: 'setLastSchedulerTickAt', ts }, 'Last scheduler tick updated');
+  }
+
+  // eslint-disable-next-line require-await
+  async getNextReviewAvailableAt(tx?: Prisma.TransactionClient): Promise<Date | undefined> {
+    return this.getState(StateKey.nextReviewAvailableAt, tx);
+  }
+
+  async setNextReviewAvailableAt(earliest: Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.setState(StateKey.nextReviewAvailableAt, earliest, tx);
+    this.log.info({ fn: 'setNextReviewAvailableAt', earliest }, 'Global review cooldown updated');
+  }
+
+  // eslint-disable-next-line require-await
+  async getLastScanCompletedAt(tx?: Prisma.TransactionClient): Promise<Date | undefined> {
+    return this.getState(StateKey.lastScanCompletedAt, tx);
+  }
+
+  async setLastScanCompletedAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.setState(StateKey.lastScanCompletedAt, ts, tx);
+    this.log.info({ fn: 'setLastScanCompletedAt', ts }, 'Last scan completed timestamp updated');
+  }
+
+  async setLastScanStartedAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.setState(StateKey.lastScanStartedAt, ts, tx);
+    this.log.info({ fn: 'setLastScanStartedAt', ts }, 'Last scan started timestamp updated');
   }
 }

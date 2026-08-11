@@ -1,5 +1,5 @@
 import type { Config } from '../config.js';
-import { type EventRepository, type QueueOrderRepository, type QueueRepository, StateKey, type SystemStateRepository } from '../db/index.js';
+import { type EventRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from '../db/index.js';
 import type { EventCountsMapper, QueueItemMapper } from '../mappers/index.js';
 import { MS_PER_SECOND, resolveDurationSince } from '../utils/index.js';
 
@@ -21,14 +21,13 @@ export const createGetDashboardStateHandler = (
     try {
       const since = resolveDurationSince(req.query.duration);
 
-      const [items, eventCounts, paused, lastSchedulerTickAt, skippedQueueItems, storedNextReviewAt] = await Promise.all([
+      const [items, eventCounts, systemState, skippedQueueItems] = await Promise.all([
         queueOrderRepo.getEffectiveOrder(),
         eventRepo.countByType(since),
-        systemStateRepo.isSchedulerPaused(),
-        systemStateRepo.getLastSchedulerTickAt(),
+        systemStateRepo.getDashboardSystemState(),
         queueRepo.getSkippedItems(),
-        systemStateRepo.getState(StateKey.nextReviewAvailableAt),
       ]);
+      const { paused, lastSchedulerTickAt, nextReviewAvailableAt: storedNextReviewAt } = systemState;
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
       const [pendingItems, skippedItems] = await Promise.all([
         queueItemMapper.mapToQueueItemResponseList(items),

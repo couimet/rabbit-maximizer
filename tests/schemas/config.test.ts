@@ -20,6 +20,7 @@ describe('ConfigSchema', () => {
     webhookSecret = getRandomString({ charset: 'alphanumeric', length: 16 });
     tunnelUrl = `https://${getRandomString({ charset: 'alpha', length: 8 })}.com`;
     BASE = {
+      CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600,
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_SEC: 10,
       GITHUB_PAT: githubPat,
@@ -34,7 +35,6 @@ describe('ConfigSchema', () => {
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
       REPO_FILTER: [{ pattern: 'couimet/*', scope: 'user' as const }],
       SCHEDULER_MAX_RETRIGGER_AGE_SEC: DEFAULT_MAX_RETRIGGER_AGE_SEC,
-      SCHEDULER_POST_COOLDOWN_SEC: 3600,
       SCHEDULER_RETRIGGER_SPACING_SEC: 180,
       SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
       SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
@@ -234,8 +234,8 @@ describe('ConfigSchema', () => {
     }
   });
 
-  it('rejects SCHEDULER_RETRIGGER_SPACING_SEC >= SCHEDULER_POST_COOLDOWN_SEC', () => {
-    const result = ConfigSchema.safeParse({ ...BASE, SCHEDULER_RETRIGGER_SPACING_SEC: 3600, SCHEDULER_POST_COOLDOWN_SEC: 3600 });
+  it('rejects SCHEDULER_RETRIGGER_SPACING_SEC >= CODERABBIT_ACCOUNT_COOLDOWN_SEC', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, SCHEDULER_RETRIGGER_SPACING_SEC: 3600, CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600 });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((i) => i.path.includes('SCHEDULER_RETRIGGER_SPACING_SEC'))).toBe(true);
@@ -254,8 +254,8 @@ describe('ConfigSchema', () => {
     expect(ConfigSchema.safeParse({ ...BASE, SCHEDULER_MAX_RETRIGGER_AGE_SEC: -1 }).success).toBe(false);
   });
 
-  it('rejects REVIEW_DETECTION_LOOKBACK_SEC > SCHEDULER_POST_COOLDOWN_SEC * 2', () => {
-    const result = ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: 7201, SCHEDULER_POST_COOLDOWN_SEC: 3600 });
+  it('rejects REVIEW_DETECTION_LOOKBACK_SEC > CODERABBIT_ACCOUNT_COOLDOWN_SEC * 2', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: 7201, CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600 });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((i) => i.path.includes('REVIEW_DETECTION_LOOKBACK_SEC'))).toBe(true);

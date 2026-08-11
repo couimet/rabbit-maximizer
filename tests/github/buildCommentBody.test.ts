@@ -1,12 +1,14 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { TriggerSource } from '../../src/domain.js';
+import { CodeRabbitCommentType, MatchedMarker, TriggerSource } from '../../src/domain.js';
 import { buildCommentBody } from '../../src/github/index.js';
+import type { CommentDiagnosis, RetriggerDiagnosis } from '../../src/types/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const VERSION = pkg.version;
 const REPO_URL = pkg.repository.url;
+const MS_PER_HOUR = 3_600_000;
 
 describe('buildCommentBody', () => {
   let frozenDate: Date;
@@ -24,7 +26,7 @@ describe('buildCommentBody', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
     const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, undefined);
 
     const lines = body.split('\n');
     expect(lines[0]).toBe('@coderabbitai full review');
@@ -54,7 +56,7 @@ describe('buildCommentBody', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
     const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.dashboard_retrigger_now);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.dashboard_retrigger_now, undefined);
 
     const lines = body.split('\n');
     expect(lines[0]).toBe('@coderabbitai full review');
@@ -80,7 +82,7 @@ describe('buildCommentBody', () => {
   it('uses fallback text and null metadata when source comment URL is undefined for scheduler', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
-    const body = buildCommentBody(undefined, runId, TriggerSource.scheduler);
+    const body = buildCommentBody(undefined, runId, TriggerSource.scheduler, undefined);
 
     const lines = body.split('\n');
     expect(lines[2]).toBe('\u{21A9} Triggered by scheduler');
@@ -103,7 +105,7 @@ describe('buildCommentBody', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
     const triggerUrl = `https://github.com/${owner}/-->${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, undefined);
 
     const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
     expect(jsonMatch).not.toBeNull();
@@ -118,12 +120,130 @@ describe('buildCommentBody', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
     const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-    const invoke = () => buildCommentBody(triggerUrl, runId, 'bogus' as TriggerSource);
+    const invoke = () => buildCommentBody(triggerUrl, runId, 'bogus' as TriggerSource, undefined);
 
     expect(invoke).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
       message: 'Unexpected triggerSource: "bogus"',
       functionName: 'buildCommentBody',
       details: { unexpectedValue: 'bogus' },
     });
+  });
+
+  it('includes visible diagnosis line and JSON diagnosis field for decision source', () => {
+    const { owner, repo } = getUniqueGitHubRepoRef();
+    const prNumber = getUniqueInt();
+    const commentId = getUniqueInt();
+    const runId = getUniqueString({ prefix: 'run-' });
+    const sourceCreatedAt = new Date(frozenDate.getTime() - 2 * MS_PER_HOUR);
+
+    const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
+
+    const sourceComment: CommentDiagnosis = {
+      url: triggerUrl,
+      createdAt: sourceCreatedAt.toISOString(),
+      updatedAt: sourceCreatedAt.toISOString(),
+      classification: CodeRabbitCommentType.review_limited,
+      matchedMarker: MatchedMarker.rate_limit,
+    };
+
+    const diagnosis: RetriggerDiagnosis = {
+      sourceComment,
+      waitSeconds: 1800,
+      decision: 'source',
+    };
+
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+
+    const lines = body.split('\n');
+    expect(lines[0]).toBe('@coderabbitai full review');
+    expect(lines[1]).toBe('');
+    expect(lines[2]).toBe(`\u{21A9} Triggered by: ${triggerUrl}`);
+    expect(lines[3]).toBe('\u{1F50D} Source: review_limited comment from 2h ago');
+    expect(lines[4]).toBe('');
+    expect(lines[5]).toBe('---');
+    expect(lines[6]).toBe('');
+    expect(lines[7]).toBe(`\u{1F916} [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`);
+    expect(lines[8]).toBe('');
+
+    const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
+    expect(jsonMatch).not.toBeNull();
+    expect(JSON.parse(jsonMatch![1])).toStrictEqual({
+      version: VERSION,
+      runId,
+      triggerSource: 'scheduler',
+      sourceCommentUrl: triggerUrl,
+      timestamp: frozenDate.toISOString(),
+      diagnosis: {
+        sourceComment: {
+          url: triggerUrl,
+          createdAt: sourceCreatedAt.toISOString(),
+          updatedAt: sourceCreatedAt.toISOString(),
+          classification: 'review_limited',
+          matchedMarker: 'rate limited by coderabbit.ai',
+        },
+        waitSeconds: 1800,
+        decision: 'source',
+      },
+    });
+  });
+
+  it('includes visible diagnosis line and JSON diagnosis field for decision direct', () => {
+    const { owner, repo } = getUniqueGitHubRepoRef();
+    const prNumber = getUniqueInt();
+    const commentId = getUniqueInt();
+    const runId = getUniqueString({ prefix: 'run-' });
+
+    const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
+
+    const sourceComment: CommentDiagnosis = {
+      url: triggerUrl,
+      createdAt: '',
+      updatedAt: '',
+      classification: CodeRabbitCommentType.unknown,
+      matchedMarker: undefined,
+    };
+
+    const diagnosis: RetriggerDiagnosis = {
+      sourceComment,
+      waitSeconds: undefined,
+      decision: 'direct',
+    };
+
+    const body = buildCommentBody(undefined, runId, TriggerSource.scheduler, diagnosis);
+
+    const lines = body.split('\n');
+    expect(lines[2]).toBe('\u{21A9} Triggered by scheduler');
+    expect(lines[3]).toBe('\u{1F50D} Posted directly; no rate-limit comment found');
+
+    const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
+    expect(jsonMatch).not.toBeNull();
+    expect(JSON.parse(jsonMatch![1])).toStrictEqual({
+      version: VERSION,
+      runId,
+      triggerSource: 'scheduler',
+      sourceCommentUrl: null,
+      timestamp: frozenDate.toISOString(),
+      diagnosis: {
+        sourceComment: {
+          url: triggerUrl,
+          createdAt: '',
+          updatedAt: '',
+          classification: 'unknown',
+        },
+        decision: 'direct',
+      },
+    });
+  });
+
+  it('omits diagnosis from JSON metadata when diagnosis is not provided (dashboard trigger)', () => {
+    const runId = getUniqueString({ prefix: 'run-' });
+
+    const body = buildCommentBody(undefined, runId, TriggerSource.dashboard_retrigger_now, undefined);
+
+    const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
+    expect(jsonMatch).not.toBeNull();
+    const parsed = JSON.parse(jsonMatch![1]);
+    expect(parsed.diagnosis).toBeUndefined();
+    expect(Object.keys(parsed).sort()).toStrictEqual(['runId', 'sourceCommentUrl', 'timestamp', 'triggerSource', 'version']);
   });
 });
