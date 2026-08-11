@@ -96,18 +96,17 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses a bypassed event', () => {
+  it('parses a dismissed event', () => {
     const reason = 'prMerged';
-    const detail = getUniqueString();
     const row = baseRow({
-      type: 'bypassed',
-      payload: JSON.stringify({ reason, detail }),
+      type: 'dismissed',
+      payload: JSON.stringify({ reason }),
     });
 
     const result = parseEventRow(row);
 
-    expect(result.type).toBe('bypassed');
-    expect(result.payload).toStrictEqual({ reason: 'prMerged', detail });
+    expect(result.type).toBe('dismissed');
+    expect(result.payload).toStrictEqual({ reason: 'prMerged' });
   });
 
   it('parses a coderabbit_review_approved event', () => {
@@ -172,13 +171,25 @@ describe('parseEventRow', () => {
     expect(result.payload).toStrictEqual({ reason });
   });
 
-  it('throws on an unexpected event type', () => {
+  it('returns raw payload for an unknown event type with object payload', () => {
     const row = baseRow({ type: 'bogus', payload: '{}' });
-    expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
-      message: 'Unexpected event type: "bogus"',
-      functionName: 'parseEventRow',
-      details: { unexpectedValue: 'bogus' },
-    });
+    const result = parseEventRow(row);
+    expect(result.type).toBe('bogus');
+    expect(result.payload).toStrictEqual({});
+  });
+
+  it('wraps non-object payloads in a raw envelope for an unknown event type', () => {
+    const row = baseRow({ type: 'bogus', payload: '"just a string"' });
+    const result = parseEventRow(row);
+    expect(result.type).toBe('bogus');
+    expect(result.payload).toStrictEqual({ raw: 'just a string' });
+  });
+
+  it('wraps a null payload in a raw envelope for an unknown event type', () => {
+    const row = baseRow({ type: 'bogus', payload: 'null' });
+    const result = parseEventRow(row);
+    expect(result.type).toBe('bogus');
+    expect(result.payload).toStrictEqual({ raw: null });
   });
 });
 

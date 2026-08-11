@@ -21,7 +21,7 @@ const renderSummaryStats = (ui?: ReactElement) =>
 
 const DEFAULT_EVENT_COUNTS = { detected: 8, enqueued: 7, retriggered: 3, failed: 1 };
 
-const TRIGGERED_RESPONSE = { data: [], total: 0, page: 1, pageSize: 50 };
+const ACTIVITY_LIST_RESPONSE = { data: [], total: 0, page: 1, pageSize: 50 };
 
 const DEFAULT_CONFIG_RESPONSE = { pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 };
 const RECENT_TICK_AGE_MS = 10_000;
@@ -29,11 +29,11 @@ const FIRST_MATCH_INDEX = 0;
 
 const mockDashboardState = (data: Record<string, unknown>) => {
   globalThis.fetch = jest.fn((url: string) => {
-    if (typeof url === 'string' && url.includes('/queue/triggered')) {
+    if (typeof url === 'string' && url.includes('/activity-list')) {
       return Promise.resolve({
         ok: true,
         status: StatusCodes.OK,
-        json: () => Promise.resolve(TRIGGERED_RESPONSE),
+        json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE),
       } as Response);
     }
     if (url === '/api/config') {
@@ -124,8 +124,8 @@ describe('SummaryStats', () => {
       };
       let capturedUrl = '';
       globalThis.fetch = jest.fn((url: string) => {
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(TRIGGERED_RESPONSE) } as Response);
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE) } as Response);
         }
         capturedUrl = url as string;
         return Promise.resolve({
@@ -179,8 +179,8 @@ describe('SummaryStats', () => {
 
       let callCount = 0;
       globalThis.fetch = jest.fn((url: string) => {
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(TRIGGERED_RESPONSE) } as Response);
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE) } as Response);
         }
         callCount++;
         if (callCount === 1) return stalePromise;
@@ -226,8 +226,8 @@ describe('SummaryStats', () => {
 
       let callCount = 0;
       globalThis.fetch = jest.fn((url: string) => {
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(TRIGGERED_RESPONSE) } as Response);
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE) } as Response);
         }
         callCount++;
         if (callCount === 1) return stalePromise;
@@ -519,8 +519,8 @@ describe('SummaryStats', () => {
             json: () => Promise.resolve({ data: [queueItem] }),
           } as Response);
         }
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(TRIGGERED_RESPONSE) } as Response);
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE) } as Response);
         }
         dashboardCallCount++;
         return Promise.resolve({
@@ -774,11 +774,11 @@ describe('SummaryStats', () => {
             json: () => Promise.resolve({ error: 'Config fetch failed' }),
           } as Response);
         }
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
+        if (typeof url === 'string' && url.includes('/activity-list')) {
           return Promise.resolve({
             ok: true,
             status: StatusCodes.OK,
-            json: () => Promise.resolve(TRIGGERED_RESPONSE),
+            json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE),
           } as Response);
         }
         return Promise.resolve({
@@ -821,11 +821,11 @@ describe('SummaryStats', () => {
             json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
           } as Response);
         }
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
+        if (typeof url === 'string' && url.includes('/activity-list')) {
           return Promise.resolve({
             ok: true,
             status: StatusCodes.OK,
-            json: () => Promise.resolve(TRIGGERED_RESPONSE),
+            json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE),
           } as Response);
         }
         return Promise.resolve({

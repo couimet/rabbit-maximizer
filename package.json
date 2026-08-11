@@ -32,7 +32,7 @@
     "jest": "NODE_OPTIONS='--experimental-vm-modules' jest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "local": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" tsx src/main.ts",
+    "local": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" tsx watch --exclude 'logs' --exclude 'data' --exclude 'coverage' --exclude 'dist' src/main.ts",
     "prisma:snapshot": "prisma generate && bash scripts/prisma-snapshot.sh",
     "prisma:validate": "bash scripts/prisma-validate.sh",
     "test": "pnpm test:ts:unit && pnpm test:shellcheck && pnpm test:bats",
@@ -72,6 +72,7 @@
   },
   "devDependencies": {
     "@couimet/detailed-error-testing": "^0.1.5",
+    "@couimet/detailed-result-testing": "^0.2.1",
     "@couimet/dynamic-testing": "^1.0.0",
     "@couimet/eslint-config": "^1.0.0",
     "@couimet/logger-contract-testing": "^1.0.1",

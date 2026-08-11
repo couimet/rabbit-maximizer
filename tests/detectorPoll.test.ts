@@ -83,7 +83,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
-      const { stop } = detector.start();
+      const { stop } = await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -100,7 +100,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
-      const { stop } = detector.start();
+      const { stop } = await detector.start();
 
       await stop();
       jest.advanceTimersByTime(POLL_INTERVAL_MS * 2);
@@ -119,7 +119,7 @@ describe('PollDetector', () => {
       deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -136,7 +136,7 @@ describe('PollDetector', () => {
       deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -151,7 +151,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -164,7 +164,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -178,7 +178,7 @@ describe('PollDetector', () => {
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -197,7 +197,7 @@ describe('PollDetector', () => {
       deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -213,7 +213,7 @@ describe('PollDetector', () => {
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -232,7 +232,7 @@ describe('PollDetector', () => {
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: comment.updatedAt });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -252,7 +252,7 @@ describe('PollDetector', () => {
       deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -273,7 +273,7 @@ describe('PollDetector', () => {
       deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
       deps.github.findAcknowledgement.mockResolvedValue(ackResult);
       const detector = createDetector();
-      detector.start();
+      await detector.start();
       await drainMicrotasks(TICK_DEPTH);
       expect(deps.github.findAcknowledgement).toHaveBeenCalledWith(ackOwner, ackRepoName, ackRef.prNumber, pendingAck.last_review_requested_at);
       expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(ackId);
@@ -284,7 +284,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
       deps.pullRequests.findPendingAcknowledgement.mockRejectedValue(ackError);
       const detector = createDetector();
-      detector.start();
+      await detector.start();
       await drainMicrotasks(TICK_DEPTH);
       expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: ackError }, 'Acknowledgement check failed; continuing');
     });
@@ -302,7 +302,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -315,7 +315,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -336,7 +336,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -355,7 +355,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockReturnValue(searchPromise);
 
       const detector = createDetector();
-      const { stop } = detector.start();
+      const starting = detector.start();
 
       await Promise.resolve();
 
@@ -367,6 +367,7 @@ describe('PollDetector', () => {
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
 
       resolveSearch!([]);
+      const { stop } = await starting;
       await stop();
     });
   });
@@ -383,7 +384,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockRejectedValue(rateLimitError);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -406,7 +407,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockRejectedValue(rateLimitError);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -423,7 +424,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockRejectedValue(networkError);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -438,7 +439,7 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockRejectedValue(badHeaderError);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       for (let i = 0; i < TICK_DEPTH; i++) {
         await Promise.resolve();
@@ -463,7 +464,7 @@ describe('PollDetector', () => {
       deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -486,7 +487,7 @@ describe('PollDetector', () => {
       deps.systemStateRepo.getState.mockResolvedValue(laterDate);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -506,7 +507,7 @@ describe('PollDetector', () => {
       deps.systemStateRepo.getState.mockResolvedValue(earlierDate);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -528,7 +529,7 @@ describe('PollDetector', () => {
       deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
@@ -553,13 +554,80 @@ describe('PollDetector', () => {
       deps.systemStateRepo.getState.mockResolvedValue(undefined);
 
       const detector = createDetector();
-      detector.start();
+      await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.systemStateRepo.setState).toHaveBeenCalledTimes(1);
       expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
       expect(deps.onDetected).toHaveBeenCalledTimes(2);
+    });
+
+    it('merges direct candidates from DirectCommentChecker into earliestNextReview', async () => {
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+      const directCandidateDate = getUniqueDate();
+      deps.directCommentChecker.check.mockResolvedValue([{ updatedAt: directCandidateDate, waitSeconds: 120 }]);
+
+      deps.systemStateRepo.getState.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      const expectedDate = new Date(directCandidateDate.getTime() + 120 * MS_PER_SECOND);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'PollDetector.start', pollIntervalSec: POLL_INTERVAL_SEC, repoCount: EXPECTED_REPO_COUNT },
+        'Starting poll detector',
+      );
+    });
+
+    it('uses REVIEW_LIMIT_FALLBACK_WAIT_SEC when direct candidate has no parsed waitSeconds', async () => {
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+      const directCandidateDate = getUniqueDate();
+      deps.directCommentChecker.check.mockResolvedValue([{ updatedAt: directCandidateDate, waitSeconds: undefined }]);
+
+      deps.systemStateRepo.getState.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      const expectedDate = new Date(directCandidateDate.getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, expectedDate);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'PollDetector.start', pollIntervalSec: POLL_INTERVAL_SEC, repoCount: EXPECTED_REPO_COUNT },
+        'Starting poll detector',
+      );
+    });
+
+    it('picks earliest candidate across direct and search results', async () => {
+      const directEarly = getUniqueDate();
+      const searchLater = new Date(directEarly.getTime() + MS_PER_HOUR);
+      const searchComment = generateDetectedCommentHydrationData({ updatedAt: searchLater.toISOString() });
+      const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
+      deps.github.searchReviewLimitComments.mockResolvedValue([searchComment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, updatedAt: searchComment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.directCommentChecker.check.mockResolvedValue([{ updatedAt: directEarly, waitSeconds: 120 }]);
+
+      deps.systemStateRepo.getState.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      const directExpected = new Date(directEarly.getTime() + 120 * MS_PER_SECOND);
+      const searchExpected = new Date(searchLater.getTime() + 600 * MS_PER_SECOND);
+      expect(directExpected.getTime()).toBeLessThan(searchExpected.getTime());
+      expect(deps.systemStateRepo.setState).toHaveBeenCalledWith('next_review_available_at' as StateKey, directExpected);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'PollDetector.start', pollIntervalSec: POLL_INTERVAL_SEC, repoCount: EXPECTED_REPO_COUNT },
+        'Starting poll detector',
+      );
     });
   });
 });

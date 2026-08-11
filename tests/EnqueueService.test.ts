@@ -1,6 +1,8 @@
+import { config } from '../src/config.js';
 import type { ObservationContextProvider } from '../src/observability/index.js';
 import type { DetectedProbe, ProbeFactory } from '../src/probes/index.js';
 import { EnqueueService } from '../src/services.js';
+import { MS_PER_SECOND } from '../src/utils/index.js';
 
 import { createMockCoderabbitCommentRepo } from './helpers/createMockCoderabbitCommentRepo.js';
 import {
@@ -58,6 +60,7 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData();
       const pullRequestId = getUniqueInt();
+      const expectedCooldownUntil = new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
 
       await svc.handle(comment, pullRequestId);
 
@@ -81,6 +84,7 @@ describe('EnqueueService', () => {
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
           commentUpdatedAt: new Date(comment.updatedAt),
+          cooldownUntil: expectedCooldownUntil,
           pullRequestId,
         },
         tx,
@@ -155,6 +159,7 @@ describe('EnqueueService', () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData();
       const pullRequestId = getUniqueInt();
+      const expectedCooldownUntil = new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
 
       await svc.handle(comment, pullRequestId);
 
@@ -166,6 +171,7 @@ describe('EnqueueService', () => {
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
           commentUpdatedAt: new Date(comment.updatedAt),
+          cooldownUntil: expectedCooldownUntil,
           pullRequestId,
         },
         tx,

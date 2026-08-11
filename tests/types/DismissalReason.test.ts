@@ -1,14 +1,16 @@
-import { BypassReason } from '../../src/domain.js';
+import { DismissalReason } from '../../src/domain.js';
 
 import { describe, expect, it } from '@jest/globals';
 
-describe('BypassReason', () => {
+describe('DismissalReason', () => {
   it('has the correct values', () => {
-    expect(BypassReason).toStrictEqual({
+    expect(DismissalReason).toStrictEqual({
+      other: 'other',
       prClosedWithoutMerge: 'prClosedWithoutMerge',
+      prDeleted: 'prDeleted',
       prMerged: 'prMerged',
       prNotRegistered: 'prNotRegistered',
-      other: 'other',
+      staleComment: 'staleComment',
     });
   });
 });

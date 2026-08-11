@@ -1,6 +1,7 @@
 /* v8 ignore start — type-only re-exports from generated api-types, zero runtime code */
 import type { components } from '../api-types.js';
 
+export type ActivityListItemResponse = components['schemas']['ActivityListItem'];
 export type QueueItemResponse = components['schemas']['QueueItem'];
 export type EventEntryResponse = components['schemas']['EventEntry'];
 export type EventCountsResponse = components['schemas']['EventCounts'];

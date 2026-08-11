@@ -1,5 +1,5 @@
 import type { EventRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
-import type { EventCountsMapper, EventEntryMapper, QueueItemMapper } from './mappers/index.js';
+import { type EventCountsMapper, type EventEntryMapper, type QueueItemMapper, ReviewQueueToActivityListItemMapper } from './mappers/index.js';
 import { describeDatabaseUrl } from './utils/index.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
@@ -39,13 +39,14 @@ const prisma = container.get<PrismaClient>(TYPES.PrismaClient);
 log.info({ fn: 'main' }, `Connected to ${describeDatabaseUrl(config.DATABASE_URL)}`);
 
 const detector = container.get<PollDetector>(TYPES.PollDetector);
-const { stop: stopDetector } = detector.start();
+const { stop: stopDetector } = await detector.start();
 
 const reviewDetector = container.get<ReviewDetector>(TYPES.ReviewDetector);
-const { stop: stopReviewDetector } = reviewDetector.start();
+const { stop: stopReviewDetector } = await reviewDetector.start();
 
 const scheduler = container.get<Scheduler>(TYPES.Scheduler);
-const { stop: stopScheduler } = scheduler.start();
+log.info({ fn: 'main' }, 'Starting Scheduler (cooldown state ready)');
+const { stop: stopScheduler } = await scheduler.start();
 
 const queueRepo = container.get<QueueRepository>(TYPES.QueueRepository);
 const queueOrderRepo = container.get<QueueOrderRepository>(TYPES.QueueOrderRepository);
@@ -54,10 +55,12 @@ const systemStateRepo = container.get<SystemStateRepository>(TYPES.SystemStateRe
 const reviewTrigger = container.get<ReviewTrigger>(TYPES.ReviewTrigger);
 const eventCountsMapper = container.get<EventCountsMapper>(TYPES.EventCountsMapper);
 const eventEntryMapper = container.get<EventEntryMapper>(TYPES.EventEntryMapper);
+const activityListMapper = container.get<ReviewQueueToActivityListItemMapper>(TYPES.ReviewQueueToActivityListItemMapper);
 const queueItemMapper = container.get<QueueItemMapper>(TYPES.QueueItemMapper);
 const appLogger = container.get<Logger>(TYPES.Logger);
 
 const { stop: stopServer } = await setupExpress({
+  activityListMapper,
   config,
   eventCountsMapper,
   eventEntryMapper,

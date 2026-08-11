@@ -1365,6 +1365,8 @@ export namespace Prisma {
     title: string | null;
     author_login: string | null;
     pr_state: string | null;
+    merged_at: Date | null;
+    closed_at: Date | null;
     first_seen_at: Date | null;
     first_review_limit_at: Date | null;
     last_review_limit_at: Date | null;
@@ -1387,6 +1389,8 @@ export namespace Prisma {
     title: string | null;
     author_login: string | null;
     pr_state: string | null;
+    merged_at: Date | null;
+    closed_at: Date | null;
     first_seen_at: Date | null;
     first_review_limit_at: Date | null;
     last_review_limit_at: Date | null;
@@ -1409,6 +1413,8 @@ export namespace Prisma {
     title: number;
     author_login: number;
     pr_state: number;
+    merged_at: number;
+    closed_at: number;
     first_seen_at: number;
     first_review_limit_at: number;
     last_review_limit_at: number;
@@ -1446,6 +1452,8 @@ export namespace Prisma {
     title?: true;
     author_login?: true;
     pr_state?: true;
+    merged_at?: true;
+    closed_at?: true;
     first_seen_at?: true;
     first_review_limit_at?: true;
     last_review_limit_at?: true;
@@ -1468,6 +1476,8 @@ export namespace Prisma {
     title?: true;
     author_login?: true;
     pr_state?: true;
+    merged_at?: true;
+    closed_at?: true;
     first_seen_at?: true;
     first_review_limit_at?: true;
     last_review_limit_at?: true;
@@ -1490,6 +1500,8 @@ export namespace Prisma {
     title?: true;
     author_login?: true;
     pr_state?: true;
+    merged_at?: true;
+    closed_at?: true;
     first_seen_at?: true;
     first_review_limit_at?: true;
     last_review_limit_at?: true;
@@ -1596,6 +1608,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state: string;
+    merged_at: Date | null;
+    closed_at: Date | null;
     first_seen_at: Date;
     first_review_limit_at: Date | null;
     last_review_limit_at: Date | null;
@@ -1636,6 +1650,8 @@ export namespace Prisma {
       title?: boolean;
       author_login?: boolean;
       pr_state?: boolean;
+      merged_at?: boolean;
+      closed_at?: boolean;
       first_seen_at?: boolean;
       first_review_limit_at?: boolean;
       last_review_limit_at?: boolean;
@@ -1665,6 +1681,8 @@ export namespace Prisma {
       title?: boolean;
       author_login?: boolean;
       pr_state?: boolean;
+      merged_at?: boolean;
+      closed_at?: boolean;
       first_seen_at?: boolean;
       first_review_limit_at?: boolean;
       last_review_limit_at?: boolean;
@@ -1690,6 +1708,8 @@ export namespace Prisma {
       title?: boolean;
       author_login?: boolean;
       pr_state?: boolean;
+      merged_at?: boolean;
+      closed_at?: boolean;
       first_seen_at?: boolean;
       first_review_limit_at?: boolean;
       last_review_limit_at?: boolean;
@@ -1714,6 +1734,8 @@ export namespace Prisma {
     title?: boolean;
     author_login?: boolean;
     pr_state?: boolean;
+    merged_at?: boolean;
+    closed_at?: boolean;
     first_seen_at?: boolean;
     first_review_limit_at?: boolean;
     last_review_limit_at?: boolean;
@@ -1736,6 +1758,8 @@ export namespace Prisma {
     | 'title'
     | 'author_login'
     | 'pr_state'
+    | 'merged_at'
+    | 'closed_at'
     | 'first_seen_at'
     | 'first_review_limit_at'
     | 'last_review_limit_at'
@@ -1778,6 +1802,14 @@ export namespace Prisma {
          * One of 'open', 'merged', 'closed'. Enforced by CHECK in migration.
          */
         pr_state: string;
+        /**
+         * NULL until the PR is merged.
+         */
+        merged_at: Date | null;
+        /**
+         * NULL until the PR is closed without merge. Enforced: merged_at OR closed_at may be set, never both (CHECK in migration).
+         */
+        closed_at: Date | null;
         first_seen_at: Date;
         first_review_limit_at: Date | null;
         last_review_limit_at: Date | null;
@@ -2261,6 +2293,8 @@ export namespace Prisma {
     readonly title: FieldRef<'PullRequest', 'String'>;
     readonly author_login: FieldRef<'PullRequest', 'String'>;
     readonly pr_state: FieldRef<'PullRequest', 'String'>;
+    readonly merged_at: FieldRef<'PullRequest', 'DateTime'>;
+    readonly closed_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly first_seen_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly first_review_limit_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly last_review_limit_at: FieldRef<'PullRequest', 'DateTime'>;
@@ -4526,7 +4560,7 @@ export namespace Prisma {
         uuid: string;
         ts: Date;
         /**
-         * Max 40; one of 'detected' | 'enqueued' | 'retriggered' | 'bypassed' | 'failed' | 'coderabbit_review_approved' | 'coderabbit_review_changes_suggested' | 'coderabbit_review_skipped' (CHECK in the init + bypass + fix migration).
+         * Max 40; validated by Zod schema in src/schemas/events.ts, not by DB CHECK constraint.
          */
         type: string;
         pull_request_id: number | null;
@@ -9030,6 +9064,8 @@ export namespace Prisma {
     title: 'title';
     author_login: 'author_login';
     pr_state: 'pr_state';
+    merged_at: 'merged_at';
+    closed_at: 'closed_at';
     first_seen_at: 'first_seen_at';
     first_review_limit_at: 'first_review_limit_at';
     last_review_limit_at: 'last_review_limit_at';
@@ -9186,6 +9222,8 @@ export namespace Prisma {
     title?: StringFilter<'PullRequest'> | string;
     author_login?: StringFilter<'PullRequest'> | string;
     pr_state?: StringFilter<'PullRequest'> | string;
+    merged_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
+    closed_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
     first_seen_at?: DateTimeFilter<'PullRequest'> | Date | string;
     first_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
     last_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
@@ -9211,6 +9249,8 @@ export namespace Prisma {
     title?: SortOrder;
     author_login?: SortOrder;
     pr_state?: SortOrder;
+    merged_at?: SortOrderInput | SortOrder;
+    closed_at?: SortOrderInput | SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrderInput | SortOrder;
     last_review_limit_at?: SortOrderInput | SortOrder;
@@ -9241,6 +9281,8 @@ export namespace Prisma {
       title?: StringFilter<'PullRequest'> | string;
       author_login?: StringFilter<'PullRequest'> | string;
       pr_state?: StringFilter<'PullRequest'> | string;
+      merged_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
+      closed_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
       first_seen_at?: DateTimeFilter<'PullRequest'> | Date | string;
       first_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
       last_review_limit_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
@@ -9268,6 +9310,8 @@ export namespace Prisma {
     title?: SortOrder;
     author_login?: SortOrder;
     pr_state?: SortOrder;
+    merged_at?: SortOrderInput | SortOrder;
+    closed_at?: SortOrderInput | SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrderInput | SortOrder;
     last_review_limit_at?: SortOrderInput | SortOrder;
@@ -9298,6 +9342,8 @@ export namespace Prisma {
     title?: StringWithAggregatesFilter<'PullRequest'> | string;
     author_login?: StringWithAggregatesFilter<'PullRequest'> | string;
     pr_state?: StringWithAggregatesFilter<'PullRequest'> | string;
+    merged_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
+    closed_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
     first_seen_at?: DateTimeWithAggregatesFilter<'PullRequest'> | Date | string;
     first_review_limit_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
     last_review_limit_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
@@ -9780,6 +9826,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -9805,6 +9853,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -9829,6 +9879,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -9854,6 +9906,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -9879,6 +9933,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -9900,6 +9956,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -9922,6 +9980,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -10453,17 +10513,6 @@ export namespace Prisma {
     not?: NestedStringFilter<$PrismaModel> | string;
   };
 
-  export type DateTimeFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    in?: Date[] | string[];
-    notIn?: Date[] | string[];
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    not?: NestedDateTimeFilter<$PrismaModel> | Date | string;
-  };
-
   export type DateTimeNullableFilter<$PrismaModel = never> = {
     equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null;
     in?: Date[] | string[] | null;
@@ -10473,6 +10522,17 @@ export namespace Prisma {
     gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
     gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null;
+  };
+
+  export type DateTimeFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    in?: Date[] | string[];
+    notIn?: Date[] | string[];
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    not?: NestedDateTimeFilter<$PrismaModel> | Date | string;
   };
 
   export type StringNullableFilter<$PrismaModel = never> = {
@@ -10537,6 +10597,8 @@ export namespace Prisma {
     title?: SortOrder;
     author_login?: SortOrder;
     pr_state?: SortOrder;
+    merged_at?: SortOrder;
+    closed_at?: SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrder;
     last_review_limit_at?: SortOrder;
@@ -10566,6 +10628,8 @@ export namespace Prisma {
     title?: SortOrder;
     author_login?: SortOrder;
     pr_state?: SortOrder;
+    merged_at?: SortOrder;
+    closed_at?: SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrder;
     last_review_limit_at?: SortOrder;
@@ -10588,6 +10652,8 @@ export namespace Prisma {
     title?: SortOrder;
     author_login?: SortOrder;
     pr_state?: SortOrder;
+    merged_at?: SortOrder;
+    closed_at?: SortOrder;
     first_seen_at?: SortOrder;
     first_review_limit_at?: SortOrder;
     last_review_limit_at?: SortOrder;
@@ -10642,20 +10708,6 @@ export namespace Prisma {
     _max?: NestedStringFilter<$PrismaModel>;
   };
 
-  export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    in?: Date[] | string[];
-    notIn?: Date[] | string[];
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    not?: NestedDateTimeWithAggregatesFilter<$PrismaModel> | Date | string;
-    _count?: NestedIntFilter<$PrismaModel>;
-    _min?: NestedDateTimeFilter<$PrismaModel>;
-    _max?: NestedDateTimeFilter<$PrismaModel>;
-  };
-
   export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null;
     in?: Date[] | string[] | null;
@@ -10668,6 +10720,20 @@ export namespace Prisma {
     _count?: NestedIntNullableFilter<$PrismaModel>;
     _min?: NestedDateTimeNullableFilter<$PrismaModel>;
     _max?: NestedDateTimeNullableFilter<$PrismaModel>;
+  };
+
+  export type DateTimeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    in?: Date[] | string[];
+    notIn?: Date[] | string[];
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    not?: NestedDateTimeWithAggregatesFilter<$PrismaModel> | Date | string;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedDateTimeFilter<$PrismaModel>;
+    _max?: NestedDateTimeFilter<$PrismaModel>;
   };
 
   export type StringNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -11129,12 +11195,12 @@ export namespace Prisma {
     divide?: number;
   };
 
-  export type DateTimeFieldUpdateOperationsInput = {
-    set?: Date | string;
-  };
-
   export type NullableDateTimeFieldUpdateOperationsInput = {
     set?: Date | string | null;
+  };
+
+  export type DateTimeFieldUpdateOperationsInput = {
+    set?: Date | string;
   };
 
   export type NullableStringFieldUpdateOperationsInput = {
@@ -11395,17 +11461,6 @@ export namespace Prisma {
     not?: NestedStringFilter<$PrismaModel> | string;
   };
 
-  export type NestedDateTimeFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    in?: Date[] | string[];
-    notIn?: Date[] | string[];
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    not?: NestedDateTimeFilter<$PrismaModel> | Date | string;
-  };
-
   export type NestedDateTimeNullableFilter<$PrismaModel = never> = {
     equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null;
     in?: Date[] | string[] | null;
@@ -11415,6 +11470,17 @@ export namespace Prisma {
     gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
     gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
     not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null;
+  };
+
+  export type NestedDateTimeFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    in?: Date[] | string[];
+    notIn?: Date[] | string[];
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    not?: NestedDateTimeFilter<$PrismaModel> | Date | string;
   };
 
   export type NestedStringNullableFilter<$PrismaModel = never> = {
@@ -11475,20 +11541,6 @@ export namespace Prisma {
     _max?: NestedStringFilter<$PrismaModel>;
   };
 
-  export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
-    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    in?: Date[] | string[];
-    notIn?: Date[] | string[];
-    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
-    not?: NestedDateTimeWithAggregatesFilter<$PrismaModel> | Date | string;
-    _count?: NestedIntFilter<$PrismaModel>;
-    _min?: NestedDateTimeFilter<$PrismaModel>;
-    _max?: NestedDateTimeFilter<$PrismaModel>;
-  };
-
   export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null;
     in?: Date[] | string[] | null;
@@ -11512,6 +11564,20 @@ export namespace Prisma {
     gt?: number | IntFieldRefInput<$PrismaModel>;
     gte?: number | IntFieldRefInput<$PrismaModel>;
     not?: NestedIntNullableFilter<$PrismaModel> | number | null;
+  };
+
+  export type NestedDateTimeWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    in?: Date[] | string[];
+    notIn?: Date[] | string[];
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>;
+    not?: NestedDateTimeWithAggregatesFilter<$PrismaModel> | Date | string;
+    _count?: NestedIntFilter<$PrismaModel>;
+    _min?: NestedDateTimeFilter<$PrismaModel>;
+    _max?: NestedDateTimeFilter<$PrismaModel>;
   };
 
   export type NestedStringNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -11854,6 +11920,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -11878,6 +11946,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -11941,6 +12011,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -11965,6 +12037,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -11988,6 +12062,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -12012,6 +12088,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -12051,6 +12129,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -12075,6 +12155,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -12200,6 +12282,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -12224,6 +12308,8 @@ export namespace Prisma {
     title: string;
     author_login: string;
     pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
     first_seen_at: Date | string;
     first_review_limit_at?: Date | string | null;
     last_review_limit_at?: Date | string | null;
@@ -12263,6 +12349,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -12287,6 +12375,8 @@ export namespace Prisma {
     title?: StringFieldUpdateOperationsInput | string;
     author_login?: StringFieldUpdateOperationsInput | string;
     pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;

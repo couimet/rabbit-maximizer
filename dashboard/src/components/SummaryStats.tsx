@@ -3,7 +3,7 @@ import { DEFAULT_DURATION, type Duration } from '../../../src/utils/index.js';
 import { fetchConfig, fetchDashboardState, setPaused } from '../api.js';
 import { useErrorContext } from '../context/index.js';
 
-import { DurationSelect, formatElapsed, QueueOrder, RecentlyTriggered, ReviewCountdown, usePauseNotification } from './index.js';
+import { ActivityList, DurationSelect, formatElapsed, QueueOrder, ReviewCountdown, usePauseNotification } from './index.js';
 
 import './SummaryStats.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -142,7 +142,7 @@ const SummaryStats = () => {
         />
       </div>
 
-      <RecentlyTriggered schedulerStale={data.schedulerStale || localStale} lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current} />
+      <ActivityList schedulerStale={data.schedulerStale || localStale} lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current} />
 
       <div className="section-card">
         <h3>

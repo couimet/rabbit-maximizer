@@ -102,7 +102,7 @@ describe('EnqueueProbe', () => {
       probe.retriggeredReplaced(ref.repoFullName, ref.prNumber, oldCommentId, newCommentId);
       expect(logger.info).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.retriggeredReplaced', repo: ref.repoFullName, pr: ref.prNumber, oldCommentId: oldCommentId, newCommentId: newCommentId },
-        'Recycled review-limit comment replaced stale retriggered item; marking old item reviewed',
+        'Recycled review-limit comment detected; updating retriggered item source comment to prevent duplicate items',
       );
     });
   });
@@ -116,7 +116,7 @@ describe('EnqueueProbe', () => {
       probe.retriggeredReplaced(ref.repoFullName, ref.prNumber, oldCommentId, newCommentId);
       expect(logger.info).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.retriggeredReplaced', repo: ref.repoFullName, pr: ref.prNumber, oldCommentId: oldCommentId, newCommentId: newCommentId },
-        'Recycled review-limit comment replaced stale retriggered item; marking old item reviewed',
+        'Recycled review-limit comment detected; updating retriggered item source comment to prevent duplicate items',
       );
     });
   });

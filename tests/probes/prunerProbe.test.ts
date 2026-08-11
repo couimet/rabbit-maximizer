@@ -28,7 +28,7 @@ describe('PrunerProbe', () => {
   });
 
   describe('prMerged', () => {
-    it('records bypassed event and logs', async () => {
+    it('records dismissed event and logs', async () => {
       const ref = generateReviewRef();
       const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const tx = createMockTx();
@@ -37,7 +37,7 @@ describe('PrunerProbe', () => {
       await probe.prMerged(tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
-          type: 'bypassed',
+          type: 'dismissed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
           correlation_id: observation.correlationId,
@@ -55,7 +55,7 @@ describe('PrunerProbe', () => {
   });
 
   describe('prClosedWithoutMerge', () => {
-    it('records bypassed event and logs', async () => {
+    it('records dismissed event and logs', async () => {
       const ref = generateReviewRef();
       const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const tx = createMockTx();
@@ -64,7 +64,7 @@ describe('PrunerProbe', () => {
       await probe.prClosedWithoutMerge(tx);
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
-          type: 'bypassed',
+          type: 'dismissed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
           correlation_id: observation.correlationId,

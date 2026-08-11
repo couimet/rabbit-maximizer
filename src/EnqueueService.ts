@@ -1,9 +1,10 @@
 import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository } from './db/index.js';
-import { classifyCoderabbitComment } from './github/index.js';
+import { classifyCoderabbitComment, parseWaitSeconds } from './github/index.js';
 import type { ObservationContextProvider } from './observability/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
-import { isReviewVerdictState } from './utils/index.js';
+import { isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
+import { config } from './config.js';
 import { TYPES } from './domain.js';
 
 import { type PrismaClient } from '@prisma/client';
@@ -92,6 +93,10 @@ export class EnqueueService {
         return;
       }
 
+      const waitSeconds = parseWaitSeconds(comment.body);
+      const effectiveWait = (waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC) * MS_PER_SECOND;
+      const cooldownUntil = new Date(new Date(comment.updatedAt).getTime() + effectiveWait);
+
       const { created } = await this.queue.enqueue(
         {
           repo: comment.repoFullName,
@@ -100,6 +105,7 @@ export class EnqueueService {
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
           commentUpdatedAt: new Date(comment.updatedAt),
+          cooldownUntil,
           pullRequestId,
         },
         tx,

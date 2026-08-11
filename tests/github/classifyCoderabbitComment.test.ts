@@ -70,20 +70,20 @@ describe('classifyCoderabbitComment', () => {
     expect(result).toBe('review_skipped');
   });
 
-  it("returns 'review_changes_suggested' when the body contains review_stack_entry_start (combined review+rate-limit comment)", () => {
+  it("returns 'review_limited' when the body contains review_stack_entry_start with a rate-limit marker (walkthrough is not a completion signal)", () => {
     body = `rate limited by coderabbit.ai review_stack_entry_start walkthrough`;
 
     const result = classifyCoderabbitComment(body);
 
-    expect(result).toBe('review_changes_suggested');
+    expect(result).toBe('review_limited');
   });
 
-  it('prioritises completion signals over the rate-limit marker (combined review+rate-limit comments are reviews, not rate-limit notices)', () => {
+  it('returns review_limited for walkthrough+rate-limit comments without actionable/no-actionable signals', () => {
     body = `rate limited by coderabbit.ai review_stack_entry_start some walkthrough content`;
 
     const result = classifyCoderabbitComment(body);
 
-    expect(result).toBe('review_changes_suggested');
+    expect(result).toBe('review_limited');
   });
 
   it("returns 'review_limited' when the rate-limit marker is present without any completion signal", () => {

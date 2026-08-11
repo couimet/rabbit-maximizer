@@ -3,7 +3,7 @@ import type { EnrichedQueueItem } from '../../src/types/index.js';
 
 import { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
 
-import { getRandomEnumValue, getUniqueDate, getUniqueString } from '@couimet/dynamic-testing';
+import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 
 export const generateEnrichedQueueItemData = (overrides?: Partial<EnrichedQueueItem>): EnrichedQueueItem => {
   const base = generateQueueItemHydrationData(overrides);
@@ -12,6 +12,8 @@ export const generateEnrichedQueueItemData = (overrides?: Partial<EnrichedQueueI
     prState: getRandomEnumValue(PrState),
     lastCoderabbitAcknowledgedAt: getUniqueDate(),
     authorLogin: getUniqueString({ prefix: 'author-' }),
+    retriggerCount: getUniqueInt(),
+    reviewCount: getUniqueInt(),
     ...overrides,
   };
 };

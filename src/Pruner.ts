@@ -26,8 +26,12 @@ export class PrunerImpl implements Pruner {
 
   async prune(): Promise<void> {
     const probe = this.probeFactory.createPrunerProbe();
-    const pending = await this.queue.getPendingQueue();
-    const enriched = await this.pruneEvaluator.evaluate(pending);
+    const active = await this.queue.getActiveQueue();
+    if (active.length === 0) {
+      probe.noItemsToPrune();
+      return;
+    }
+    const enriched = await this.pruneEvaluator.evaluate(active);
     if (enriched.length === 0) {
       probe.noItemsToPrune();
       return;

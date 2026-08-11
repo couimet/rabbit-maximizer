@@ -1,5 +1,6 @@
 export { apiJson } from './apiJson.js';
 export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
+export { createMockActivityListMapper } from './createMockActivityListMapper.js';
 export { createMockCoderabbitCommentRepo } from './createMockCoderabbitCommentRepo.js';
 export { createMockCoderabbitGitHubClient } from './createMockCoderabbitGitHubClient.js';
 export { createMockDirectCommentChecker } from './createMockDirectCommentChecker.js';
@@ -42,6 +43,8 @@ export {
   createMockSchedulerProbe,
 } from './createMockProbes.js';
 export { createMockPrScanner } from './createMockPrScanner.js';
+export { createMockPRStateFetcher } from './createMockPRStateFetcher.js';
+export { createMockPruneEvaluator } from './createMockPruneEvaluator.js';
 export { createMockPruner } from './createMockPruner.js';
 export { createMockPullRequestRepo } from './createMockPullRequestRepo.js';
 export { createMockQueueItemEnricher } from './createMockQueueItemEnricher.js';
