@@ -86,11 +86,12 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <never>Use default parameter values in function signatures (`paused = false`, `timeout = 5000`)</never>
   <never>Use TypeScript optional-parameter syntax (`param?: Type`) in production code — it lets callers omit the argument, hiding intent at call sites</never>
   <do>Make every parameter required. Use `T | undefined` when a parameter is semantically optional — callers pass `undefined` explicitly, making the "no value" choice visible at every call site</do>
-  <rationale>Default values create falsy traps (`''`, `0`, `false`, `null` all trigger the default, not just `undefined`). Optional `?:` lets callers omit the argument, hiding intent. `T | undefined` forces every caller to write either the value or `undefined`, making the choice explicit and intentional.</rationale>
+  <rationale>Defaults and `?:` let callers omit the argument, hiding intent. `T | undefined` forces every caller to write either the value or `undefined`, making the choice explicit.</rationale>
   <bad-example>
     ```typescript
-    // BAD: falsy trap — paused={false} still gets defaulted
+    // BAD: default applies when the prop is omitted — omission is indistinguishable from explicit undefined
     const QueueOrder = ({ paused = false }: { paused?: boolean }) => { ... }
+    // <QueueOrder /> and <QueueOrder paused={undefined} /> both default — intent is hidden
 
     // BAD: optional marker — caller can omit, intent is hidden
     async trigger(item: QueueItem, diagnosis?: RetriggerDiagnosis): Promise<void>

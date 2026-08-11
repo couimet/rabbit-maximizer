@@ -908,6 +908,32 @@ describe('QueueRepositoryImpl', () => {
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
     });
 
+    it('passes a concrete original source comment URL through to the update data', async () => {
+      const row = generateReviewQueueHydrationData();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: createResolvedMock(row) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const commentId = getUniqueInt();
+      const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+      const originalSourceCommentUrl = getUniqueString({ prefix: 'https://github.com/' });
+
+      const result = await sut.reschedule(row.id, { commentId, commentUrl }, originalSourceCommentUrl, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: row.id },
+        data: {
+          attempts: { increment: 1 },
+          source_comment_id: commentId,
+          source_comment_url: commentUrl,
+          original_source_comment_url: originalSourceCommentUrl,
+          retriggered_at: frozenNow,
+        },
+      });
+      expect(result.id).toBe(row.id);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
+    });
+
     it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
       const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({

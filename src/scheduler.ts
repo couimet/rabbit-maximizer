@@ -118,6 +118,9 @@ export class Scheduler extends IntervalService {
             // Source comment was replaced by a newer rate-limit comment: reschedule with
             // updated source_comment data. Not a failure.
             await this.queue.reschedule(item!.id, err.sourceComment, err.originalSource.url, tx);
+            const existing = await this.systemState.getNextReviewAvailableAt(tx);
+            const nextAvailable = existing !== undefined && existing > err.rescheduleEarliest ? existing : err.rescheduleEarliest;
+            await this.systemState.setNextReviewAvailableAt(nextAvailable, tx);
             probe.triggerFailed(err, tx);
           } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP) {
             await this.queue.markResolved(item!.id, Resolution.StaleComment, tx);

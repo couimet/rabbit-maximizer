@@ -312,7 +312,7 @@ describe('ReviewTrigger', () => {
   });
 
   it('builds replacement diagnosis when item has original_source_comment_url', async () => {
-    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
     const item = generateQueueItemHydrationData({
       source_comment_id: staleCommentId,
       status: QueueStatus.pending,
@@ -365,10 +365,14 @@ describe('ReviewTrigger', () => {
       },
     );
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
+    );
   });
 
   it('falls back to empty diagnosis when original source comment returns 404', async () => {
-    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
     const item = generateQueueItemHydrationData({
       source_comment_id: staleCommentId,
       status: QueueStatus.pending,
@@ -415,6 +419,10 @@ describe('ReviewTrigger', () => {
       },
     );
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
+    );
   });
 
   it('falls back to empty diagnosis and logs warn when original source comment fetch fails with server error', async () => {
@@ -443,6 +451,31 @@ describe('ReviewTrigger', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.buildReplacementDiagnosis', originalUrl: item.original_source_comment_url, error: fetchError },
       'Failed to fetch original source comment; falling back to empty diagnosis',
+    );
+    expect(github.postRetrigger).toHaveBeenCalledWith(
+      item.repo_full_name,
+      item.pr_number,
+      item.source_comment_url,
+      expect.any(String) as unknown as string,
+      'scheduler',
+      {
+        sourceComment: {
+          url: item.original_source_comment_url,
+          createdAt: '',
+          updatedAt: '',
+          classification: 'unknown',
+          matchedMarker: undefined,
+        },
+        replacementComment: {
+          url: item.source_comment_url,
+          createdAt: replacementCreatedAt,
+          updatedAt: replacementUpdatedAt,
+          classification: 'review_limited',
+          matchedMarker: 'rate limited by coderabbit.ai',
+        },
+        waitSeconds: undefined,
+        decision: 'replacement',
+      },
     );
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
   });

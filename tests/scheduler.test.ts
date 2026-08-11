@@ -4,7 +4,7 @@ import { CodeRabbitCommentType, QueueStatus, RabbitResult } from '../src/domain.
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from '../src/errors/index.js';
 import type { ProbeFactory } from '../src/probes/index.js';
 import { type Pruner, ReviewTrigger, Scheduler } from '../src/services.js';
-import type { PRState } from '../src/types/index.js';
+import type { PRState, QueueItem } from '../src/types/index.js';
 
 import {
   createMockProbeFactory,
@@ -131,6 +131,23 @@ describe('Scheduler', () => {
   describe('tick', () => {
     const makeTriggerOk = () => RabbitResult.ok({ retriggeredCommentUrl: getUniqueString() });
 
+    const makeStaleRescheduleError = (item: QueueItem, rescheduleEarliest: Date) => {
+      const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
+      const err = new StaleCommentRescheduledError(
+        newComment,
+        {
+          url: item.source_comment_url,
+          createdAt: getUniqueDate().toISOString(),
+          updatedAt: getUniqueDate().toISOString(),
+          classification: CodeRabbitCommentType.unknown,
+          matchedMarker: undefined,
+        },
+        rescheduleEarliest,
+        'test',
+      );
+      return { err, newComment };
+    };
+
     it('delegates to ReviewTrigger on success and increments attempts', async () => {
       const item = pendingItem();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
@@ -165,22 +182,10 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('reschedules when ReviewTrigger returns stale reschedule', async () => {
+    it('reschedules when ReviewTrigger returns stale reschedule and sets the global cooldown', async () => {
       const item = pendingItem();
-      const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
       const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000);
-      const staleErr = new StaleCommentRescheduledError(
-        newComment,
-        {
-          url: item.source_comment_url,
-          createdAt: getUniqueDate().toISOString(),
-          updatedAt: getUniqueDate().toISOString(),
-          classification: CodeRabbitCommentType.unknown,
-          matchedMarker: undefined,
-        },
-        rescheduleEarliest,
-        'test',
-      );
+      const { err: staleErr, newComment } = makeStaleRescheduleError(item, rescheduleEarliest);
       const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
@@ -192,6 +197,28 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
       expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, item.source_comment_url, deps.tx);
+      expect(deps.systemState.getNextReviewAvailableAt).toHaveBeenCalledWith(deps.tx);
+      expect(deps.systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(rescheduleEarliest, deps.tx);
+
+      await stop();
+    });
+
+    it('preserves an existing later cooldown when rescheduling a stale comment', async () => {
+      const item = pendingItem();
+      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000);
+      const existingCooldown = new Date(frozenNow.getTime() + 120_000);
+      const { err: staleErr, newComment } = makeStaleRescheduleError(item, rescheduleEarliest);
+      deps.systemState.getNextReviewAvailableAt.mockResolvedValueOnce(undefined).mockResolvedValueOnce(existingCooldown);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, item.source_comment_url, deps.tx);
+      expect(deps.systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(existingCooldown, deps.tx);
 
       await stop();
     });
