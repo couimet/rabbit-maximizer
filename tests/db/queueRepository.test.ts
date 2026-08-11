@@ -898,7 +898,7 @@ describe('QueueRepositoryImpl', () => {
       const commentId = getUniqueInt();
       const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
-      const result = await sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
@@ -919,6 +919,7 @@ describe('QueueRepositoryImpl', () => {
         sut.reschedule(
           getUniqueInt(),
           { commentId: getUniqueInt(), commentUrl: getUniqueString({ prefix: 'https://gh/c/' }) },
+          undefined,
           prisma as unknown as Prisma.TransactionClient,
         ),
       ).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
@@ -948,7 +949,7 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const result = await sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.update).toHaveBeenCalledTimes(2);
       expect(reviewQueue.update).toHaveBeenNthCalledWith(2, {
@@ -977,7 +978,7 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      await expect(sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+      await expect(sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002',
         {
           message: "Unique constraint violation in table 'ReviewQueue'",
@@ -1011,7 +1012,7 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      await expect(sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+      await expect(sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002',
         {
           message: "Unique constraint violation in table 'ReviewQueue'",

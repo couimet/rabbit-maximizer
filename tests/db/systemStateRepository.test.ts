@@ -484,6 +484,14 @@ describe('SystemStateRepositoryImpl', () => {
   });
 
   describe('setNextReviewAvailableAt', () => {
+    let frozenNow: Date;
+
+    beforeEach(() => {
+      frozenNow = getUniqueDate();
+      jest.useFakeTimers();
+      jest.setSystemTime(frozenNow);
+    });
+
     it('upserts next_review_available_at and logs at info level', async () => {
       const now = getUniqueDate();
       const { prisma, systemState } = createMockPrismaClient({
@@ -495,8 +503,22 @@ describe('SystemStateRepositoryImpl', () => {
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'next_review_available_at' },
-        create: expect.objectContaining({ state_key: 'next_review_available_at', value_datetime: now.toISOString() }),
-        update: expect.objectContaining({ state_key: 'next_review_available_at', value_datetime: now.toISOString() }),
+        create: {
+          state_key: 'next_review_available_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: frozenNow.toISOString(),
+        },
+        update: {
+          state_key: 'next_review_available_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: frozenNow.toISOString(),
+        },
       });
       expect(logger.info).toHaveBeenCalledWith({ fn: 'setNextReviewAvailableAt', earliest: now }, 'Global review cooldown updated');
     });
@@ -527,6 +549,14 @@ describe('SystemStateRepositoryImpl', () => {
   });
 
   describe('setLastScanCompletedAt', () => {
+    let frozenNow: Date;
+
+    beforeEach(() => {
+      frozenNow = getUniqueDate();
+      jest.useFakeTimers();
+      jest.setSystemTime(frozenNow);
+    });
+
     it('upserts last_scan_completed_at and logs at info level', async () => {
       const now = getUniqueDate();
       const { prisma, systemState } = createMockPrismaClient({
@@ -538,14 +568,36 @@ describe('SystemStateRepositoryImpl', () => {
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'last_scan_completed_at' },
-        create: expect.objectContaining({ state_key: 'last_scan_completed_at', value_datetime: now.toISOString() }),
-        update: expect.objectContaining({ state_key: 'last_scan_completed_at', value_datetime: now.toISOString() }),
+        create: {
+          state_key: 'last_scan_completed_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: frozenNow.toISOString(),
+        },
+        update: {
+          state_key: 'last_scan_completed_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: frozenNow.toISOString(),
+        },
       });
       expect(logger.info).toHaveBeenCalledWith({ fn: 'setLastScanCompletedAt', ts: now }, 'Last scan completed timestamp updated');
     });
   });
 
   describe('setLastScanStartedAt', () => {
+    let frozenNow: Date;
+
+    beforeEach(() => {
+      frozenNow = getUniqueDate();
+      jest.useFakeTimers();
+      jest.setSystemTime(frozenNow);
+    });
+
     it('upserts last_scan_started_at and logs at info level', async () => {
       const now = getUniqueDate();
       const { prisma, systemState } = createMockPrismaClient({
@@ -557,8 +609,22 @@ describe('SystemStateRepositoryImpl', () => {
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'last_scan_started_at' },
-        create: expect.objectContaining({ state_key: 'last_scan_started_at', value_datetime: now.toISOString() }),
-        update: expect.objectContaining({ state_key: 'last_scan_started_at', value_datetime: now.toISOString() }),
+        create: {
+          state_key: 'last_scan_started_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: frozenNow.toISOString(),
+        },
+        update: {
+          state_key: 'last_scan_started_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: frozenNow.toISOString(),
+        },
       });
       expect(logger.info).toHaveBeenCalledWith({ fn: 'setLastScanStartedAt', ts: now }, 'Last scan started timestamp updated');
     });

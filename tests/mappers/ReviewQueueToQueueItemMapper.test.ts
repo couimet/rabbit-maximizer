@@ -127,6 +127,7 @@ describe('ReviewQueueToQueueItemMapper', () => {
         attempts: row.attempts,
         source_comment_url: row.source_comment_url,
         source_comment_id: row.source_comment_id,
+        original_source_comment_url: row.original_source_comment_url ?? undefined,
         trigger_source: row.trigger_source as TriggerSource,
         retrigger_comment_url: row.retrigger_comment_url ?? undefined,
         retriggered_at: sqlDateToDate(row.retriggered_at),

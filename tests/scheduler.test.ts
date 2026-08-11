@@ -1,7 +1,7 @@
 import type { Config } from '../src/config.js';
 import type { QueueOrderRepository, QueueRepository } from '../src/db/index.js';
-import { QueueStatus, RabbitResult } from '../src/domain.js';
-import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../src/errors/index.js';
+import { CodeRabbitCommentType, QueueStatus, RabbitResult } from '../src/domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from '../src/errors/index.js';
 import type { ProbeFactory } from '../src/probes/index.js';
 import { type Pruner, ReviewTrigger, Scheduler } from '../src/services.js';
 import type { PRState } from '../src/types/index.js';
@@ -168,13 +168,19 @@ describe('Scheduler', () => {
     it('reschedules when ReviewTrigger returns stale reschedule', async () => {
       const item = pendingItem();
       const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
-      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000).toISOString();
-      const staleErr = new RabbitMaximizerError({
-        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE,
-        message: 'stale',
-        functionName: 'test',
-        details: { rescheduleEarliest, sourceComment: newComment },
-      });
+      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000);
+      const staleErr = new StaleCommentRescheduledError(
+        newComment,
+        {
+          url: item.source_comment_url,
+          createdAt: getUniqueDate().toISOString(),
+          updatedAt: getUniqueDate().toISOString(),
+          classification: CodeRabbitCommentType.unknown,
+          matchedMarker: undefined,
+        },
+        rescheduleEarliest,
+        'test',
+      );
       const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
@@ -185,7 +191,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, deps.tx);
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, item.source_comment_url, deps.tx);
 
       await stop();
     });

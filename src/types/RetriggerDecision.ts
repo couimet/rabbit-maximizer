@@ -1,1 +1,1 @@
-export type RetriggerDecision = 'source' | 'direct';
+export type RetriggerDecision = 'source' | 'direct' | 'replacement';

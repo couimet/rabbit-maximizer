@@ -1,4 +1,5 @@
 import { type TriggerSource, TYPES } from '../domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, RetriggerDiagnosis, ReviewLimitComment } from '../types/index.js';
 
 import type { CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
@@ -14,6 +15,7 @@ import {
   isApprovalReviewSignal,
   isMatchingCompletedReview,
   normalizeCommentBody,
+  parseCommentUrl,
   splitRepo,
   SubmittedComment,
   SubmittedReview,
@@ -34,6 +36,7 @@ export interface CoderabbitGitHubClient {
   searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]>;
 
   fetchComment(owner: string, repo: string, commentId: number): Promise<FetchCommentResult>;
+  fetchCommentByUrl(url: string): Promise<FetchCommentResult>;
 
   listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]>;
 
@@ -131,6 +134,20 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     });
 
     return { body: normalizeCommentBody(response.data.body), createdAt: response.data.created_at, updatedAt: response.data.updated_at };
+  }
+
+  // eslint-disable-next-line require-await
+  async fetchCommentByUrl(url: string): Promise<FetchCommentResult> {
+    const parsed = parseCommentUrl(url);
+    if (!parsed) {
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.GITHUB_INVALID_COMMENT_URL,
+        message: `Cannot parse comment URL: ${url}`,
+        functionName: 'fetchCommentByUrl',
+        details: { url },
+      });
+    }
+    return this.fetchComment(parsed.owner, parsed.repo, parsed.commentId);
   }
 
   async listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]> {

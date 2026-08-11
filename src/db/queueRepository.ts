@@ -19,7 +19,7 @@ export interface QueueRepository {
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markResolved(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markResolvedByUuid(uuid: string, resolution: Resolution, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
-  reschedule(id: number, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   findBySourceCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
@@ -253,7 +253,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
   }
 
-  async reschedule(id: number, sourceComment: CommentDetails, tx: Prisma.TransactionClient): Promise<QueueItem> {
+  async reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem> {
     try {
       const row = await this.withPrismaErrorHandling(
         () =>
@@ -263,6 +263,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               attempts: { increment: 1 },
               source_comment_id: sourceComment.commentId,
               source_comment_url: sourceComment.commentUrl,
+              original_source_comment_url: originalSourceCommentUrl,
               retriggered_at: new Date(),
             },
           }),

@@ -11,10 +11,15 @@ const repoUrl = pkg.repository.url;
 const JSON_METADATA_INDENT_SPACES = 2;
 
 const buildDiagnosisLine = (diagnosis: RetriggerDiagnosis): string => {
-  const { sourceComment, decision } = diagnosis;
+  const { sourceComment, replacementComment, decision } = diagnosis;
 
   if (decision === 'direct') {
     return '\u{1F50D} Posted directly; no rate-limit comment found';
+  }
+
+  if (decision === 'replacement' && replacementComment) {
+    const originalAge = formatRelativeTime(sourceComment.createdAt, { now: new Date() });
+    return `\u{1F50D} Source: replacement of ${sourceComment.classification} comment from ${originalAge}`;
   }
 
   const age = formatRelativeTime(sourceComment.createdAt, { now: new Date() });
@@ -51,7 +56,7 @@ export const buildCommentBody = (
     triggerSource,
     sourceCommentUrl: sourceUrlForMetadata,
     timestamp: new Date().toISOString(),
-    ...(diagnosis ? { diagnosis } : {}),
+    ...(diagnosis && triggerSource === TriggerSource.scheduler ? { diagnosis } : {}),
   };
 
   const rawJson = JSON.stringify(metadata, null, JSON_METADATA_INDENT_SPACES);
@@ -60,7 +65,7 @@ export const buildCommentBody = (
 
   const lines = [REVIEW_BOT_RETRIGGER_COMMAND, '', triggerLine];
 
-  if (diagnosis) {
+  if (diagnosis && triggerSource === TriggerSource.scheduler) {
     lines.push(buildDiagnosisLine(diagnosis));
   }
 

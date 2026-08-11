@@ -9,6 +9,8 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 const VERSION = pkg.version;
 const REPO_URL = pkg.repository.url;
 const MS_PER_HOUR = 3_600_000;
+const SOURCE_AGE_MS = 2 * MS_PER_HOUR;
+const WAIT_SECONDS = 1800;
 
 describe('buildCommentBody', () => {
   let frozenDate: Date;
@@ -134,7 +136,7 @@ describe('buildCommentBody', () => {
     const prNumber = getUniqueInt();
     const commentId = getUniqueInt();
     const runId = getUniqueString({ prefix: 'run-' });
-    const sourceCreatedAt = new Date(frozenDate.getTime() - 2 * MS_PER_HOUR);
+    const sourceCreatedAt = new Date(frozenDate.getTime() - SOURCE_AGE_MS);
 
     const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
 
@@ -148,7 +150,7 @@ describe('buildCommentBody', () => {
 
     const diagnosis: RetriggerDiagnosis = {
       sourceComment,
-      waitSeconds: 1800,
+      waitSeconds: WAIT_SECONDS,
       decision: 'source',
     };
 
@@ -181,7 +183,7 @@ describe('buildCommentBody', () => {
           classification: 'review_limited',
           matchedMarker: 'rate limited by coderabbit.ai',
         },
-        waitSeconds: 1800,
+        waitSeconds: WAIT_SECONDS,
         decision: 'source',
       },
     });
@@ -233,6 +235,77 @@ describe('buildCommentBody', () => {
         decision: 'direct',
       },
     });
+  });
+
+  it('renders replacement diagnosis line when decision is replacement', () => {
+    const { owner, repo } = getUniqueGitHubRepoRef();
+    const prNumber = getUniqueInt();
+    const commentId = getUniqueInt();
+    const runId = getUniqueString({ prefix: 'run-' });
+    const originalCreatedAt = new Date(frozenDate.getTime() - SOURCE_AGE_MS);
+
+    const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
+
+    const sourceComment: CommentDiagnosis = {
+      url: triggerUrl,
+      createdAt: originalCreatedAt.toISOString(),
+      updatedAt: originalCreatedAt.toISOString(),
+      classification: CodeRabbitCommentType.review_limited,
+      matchedMarker: MatchedMarker.rate_limit,
+    };
+
+    const replacementComment: CommentDiagnosis = {
+      url: `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${getUniqueInt()}`,
+      createdAt: frozenDate.toISOString(),
+      updatedAt: frozenDate.toISOString(),
+      classification: CodeRabbitCommentType.review_limited,
+      matchedMarker: MatchedMarker.rate_limit,
+    };
+
+    const diagnosis: RetriggerDiagnosis = {
+      sourceComment,
+      replacementComment,
+      waitSeconds: WAIT_SECONDS,
+      decision: 'replacement',
+    };
+
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+
+    const lines = body.split('\n');
+    expect(lines[3]).toBe('\u{1F50D} Source: replacement of review_limited comment from 2h ago');
+  });
+
+  it('omits diagnosis line and JSON diagnosis field for dashboard trigger even when diagnosis is provided', () => {
+    const { owner, repo } = getUniqueGitHubRepoRef();
+    const prNumber = getUniqueInt();
+    const commentId = getUniqueInt();
+    const runId = getUniqueString({ prefix: 'run-' });
+
+    const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
+    const sourceCreatedAt = new Date(frozenDate.getTime() - SOURCE_AGE_MS);
+
+    const diagnosis: RetriggerDiagnosis = {
+      sourceComment: {
+        url: triggerUrl,
+        createdAt: sourceCreatedAt.toISOString(),
+        updatedAt: sourceCreatedAt.toISOString(),
+        classification: CodeRabbitCommentType.review_limited,
+        matchedMarker: MatchedMarker.rate_limit,
+      },
+      waitSeconds: WAIT_SECONDS,
+      decision: 'source',
+    };
+
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.dashboard_retrigger_now, diagnosis);
+
+    const lines = body.split('\n');
+    expect(lines[2]).toBe('\u{26A1} Triggered manually from dashboard');
+
+    const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
+    expect(jsonMatch).not.toBeNull();
+    const parsed = JSON.parse(jsonMatch![1]);
+    expect(parsed.diagnosis).toBeUndefined();
+    expect(parsed.triggerSource).toBe('dashboard_retrigger_now');
   });
 
   it('omits diagnosis from JSON metadata when diagnosis is not provided (dashboard trigger)', () => {

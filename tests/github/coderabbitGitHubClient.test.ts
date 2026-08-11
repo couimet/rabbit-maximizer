@@ -15,6 +15,7 @@ const VERSION = pkg.version;
 const REPO_URL = pkg.repository.url;
 
 const MS_PER_HOUR = 60 * 60 * 1000;
+const WAIT_SECONDS = 1800;
 const SEARCH_PER_PAGE = 100;
 const SEARCH_START_PAGE = 1;
 const REVIEWS_PER_PAGE = 100;
@@ -177,7 +178,7 @@ describe('client', () => {
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
 
       const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
-      const sourceCreatedAt = new Date(frozenDate.getTime() - 2 * 3_600_000);
+      const sourceCreatedAt = new Date(frozenDate.getTime() - 2 * MS_PER_HOUR);
 
       const diagnosis = {
         sourceComment: {
@@ -187,7 +188,7 @@ describe('client', () => {
           classification: CodeRabbitCommentType.review_limited,
           matchedMarker: MatchedMarker.rate_limit,
         },
-        waitSeconds: 1800,
+        waitSeconds: WAIT_SECONDS,
         decision: 'source',
       } as const;
 
@@ -218,7 +219,7 @@ describe('client', () => {
                 classification: 'review_limited',
                 matchedMarker: 'rate limited by coderabbit.ai',
               },
-              waitSeconds: 1800,
+              waitSeconds: WAIT_SECONDS,
               decision: 'source',
             },
           },
@@ -233,6 +234,11 @@ describe('client', () => {
         issue_number: prNumber,
         body: expectedBody,
       });
+
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'postRetrigger', owner, repo, pr: prNumber, runId, triggerSource: 'scheduler' },
+        'Posting retrigger comment',
+      );
     });
   });
 
@@ -274,6 +280,39 @@ describe('client', () => {
       expect(result).toStrictEqual({ body: '<EMPTY_BODY>', createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString() });
 
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'fetchComment', owner, repo, commentId: fetchCommentId }, 'Fetching comment body');
+    });
+  });
+
+  describe('fetchCommentByUrl', () => {
+    it('parses a comment URL and delegates to fetchComment', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const prNumber = getUniqueInt();
+      const commentId = getUniqueInt();
+      const url = `https://github.com/${owner}/${repo}/pull/${prNumber}#issuecomment-${commentId}`;
+      const createdAt = getUniqueDate().toISOString();
+      const updatedAt = getUniqueDate().toISOString();
+      const bodyText = getRandomString();
+
+      issues.getComment.mockResolvedValue({
+        data: { body: bodyText, created_at: createdAt, updated_at: updatedAt },
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+
+      const result = await client.fetchCommentByUrl(url);
+
+      expect(issues.getComment).toHaveBeenCalledWith({ owner, repo, comment_id: commentId });
+      expect(result).toStrictEqual({ body: bodyText, createdAt, updatedAt });
+    });
+
+    it('throws GITHUB_INVALID_COMMENT_URL for a malformed URL', async () => {
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+
+      await expect(client.fetchCommentByUrl('not-a-url')).rejects.toBeDetailedError('GITHUB_INVALID_COMMENT_URL', {
+        message: 'Cannot parse comment URL: not-a-url',
+        functionName: 'fetchCommentByUrl',
+        details: { url: 'not-a-url' },
+      });
     });
   });
 

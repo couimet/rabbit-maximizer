@@ -1,4 +1,5 @@
 import { QueueStatus, TriggerSource } from '../src/domain.js';
+import { StaleCommentRescheduledError } from '../src/errors/index.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import { ReviewTrigger } from '../src/services.js';
 
@@ -24,6 +25,7 @@ const ACCOUNT_COOLDOWN_MS = ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
 const setup = () => {
   const github = {
     fetchComment: jest.fn(),
+    fetchCommentByUrl: jest.fn(),
     findLatestReviewLimitComment: jest.fn(),
     postRetrigger: jest.fn(),
   } as unknown as jest.Mocked<CoderabbitGitHubClient>;
@@ -90,7 +92,7 @@ describe('ReviewTrigger', () => {
   });
 
   it('returns ok and passes diagnosis when source comment is valid (scheduler)', async () => {
-    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     const createdAt = getUniqueDate().toISOString();
     const updatedAt = getUniqueDate().toISOString();
@@ -121,6 +123,10 @@ describe('ReviewTrigger', () => {
       },
     );
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
+    );
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found and source body is non-empty', async () => {
@@ -228,7 +234,8 @@ describe('ReviewTrigger', () => {
     const waitSeconds = 3600;
     const bufferSeconds = 60;
     const rescheduleEarliest = new Date(updatedAt.getTime() + (waitSeconds + bufferSeconds) * MS_PER_SECOND);
-    github.fetchComment.mockResolvedValueOnce(makeFetchResult('stale body'));
+    const sourceFetch = makeFetchResult('stale body');
+    github.fetchComment.mockResolvedValueOnce(sourceFetch);
     github.findLatestReviewLimitComment.mockResolvedValue({
       commentId: newCommentId,
       url: newCommentUrl,
@@ -247,8 +254,18 @@ describe('ReviewTrigger', () => {
     expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_RESCHEDULE', {
       message: 'Source comment was replaced; item must be rescheduled',
       functionName: 'ReviewTrigger.trigger',
-      details: { rescheduleEarliest: rescheduleEarliest.toISOString(), sourceComment: { commentId: newCommentId, commentUrl: newCommentUrl } },
     });
+    expect(result.error).toBeInstanceOf(StaleCommentRescheduledError);
+    const err = result.error as StaleCommentRescheduledError;
+    expect(err.sourceComment).toStrictEqual({ commentId: newCommentId, commentUrl: newCommentUrl });
+    expect(err.originalSource).toStrictEqual({
+      url: item.source_comment_url,
+      createdAt: sourceFetch.createdAt,
+      updatedAt: sourceFetch.updatedAt,
+      classification: 'unknown',
+      matchedMarker: undefined,
+    });
+    expect(err.rescheduleEarliest).toStrictEqual(rescheduleEarliest);
   });
 
   it('throws when fetchComment fails with non-terminal error', async () => {
@@ -292,6 +309,142 @@ describe('ReviewTrigger', () => {
     expect(github.fetchComment).not.toHaveBeenCalled();
     expect(github.postRetrigger).not.toHaveBeenCalled();
     expect(probeFactory.createReviewRetriggerProbe).not.toHaveBeenCalled();
+  });
+
+  it('builds replacement diagnosis when item has original_source_comment_url', async () => {
+    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({
+      source_comment_id: staleCommentId,
+      status: QueueStatus.pending,
+      original_source_comment_url: 'https://github.com/gh-owner-1/gh-repo-2/pull/3#issuecomment-99',
+    });
+    const replacementCreatedAt = getUniqueDate().toISOString();
+    const replacementUpdatedAt = getUniqueDate().toISOString();
+    const originalCreatedAt = getUniqueDate().toISOString();
+    const originalUpdatedAt = getUniqueDate().toISOString();
+    github.fetchComment.mockResolvedValue({
+      body: 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.',
+      createdAt: replacementCreatedAt,
+      updatedAt: replacementUpdatedAt,
+    });
+    github.fetchCommentByUrl.mockResolvedValue({
+      body: 'rate limited by coderabbit.ai',
+      createdAt: originalCreatedAt,
+      updatedAt: originalUpdatedAt,
+    });
+    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(result.success).toBe(true);
+    expect(github.postRetrigger).toHaveBeenCalledWith(
+      item.repo_full_name,
+      item.pr_number,
+      item.source_comment_url,
+      expect.any(String) as unknown as string,
+      'scheduler',
+      {
+        sourceComment: {
+          url: item.original_source_comment_url,
+          createdAt: originalCreatedAt,
+          updatedAt: originalUpdatedAt,
+          classification: 'review_limited',
+          matchedMarker: 'rate limited by coderabbit.ai',
+        },
+        replacementComment: {
+          url: item.source_comment_url,
+          createdAt: replacementCreatedAt,
+          updatedAt: replacementUpdatedAt,
+          classification: 'review_limited',
+          matchedMarker: 'rate limited by coderabbit.ai',
+        },
+        waitSeconds: 600,
+        decision: 'replacement',
+      },
+    );
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+  });
+
+  it('falls back to empty diagnosis when original source comment returns 404', async () => {
+    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({
+      source_comment_id: staleCommentId,
+      status: QueueStatus.pending,
+      original_source_comment_url: 'https://github.com/gh-owner-1/gh-repo-2/pull/3#issuecomment-99',
+    });
+    const replacementCreatedAt = getUniqueDate().toISOString();
+    const replacementUpdatedAt = getUniqueDate().toISOString();
+    github.fetchComment.mockResolvedValue({
+      body: 'rate limited by coderabbit.ai',
+      createdAt: replacementCreatedAt,
+      updatedAt: replacementUpdatedAt,
+    });
+    github.fetchCommentByUrl.mockRejectedValue({ status: 404 });
+    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(result.success).toBe(true);
+    expect(github.postRetrigger).toHaveBeenCalledWith(
+      item.repo_full_name,
+      item.pr_number,
+      item.source_comment_url,
+      expect.any(String) as unknown as string,
+      'scheduler',
+      {
+        sourceComment: {
+          url: item.original_source_comment_url,
+          createdAt: '',
+          updatedAt: '',
+          classification: 'unknown',
+          matchedMarker: undefined,
+        },
+        replacementComment: {
+          url: item.source_comment_url,
+          createdAt: replacementCreatedAt,
+          updatedAt: replacementUpdatedAt,
+          classification: 'review_limited',
+          matchedMarker: 'rate limited by coderabbit.ai',
+        },
+        waitSeconds: undefined,
+        decision: 'replacement',
+      },
+    );
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+  });
+
+  it('falls back to empty diagnosis and logs warn when original source comment fetch fails with server error', async () => {
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({
+      source_comment_id: staleCommentId,
+      status: QueueStatus.pending,
+      original_source_comment_url: 'https://github.com/gh-owner-1/gh-repo-2/pull/3#issuecomment-99',
+    });
+    const replacementCreatedAt = getUniqueDate().toISOString();
+    const replacementUpdatedAt = getUniqueDate().toISOString();
+    const fetchError = { status: 500 };
+    github.fetchComment.mockResolvedValue({
+      body: 'rate limited by coderabbit.ai',
+      createdAt: replacementCreatedAt,
+      updatedAt: replacementUpdatedAt,
+    });
+    github.fetchCommentByUrl.mockRejectedValue(fetchError);
+    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(result.success).toBe(true);
+    expect(logger.warn).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.buildReplacementDiagnosis', originalUrl: item.original_source_comment_url, error: fetchError },
+      'Failed to fetch original source comment; falling back to empty diagnosis',
+    );
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
   });
 
   it('preserves existing later cooldown when bumping nextReviewAvailableAt', async () => {

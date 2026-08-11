@@ -9,6 +9,7 @@ export { formatRelativeFuture } from './formatRelativeFuture.js';
 export { formatRelativeTime } from './formatRelativeTime.js';
 export { generateRunId } from './generateRunId.js';
 export { isReviewVerdictState } from './isReviewVerdictState.js';
+export { isTerminalHttpStatus, TERMINAL_HTTP_STATUSES } from './isTerminalHttpStatus.js';
 export { isValidTimezone } from './isValidTimezone.js';
 export { mergeByPullRequestId } from './mergeByPullRequestId.js';
 export { nullableDateToISOString } from './nullableDateToISOString.js';

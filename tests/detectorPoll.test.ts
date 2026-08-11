@@ -470,7 +470,7 @@ describe('PollDetector', () => {
       expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_limited' }, pullRequestId);
     });
 
-    it('updates when new comment has an earlier available time than existing state', async () => {
+    it('skips update when new comment has an earlier available time than existing state', async () => {
       const now = frozenNow.getTime();
       const comment = generateDetectedCommentHydrationData({ updatedAt: new Date(now).toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
@@ -489,10 +489,10 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.systemStateRepo.setNextReviewAvailableAt).toHaveBeenCalledWith(expectedDate);
+      expect(deps.systemStateRepo.setNextReviewAvailableAt).not.toHaveBeenCalled();
     });
 
-    it('skips update when new comment has a later available time than existing state', async () => {
+    it('updates when new comment has a later available time than existing state', async () => {
       const now = frozenNow.getTime();
       const comment = generateDetectedCommentHydrationData({ updatedAt: new Date(now).toISOString() });
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
@@ -500,6 +500,8 @@ describe('PollDetector', () => {
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
       deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
 
+      const expectedWaitSeconds = 5 * 60 + 30;
+      const expectedDate = new Date(now + expectedWaitSeconds * 1000);
       const earlierDate = new Date(now + 60_000);
 
       deps.systemStateRepo.getNextReviewAvailableAt.mockResolvedValue(earlierDate);
@@ -509,8 +511,7 @@ describe('PollDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.systemStateRepo.setNextReviewAvailableAt).not.toHaveBeenCalled();
-      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_limited' }, pullRequestId);
+      expect(deps.systemStateRepo.setNextReviewAvailableAt).toHaveBeenCalledWith(expectedDate);
     });
 
     it('uses correct StateKey and Date values when upserting state', async () => {

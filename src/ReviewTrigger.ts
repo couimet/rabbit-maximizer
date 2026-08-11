@@ -1,5 +1,5 @@
 import type { PullRequestRepository, QueueRepository, SystemStateRepository } from './db/index.js';
-import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from './errors/index.js';
 import {
   classifyCoderabbitComment,
   type CoderabbitGitHubClient,
@@ -10,13 +10,12 @@ import {
 } from './github/index.js';
 import { ProbeFactory, type ReviewRetriggerProbe } from './probes/index.js';
 import type { CommentDiagnosis, QueueItem, RetriggerDecision, RetriggerDiagnosis } from './types/index.js';
-import { generateRunId, MS_PER_SECOND } from './utils/index.js';
+import { generateRunId, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
 import { CodeRabbitCommentType, QueueStatus, RabbitResult, TriggerSource, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
-import { StatusCodes } from 'http-status-codes';
 import { inject, injectable } from 'inversify';
 
 export type TriggerDetails = { retriggeredCommentUrl: string };
@@ -77,7 +76,7 @@ export class ReviewTrigger {
       sourceUpdatedAt = result.updatedAt;
     } catch (err: unknown) {
       const error = err as { status?: number };
-      if (error.status === StatusCodes.NOT_FOUND || error.status === StatusCodes.GONE) {
+      if (isTerminalHttpStatus(error.status)) {
         storedBody = '';
         sourceCreatedAt = '';
         sourceUpdatedAt = '';
@@ -87,7 +86,12 @@ export class ReviewTrigger {
     }
 
     if (storedBody !== '' && hasRateLimitMarker(storedBody) && !hasOwnRetriggerMarker(storedBody)) {
-      const diagnosis = includeDiagnosis ? this.buildDiagnosis(item.source_comment_url, sourceCreatedAt, sourceUpdatedAt, storedBody, 'source') : undefined;
+      const isReplacement = item.original_source_comment_url !== undefined;
+      const diagnosis = includeDiagnosis
+        ? isReplacement
+          ? await this.buildReplacementDiagnosis(item, storedBody, sourceCreatedAt, sourceUpdatedAt)
+          : this.buildDiagnosis(item.source_comment_url, sourceCreatedAt, sourceUpdatedAt, storedBody, 'source')
+        : undefined;
       return this.postAndRecord(item, probe, triggerSource, item.source_comment_url, diagnosis);
     }
 
@@ -118,7 +122,7 @@ export class ReviewTrigger {
       latestBody = result.body;
     } catch (err: unknown) {
       const error = err as { status?: number };
-      if (error.status === StatusCodes.NOT_FOUND || error.status === StatusCodes.GONE) {
+      if (isTerminalHttpStatus(error.status)) {
         probe.staleCommentReplacementDeleted(latest.commentId);
         return RabbitResult.err(
           new RabbitMaximizerError({
@@ -135,13 +139,20 @@ export class ReviewTrigger {
     const rescheduleEarliest = new Date(new Date(latest.updatedAt).getTime() + waitSeconds * MS_PER_SECOND);
 
     probe.staleCommentRescheduled(rescheduleEarliest);
+    const { classification, matchedMarker } = classifyCoderabbitComment(storedBody);
     return RabbitResult.err(
-      new RabbitMaximizerError({
-        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE,
-        message: 'Source comment was replaced; item must be rescheduled',
-        functionName: 'ReviewTrigger.trigger',
-        details: { rescheduleEarliest: rescheduleEarliest.toISOString(), sourceComment: { commentId: latest.commentId, commentUrl: latest.url } },
-      }),
+      new StaleCommentRescheduledError(
+        { commentId: latest.commentId, commentUrl: latest.url },
+        {
+          url: item.source_comment_url,
+          createdAt: sourceCreatedAt,
+          updatedAt: sourceUpdatedAt,
+          classification,
+          matchedMarker,
+        },
+        rescheduleEarliest,
+        'ReviewTrigger.trigger',
+      ),
     );
   }
 
@@ -165,6 +176,52 @@ export class ReviewTrigger {
     const waitSeconds = parseWaitSeconds(storedBody);
 
     return { sourceComment, waitSeconds, decision };
+  }
+
+  private async buildReplacementDiagnosis(
+    item: QueueItem,
+    replacementBody: string,
+    replacementCreatedAt: string,
+    replacementUpdatedAt: string,
+  ): Promise<RetriggerDiagnosis> {
+    const originalUrl = item.original_source_comment_url!;
+
+    const emptyOriginal = (): CommentDiagnosis => ({
+      url: originalUrl,
+      createdAt: '',
+      updatedAt: '',
+      classification: CodeRabbitCommentType.unknown,
+      matchedMarker: undefined,
+    });
+
+    let original: CommentDiagnosis;
+    try {
+      const result = await this.github.fetchCommentByUrl(originalUrl);
+      const { classification, matchedMarker } = classifyCoderabbitComment(result.body);
+      original = { url: originalUrl, createdAt: result.createdAt, updatedAt: result.updatedAt, classification, matchedMarker };
+    } catch (err: unknown) {
+      const error = err as { status?: number };
+      if (isTerminalHttpStatus(error.status)) {
+        original = emptyOriginal();
+      } else {
+        this.log.warn(
+          { fn: 'ReviewTrigger.buildReplacementDiagnosis', originalUrl, error: err },
+          'Failed to fetch original source comment; falling back to empty diagnosis',
+        );
+        original = emptyOriginal();
+      }
+    }
+
+    const { classification, matchedMarker } = classifyCoderabbitComment(replacementBody);
+    const replacementComment: CommentDiagnosis = {
+      url: item.source_comment_url,
+      createdAt: replacementCreatedAt,
+      updatedAt: replacementUpdatedAt,
+      classification,
+      matchedMarker,
+    };
+
+    return { sourceComment: original, replacementComment, waitSeconds: parseWaitSeconds(replacementBody), decision: 'replacement' };
   }
 
   private buildDirectDiagnosis(sourceCommentUrl: string): RetriggerDiagnosis {

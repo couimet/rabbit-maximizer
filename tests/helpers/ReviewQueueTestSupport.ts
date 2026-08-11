@@ -24,6 +24,7 @@ export const generateReviewQueueHydrationData = (overrideValues?: Partial<Review
     source_comment_url: buildCommentUrl(ref.repoFullName, ref.prNumber, getUniqueInt()),
     source_comment_id: ref.commentId,
     trigger_source: getRandomEnumValue(TriggerSource),
+    original_source_comment_url: null,
     retrigger_comment_url: null,
     retriggered_at: getUniqueDate(),
     failed_at: getUniqueDate(),

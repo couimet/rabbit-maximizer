@@ -127,7 +127,7 @@ export class PollDetector extends IntervalService {
       if (earliestNextReview) {
         const existing = await this.systemStateRepo.getNextReviewAvailableAt();
         const existingIsActive = existing !== undefined && existing.getTime() > Date.now();
-        if (!existingIsActive || earliestNextReview < existing) {
+        if (!existingIsActive || earliestNextReview > existing) {
           await this.systemStateRepo.setNextReviewAvailableAt(earliestNextReview);
         }
       }

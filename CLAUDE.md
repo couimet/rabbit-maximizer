@@ -82,22 +82,31 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 </rule>
 
 <rule id="C008" priority="critical">
-  <title>No default parameter values</title>
+  <title>No default or optional parameters — use T | undefined</title>
   <never>Use default parameter values in function signatures (`paused = false`, `timeout = 5000`)</never>
-  <do>Make every parameter required. Callers must pass every argument explicitly</do>
-  <do>Combine with `?:` optional markers only when the caller genuinely may omit the value and the function handles `undefined` explicitly</do>
-  <rationale>Default values create falsy traps (`''`, `0`, `false`, `null` all trigger the default, not just `undefined`). Required parameters force call sites to be explicit, making intent visible and contracts harder to accidentally break. Optional `?:` without defaults is acceptable when absence has a clear semantic meaning distinct from any falsy value.</rationale>
+  <never>Use TypeScript optional-parameter syntax (`param?: Type`) in production code — it lets callers omit the argument, hiding intent at call sites</never>
+  <do>Make every parameter required. Use `T | undefined` when a parameter is semantically optional — callers pass `undefined` explicitly, making the "no value" choice visible at every call site</do>
+  <rationale>Default values create falsy traps (`''`, `0`, `false`, `null` all trigger the default, not just `undefined`). Optional `?:` lets callers omit the argument, hiding intent. `T | undefined` forces every caller to write either the value or `undefined`, making the choice explicit and intentional.</rationale>
   <bad-example>
     ```typescript
     // BAD: falsy trap — paused={false} still gets defaulted
     const QueueOrder = ({ paused = false }: { paused?: boolean }) => { ... }
+
+    // BAD: optional marker — caller can omit, intent is hidden
+    async trigger(item: QueueItem, diagnosis?: RetriggerDiagnosis): Promise<void>
     ```
+
   </bad-example>
   <good-example>
     ```typescript
     // GOOD: required — every caller must think about paused
     const QueueOrder = ({ paused }: { paused: boolean }) => { ... }
+
+    // GOOD: explicit undefined — caller intent is visible
+    async trigger(item: QueueItem, diagnosis: RetriggerDiagnosis | undefined): Promise<void>
+    // At call site: trigger(item, undefined) — the "no diagnosis" choice is explicit
     ```
+
   </good-example>
   <exception>Test fixture functions marked with `/** @testFixture */` may use default parameter values. These are functions in test files or tests/helpers/ whose sole purpose is creating test servers, mock data, or mock clients. Defaults eliminate {} boilerplate for the common case. The @testFixture tag signals the defaults were reviewed and the function is not exposed to production code.</exception>
   <exception>Test mock factory functions (files matching `tests/helpers/createMock*.ts`) may use optional `overrides` parameters with `?:` to let callers omit overrides when no mocks need customization. This avoids `{}` boilerplate at every call site.</exception>

@@ -1,19 +1,16 @@
 import { type PullRequestRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from './db/index.js';
-import { RabbitMaximizerErrorCodes } from './errors/index.js';
+import { RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from './errors/index.js';
 import { isPRClosedWithoutMerge, isPRMerged, type PRStateFetcher } from './github/index.js';
 import type { ProbeFactory, SchedulerProbe } from './probes/index.js';
 import type { QueueItem } from './types/index.js';
-import { computeSchedulerBackoff, MS_PER_SECOND } from './utils/index.js';
+import { computeSchedulerBackoff, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
 import { IntervalService, PrState, QueueStatus, Resolution, TriggerSource, TYPES } from './domain.js';
 import { type Pruner, ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type PrismaClient } from '@prisma/client';
-import { StatusCodes } from 'http-status-codes';
 import { inject, injectable } from 'inversify';
-
-const TERMINAL_HTTP_STATUSES = [StatusCodes.NOT_FOUND, StatusCodes.GONE];
 
 @injectable()
 export class Scheduler extends IntervalService {
@@ -117,11 +114,10 @@ export class Scheduler extends IntervalService {
           const err = result.error;
           if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_ITEM_NOT_PENDING) {
             this.log.warn({ fn: 'Scheduler.executeTick', queueId: item!.id, error: err }, 'Item not pending at trigger time; skipping');
-          } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
+          } else if (err instanceof StaleCommentRescheduledError) {
             // Source comment was replaced by a newer rate-limit comment: reschedule with
             // updated source_comment data. Not a failure.
-            const details = err.details as { sourceComment: { commentId: number; commentUrl: string } };
-            await this.queue.reschedule(item!.id, details.sourceComment, tx);
+            await this.queue.reschedule(item!.id, err.sourceComment, err.originalSource.url, tx);
             probe.triggerFailed(err, tx);
           } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP) {
             await this.queue.markResolved(item!.id, Resolution.StaleComment, tx);
@@ -161,7 +157,7 @@ export class Scheduler extends IntervalService {
 
       const error = err as { status?: number };
 
-      if (error.status !== undefined && TERMINAL_HTTP_STATUSES.includes(error.status)) {
+      if (isTerminalHttpStatus(error.status)) {
         await this.prisma.$transaction(async (tx) => {
           await this.queue.markResolved(item!.id, Resolution.Failed, tx);
           await probe.prDeleted(error.status!, tx);

@@ -19,8 +19,10 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
 
+const ACCOUNT_COOLDOWN_SEC = 3600;
+
 const STALE_CONFIG: Config = {
-  CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600,
+  CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
   DATABASE_URL: 'file:./data/test.db',
   DETECTION_MODE: 'poll',
   GITHUB_API_TIMEOUT_SEC: 10,

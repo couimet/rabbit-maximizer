@@ -8,6 +8,7 @@ const DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC = 900;
 const DEFAULT_MAX_RETRIGGER_ATTEMPTS = 10;
 const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
 const DEFAULT_MAX_RETRIGGER_AGE_SEC = 259200;
+const ACCOUNT_COOLDOWN_SEC = 3600;
 
 describe('ConfigSchema', () => {
   let githubPat: string;
@@ -20,7 +21,7 @@ describe('ConfigSchema', () => {
     webhookSecret = getRandomString({ charset: 'alphanumeric', length: 16 });
     tunnelUrl = `https://${getRandomString({ charset: 'alpha', length: 8 })}.com`;
     BASE = {
-      CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600,
+      CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_SEC: 10,
       GITHUB_PAT: githubPat,
@@ -235,7 +236,11 @@ describe('ConfigSchema', () => {
   });
 
   it('rejects SCHEDULER_RETRIGGER_SPACING_SEC >= CODERABBIT_ACCOUNT_COOLDOWN_SEC', () => {
-    const result = ConfigSchema.safeParse({ ...BASE, SCHEDULER_RETRIGGER_SPACING_SEC: 3600, CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600 });
+    const result = ConfigSchema.safeParse({
+      ...BASE,
+      SCHEDULER_RETRIGGER_SPACING_SEC: ACCOUNT_COOLDOWN_SEC,
+      CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
+    });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((i) => i.path.includes('SCHEDULER_RETRIGGER_SPACING_SEC'))).toBe(true);

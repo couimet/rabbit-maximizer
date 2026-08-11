@@ -10,6 +10,7 @@ export interface QueueItem {
   readonly attempts: number;
   readonly source_comment_url: string;
   readonly source_comment_id: number;
+  readonly original_source_comment_url?: string;
   readonly trigger_source: TriggerSource;
   readonly retrigger_comment_url?: string;
   readonly retriggered_at?: Date;
