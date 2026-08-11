@@ -1,4 +1,3 @@
-import { QueueStatus } from '../../../src/domain.js';
 import type { QueueItemResponse } from '../../../src/types/index.js';
 import { formatRelativeTime } from '../../../src/utils/index.js';
 import { safeDeriveActivityStatus } from '../activityState.js';
@@ -84,11 +83,10 @@ const QueueOrder = ({
   const toggleSelectAll = () => {
     /* c8 ignore next 2 — type guard: toggleSelectAll only rendered when items is non-null */
     if (!items) return;
-    const pendingItems = items.filter((item) => item.status === QueueStatus.pending);
-    if (selectedUuids.size === pendingItems.length) {
+    if (selectedUuids.size === items.length) {
       setSelectedUuids(new Set());
     } else {
-      setSelectedUuids(new Set(pendingItems.map((item) => item.uuid)));
+      setSelectedUuids(new Set(items.map((item) => item.uuid)));
     }
   };
 
@@ -179,14 +177,11 @@ const QueueOrder = ({
     );
 
   const hasSelection = selectedUuids.size > 0;
-  const pendingCount = items.filter((i) => i.status === QueueStatus.pending).length;
-  const allSelected = pendingCount > 0 && selectedUuids.size === pendingCount;
-  const retriggeredCount = items.filter((i) => i.status === QueueStatus.retriggered).length;
-  const headingCount = [pendingCount > 0 && `${pendingCount} pending`, retriggeredCount > 0 && `${retriggeredCount} retriggered`].filter(Boolean).join(', ');
+  const allSelected = items.length > 0 && selectedUuids.size === items.length;
 
   return (
     <section>
-      <Heading>Queue Order{headingCount ? ` — ${headingCount}` : ''}</Heading>
+      <Heading>Queue Order — {items.length} items</Heading>
       {moveError && <div className="error">Move failed: {moveError}</div>}
       {toast && <div className={'toast toast-' + toast.variant}>{toast.message}</div>}
       {staleBanner}
@@ -232,10 +227,7 @@ const QueueOrder = ({
             <tbody>
               {items.map((item, index) => {
                 const isSelected = selectedUuids.has(item.uuid);
-                const isRetriggered = item.status === QueueStatus.retriggered;
-                const rowClass = [isSelected ? 'row-selected' : '', index > 0 ? 'row-waiting' : '', isRetriggered ? 'row-retriggered' : '']
-                  .filter(Boolean)
-                  .join(' ');
+                const rowClass = isSelected ? 'row-selected' : '';
                 return (
                   <tr key={item.uuid} className={rowClass}>
                     <td className="col-select">
@@ -243,7 +235,7 @@ const QueueOrder = ({
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleSelect(item.uuid)}
-                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
                         aria-label={`Select ${item.repo_full_name} #${item.pr_number}`}
                         title={schedulerStale ? 'Unavailable while scheduler is down' : undefined}
                       />
@@ -260,7 +252,7 @@ const QueueOrder = ({
                       <button
                         className="btn-retrigger"
                         onClick={() => handleRetriggerNow(item.uuid)}
-                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
                         aria-label={'Retrigger now for ' + item.repo_full_name + ' #' + item.pr_number}
                         title={schedulerStale ? 'Unavailable while scheduler is down' : 'Retrigger now'}
                       >
@@ -269,7 +261,7 @@ const QueueOrder = ({
                       <button
                         className="btn-arrow"
                         onClick={() => handleMoveToTop(item.uuid)}
-                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
                         aria-label="Move to top"
                         title={schedulerStale ? 'Unavailable while scheduler is down' : undefined}
                       >
@@ -278,7 +270,7 @@ const QueueOrder = ({
                       <button
                         className="btn-arrow"
                         onClick={() => moveSingle(item.uuid, 'up')}
-                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
                         aria-label="Move up"
                         title={schedulerStale ? 'Unavailable while scheduler is down' : undefined}
                       >
@@ -287,7 +279,7 @@ const QueueOrder = ({
                       <button
                         className="btn-arrow"
                         onClick={() => moveSingle(item.uuid, 'down')}
-                        disabled={isRetriggered || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
+                        disabled={moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
                         aria-label="Move down"
                         title={schedulerStale ? 'Unavailable while scheduler is down' : undefined}
                       >
