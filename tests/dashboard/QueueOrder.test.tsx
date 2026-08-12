@@ -117,7 +117,7 @@ describe('QueueOrder', () => {
           paused={false}
         />,
       );
-      expect(screen.getByRole('heading', { name: 'Queue Order — 2 pending, 1 retriggered' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Queue Order — 3 items' })).toBeInTheDocument();
     });
 
     it('renders up and down arrow buttons per row', () => {
@@ -423,7 +423,7 @@ describe('QueueOrder', () => {
       expect(screen.getByText('Status')).toBeInTheDocument();
     });
 
-    it('applies row-waiting class to positions greater than 1', () => {
+    it('renders carrots for positions beyond the first', () => {
       renderQueueOrder({
         items: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })],
         onMoveComplete: defaultOnMoveComplete,
@@ -432,11 +432,10 @@ describe('QueueOrder', () => {
         lastUpdatedAt: null,
         lastSchedulerTickAt: null,
       });
-      const rows = screen.getAllByRole('row');
-      expect(rows[2].classList.contains('row-waiting')).toBe(true);
+      expect(screen.getByText('🥕')).toBeInTheDocument();
     });
 
-    it('does not apply row-waiting class to position 1', () => {
+    it('renders status pill at position 1', () => {
       renderQueueOrder({
         items: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })],
         onMoveComplete: defaultOnMoveComplete,

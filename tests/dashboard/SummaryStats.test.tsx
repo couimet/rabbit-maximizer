@@ -101,7 +101,7 @@ describe('SummaryStats', () => {
 
     it('renders pending count from pendingItems', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
     });
 
     it('renders event counts', async () => {
@@ -114,7 +114,7 @@ describe('SummaryStats', () => {
 
     it('changes duration and re-fetches', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
 
       const newData = {
         nextReviewAvailableAt: null,
@@ -142,7 +142,7 @@ describe('SummaryStats', () => {
 
     it('renders the QueueOrder component on the Summary tab', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
     });
 
     it('ignores stale response when newer request resolves first', async () => {
@@ -317,7 +317,7 @@ describe('SummaryStats', () => {
         schedulerStale: false,
       });
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
       expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
     });
 
@@ -480,7 +480,7 @@ describe('SummaryStats', () => {
           </TimezoneProvider>
         </StrictMode>,
       );
-      await waitFor(() => expect(screen.getByText('Queue Order')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
     });
 
     it('re-fetches dashboard state when QueueOrder calls onMoveComplete', async () => {
@@ -531,7 +531,7 @@ describe('SummaryStats', () => {
       }) as unknown as typeof fetch;
 
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order — 1 pending')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 1 item')).toBeInTheDocument());
 
       fireEvent.click(screen.getByLabelText(`Select ${repo} #${prNumber}`));
       fireEvent.click(screen.getByText('Move Up'));

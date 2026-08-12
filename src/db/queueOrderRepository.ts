@@ -11,7 +11,6 @@ import { inject, injectable } from 'inversify';
 
 export type MoveDirection = 'up' | 'down';
 
-/** Statuses that participate in the effective queue order. Both pending and retriggered items are reorderable. */
 const EFFECTIVE_ORDER_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
 
 export interface QueueOrderRepository {

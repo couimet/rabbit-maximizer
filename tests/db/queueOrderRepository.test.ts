@@ -3,7 +3,7 @@ import { TYPES } from '../../src/domain.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -368,7 +368,6 @@ describe('QueueOrderRepositoryImpl', () => {
 
       await sut.moveItems([retriggered.uuid], 'up');
 
-      // retriggered at position 2 moves up past pending at position 1
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [pending.queueOrder.id, retriggered.queueOrder.id] } },
         data: { position: null },
@@ -400,6 +399,26 @@ describe('QueueOrderRepositoryImpl', () => {
         data: { position: null },
       });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: retriggered.queueOrder.id }, data: { position: 1 } });
+    });
+
+    it('returns effective order unchanged when no items match given UUIDs', async () => {
+      const pending = generateReviewQueueWithOrderHydrationData({ id: 1, status: 'pending' }, { position: 1, id: getUniqueInt() });
+      const allItems = [pending];
+
+      const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
+        reviewQueue: {
+          findMany: jest.fn<any>().mockResolvedValueOnce(allItems),
+        },
+      });
+
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
+      const nonExistentUuid = getUuid();
+
+      const result = await sut.moveItems([nonExistentUuid], 'up');
+
+      expect(result).toStrictEqual([mapper.fromReviewQueue(pending)]);
+      expect(queueOrderMock.updateMany).not.toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveItems' }, 'No items to move; returning effective order unchanged');
     });
   });
 

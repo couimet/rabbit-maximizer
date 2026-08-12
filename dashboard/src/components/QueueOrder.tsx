@@ -181,7 +181,9 @@ const QueueOrder = ({
 
   return (
     <section>
-      <Heading>Queue Order — {items.length} items</Heading>
+      <Heading>
+        Queue Order — {items.length} {items.length === 1 ? 'item' : 'items'}
+      </Heading>
       {moveError && <div className="error">Move failed: {moveError}</div>}
       {toast && <div className={'toast toast-' + toast.variant}>{toast.message}</div>}
       {staleBanner}
