@@ -13,6 +13,9 @@ fake_pnpm() {
   cat > "$bindir/pnpm" <<EOF
 #!/usr/bin/env bash
 [ "\$1" = "prisma" ] && [ "\$2" = "migrate" ] && [ "\$3" = "deploy" ] || { echo "unexpected args: \$*" >&2; exit 99; }
+db_path="\${DATABASE_URL#file:}"
+touch "\$db_path"
+echo "FAKE_DB_PATH=\$db_path"
 exit $exit_code
 EOF
   chmod +x "$bindir/pnpm"
@@ -53,21 +56,29 @@ EOF
 }
 
 @test "cleans up temp directory on success" {
-  local bindir
+  local bindir db_path
   bindir="$(fake_pnpm 0)"
 
   PATH="$bindir:$PATH" run bash "$SCRIPT_DIR/validate-migrations.sh"
 
   [ "$status" -eq 0 ]
+  db_path="$(sed -n 's/^FAKE_DB_PATH=//p' <<<"$output")"
+  [ -n "$db_path" ]
+  [ ! -e "$db_path" ]
+  [ ! -d "$(dirname "$db_path")" ]
   rm -rf "$bindir"
 }
 
 @test "cleans up temp directory on failure" {
-  local bindir
+  local bindir db_path
   bindir="$(fake_pnpm 1)"
 
   PATH="$bindir:$PATH" run bash "$SCRIPT_DIR/validate-migrations.sh"
 
   [ "$status" -eq 1 ]
+  db_path="$(sed -n 's/^FAKE_DB_PATH=//p' <<<"$output")"
+  [ -n "$db_path" ]
+  [ ! -e "$db_path" ]
+  [ ! -d "$(dirname "$db_path")" ]
   rm -rf "$bindir"
 }
