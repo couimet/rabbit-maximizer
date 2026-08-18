@@ -1,4 +1,4 @@
-import { EventCountsMapper, EventEntryMapper, QueueItemMapper } from '../src/mappers/index.js';
+import { EventCountsMapper, EventEntryMapper, QueueItemMapper, TrackedPrMapper } from '../src/mappers/index.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
@@ -12,6 +12,7 @@ jest.unstable_mockModule('vite', () => viteMock);
 const {
   createMockActivityListMapper,
   createMockEventRepo,
+  createMockPullRequestRepo,
   createMockQueueItemEnricher,
   createMockQueueOrderRepo,
   createMockQueueRepo,
@@ -43,6 +44,8 @@ describe('setupExpress', () => {
       prisma: {} as any,
       reviewTrigger: { trigger: jest.fn() } as any,
       systemStateRepo: createMockSystemStateRepository(),
+      pullRequestRepo: createMockPullRequestRepo(),
+      trackedPrMapper: new TrackedPrMapper(),
       logger: logger ?? createMockLogger(),
       port: 0,
     });
@@ -114,6 +117,8 @@ describe('setupExpress', () => {
           prisma: {} as any,
           reviewTrigger: { trigger: jest.fn() } as any,
           systemStateRepo: createMockSystemStateRepository(),
+          pullRequestRepo: createMockPullRequestRepo(),
+          trackedPrMapper: new TrackedPrMapper(),
           logger,
           port: blockedPort,
         }),

@@ -356,6 +356,16 @@ export interface components {
       eventCounts: components['schemas']['EventCounts'];
       paused: boolean;
       schedulerStale: boolean;
+      trackedPrs: components['schemas']['TrackedPr'][];
+    };
+    TrackedPr: {
+      repo_full_name: string;
+      pr_number: number;
+      title: string;
+      author_login: string;
+      last_review_state?: string | null;
+      /** Format: date-time */
+      last_coderabbit_review_at?: string | null;
     };
     PauseRequest: {
       paused: boolean;

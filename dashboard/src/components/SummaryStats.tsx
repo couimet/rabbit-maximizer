@@ -3,7 +3,7 @@ import { DEFAULT_DURATION, type Duration } from '../../../src/utils/index.js';
 import { fetchConfig, fetchDashboardState, setPaused } from '../api.js';
 import { useErrorContext } from '../context/index.js';
 
-import { ActivityList, DurationSelect, formatElapsed, QueueOrder, ReviewCountdown, usePauseNotification } from './index.js';
+import { ActivityList, DurationSelect, formatElapsed, QueueOrder, ReviewCountdown, TrackedPrs, usePauseNotification } from './index.js';
 
 import './SummaryStats.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -141,6 +141,8 @@ const SummaryStats = () => {
           lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current}
         />
       </div>
+
+      <TrackedPrs items={data?.trackedPrs ?? null} headingLevel="h3" />
 
       <ActivityList schedulerStale={data.schedulerStale || localStale} lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current} />
 

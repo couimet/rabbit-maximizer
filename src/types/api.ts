@@ -13,4 +13,5 @@ export type PaginatedEventsResponse = components['schemas']['PaginatedEvents'];
 export type QueueOrderResponse = components['schemas']['QueueOrderResponse'];
 export type PauseResponse = components['schemas']['PauseResponse'];
 export type PublicConfigResponse = components['schemas']['PublicConfig'];
+export type TrackedPrResponse = components['schemas']['TrackedPr'];
 /* v8 ignore stop */

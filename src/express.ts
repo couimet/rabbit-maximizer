@@ -1,6 +1,6 @@
-import type { EventRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
 import { createExpressApp, startServer } from './external-deps/couimet/express-tools/index.js';
-import type { EventCountsMapper, EventEntryMapper, QueueItemMapper, ReviewQueueToActivityListItemMapper } from './mappers/index.js';
+import type { EventCountsMapper, EventEntryMapper, QueueItemMapper, ReviewQueueToActivityListItemMapper, TrackedPrMapper } from './mappers/index.js';
 import {
   createGetActivityListHandler,
   createGetConfigHandler,
@@ -34,12 +34,14 @@ export interface ExpressDeps {
   eventEntryMapper: EventEntryMapper;
   eventRepo: EventRepository;
   prisma: PrismaClient;
+  pullRequestRepo: PullRequestRepository;
   activityListMapper: ReviewQueueToActivityListItemMapper;
   queueItemMapper: QueueItemMapper;
   queueOrderRepo: QueueOrderRepository;
   queueRepo: QueueRepository;
   reviewTrigger: ReviewTrigger;
   systemStateRepo: SystemStateRepository;
+  trackedPrMapper: TrackedPrMapper;
   logger: Logger;
   port: number;
 }
@@ -57,11 +59,13 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
     eventEntryMapper,
     eventRepo,
     prisma,
+    pullRequestRepo,
     queueItemMapper,
     queueOrderRepo,
     queueRepo,
     reviewTrigger,
     systemStateRepo,
+    trackedPrMapper,
     logger,
     port,
   } = deps;
@@ -74,7 +78,18 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   app.get('/api/config', createGetConfigHandler(config, logger));
   app.get(
     '/api/dashboard-state',
-    createGetDashboardStateHandler(queueOrderRepo, queueRepo, eventRepo, systemStateRepo, queueItemMapper, eventCountsMapper, logger, config),
+    createGetDashboardStateHandler(
+      queueOrderRepo,
+      queueRepo,
+      eventRepo,
+      systemStateRepo,
+      pullRequestRepo,
+      queueItemMapper,
+      eventCountsMapper,
+      trackedPrMapper,
+      logger,
+      config,
+    ),
   );
   app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));

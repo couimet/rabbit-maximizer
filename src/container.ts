@@ -15,7 +15,14 @@ import {
 } from './db/index.js';
 import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/index.js';
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl, type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
-import { EventCountsMapper, EventEntryMapper, QueueItemMapper, ReviewQueueToActivityListItemMapper, ReviewQueueToQueueItemMapper } from './mappers/index.js';
+import {
+  EventCountsMapper,
+  EventEntryMapper,
+  QueueItemMapper,
+  ReviewQueueToActivityListItemMapper,
+  ReviewQueueToQueueItemMapper,
+  TrackedPrMapper,
+} from './mappers/index.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/index.js';
 import { ProbeFactory } from './probes/index.js';
 import type { OnDetectedCallback } from './types/index.js';
@@ -117,5 +124,6 @@ container.bind<QueueItemEnricher>(TYPES.QueueItemEnricher).to(QueueItemEnricher)
 container.bind<QueueItemMapper>(TYPES.QueueItemMapper).to(QueueItemMapper).inSingletonScope();
 container.bind<ReviewQueueToActivityListItemMapper>(TYPES.ReviewQueueToActivityListItemMapper).to(ReviewQueueToActivityListItemMapper).inSingletonScope();
 container.bind<ReviewQueueToQueueItemMapper>(TYPES.ReviewQueueToQueueItemMapper).to(ReviewQueueToQueueItemMapper).inSingletonScope();
+container.bind<TrackedPrMapper>(TYPES.TrackedPrMapper).to(TrackedPrMapper).inSingletonScope();
 
 export { container };

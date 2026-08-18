@@ -1,6 +1,6 @@
 import { CodeRabbitCommentType, PrState, TYPES } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
-import type { PendingAcknowledgement, PullRequestColumnTypes, StaleOpenPR, UpsertPullRequestData } from '../types/index.js';
+import type { PendingAcknowledgement, PullRequestColumnTypes, StaleOpenPR, TrackedPrRow, UpsertPullRequestData } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -40,12 +40,30 @@ const FIND_STALE_OPEN_PRS_SQL = `
     )
 `;
 
+const FIND_TRACKED_PRS_SQL = `
+  SELECT pr.id, pr.title, pr.repo_full_name, pr.pr_number, pr.author_login, pr.last_review_state, pr.last_coderabbit_review_at
+  FROM ${PULL_REQUEST_TABLE} pr
+  WHERE pr.pr_state = 'open'
+    AND (pr.last_coderabbit_review_at IS NOT NULL OR pr.last_review_requested_at IS NOT NULL)
+    AND pr.last_coderabbit_acknowledged_at IS NULL
+    AND NOT EXISTS (
+      SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
+      WHERE rq.pull_request_id = pr.id
+        AND rq.status IN ('pending', 'retriggered')
+    )
+  ORDER BY pr.last_coderabbit_review_at DESC NULLS LAST, pr.last_review_requested_at DESC NULLS LAST
+`;
+
+/** Wire format of FIND_TRACKED_PRS_SQL; kept private so the repository absorbs the driver's string dates. */
+type TrackedPrRawRow = Omit<TrackedPrRow, 'last_coderabbit_review_at'> & { readonly last_coderabbit_review_at: string | null };
+
 export interface PullRequestRepository {
   upsert(repoFullName: string, prNumber: number, data: UpsertPullRequestData, tx?: Prisma.TransactionClient): Promise<{ id: number; created: boolean }>;
   findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<{ id: number } | null>;
   findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
   findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
   findStaleOpenPRs(): Promise<StaleOpenPR[]>;
+  findTrackedPRs(): Promise<TrackedPrRow[]>;
   getColumnMaps<C extends keyof PullRequestColumnTypes>(
     ids: number[],
     columns: readonly C[],
@@ -192,6 +210,16 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       prNumber: row.pr_number,
       title: row.title,
       lastReviewRequestedAt: new Date(row.last_review_requested_at),
+    }));
+  }
+
+  async findTrackedPRs(): Promise<TrackedPrRow[]> {
+    const db = this.client();
+    const rows = await db.$queryRawUnsafe<TrackedPrRawRow[]>(FIND_TRACKED_PRS_SQL);
+    this.log.debug({ fn: 'PullRequestRepositoryImpl.findTrackedPRs', count: rows.length }, 'Found tracked open PRs');
+    return rows.map(({ last_coderabbit_review_at, ...rest }) => ({
+      ...rest,
+      last_coderabbit_review_at: last_coderabbit_review_at === null ? null : new Date(last_coderabbit_review_at),
     }));
   }
 
