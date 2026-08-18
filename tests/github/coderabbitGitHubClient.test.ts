@@ -198,7 +198,7 @@ describe('client', () => {
         '@coderabbitai full review',
         '',
         `↩ Triggered by: ${triggerUrl}`,
-        '\u{1F50D} Source: review_limited comment from 2h ago',
+        '\u{1F50D} Source: review_limited comment from 2h ago, wait 1800s',
         '',
         '---',
         '',
@@ -303,6 +303,8 @@ describe('client', () => {
 
       expect(issues.getComment).toHaveBeenCalledWith({ owner, repo, comment_id: commentId });
       expect(result).toStrictEqual({ body: bodyText, createdAt, updatedAt });
+
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'fetchComment', owner, repo, commentId }, 'Fetching comment body');
     });
 
     it('throws GITHUB_INVALID_COMMENT_URL for a malformed URL', async () => {

@@ -212,8 +212,8 @@ describe('PrScannerImpl', () => {
     const scanner = createScanner();
     await scanner.scan();
 
-    expect(systemState.setLastScanStartedAt).toHaveBeenCalledWith(expect.any(Date));
-    expect(systemState.setLastScanCompletedAt).not.toHaveBeenCalledWith(expect.any(Date));
+    expect(systemState.setLastScanStartedAt).toHaveBeenCalledWith(expect.any(Date), undefined);
+    expect(systemState.setLastScanCompletedAt).not.toHaveBeenCalledWith(expect.any(Date), undefined);
     expect(prScannerProbe.failed).toHaveBeenCalledWith(scanError);
   });
 

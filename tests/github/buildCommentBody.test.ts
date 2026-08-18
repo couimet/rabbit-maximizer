@@ -160,7 +160,7 @@ describe('buildCommentBody', () => {
     expect(lines[0]).toBe('@coderabbitai full review');
     expect(lines[1]).toBe('');
     expect(lines[2]).toBe(`\u{21A9} Triggered by: ${triggerUrl}`);
-    expect(lines[3]).toBe('\u{1F50D} Source: review_limited comment from 2h ago');
+    expect(lines[3]).toBe('\u{1F50D} Source: review_limited comment from 2h ago, wait 1800s');
     expect(lines[4]).toBe('');
     expect(lines[5]).toBe('---');
     expect(lines[6]).toBe('');
@@ -187,6 +187,32 @@ describe('buildCommentBody', () => {
         decision: 'source',
       },
     });
+  });
+
+  it('omits the wait suffix when waitSeconds is undefined', () => {
+    const { owner, repo } = getUniqueGitHubRepoRef();
+    const prNumber = getUniqueInt();
+    const commentId = getUniqueInt();
+    const runId = getUniqueString({ prefix: 'run-' });
+    const sourceCreatedAt = new Date(frozenDate.getTime() - SOURCE_AGE_MS);
+
+    const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
+
+    const diagnosis: RetriggerDiagnosis = {
+      sourceComment: {
+        url: triggerUrl,
+        createdAt: sourceCreatedAt.toISOString(),
+        updatedAt: sourceCreatedAt.toISOString(),
+        classification: CodeRabbitCommentType.review_limited,
+        matchedMarker: MatchedMarker.rate_limit,
+      },
+      waitSeconds: undefined,
+      decision: 'source',
+    };
+
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+
+    expect(body.split('\n')[3]).toBe('\u{1F50D} Source: review_limited comment from 2h ago');
   });
 
   it('includes visible diagnosis line and JSON diagnosis field for decision direct', () => {
@@ -272,7 +298,45 @@ describe('buildCommentBody', () => {
     const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
 
     const lines = body.split('\n');
-    expect(lines[3]).toBe('\u{1F50D} Source: replacement of review_limited comment from 2h ago');
+    expect(lines[3]).toBe('\u{1F50D} Source: replacement of review_limited comment from 2h ago, wait 1800s');
+  });
+
+  it('renders time-unavailable fallback for replacement source comment with empty createdAt', () => {
+    const { owner, repo } = getUniqueGitHubRepoRef();
+    const prNumber = getUniqueInt();
+    const commentId = getUniqueInt();
+    const runId = getUniqueString({ prefix: 'run-' });
+
+    const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
+
+    const sourceComment: CommentDiagnosis = {
+      url: triggerUrl,
+      createdAt: '',
+      updatedAt: '',
+      classification: CodeRabbitCommentType.unknown,
+      matchedMarker: undefined,
+    };
+
+    const replacementComment: CommentDiagnosis = {
+      url: `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${getUniqueInt()}`,
+      createdAt: frozenDate.toISOString(),
+      updatedAt: frozenDate.toISOString(),
+      classification: CodeRabbitCommentType.review_limited,
+      matchedMarker: MatchedMarker.rate_limit,
+    };
+
+    const diagnosis: RetriggerDiagnosis = {
+      sourceComment,
+      replacementComment,
+      waitSeconds: WAIT_SECONDS,
+      decision: 'replacement',
+    };
+
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+
+    const lines = body.split('\n');
+    expect(lines[3]).toBe('\u{1F50D} Source: replacement of unknown comment (time unavailable), wait 1800s');
+    expect(lines[3]).not.toContain('undefined ago');
   });
 
   it('omits diagnosis line and JSON diagnosis field for dashboard trigger even when diagnosis is provided', () => {

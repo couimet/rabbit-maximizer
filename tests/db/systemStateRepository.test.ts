@@ -34,7 +34,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.getState(StateKey.lastPollStartedAt);
+      const result = await sut.getState(StateKey.lastPollStartedAt, undefined);
 
       expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'last_poll_started_at' } });
       expect(result).toBeInstanceOf(Date);
@@ -57,7 +57,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.getState(StateKey.lastPollOutcome);
+      const result = await sut.getState(StateKey.lastPollOutcome, undefined);
 
       expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'last_poll_outcome' } });
       expect(result).toBe('success');
@@ -78,7 +78,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.getState(StateKey.lastPollStartedAt);
+      const result = await sut.getState(StateKey.lastPollStartedAt, undefined);
 
       expect(result).toBeUndefined();
     });
@@ -89,7 +89,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.getState(StateKey.schedulerStatus);
+      const result = await sut.getState(StateKey.schedulerStatus, undefined);
 
       expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'scheduler_status' } });
       expect(result).toBeUndefined();
@@ -105,7 +105,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.setState(StateKey.nextReviewAvailableAt, now);
+      await sut.setState(StateKey.nextReviewAvailableAt, now, undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'next_review_available_at' },
@@ -135,7 +135,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.setState(StateKey.schedulerStatus, 'running');
+      await sut.setState(StateKey.schedulerStatus, 'running', undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'scheduler_status' },
@@ -195,7 +195,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.setState(StateKey.lastPollCompletedAt, now);
+      await sut.setState(StateKey.lastPollCompletedAt, now, undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'last_poll_completed_at' },
@@ -281,7 +281,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.isSchedulerPaused();
+      const result = await sut.isSchedulerPaused(undefined);
 
       expect(result).toBe(true);
     });
@@ -301,7 +301,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.isSchedulerPaused();
+      const result = await sut.isSchedulerPaused(undefined);
 
       expect(result).toBe(false);
     });
@@ -312,7 +312,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.isSchedulerPaused();
+      const result = await sut.isSchedulerPaused(undefined);
 
       expect(result).toBe(false);
     });
@@ -325,7 +325,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.pauseScheduler();
+      await sut.pauseScheduler(undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'scheduler_status' },
@@ -357,7 +357,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.resumeScheduler();
+      await sut.resumeScheduler(undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'scheduler_status' },
@@ -397,7 +397,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.setLastSchedulerTickAt(tickAt);
+      await sut.setLastSchedulerTickAt(tickAt, undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'last_scheduler_tick_at' },
@@ -439,7 +439,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.getLastSchedulerTickAt();
+      const result = await sut.getLastSchedulerTickAt(undefined);
 
       expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'last_scheduler_tick_at' } });
       expect(result).toBeInstanceOf(Date);
@@ -452,7 +452,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.getLastSchedulerTickAt();
+      const result = await sut.getLastSchedulerTickAt(undefined);
 
       expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'last_scheduler_tick_at' } });
       expect(result).toBeUndefined();
@@ -476,7 +476,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.getNextReviewAvailableAt();
+      const result = await sut.getNextReviewAvailableAt(undefined);
 
       expect(result).toBeInstanceOf(Date);
       expect(result!.getTime()).toBe(now.getTime());
@@ -499,7 +499,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.setNextReviewAvailableAt(now);
+      await sut.setNextReviewAvailableAt(now, undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'next_review_available_at' },
@@ -524,6 +524,66 @@ describe('SystemStateRepositoryImpl', () => {
     });
   });
 
+  describe('setNextReviewAvailableAtIfLater', () => {
+    let frozenNow: Date;
+
+    beforeEach(() => {
+      frozenNow = getUniqueDate();
+      jest.useFakeTimers();
+      jest.setSystemTime(frozenNow);
+    });
+
+    const buildExpectedSql = (earliest: Date) =>
+      Prisma.sql`
+            INSERT INTO system_state (state_key, value_text, value_integer, value_float, value_datetime, updated_at)
+            VALUES (${StateKey.nextReviewAvailableAt}, NULL, NULL, NULL, ${earliest.toISOString()}, ${frozenNow.toISOString()})
+            ON CONFLICT(state_key) DO UPDATE SET
+              value_datetime = CASE WHEN system_state.value_datetime IS NULL OR system_state.value_datetime < excluded.value_datetime THEN excluded.value_datetime ELSE system_state.value_datetime END,
+              updated_at = excluded.updated_at
+          `;
+
+    it('inserts the row atomically when no existing row is present', async () => {
+      const earliest = getUniqueDate();
+      const $executeRaw = jest.fn<any>();
+      const { prisma, systemState } = createMockPrismaClient({ $executeRaw });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.setNextReviewAvailableAtIfLater(earliest, undefined);
+
+      const expected = buildExpectedSql(earliest);
+      expect($executeRaw).toHaveBeenCalledWith(expected.strings, ...expected.values);
+      expect(systemState.findUnique).not.toHaveBeenCalled();
+      expect(systemState.upsert).not.toHaveBeenCalled();
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'setNextReviewAvailableAtIfLater', earliest }, 'Global review cooldown updated');
+    });
+
+    it('updates the value when the existing value is earlier than the candidate', async () => {
+      const earliest = getUniqueDate();
+      const $executeRaw = jest.fn<any>();
+      const { prisma } = createMockPrismaClient({ $executeRaw });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.setNextReviewAvailableAtIfLater(earliest, undefined);
+
+      const expected = buildExpectedSql(earliest);
+      expect($executeRaw).toHaveBeenCalledWith(expected.strings, ...expected.values);
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'setNextReviewAvailableAtIfLater', earliest }, 'Global review cooldown updated');
+    });
+
+    it('keeps the existing value when it is later than the candidate', async () => {
+      const earliest = getUniqueDate();
+      const $executeRaw = jest.fn<any>();
+      const { prisma } = createMockPrismaClient({ $executeRaw });
+      const sut = new SystemStateRepositoryImpl(prisma, logger);
+
+      await sut.setNextReviewAvailableAtIfLater(earliest, undefined);
+
+      const expected = buildExpectedSql(earliest);
+      expect($executeRaw).toHaveBeenCalledWith(expected.strings, ...expected.values);
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'setNextReviewAvailableAtIfLater', earliest }, 'Global review cooldown updated');
+    });
+  });
+
   describe('getLastScanCompletedAt', () => {
     it('returns the Date stored at last_scan_completed_at', async () => {
       const now = getUniqueDate();
@@ -541,7 +601,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      const result = await sut.getLastScanCompletedAt();
+      const result = await sut.getLastScanCompletedAt(undefined);
 
       expect(result).toBeInstanceOf(Date);
       expect(result!.getTime()).toBe(now.getTime());
@@ -564,7 +624,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.setLastScanCompletedAt(now);
+      await sut.setLastScanCompletedAt(now, undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'last_scan_completed_at' },
@@ -605,7 +665,7 @@ describe('SystemStateRepositoryImpl', () => {
       });
       const sut = new SystemStateRepositoryImpl(prisma, logger);
 
-      await sut.setLastScanStartedAt(now);
+      await sut.setLastScanStartedAt(now, undefined);
 
       expect(systemState.upsert).toHaveBeenCalledWith({
         where: { state_key: 'last_scan_started_at' },

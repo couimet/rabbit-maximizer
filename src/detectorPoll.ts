@@ -125,11 +125,7 @@ export class PollDetector extends IntervalService {
       }
 
       if (earliestNextReview) {
-        const existing = await this.systemStateRepo.getNextReviewAvailableAt();
-        const existingIsActive = existing !== undefined && existing.getTime() > Date.now();
-        if (!existingIsActive || earliestNextReview > existing) {
-          await this.systemStateRepo.setNextReviewAvailableAt(earliestNextReview);
-        }
+        await this.systemStateRepo.setNextReviewAvailableAtIfLater(earliestNextReview, undefined);
       }
     } catch (err: unknown) {
       const rateLimit = parseGitHubRateLimitError(err);

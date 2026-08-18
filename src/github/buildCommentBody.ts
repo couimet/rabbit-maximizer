@@ -11,19 +11,20 @@ const repoUrl = pkg.repository.url;
 const JSON_METADATA_INDENT_SPACES = 2;
 
 const buildDiagnosisLine = (diagnosis: RetriggerDiagnosis): string => {
-  const { sourceComment, replacementComment, decision } = diagnosis;
+  const { sourceComment, replacementComment, decision, waitSeconds } = diagnosis;
 
   if (decision === 'direct') {
     return '\u{1F50D} Posted directly; no rate-limit comment found';
   }
 
+  const ageText = sourceComment.createdAt === '' ? '(time unavailable)' : `from ${formatRelativeTime(sourceComment.createdAt, { now: new Date() })}`;
+  const waitSuffix = waitSeconds === undefined ? '' : `, wait ${waitSeconds}s`;
+
   if (decision === 'replacement' && replacementComment) {
-    const originalAge = formatRelativeTime(sourceComment.createdAt, { now: new Date() });
-    return `\u{1F50D} Source: replacement of ${sourceComment.classification} comment from ${originalAge}`;
+    return `\u{1F50D} Source: replacement of ${sourceComment.classification} comment ${ageText}${waitSuffix}`;
   }
 
-  const age = formatRelativeTime(sourceComment.createdAt, { now: new Date() });
-  return `\u{1F50D} Source: ${sourceComment.classification} comment from ${age}`;
+  return `\u{1F50D} Source: ${sourceComment.classification} comment ${ageText}${waitSuffix}`;
 };
 
 export const buildCommentBody = (

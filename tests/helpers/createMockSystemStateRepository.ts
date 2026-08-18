@@ -10,6 +10,7 @@ export const createMockSystemStateRepository = (overrides?: Partial<jest.Mocked<
     resumeScheduler: jest.fn<any>(),
     getNextReviewAvailableAt: jest.fn<any>(),
     setNextReviewAvailableAt: jest.fn<any>(),
+    setNextReviewAvailableAtIfLater: jest.fn<any>(),
     getLastSchedulerTickAt: jest.fn<any>(),
     setLastSchedulerTickAt: jest.fn<any>(),
     getLastScanCompletedAt: jest.fn<any>(),

@@ -144,7 +144,7 @@ export class ReviewTrigger {
       new StaleCommentRescheduledError(
         { commentId: latest.commentId, commentUrl: latest.url },
         {
-          url: item.source_comment_url,
+          url: item.original_source_comment_url ?? item.source_comment_url,
           createdAt: sourceCreatedAt,
           updatedAt: sourceUpdatedAt,
           classification,

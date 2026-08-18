@@ -78,7 +78,7 @@ export class Scheduler extends IntervalService {
         }
       });
 
-      if (await this.systemState.isSchedulerPaused()) {
+      if (await this.systemState.isSchedulerPaused(undefined)) {
         probe.schedulerPaused();
         return;
       }
@@ -92,7 +92,7 @@ export class Scheduler extends IntervalService {
         }
       }
 
-      const nextReviewAvailableAt = await this.systemState.getNextReviewAvailableAt();
+      const nextReviewAvailableAt = await this.systemState.getNextReviewAvailableAt(undefined);
       if (nextReviewAvailableAt !== undefined && nextReviewAvailableAt.getTime() > Date.now()) {
         probe.tickSkippedCooldown();
         return;
@@ -181,7 +181,7 @@ export class Scheduler extends IntervalService {
       });
     } finally {
       try {
-        await this.systemState.setLastSchedulerTickAt(new Date());
+        await this.systemState.setLastSchedulerTickAt(new Date(), undefined);
       } catch (error) {
         this.log.error({ fn: 'Scheduler.executeTick', error }, 'Failed to persist scheduler heartbeat');
       }

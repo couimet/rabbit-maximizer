@@ -160,7 +160,7 @@ describe('Scheduler', () => {
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
       expect(deps.queue.incrementAttempts).toHaveBeenCalledWith(item.id, 1, deps.tx);
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
 
       await stop();
     });
@@ -394,7 +394,7 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.schedulerPaused).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
 
       await stop();
     });
@@ -411,7 +411,7 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.tickSkippedCooldown).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
 
       await stop();
     });
@@ -425,7 +425,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.pruner.prune).toHaveBeenCalled();
-      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
+      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalledWith(undefined);
 
       await stop();
     });

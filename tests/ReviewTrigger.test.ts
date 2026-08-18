@@ -268,6 +268,44 @@ describe('ReviewTrigger', () => {
     expect(err.rescheduleEarliest).toStrictEqual(rescheduleEarliest);
   });
 
+  it('preserves the first source comment url across repeated replacements in the reschedule error', async () => {
+    const { github, probeFactory, reviewTrigger } = setup();
+    const item = generateQueueItemHydrationData({
+      source_comment_id: staleCommentId,
+      status: QueueStatus.pending,
+      original_source_comment_url: 'https://github.com/gh-owner-1/gh-repo-2/pull/3#issuecomment-99',
+    });
+    const replacementRef = generateReviewRef();
+    const sourceFetch = makeFetchResult('stale body');
+    github.fetchComment.mockResolvedValueOnce(sourceFetch);
+    github.findLatestReviewLimitComment.mockResolvedValue({
+      commentId: newCommentId,
+      url: newCommentUrl,
+      repoFullName: replacementRef.repoFullName,
+      prNumber: replacementRef.prNumber,
+      createdAt: getUniqueDate().toISOString(),
+      updatedAt: getUniqueDate().toISOString(),
+    });
+    github.fetchComment.mockResolvedValueOnce(makeFetchResult('[rate limit](...) wait 3600 seconds'));
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_RESCHEDULE', {
+      message: 'Source comment was replaced; item must be rescheduled',
+      functionName: 'ReviewTrigger.trigger',
+    });
+    const err = result.error as StaleCommentRescheduledError;
+    expect(err.originalSource).toStrictEqual({
+      url: item.original_source_comment_url,
+      createdAt: sourceFetch.createdAt,
+      updatedAt: sourceFetch.updatedAt,
+      classification: 'unknown',
+      matchedMarker: undefined,
+    });
+  });
+
   it('throws when fetchComment fails with non-terminal error', async () => {
     const { github, reviewTrigger } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });

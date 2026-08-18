@@ -45,7 +45,7 @@ export class PrScannerImpl implements PrScanner {
     probe.scanStarted();
 
     try {
-      const lastScanCompletedAt = await this.systemState.getLastScanCompletedAt();
+      const lastScanCompletedAt = await this.systemState.getLastScanCompletedAt(undefined);
       if (lastScanCompletedAt) {
         const elapsedMs = now.getTime() - lastScanCompletedAt.getTime();
         const intervalMs = this.config.PR_SCANNER_INTERVAL_SEC * MS_PER_SECOND;
@@ -60,7 +60,7 @@ export class PrScannerImpl implements PrScanner {
     }
 
     try {
-      await this.systemState.setLastScanStartedAt(now);
+      await this.systemState.setLastScanStartedAt(now, undefined);
     } catch (err: unknown) {
       probe.failedToPersistScanStartedAt(err);
     }
@@ -117,7 +117,7 @@ export class PrScannerImpl implements PrScanner {
       }
 
       try {
-        await this.systemState.setLastScanCompletedAt(new Date());
+        await this.systemState.setLastScanCompletedAt(new Date(), undefined);
       } catch (err: unknown) {
         probe.failedToPersistScanCompletedAt(err);
       }

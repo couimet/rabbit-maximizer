@@ -101,7 +101,7 @@ describe('SummaryStats', () => {
 
     it('renders pending count from pendingItems', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 items')).toBeInTheDocument());
     });
 
     it('renders event counts', async () => {
@@ -114,7 +114,7 @@ describe('SummaryStats', () => {
 
     it('changes duration and re-fetches', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 items')).toBeInTheDocument());
 
       const newData = {
         nextReviewAvailableAt: null,
@@ -142,7 +142,7 @@ describe('SummaryStats', () => {
 
     it('renders the QueueOrder component on the Summary tab', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 items')).toBeInTheDocument());
     });
 
     it('ignores stale response when newer request resolves first', async () => {

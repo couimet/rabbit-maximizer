@@ -76,7 +76,7 @@ export const createRetriggerNowHandler = (
         return;
       }
 
-      if (await systemStateRepo.isSchedulerPaused()) {
+      if (await systemStateRepo.isSchedulerPaused(undefined)) {
         if (req.query.overridePause !== 'true') {
           logger.info({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Retrigger blocked: scheduler is paused');
           res.status(StatusCodes.CONFLICT).json({ error: 'Maximizer is paused; resume it before retriggering' });
