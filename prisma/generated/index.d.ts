@@ -3346,9 +3346,12 @@ export namespace Prisma {
         resolution: string | null;
         resolved_at: Date | null;
         attempts: number;
+        /**
+         * Set by markRetriggerSkipped.
+         */
         last_skipped_at: Date | null;
         /**
-         * One of SkipReason values; set by markRetriggerSkipped.
+         * Max 25; one of 'cooldown' | 'settling' (CHECK in migration). Set by markRetriggerSkipped.
          */
         last_skip_reason: string | null;
         /**
