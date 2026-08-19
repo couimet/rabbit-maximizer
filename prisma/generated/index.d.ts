@@ -86,7 +86,7 @@ export class PrismaClient<
    * Read more in our [docs](https://pris.ly/d/client).
    */
 
-  constructor(optionsArg?: Prisma.Subset<ClientOptions, Prisma.PrismaClientOptions>);
+  constructor(optionsArg?: Prisma.PrismaClientConstructorArgs<ClientOptions>);
   $on<V extends U>(eventType: V, callback: (event: V extends 'query' ? Prisma.QueryEvent : Prisma.LogEvent) => void): PrismaClient;
 
   /**
@@ -287,8 +287,8 @@ export namespace Prisma {
   export import Exact = $Public.Exact;
 
   /**
-   * Prisma Client JS version: 7.8.0
-   * Query Engine version: 3c6e192761c0362d496ed980de936e2f3cebcd3a
+   * Prisma Client JS version: 7.9.1
+   * Query Engine version: e922089b7d7502aff4249d5da3420f6fa55fc6ad
    */
   export type PrismaVersion = {
     client: string;
@@ -421,6 +421,20 @@ export namespace Prisma {
   };
 
   /**
+   * Resolved type of the argument passed to the `PrismaClient` constructor.
+   *
+   * When called without a narrower options type (the common case), this resolves
+   * to `PrismaClientOptions` directly, which produces a clear TypeScript error
+   * message (`not assignable to parameter of type 'PrismaClientOptions'`) when
+   * the argument is missing or incomplete. When the user supplies a narrower
+   * options type (e.g. via a literal), it falls back to `Subset` to keep
+   * filtering out unknown properties.
+   */
+  export type PrismaClientConstructorArgs<Options extends PrismaClientOptions> = [PrismaClientOptions] extends [Options]
+    ? PrismaClientOptions
+    : Subset<Options, PrismaClientOptions>;
+
+  /**
    * SelectSubset
    * @desc From `T` pick properties that exist in `U`. Simple version of Intersection.
    * Additionally, it validates, if both select and include are present. If the case, it errors.
@@ -443,7 +457,7 @@ export namespace Prisma {
    * XOR is needed to have a real mutually exclusive union type
    * https://stackoverflow.com/questions/42123407/does-typescript-support-mutually-exclusive-types
    */
-  type XOR<T, U> = T extends object ? (U extends object ? (Without<T, U> & U) | (Without<U, T> & T) : U) : T;
+  type XOR<T, U> = T extends object ? (U extends object ? ((Without<T, U> & U) | (Without<U, T> & T)) & object : U) : T;
 
   /**
    * Is T a Record?
@@ -1164,11 +1178,26 @@ export namespace Prisma {
       isolationLevel?: Prisma.TransactionIsolationLevel;
     };
     /**
-     * Instance of a Driver Adapter, e.g., like one provided by `@prisma/adapter-planetscale`
+     * A driver adapter that PrismaClient uses to connect to your database, such as the ones provided by `@prisma/adapter-pg`, `@prisma/adapter-libsql`, `@prisma/adapter-planetscale`, etc.
+     *
+     * A driver adapter is **required** unless you connect to your database through Prisma Accelerate (in which case use `accelerateUrl` instead).
+     *
+     * Learn more: https://pris.ly/d/driver-adapters
+     *
+     * @example
+     * ```ts
+     * import { PrismaPg } from '@prisma/adapter-pg'
+     * import { PrismaClient } from './generated/prisma/client'
+     *
+     * const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
+     * const prisma = new PrismaClient({ adapter })
+     * ```
      */
     adapter?: runtime.SqlDriverAdapterFactory;
     /**
-     * Prisma Accelerate URL allowing the client to connect through Accelerate instead of a direct database.
+     * The Prisma Accelerate connection URL. Use this option to connect to your database through Prisma Accelerate instead of using a driver adapter to connect directly.
+     *
+     * Learn more: https://pris.ly/d/accelerate
      */
     accelerateUrl?: string;
     /**
@@ -2188,14 +2217,14 @@ export namespace Prisma {
     groupBy<
       T extends PullRequestGroupByArgs,
       HasSelectOrTake extends Or<Extends<'skip', Keys<T>>, Extends<'take', Keys<T>>>,
-      OrderByArg extends True extends HasSelectOrTake ? { orderBy: PullRequestGroupByArgs['orderBy'] } : { orderBy?: PullRequestGroupByArgs['orderBy'] },
+      OrderByArg extends (True extends HasSelectOrTake ? { orderBy: PullRequestGroupByArgs['orderBy'] } : { orderBy?: PullRequestGroupByArgs['orderBy'] }),
       OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
       ByFields extends MaybeTupleToUnion<T['by']>,
       ByValid extends Has<ByFields, OrderFields>,
       HavingFields extends GetHavingFields<T['having']>,
       HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
+      ByEmpty extends (T['by'] extends never[] ? True : False),
+      InputErrors extends (ByEmpty extends True
         ? `Error: "by" must not be empty.`
         : HavingValid extends False
           ? {
@@ -2225,7 +2254,7 @@ export namespace Prisma {
                 ? {}
                 : {
                     [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
-                  }[OrderFields],
+                  }[OrderFields]),
     >(
       args: SubsetIntersection<T, PullRequestGroupByArgs, OrderByArg> & InputErrors,
     ): {} extends InputErrors ? GetPullRequestGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>;
@@ -3656,14 +3685,14 @@ export namespace Prisma {
     groupBy<
       T extends ReviewQueueGroupByArgs,
       HasSelectOrTake extends Or<Extends<'skip', Keys<T>>, Extends<'take', Keys<T>>>,
-      OrderByArg extends True extends HasSelectOrTake ? { orderBy: ReviewQueueGroupByArgs['orderBy'] } : { orderBy?: ReviewQueueGroupByArgs['orderBy'] },
+      OrderByArg extends (True extends HasSelectOrTake ? { orderBy: ReviewQueueGroupByArgs['orderBy'] } : { orderBy?: ReviewQueueGroupByArgs['orderBy'] }),
       OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
       ByFields extends MaybeTupleToUnion<T['by']>,
       ByValid extends Has<ByFields, OrderFields>,
       HavingFields extends GetHavingFields<T['having']>,
       HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
+      ByEmpty extends (T['by'] extends never[] ? True : False),
+      InputErrors extends (ByEmpty extends True
         ? `Error: "by" must not be empty.`
         : HavingValid extends False
           ? {
@@ -3693,7 +3722,7 @@ export namespace Prisma {
                 ? {}
                 : {
                     [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
-                  }[OrderFields],
+                  }[OrderFields]),
     >(
       args: SubsetIntersection<T, ReviewQueueGroupByArgs, OrderByArg> & InputErrors,
     ): {} extends InputErrors ? GetReviewQueueGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>;
@@ -4952,14 +4981,14 @@ export namespace Prisma {
     groupBy<
       T extends EventGroupByArgs,
       HasSelectOrTake extends Or<Extends<'skip', Keys<T>>, Extends<'take', Keys<T>>>,
-      OrderByArg extends True extends HasSelectOrTake ? { orderBy: EventGroupByArgs['orderBy'] } : { orderBy?: EventGroupByArgs['orderBy'] },
+      OrderByArg extends (True extends HasSelectOrTake ? { orderBy: EventGroupByArgs['orderBy'] } : { orderBy?: EventGroupByArgs['orderBy'] }),
       OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
       ByFields extends MaybeTupleToUnion<T['by']>,
       ByValid extends Has<ByFields, OrderFields>,
       HavingFields extends GetHavingFields<T['having']>,
       HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
+      ByEmpty extends (T['by'] extends never[] ? True : False),
+      InputErrors extends (ByEmpty extends True
         ? `Error: "by" must not be empty.`
         : HavingValid extends False
           ? {
@@ -4989,7 +5018,7 @@ export namespace Prisma {
                 ? {}
                 : {
                     [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
-                  }[OrderFields],
+                  }[OrderFields]),
     >(
       args: SubsetIntersection<T, EventGroupByArgs, OrderByArg> & InputErrors,
     ): {} extends InputErrors ? GetEventGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>;
@@ -6125,14 +6154,14 @@ export namespace Prisma {
     groupBy<
       T extends QueueOrderGroupByArgs,
       HasSelectOrTake extends Or<Extends<'skip', Keys<T>>, Extends<'take', Keys<T>>>,
-      OrderByArg extends True extends HasSelectOrTake ? { orderBy: QueueOrderGroupByArgs['orderBy'] } : { orderBy?: QueueOrderGroupByArgs['orderBy'] },
+      OrderByArg extends (True extends HasSelectOrTake ? { orderBy: QueueOrderGroupByArgs['orderBy'] } : { orderBy?: QueueOrderGroupByArgs['orderBy'] }),
       OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
       ByFields extends MaybeTupleToUnion<T['by']>,
       ByValid extends Has<ByFields, OrderFields>,
       HavingFields extends GetHavingFields<T['having']>,
       HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
+      ByEmpty extends (T['by'] extends never[] ? True : False),
+      InputErrors extends (ByEmpty extends True
         ? `Error: "by" must not be empty.`
         : HavingValid extends False
           ? {
@@ -6162,7 +6191,7 @@ export namespace Prisma {
                 ? {}
                 : {
                     [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
-                  }[OrderFields],
+                  }[OrderFields]),
     >(
       args: SubsetIntersection<T, QueueOrderGroupByArgs, OrderByArg> & InputErrors,
     ): {} extends InputErrors ? GetQueueOrderGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>;
@@ -7448,16 +7477,16 @@ export namespace Prisma {
     groupBy<
       T extends CoderabbitCommentGroupByArgs,
       HasSelectOrTake extends Or<Extends<'skip', Keys<T>>, Extends<'take', Keys<T>>>,
-      OrderByArg extends True extends HasSelectOrTake
+      OrderByArg extends (True extends HasSelectOrTake
         ? { orderBy: CoderabbitCommentGroupByArgs['orderBy'] }
-        : { orderBy?: CoderabbitCommentGroupByArgs['orderBy'] },
+        : { orderBy?: CoderabbitCommentGroupByArgs['orderBy'] }),
       OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
       ByFields extends MaybeTupleToUnion<T['by']>,
       ByValid extends Has<ByFields, OrderFields>,
       HavingFields extends GetHavingFields<T['having']>,
       HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
+      ByEmpty extends (T['by'] extends never[] ? True : False),
+      InputErrors extends (ByEmpty extends True
         ? `Error: "by" must not be empty.`
         : HavingValid extends False
           ? {
@@ -7487,7 +7516,7 @@ export namespace Prisma {
                 ? {}
                 : {
                     [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
-                  }[OrderFields],
+                  }[OrderFields]),
     >(
       args: SubsetIntersection<T, CoderabbitCommentGroupByArgs, OrderByArg> & InputErrors,
     ): {} extends InputErrors ? GetCoderabbitCommentGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>;
@@ -8601,14 +8630,14 @@ export namespace Prisma {
     groupBy<
       T extends SystemStateGroupByArgs,
       HasSelectOrTake extends Or<Extends<'skip', Keys<T>>, Extends<'take', Keys<T>>>,
-      OrderByArg extends True extends HasSelectOrTake ? { orderBy: SystemStateGroupByArgs['orderBy'] } : { orderBy?: SystemStateGroupByArgs['orderBy'] },
+      OrderByArg extends (True extends HasSelectOrTake ? { orderBy: SystemStateGroupByArgs['orderBy'] } : { orderBy?: SystemStateGroupByArgs['orderBy'] }),
       OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
       ByFields extends MaybeTupleToUnion<T['by']>,
       ByValid extends Has<ByFields, OrderFields>,
       HavingFields extends GetHavingFields<T['having']>,
       HavingValid extends Has<ByFields, HavingFields>,
-      ByEmpty extends T['by'] extends never[] ? True : False,
-      InputErrors extends ByEmpty extends True
+      ByEmpty extends (T['by'] extends never[] ? True : False),
+      InputErrors extends (ByEmpty extends True
         ? `Error: "by" must not be empty.`
         : HavingValid extends False
           ? {
@@ -8638,7 +8667,7 @@ export namespace Prisma {
                 ? {}
                 : {
                     [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
-                  }[OrderFields],
+                  }[OrderFields]),
     >(
       args: SubsetIntersection<T, SystemStateGroupByArgs, OrderByArg> & InputErrors,
     ): {} extends InputErrors ? GetSystemStateGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>;
