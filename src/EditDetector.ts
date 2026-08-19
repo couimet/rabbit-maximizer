@@ -39,7 +39,7 @@ export class EditDetectorImpl implements EditDetector {
         return RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotEdited });
       }
 
-      const newType = classifyCoderabbitComment(fetchResult.body);
+      const { classification: newType } = classifyCoderabbitComment(fetchResult.body);
 
       const updatedComment = {
         comment_id: item.source_comment_id,

@@ -97,6 +97,14 @@ describe('ReviewQueueToQueueItemMapper', () => {
       expect(result.retrigger_comment_url).toBe(url);
     });
 
+    it('preserves non-null original_source_comment_url', () => {
+      const originalUrl = 'https://github.com/owner/repo/issues/1#issuecomment-123';
+      const row = generateReviewQueueHydrationData({ original_source_comment_url: originalUrl });
+      const result = mapper.fromReviewQueue(row);
+
+      expect(result.original_source_comment_url).toBe(originalUrl);
+    });
+
     it('uses non-null assertion on pull_request_id', () => {
       const pullRequestId = getUniqueInt();
       const row = generateReviewQueueHydrationData({ pull_request_id: pullRequestId });
@@ -127,6 +135,7 @@ describe('ReviewQueueToQueueItemMapper', () => {
         attempts: row.attempts,
         source_comment_url: row.source_comment_url,
         source_comment_id: row.source_comment_id,
+        original_source_comment_url: row.original_source_comment_url ?? undefined,
         trigger_source: row.trigger_source as TriggerSource,
         retrigger_comment_url: row.retrigger_comment_url ?? undefined,
         retriggered_at: sqlDateToDate(row.retriggered_at),

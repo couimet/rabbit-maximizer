@@ -84,22 +84,10 @@
   letter-spacing: 2px;
 }
 
-.row-waiting td {
-  color: #b0a392;
-}
-
-.row-waiting a {
-  color: #b0a392;
-}
-
 .row-selected {
   background: #fef7f0;
 }
 
 .row-selected td {
   border-color: #f5d5b0;
-}
-
-.row-retriggered td {
-  opacity: 0.55;
 }

@@ -1,5 +1,6 @@
 import { SchedulerStatus, TYPES } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
+import type { DashboardSystemState } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -29,6 +30,8 @@ const STATE_KEY_CONFIG: Record<StateKey, { column: ValueColumn }> = {
   [StateKey.nextReviewAvailableAt]: { column: 'value_datetime' },
 };
 
+const DASHBOARD_STATE_KEYS: readonly StateKey[] = [StateKey.schedulerStatus, StateKey.lastSchedulerTickAt, StateKey.nextReviewAvailableAt];
+
 interface SystemStateRow {
   state_key: string;
   value_text: string | null;
@@ -57,13 +60,18 @@ export const VALUE_SETTER: Record<ValueColumn, (base: SystemStateRow, value: unk
 };
 
 export interface SystemStateRepository {
-  getState<K extends StateKey>(key: K, tx?: Prisma.TransactionClient): Promise<StateKeyToType[K] | undefined>;
-  setState<K extends StateKey>(key: K, value: StateKeyToType[K], tx?: Prisma.TransactionClient): Promise<void>;
-  isSchedulerPaused(tx?: Prisma.TransactionClient): Promise<boolean>;
-  pauseScheduler(tx?: Prisma.TransactionClient): Promise<void>;
-  resumeScheduler(tx?: Prisma.TransactionClient): Promise<void>;
-  getLastSchedulerTickAt(tx?: Prisma.TransactionClient): Promise<Date | undefined>;
-  setLastSchedulerTickAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void>;
+  getDashboardSystemState(): Promise<DashboardSystemState>;
+  isSchedulerPaused(tx: Prisma.TransactionClient | undefined): Promise<boolean>;
+  pauseScheduler(tx: Prisma.TransactionClient | undefined): Promise<void>;
+  resumeScheduler(tx: Prisma.TransactionClient | undefined): Promise<void>;
+  getNextReviewAvailableAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined>;
+  setNextReviewAvailableAt(earliest: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
+  setNextReviewAvailableAtIfLater(earliest: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
+  getLastSchedulerTickAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined>;
+  setLastSchedulerTickAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
+  getLastScanCompletedAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined>;
+  setLastScanCompletedAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
+  setLastScanStartedAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
 }
 
 @injectable()
@@ -72,27 +80,34 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
     super(prisma, Prisma.ModelName.SystemState, log);
   }
 
+  private parseStateRow<K extends StateKey>(key: K, row: SystemStateRow): StateKeyToType[K] | undefined {
+    const config = STATE_KEY_CONFIG[key];
+    const rawValue = row[config.column];
+    if (rawValue === null || rawValue === undefined) return undefined;
+    if (config.column === 'value_datetime') return new Date(rawValue as string) as StateKeyToType[K];
+    return rawValue as StateKeyToType[K];
+  }
+
+  private buildReadValue(map: Map<string, SystemStateRow>) {
+    return <K extends StateKey>(key: K): StateKeyToType[K] | undefined => {
+      const row = map.get(key);
+      return row ? this.parseStateRow(key, row) : undefined;
+    };
+  }
+
   // eslint-disable-next-line require-await
-  async getState<K extends StateKey>(key: K, tx?: Prisma.TransactionClient): Promise<StateKeyToType[K] | undefined> {
+  async getState<K extends StateKey>(key: K, tx: Prisma.TransactionClient | undefined): Promise<StateKeyToType[K] | undefined> {
     return this.enforceTx(tx, async (db) => {
       const row = await db.systemState.findUnique({
         where: { state_key: key },
       });
       if (!row) return undefined;
-
-      const config = STATE_KEY_CONFIG[key];
-      const rawValue = row[config.column];
-      if (rawValue === null || rawValue === undefined) return undefined;
-
-      if (config.column === 'value_datetime') {
-        return new Date(rawValue as string) as StateKeyToType[K];
-      }
-      return rawValue as StateKeyToType[K];
+      return this.parseStateRow(key, row);
     });
   }
 
   // eslint-disable-next-line require-await
-  async setState<K extends StateKey>(key: K, value: StateKeyToType[K], tx?: Prisma.TransactionClient): Promise<void> {
+  async setState<K extends StateKey>(key: K, value: StateKeyToType[K], tx: Prisma.TransactionClient | undefined): Promise<void> {
     return this.enforceTx(tx, async (db) => {
       const config = STATE_KEY_CONFIG[key];
       const column = config.column;
@@ -123,25 +138,90 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
     });
   }
 
-  async isSchedulerPaused(tx?: Prisma.TransactionClient): Promise<boolean> {
+  // eslint-disable-next-line require-await
+  async getDashboardSystemState(): Promise<DashboardSystemState> {
+    return this.enforceTx(undefined, async (db) => {
+      const rows = await db.systemState.findMany({
+        where: { state_key: { in: [...DASHBOARD_STATE_KEYS] } },
+      });
+
+      const map = new Map(rows.map((r) => [r.state_key, r]));
+      const readValue = this.buildReadValue(map);
+
+      return {
+        paused: SchedulerStatus.paused === readValue(StateKey.schedulerStatus),
+        lastSchedulerTickAt: readValue(StateKey.lastSchedulerTickAt),
+        nextReviewAvailableAt: readValue(StateKey.nextReviewAvailableAt),
+      };
+    });
+  }
+
+  async isSchedulerPaused(tx: Prisma.TransactionClient | undefined): Promise<boolean> {
     const status = await this.getState(StateKey.schedulerStatus, tx);
     return status === SchedulerStatus.paused;
   }
 
-  async pauseScheduler(tx?: Prisma.TransactionClient): Promise<void> {
+  async pauseScheduler(tx: Prisma.TransactionClient | undefined): Promise<void> {
     await this.setState(StateKey.schedulerStatus, SchedulerStatus.paused, tx);
   }
 
-  async resumeScheduler(tx?: Prisma.TransactionClient): Promise<void> {
+  async resumeScheduler(tx: Prisma.TransactionClient | undefined): Promise<void> {
     await this.setState(StateKey.schedulerStatus, SchedulerStatus.running, tx);
   }
 
   // eslint-disable-next-line require-await
-  async getLastSchedulerTickAt(tx?: Prisma.TransactionClient): Promise<Date | undefined> {
+  async getLastSchedulerTickAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined> {
     return this.getState(StateKey.lastSchedulerTickAt, tx);
   }
 
-  async setLastSchedulerTickAt(ts: Date, tx?: Prisma.TransactionClient): Promise<void> {
+  async setLastSchedulerTickAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void> {
     await this.setState(StateKey.lastSchedulerTickAt, ts, tx);
+    this.log.info({ fn: 'setLastSchedulerTickAt', ts }, 'Last scheduler tick updated');
+  }
+
+  // eslint-disable-next-line require-await
+  async getNextReviewAvailableAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined> {
+    return this.getState(StateKey.nextReviewAvailableAt, tx);
+  }
+
+  async setNextReviewAvailableAt(earliest: Date, tx: Prisma.TransactionClient | undefined): Promise<void> {
+    await this.setState(StateKey.nextReviewAvailableAt, earliest, tx);
+    this.log.info({ fn: 'setNextReviewAvailableAt', earliest }, 'Global review cooldown updated');
+  }
+
+  async setNextReviewAvailableAtIfLater(earliest: Date, tx: Prisma.TransactionClient | undefined): Promise<void> {
+    await this.enforceTx(tx, async (db) => {
+      const isoEarliest = earliest.toISOString();
+      const now = new Date().toISOString();
+
+      await this.withPrismaErrorHandling(
+        () =>
+          db.$executeRaw`
+            INSERT INTO system_state (state_key, value_text, value_integer, value_float, value_datetime, updated_at)
+            VALUES (${StateKey.nextReviewAvailableAt}, NULL, NULL, NULL, ${isoEarliest}, ${now})
+            ON CONFLICT(state_key) DO UPDATE SET
+              value_datetime = CASE WHEN system_state.value_datetime IS NULL OR system_state.value_datetime < excluded.value_datetime THEN excluded.value_datetime ELSE system_state.value_datetime END,
+              updated_at = excluded.updated_at
+          `,
+        'SystemStateRepositoryImpl.setNextReviewAvailableAtIfLater',
+      );
+    });
+
+    this.log.info({ fn: 'setNextReviewAvailableAtIfLater', earliest }, 'Global review cooldown updated');
+  }
+
+  // eslint-disable-next-line require-await
+  async getLastScanCompletedAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined> {
+    return this.getState(StateKey.lastScanCompletedAt, tx);
+  }
+
+  async setLastScanCompletedAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void> {
+    await this.setState(StateKey.lastScanCompletedAt, ts, tx);
+    this.log.info({ fn: 'setLastScanCompletedAt', ts }, 'Last scan completed timestamp updated');
+  }
+
+  async setLastScanStartedAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void> {
+    await this.setState(StateKey.lastScanStartedAt, ts, tx);
+    this.log.info({ fn: 'setLastScanStartedAt', ts }, 'Last scan started timestamp updated');
   }
 }

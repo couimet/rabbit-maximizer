@@ -1,10 +1,10 @@
 import type { Config } from '../src/config.js';
 import type { QueueOrderRepository, QueueRepository } from '../src/db/index.js';
-import { QueueStatus, RabbitResult } from '../src/domain.js';
-import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../src/errors/index.js';
+import { CodeRabbitCommentType, QueueStatus, RabbitResult } from '../src/domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from '../src/errors/index.js';
 import type { ProbeFactory } from '../src/probes/index.js';
 import { type Pruner, ReviewTrigger, Scheduler } from '../src/services.js';
-import type { PRState } from '../src/types/index.js';
+import type { PRState, QueueItem } from '../src/types/index.js';
 
 import {
   createMockProbeFactory,
@@ -74,6 +74,7 @@ const setup = (): MockSchedulerDeps => {
   const prStateFetcher = createMockPRStateFetcher();
 
   const config: Config = {
+    CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600,
     DETECTION_MODE: 'poll',
     GITHUB_API_TIMEOUT_SEC: 10,
     GITHUB_PAT: 'test-pat',
@@ -86,7 +87,6 @@ const setup = (): MockSchedulerDeps => {
     REVIEW_DETECTION_LOOKBACK_SEC: 7200,
     DATABASE_URL: 'file:./data/test.db',
     WEB_PORT: 3000,
-    SCHEDULER_POST_COOLDOWN_SEC: 3600,
     SCHEDULER_RETRIGGER_SPACING_SEC: 180,
     SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
     SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
@@ -131,6 +131,23 @@ describe('Scheduler', () => {
   describe('tick', () => {
     const makeTriggerOk = () => RabbitResult.ok({ retriggeredCommentUrl: getUniqueString() });
 
+    const makeStaleRescheduleError = (item: QueueItem, rescheduleEarliest: Date) => {
+      const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
+      const err = new StaleCommentRescheduledError(
+        newComment,
+        {
+          url: item.source_comment_url,
+          createdAt: getUniqueDate().toISOString(),
+          updatedAt: getUniqueDate().toISOString(),
+          classification: CodeRabbitCommentType.unknown,
+          matchedMarker: undefined,
+        },
+        rescheduleEarliest,
+        'test',
+      );
+      return { err, newComment };
+    };
+
     it('delegates to ReviewTrigger on success and increments attempts', async () => {
       const item = pendingItem();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
@@ -143,7 +160,7 @@ describe('Scheduler', () => {
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
       expect(deps.queue.incrementAttempts).toHaveBeenCalledWith(item.id, 1, deps.tx);
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
 
       await stop();
     });
@@ -165,16 +182,10 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('reschedules when ReviewTrigger returns stale reschedule', async () => {
+    it('reschedules when ReviewTrigger returns stale reschedule and sets the global cooldown', async () => {
       const item = pendingItem();
-      const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
-      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000).toISOString();
-      const staleErr = new RabbitMaximizerError({
-        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE,
-        message: 'stale',
-        functionName: 'test',
-        details: { rescheduleEarliest, sourceComment: newComment },
-      });
+      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000);
+      const { err: staleErr, newComment } = makeStaleRescheduleError(item, rescheduleEarliest);
       const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
@@ -185,7 +196,29 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, deps.tx);
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, item.source_comment_url, deps.tx);
+      expect(deps.systemState.getNextReviewAvailableAt).toHaveBeenCalledWith(deps.tx);
+      expect(deps.systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(rescheduleEarliest, deps.tx);
+
+      await stop();
+    });
+
+    it('preserves an existing later cooldown when rescheduling a stale comment', async () => {
+      const item = pendingItem();
+      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000);
+      const existingCooldown = new Date(frozenNow.getTime() + 120_000);
+      const { err: staleErr, newComment } = makeStaleRescheduleError(item, rescheduleEarliest);
+      deps.systemState.getNextReviewAvailableAt.mockResolvedValueOnce(undefined).mockResolvedValueOnce(existingCooldown);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, item.source_comment_url, deps.tx);
+      expect(deps.systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(existingCooldown, deps.tx);
 
       await stop();
     });
@@ -361,7 +394,7 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.schedulerPaused).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
 
       await stop();
     });
@@ -369,7 +402,7 @@ describe('Scheduler', () => {
     it('skips processing when next_review_available_at is in the future', async () => {
       const item = generateQueueItemHydrationData();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.systemState.getState.mockResolvedValue(new Date(Date.now() + TICK_INTERVAL_MS));
+      deps.systemState.getNextReviewAvailableAt.mockResolvedValue(new Date(Date.now() + TICK_INTERVAL_MS));
 
       const scheduler = createScheduler();
       const { stop } = await scheduler.start();
@@ -378,7 +411,7 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.tickSkippedCooldown).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date));
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
 
       await stop();
     });
@@ -392,7 +425,7 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.pruner.prune).toHaveBeenCalled();
-      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
+      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalledWith(undefined);
 
       await stop();
     });

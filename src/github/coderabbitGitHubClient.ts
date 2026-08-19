@@ -1,5 +1,6 @@
 import { type TriggerSource, TYPES } from '../domain.js';
-import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, ReviewLimitComment } from '../types/index.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, RetriggerDiagnosis, ReviewLimitComment } from '../types/index.js';
 
 import type { CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
 import {
@@ -14,6 +15,7 @@ import {
   isApprovalReviewSignal,
   isMatchingCompletedReview,
   normalizeCommentBody,
+  parseCommentUrl,
   splitRepo,
   SubmittedComment,
   SubmittedReview,
@@ -34,12 +36,20 @@ export interface CoderabbitGitHubClient {
   searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]>;
 
   fetchComment(owner: string, repo: string, commentId: number): Promise<FetchCommentResult>;
+  fetchCommentByUrl(url: string): Promise<FetchCommentResult>;
 
   listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]>;
 
   listOpenPRs(repoFilter: readonly RepoFilter[]): Promise<DiscoveredPR[]>;
 
-  postRetrigger(repo: string, pr: number, sourceCommentUrl: string | undefined, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment>;
+  postRetrigger(
+    repo: string,
+    pr: number,
+    sourceCommentUrl: string | undefined,
+    runId: string,
+    triggerSource: TriggerSource,
+    diagnosis: RetriggerDiagnosis | undefined,
+  ): Promise<RetriggerComment>;
 
   getPRState(repo: string, pr: number): Promise<PRState>;
 
@@ -99,7 +109,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
             prNumber: item.number,
             prTitle: item.title,
             body: rateLimitComment.body,
-            commentType: classifyCoderabbitComment(rateLimitComment.body),
+            commentType: classifyCoderabbitComment(rateLimitComment.body).classification,
             commentId: rateLimitComment.id,
             url: rateLimitComment.html_url,
             createdAt: rateLimitComment.created_at,
@@ -123,7 +133,21 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       comment_id: commentId,
     });
 
-    return { body: normalizeCommentBody(response.data.body), updatedAt: response.data.updated_at };
+    return { body: normalizeCommentBody(response.data.body), createdAt: response.data.created_at, updatedAt: response.data.updated_at };
+  }
+
+  // eslint-disable-next-line require-await
+  async fetchCommentByUrl(url: string): Promise<FetchCommentResult> {
+    const parsed = parseCommentUrl(url);
+    if (!parsed) {
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.GITHUB_INVALID_COMMENT_URL,
+        message: `Cannot parse comment URL: ${url}`,
+        functionName: 'fetchCommentByUrl',
+        details: { url },
+      });
+    }
+    return this.fetchComment(parsed.owner, parsed.repo, parsed.commentId);
   }
 
   async listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]> {
@@ -186,9 +210,16 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return results;
   }
 
-  async postRetrigger(repo: string, pr: number, sourceCommentUrl: string | undefined, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment> {
+  async postRetrigger(
+    repo: string,
+    pr: number,
+    sourceCommentUrl: string | undefined,
+    runId: string,
+    triggerSource: TriggerSource,
+    diagnosis: RetriggerDiagnosis | undefined,
+  ): Promise<RetriggerComment> {
     const { owner, repo: repoName } = splitRepo(repo);
-    const body = buildCommentBody(sourceCommentUrl, runId, triggerSource);
+    const body = buildCommentBody(sourceCommentUrl, runId, triggerSource, diagnosis);
 
     this.log.info({ fn: 'postRetrigger', owner, repo: repoName, pr, runId, triggerSource }, 'Posting retrigger comment');
 

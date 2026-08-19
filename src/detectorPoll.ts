@@ -1,4 +1,4 @@
-import { type PullRequestRepository, StateKey, type SystemStateRepository } from './db/index.js';
+import { type PullRequestRepository, type SystemStateRepository } from './db/index.js';
 import {
   classifyCoderabbitComment,
   type CoderabbitGitHubClient,
@@ -73,7 +73,7 @@ export class PollDetector extends IntervalService {
         const { owner, repo } = splitRepo(c.repoFullName);
         const { body } = await this.github.fetchComment(owner, repo, c.commentId);
 
-        const classification = classifyCoderabbitComment(body);
+        const { classification } = classifyCoderabbitComment(body);
 
         if (classification === CodeRabbitCommentType.unknown) {
           this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with unknown classification');
@@ -125,11 +125,7 @@ export class PollDetector extends IntervalService {
       }
 
       if (earliestNextReview) {
-        const existing = await this.systemStateRepo.getState(StateKey.nextReviewAvailableAt);
-        const existingIsActive = existing !== undefined && existing.getTime() > Date.now();
-        if (!existingIsActive || earliestNextReview < existing) {
-          await this.systemStateRepo.setState(StateKey.nextReviewAvailableAt, earliestNextReview);
-        }
+        await this.systemStateRepo.setNextReviewAvailableAtIfLater(earliestNextReview, undefined);
       }
     } catch (err: unknown) {
       const rateLimit = parseGitHubRateLimitError(err);
