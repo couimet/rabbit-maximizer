@@ -1,30 +1,11 @@
 import { EventType } from '../../src/domain.js';
 import { COMMENT_URL_MAX_LENGTH, parseEventRow, REASON_MAX_LENGTH } from '../../src/schemas/index.js';
-import { generateReviewRef } from '../helpers/index.js';
+import { generateEventHydrationData } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
-import type { Event as PrismaEvent } from '@prisma/client';
 
 const EXCEEDS_MAX_BY = 1;
-
-const baseRow = (over: Partial<PrismaEvent>): PrismaEvent => {
-  const ref = generateReviewRef();
-  return {
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    ts: getUniqueDate(),
-    type: 'detected',
-    repo_full_name: ref.repoFullName,
-    pr_number: ref.prNumber,
-    correlation_id: getUuid(),
-    request_id: null,
-    version: getUniqueString(),
-    payload: '{}',
-    metadata: null,
-    ...over,
-  } as PrismaEvent;
-};
 
 describe('parseEventRow', () => {
   it('parses a detected event with metadata and request id', () => {
@@ -35,7 +16,7 @@ describe('parseEventRow', () => {
       node_version: getUniqueString(),
     };
     const requestId = getUuid();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'detected',
       request_id: requestId,
       metadata: JSON.stringify(metadata),
@@ -63,8 +44,10 @@ describe('parseEventRow', () => {
   });
 
   it('parses an enqueued event', () => {
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'enqueued',
+      request_id: null,
+      metadata: null,
       payload: JSON.stringify({}),
     });
 
@@ -79,7 +62,7 @@ describe('parseEventRow', () => {
   it('parses a retriggered event', () => {
     const sourceCommentUrl = getUniqueString();
     const retriggeredCommentUrl = getUniqueString();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'retriggered',
       payload: JSON.stringify({
         source_comment_url: sourceCommentUrl,
@@ -98,7 +81,7 @@ describe('parseEventRow', () => {
 
   it('parses a dismissed event', () => {
     const reason = 'prMerged';
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'dismissed',
       payload: JSON.stringify({ reason }),
     });
@@ -111,7 +94,7 @@ describe('parseEventRow', () => {
 
   it('parses a coderabbit_review_approved event', () => {
     const coderabbitCommentUrl = getUniqueString();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'coderabbit_review_approved',
       payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl }),
     });
@@ -128,7 +111,7 @@ describe('parseEventRow', () => {
     const commentUrl = getUniqueString();
     const skipReason = getUniqueString();
     const sourceTs = getUniqueDate();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'coderabbit_review_skipped',
       payload: JSON.stringify({ source_ts: sourceTs.toISOString(), comment_url: commentUrl, skip_reason: skipReason }),
     });
@@ -145,7 +128,7 @@ describe('parseEventRow', () => {
 
   it('parses a coderabbit_review_changes_suggested event', () => {
     const coderabbitCommentUrl = getUniqueString();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'coderabbit_review_changes_suggested',
       payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl }),
     });
@@ -160,7 +143,7 @@ describe('parseEventRow', () => {
 
   it('parses a failed event', () => {
     const reason = getUniqueString();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'failed',
       payload: JSON.stringify({ reason }),
     });
@@ -172,21 +155,21 @@ describe('parseEventRow', () => {
   });
 
   it('returns raw payload for an unknown event type with object payload', () => {
-    const row = baseRow({ type: 'bogus', payload: '{}' });
+    const row = generateEventHydrationData({ type: 'bogus', payload: '{}' });
     const result = parseEventRow(row);
     expect(result.type).toBe('bogus');
     expect(result.payload).toStrictEqual({});
   });
 
   it('wraps non-object payloads in a raw envelope for an unknown event type', () => {
-    const row = baseRow({ type: 'bogus', payload: '"just a string"' });
+    const row = generateEventHydrationData({ type: 'bogus', payload: '"just a string"' });
     const result = parseEventRow(row);
     expect(result.type).toBe('bogus');
     expect(result.payload).toStrictEqual({ raw: 'just a string' });
   });
 
   it('wraps a null payload in a raw envelope for an unknown event type', () => {
-    const row = baseRow({ type: 'bogus', payload: 'null' });
+    const row = generateEventHydrationData({ type: 'bogus', payload: 'null' });
     const result = parseEventRow(row);
     expect(result.type).toBe('bogus');
     expect(result.payload).toStrictEqual({ raw: null });
@@ -195,7 +178,7 @@ describe('parseEventRow', () => {
 
 describe('payload length limits', () => {
   it('rejects a retriggered event whose comment URL exceeds the max', () => {
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'retriggered',
       payload: JSON.stringify({
         source_comment_url: 'a'.repeat(COMMENT_URL_MAX_LENGTH + EXCEEDS_MAX_BY),
@@ -206,7 +189,7 @@ describe('payload length limits', () => {
   });
 
   it('rejects a failed event whose reason exceeds the max', () => {
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'failed',
       payload: JSON.stringify({
         reason: 'a'.repeat(REASON_MAX_LENGTH + EXCEEDS_MAX_BY),

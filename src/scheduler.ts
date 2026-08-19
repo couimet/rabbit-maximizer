@@ -5,7 +5,7 @@ import type { ProbeFactory, SchedulerProbe } from './probes/index.js';
 import type { QueueItem } from './types/index.js';
 import { computeSchedulerBackoff, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { IntervalService, PrState, QueueStatus, Resolution, TriggerSource, TYPES } from './domain.js';
+import { IntervalService, PrState, QueueStatus, Resolution, SkipReason, TriggerSource, TYPES } from './domain.js';
 import { type Pruner, ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -192,6 +192,14 @@ export class Scheduler extends IntervalService {
     const eligible = (await this.queueOrder.getEffectiveOrder()).filter((item) => item.status === QueueStatus.pending);
 
     for (const candidate of eligible) {
+      if (candidate.cooldown_until !== undefined && candidate.cooldown_until.getTime() > Date.now()) {
+        await this.skipCandidate(candidate, SkipReason.cooldown, probe);
+        continue;
+      }
+      if (Date.now() - candidate.created_at.getTime() < this.retriggerSpacingMs) {
+        await this.skipCandidate(candidate, SkipReason.settling, probe);
+        continue;
+      }
       const prState = await this.prStateFetcher.fetch(candidate.repo_full_name, candidate.pr_number, 'Scheduler.selectNextEligibleItem');
       if (prState === undefined) {
         continue;
@@ -208,6 +216,13 @@ export class Scheduler extends IntervalService {
     }
 
     return undefined;
+  }
+
+  private async skipCandidate(candidate: QueueItem, reason: SkipReason, probe: SchedulerProbe): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.queue.markRetriggerSkipped(candidate.id, reason, tx);
+    });
+    probe.retriggerSkipped(candidate, reason);
   }
 
   private async resolveTerminalCandidate(candidate: QueueItem, resolution: Resolution, prState: PrState, probe: SchedulerProbe): Promise<void> {

@@ -14,6 +14,7 @@ export { isValidTimezone } from './isValidTimezone.js';
 export { mergeByPullRequestId } from './mergeByPullRequestId.js';
 export { nullableDateToISOString } from './nullableDateToISOString.js';
 export { nullableString } from './nullableString.js';
+export { nullToUndefined } from './nullToUndefined.js';
 export { QueueItemEnricher } from './QueueItemEnricher.js';
 export type { Duration } from './resolveDurationSince.js';
 export { DEFAULT_DURATION, DURATION_OPTIONS, resolveDurationSince } from './resolveDurationSince.js';

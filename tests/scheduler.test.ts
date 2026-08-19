@@ -16,6 +16,7 @@ import {
   createMockSchedulerProbe,
   createMockSystemStateRepository,
   drainMicrotasks,
+  generateConfigData,
   generateQueueItemHydrationData,
   generateReviewRef,
 } from './helpers/index.js';
@@ -27,8 +28,13 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const pendingItem = (overrides?: Parameters<typeof generateQueueItemHydrationData>[0]) =>
-  generateQueueItemHydrationData({ status: QueueStatus.pending, ...overrides });
+  generateQueueItemHydrationData({
+    status: QueueStatus.pending,
+    created_at: new Date(Date.now() - SETTLING_WINDOW_MS * 2),
+    ...overrides,
+  });
 
+const SETTLING_WINDOW_MS = 180_000;
 const TICK_INTERVAL_MS = 10_000;
 const SHORT_DRAIN = 5;
 const BASE_BACKOFF_MS = 60_000;
@@ -73,29 +79,7 @@ const setup = (): MockSchedulerDeps => {
 
   const prStateFetcher = createMockPRStateFetcher();
 
-  const config: Config = {
-    CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600,
-    DETECTION_MODE: 'poll',
-    GITHUB_API_TIMEOUT_SEC: 10,
-    GITHUB_PAT: 'test-pat',
-    MAX_RETRIGGER_ATTEMPTS: 10,
-    PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 1800,
-    PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 900,
-    POLL_INTERVAL_SEC: 90,
-    PR_SCANNER_INTERVAL_SEC: 300,
-    REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
-    REVIEW_DETECTION_LOOKBACK_SEC: 7200,
-    DATABASE_URL: 'file:./data/test.db',
-    WEB_PORT: 3000,
-    SCHEDULER_RETRIGGER_SPACING_SEC: 180,
-    SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
-    SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
-    SCHEDULER_STALE_TICK_MULTIPLIER: 4,
-    REVIEW_LIMIT_BUFFER_SEC: 60,
-    REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
-    SCHEDULER_MAX_RETRIGGER_AGE_SEC: 259200,
-    SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000,
-  };
+  const config = generateConfigData({ SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000 });
 
   return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState, pullRequests, prStateFetcher };
 };
@@ -713,6 +697,92 @@ describe('Scheduler', () => {
         expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(1);
         expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
         expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('skips a candidate whose cooldown_until is still in the future', async () => {
+        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() + 60_000) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).toHaveBeenCalledWith(item.id, 'cooldown', deps.tx);
+        expect(deps.mockProbe.retriggerSkipped).toHaveBeenCalledWith(item, 'cooldown');
+        expect(deps.prStateFetcher.fetch).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('triggers a candidate whose cooldown_until has expired', async () => {
+        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() - 1_000) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('skips a candidate still within the settling window', async () => {
+        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - 1_000) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).toHaveBeenCalledWith(item.id, 'settling', deps.tx);
+        expect(deps.mockProbe.retriggerSkipped).toHaveBeenCalledWith(item, 'settling');
+        expect(deps.prStateFetcher.fetch).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('triggers a candidate exactly at the settling boundary', async () => {
+        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - SETTLING_WINDOW_MS) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('triggers a candidate older than the settling boundary', async () => {
+        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - SETTLING_WINDOW_MS * 3) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
 
         await stop();
       });

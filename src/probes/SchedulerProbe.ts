@@ -1,5 +1,5 @@
 import type { EventRepository } from '../db/index.js';
-import { DismissalReason, EventType, PrState } from '../domain.js';
+import { DismissalReason, EventType, PrState, SkipReason } from '../domain.js';
 import { type RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import type { ObservationContext } from '../observability/index.js';
 import type { QueueItem } from '../types/index.js';
@@ -45,6 +45,12 @@ export class SchedulerProbe {
   }
   tickSkippedCooldown(): void {
     this.log.debug({ fn: 'SchedulerProbe.tickSkippedCooldown' }, 'Tick skipped: review cooldown active');
+  }
+  retriggerSkipped(item: QueueItem, reason: SkipReason): void {
+    this.log.debug(
+      { fn: 'SchedulerProbe.retriggerSkipped', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, reason },
+      'Retrigger skipped for this candidate',
+    );
   }
   noItemsDue(): void {
     this.log.debug({ fn: 'SchedulerProbe.noItemsDue' }, 'No items due for retrigger');

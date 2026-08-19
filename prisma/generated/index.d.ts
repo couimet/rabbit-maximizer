@@ -2832,6 +2832,7 @@ export namespace Prisma {
     pull_request_id: number | null;
     pr_number: number | null;
     attempts: number | null;
+    retrigger_skip_count: number | null;
     source_comment_id: number | null;
   };
 
@@ -2840,6 +2841,7 @@ export namespace Prisma {
     pull_request_id: number | null;
     pr_number: number | null;
     attempts: number | null;
+    retrigger_skip_count: number | null;
     source_comment_id: number | null;
   };
 
@@ -2854,12 +2856,16 @@ export namespace Prisma {
     resolution: string | null;
     resolved_at: Date | null;
     attempts: number | null;
+    last_skipped_at: Date | null;
+    last_skip_reason: string | null;
+    retrigger_skip_count: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
     trigger_source: string | null;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
     retriggered_at: Date | null;
+    cooldown_until: Date | null;
     failed_at: Date | null;
     reviewed_at: Date | null;
     created_at: Date | null;
@@ -2877,12 +2883,16 @@ export namespace Prisma {
     resolution: string | null;
     resolved_at: Date | null;
     attempts: number | null;
+    last_skipped_at: Date | null;
+    last_skip_reason: string | null;
+    retrigger_skip_count: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
     trigger_source: string | null;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
     retriggered_at: Date | null;
+    cooldown_until: Date | null;
     failed_at: Date | null;
     reviewed_at: Date | null;
     created_at: Date | null;
@@ -2900,12 +2910,16 @@ export namespace Prisma {
     resolution: number;
     resolved_at: number;
     attempts: number;
+    last_skipped_at: number;
+    last_skip_reason: number;
+    retrigger_skip_count: number;
     source_comment_url: number;
     source_comment_id: number;
     trigger_source: number;
     original_source_comment_url: number;
     retrigger_comment_url: number;
     retriggered_at: number;
+    cooldown_until: number;
     failed_at: number;
     reviewed_at: number;
     created_at: number;
@@ -2918,6 +2932,7 @@ export namespace Prisma {
     pull_request_id?: true;
     pr_number?: true;
     attempts?: true;
+    retrigger_skip_count?: true;
     source_comment_id?: true;
   };
 
@@ -2926,6 +2941,7 @@ export namespace Prisma {
     pull_request_id?: true;
     pr_number?: true;
     attempts?: true;
+    retrigger_skip_count?: true;
     source_comment_id?: true;
   };
 
@@ -2940,12 +2956,16 @@ export namespace Prisma {
     resolution?: true;
     resolved_at?: true;
     attempts?: true;
+    last_skipped_at?: true;
+    last_skip_reason?: true;
+    retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
     retriggered_at?: true;
+    cooldown_until?: true;
     failed_at?: true;
     reviewed_at?: true;
     created_at?: true;
@@ -2963,12 +2983,16 @@ export namespace Prisma {
     resolution?: true;
     resolved_at?: true;
     attempts?: true;
+    last_skipped_at?: true;
+    last_skip_reason?: true;
+    retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
     retriggered_at?: true;
+    cooldown_until?: true;
     failed_at?: true;
     reviewed_at?: true;
     created_at?: true;
@@ -2986,12 +3010,16 @@ export namespace Prisma {
     resolution?: true;
     resolved_at?: true;
     attempts?: true;
+    last_skipped_at?: true;
+    last_skip_reason?: true;
+    retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
     retriggered_at?: true;
+    cooldown_until?: true;
     failed_at?: true;
     reviewed_at?: true;
     created_at?: true;
@@ -3093,12 +3121,16 @@ export namespace Prisma {
     resolution: string | null;
     resolved_at: Date | null;
     attempts: number;
+    last_skipped_at: Date | null;
+    last_skip_reason: string | null;
+    retrigger_skip_count: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source: string;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
     retriggered_at: Date | null;
+    cooldown_until: Date | null;
     failed_at: Date | null;
     reviewed_at: Date | null;
     created_at: Date;
@@ -3134,12 +3166,16 @@ export namespace Prisma {
       resolution?: boolean;
       resolved_at?: boolean;
       attempts?: boolean;
+      last_skipped_at?: boolean;
+      last_skip_reason?: boolean;
+      retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
       retriggered_at?: boolean;
+      cooldown_until?: boolean;
       failed_at?: boolean;
       reviewed_at?: boolean;
       created_at?: boolean;
@@ -3162,12 +3198,16 @@ export namespace Prisma {
       resolution?: boolean;
       resolved_at?: boolean;
       attempts?: boolean;
+      last_skipped_at?: boolean;
+      last_skip_reason?: boolean;
+      retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
       retriggered_at?: boolean;
+      cooldown_until?: boolean;
       failed_at?: boolean;
       reviewed_at?: boolean;
       created_at?: boolean;
@@ -3189,12 +3229,16 @@ export namespace Prisma {
       resolution?: boolean;
       resolved_at?: boolean;
       attempts?: boolean;
+      last_skipped_at?: boolean;
+      last_skip_reason?: boolean;
+      retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
       retriggered_at?: boolean;
+      cooldown_until?: boolean;
       failed_at?: boolean;
       reviewed_at?: boolean;
       created_at?: boolean;
@@ -3215,12 +3259,16 @@ export namespace Prisma {
     resolution?: boolean;
     resolved_at?: boolean;
     attempts?: boolean;
+    last_skipped_at?: boolean;
+    last_skip_reason?: boolean;
+    retrigger_skip_count?: boolean;
     source_comment_url?: boolean;
     source_comment_id?: boolean;
     trigger_source?: boolean;
     original_source_comment_url?: boolean;
     retrigger_comment_url?: boolean;
     retriggered_at?: boolean;
+    cooldown_until?: boolean;
     failed_at?: boolean;
     reviewed_at?: boolean;
     created_at?: boolean;
@@ -3238,12 +3286,16 @@ export namespace Prisma {
     | 'resolution'
     | 'resolved_at'
     | 'attempts'
+    | 'last_skipped_at'
+    | 'last_skip_reason'
+    | 'retrigger_skip_count'
     | 'source_comment_url'
     | 'source_comment_id'
     | 'trigger_source'
     | 'original_source_comment_url'
     | 'retrigger_comment_url'
     | 'retriggered_at'
+    | 'cooldown_until'
     | 'failed_at'
     | 'reviewed_at'
     | 'created_at'
@@ -3294,6 +3346,15 @@ export namespace Prisma {
         resolution: string | null;
         resolved_at: Date | null;
         attempts: number;
+        last_skipped_at: Date | null;
+        /**
+         * One of SkipReason values; set by markRetriggerSkipped.
+         */
+        last_skip_reason: string | null;
+        /**
+         * Times the scheduler skipped this item since enqueue.
+         */
+        retrigger_skip_count: number;
         /**
          * Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
          */
@@ -3315,6 +3376,10 @@ export namespace Prisma {
          */
         retrigger_comment_url: string | null;
         retriggered_at: Date | null;
+        /**
+         * Set by enqueue() from the source comment wait; scheduler skips pending candidates whose cooldown is active.
+         */
+        cooldown_until: Date | null;
         failed_at: Date | null;
         reviewed_at: Date | null;
         created_at: Date;
@@ -3800,12 +3865,16 @@ export namespace Prisma {
     readonly resolution: FieldRef<'ReviewQueue', 'String'>;
     readonly resolved_at: FieldRef<'ReviewQueue', 'DateTime'>;
     readonly attempts: FieldRef<'ReviewQueue', 'Int'>;
+    readonly last_skipped_at: FieldRef<'ReviewQueue', 'DateTime'>;
+    readonly last_skip_reason: FieldRef<'ReviewQueue', 'String'>;
+    readonly retrigger_skip_count: FieldRef<'ReviewQueue', 'Int'>;
     readonly source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly source_comment_id: FieldRef<'ReviewQueue', 'Int'>;
     readonly trigger_source: FieldRef<'ReviewQueue', 'String'>;
     readonly original_source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly retrigger_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly retriggered_at: FieldRef<'ReviewQueue', 'DateTime'>;
+    readonly cooldown_until: FieldRef<'ReviewQueue', 'DateTime'>;
     readonly failed_at: FieldRef<'ReviewQueue', 'DateTime'>;
     readonly reviewed_at: FieldRef<'ReviewQueue', 'DateTime'>;
     readonly created_at: FieldRef<'ReviewQueue', 'DateTime'>;
@@ -9139,12 +9208,16 @@ export namespace Prisma {
     resolution: 'resolution';
     resolved_at: 'resolved_at';
     attempts: 'attempts';
+    last_skipped_at: 'last_skipped_at';
+    last_skip_reason: 'last_skip_reason';
+    retrigger_skip_count: 'retrigger_skip_count';
     source_comment_url: 'source_comment_url';
     source_comment_id: 'source_comment_id';
     trigger_source: 'trigger_source';
     original_source_comment_url: 'original_source_comment_url';
     retrigger_comment_url: 'retrigger_comment_url';
     retriggered_at: 'retriggered_at';
+    cooldown_until: 'cooldown_until';
     failed_at: 'failed_at';
     reviewed_at: 'reviewed_at';
     created_at: 'created_at';
@@ -9419,12 +9492,16 @@ export namespace Prisma {
     resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
     resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntFilter<'ReviewQueue'> | number;
+    last_skipped_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
+    last_skip_reason?: StringNullableFilter<'ReviewQueue'> | string | null;
+    retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
     trigger_source?: StringFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
     retriggered_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
+    cooldown_until?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     failed_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     reviewed_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     created_at?: DateTimeFilter<'ReviewQueue'> | Date | string;
@@ -9444,12 +9521,16 @@ export namespace Prisma {
     resolution?: SortOrderInput | SortOrder;
     resolved_at?: SortOrderInput | SortOrder;
     attempts?: SortOrder;
+    last_skipped_at?: SortOrderInput | SortOrder;
+    last_skip_reason?: SortOrderInput | SortOrder;
+    retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrderInput | SortOrder;
     retrigger_comment_url?: SortOrderInput | SortOrder;
     retriggered_at?: SortOrderInput | SortOrder;
+    cooldown_until?: SortOrderInput | SortOrder;
     failed_at?: SortOrderInput | SortOrder;
     reviewed_at?: SortOrderInput | SortOrder;
     created_at?: SortOrder;
@@ -9473,12 +9554,16 @@ export namespace Prisma {
       resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
       resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
       attempts?: IntFilter<'ReviewQueue'> | number;
+      last_skipped_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
+      last_skip_reason?: StringNullableFilter<'ReviewQueue'> | string | null;
+      retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
       source_comment_url?: StringFilter<'ReviewQueue'> | string;
       source_comment_id?: IntFilter<'ReviewQueue'> | number;
       trigger_source?: StringFilter<'ReviewQueue'> | string;
       original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
       retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
       retriggered_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
+      cooldown_until?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
       failed_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
       reviewed_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
       created_at?: DateTimeFilter<'ReviewQueue'> | Date | string;
@@ -9500,12 +9585,16 @@ export namespace Prisma {
     resolution?: SortOrderInput | SortOrder;
     resolved_at?: SortOrderInput | SortOrder;
     attempts?: SortOrder;
+    last_skipped_at?: SortOrderInput | SortOrder;
+    last_skip_reason?: SortOrderInput | SortOrder;
+    retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrderInput | SortOrder;
     retrigger_comment_url?: SortOrderInput | SortOrder;
     retriggered_at?: SortOrderInput | SortOrder;
+    cooldown_until?: SortOrderInput | SortOrder;
     failed_at?: SortOrderInput | SortOrder;
     reviewed_at?: SortOrderInput | SortOrder;
     created_at?: SortOrder;
@@ -9531,12 +9620,16 @@ export namespace Prisma {
     resolution?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
     resolved_at?: DateTimeNullableWithAggregatesFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntWithAggregatesFilter<'ReviewQueue'> | number;
+    last_skipped_at?: DateTimeNullableWithAggregatesFilter<'ReviewQueue'> | Date | string | null;
+    last_skip_reason?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
+    retrigger_skip_count?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     source_comment_url?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     source_comment_id?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     trigger_source?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
     retriggered_at?: DateTimeNullableWithAggregatesFilter<'ReviewQueue'> | Date | string | null;
+    cooldown_until?: DateTimeNullableWithAggregatesFilter<'ReviewQueue'> | Date | string | null;
     failed_at?: DateTimeNullableWithAggregatesFilter<'ReviewQueue'> | Date | string | null;
     reviewed_at?: DateTimeNullableWithAggregatesFilter<'ReviewQueue'> | Date | string | null;
     created_at?: DateTimeWithAggregatesFilter<'ReviewQueue'> | Date | string;
@@ -10057,12 +10150,16 @@ export namespace Prisma {
     resolution?: string | null;
     resolved_at?: Date | string | null;
     attempts?: number;
+    last_skipped_at?: Date | string | null;
+    last_skip_reason?: string | null;
+    retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
     retriggered_at?: Date | string | null;
+    cooldown_until?: Date | string | null;
     failed_at?: Date | string | null;
     reviewed_at?: Date | string | null;
     created_at?: Date | string;
@@ -10082,12 +10179,16 @@ export namespace Prisma {
     resolution?: string | null;
     resolved_at?: Date | string | null;
     attempts?: number;
+    last_skipped_at?: Date | string | null;
+    last_skip_reason?: string | null;
+    retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
     retriggered_at?: Date | string | null;
+    cooldown_until?: Date | string | null;
     failed_at?: Date | string | null;
     reviewed_at?: Date | string | null;
     created_at?: Date | string;
@@ -10104,12 +10205,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10129,12 +10234,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10153,12 +10262,16 @@ export namespace Prisma {
     resolution?: string | null;
     resolved_at?: Date | string | null;
     attempts?: number;
+    last_skipped_at?: Date | string | null;
+    last_skip_reason?: string | null;
+    retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
     retriggered_at?: Date | string | null;
+    cooldown_until?: Date | string | null;
     failed_at?: Date | string | null;
     reviewed_at?: Date | string | null;
     created_at?: Date | string;
@@ -10174,12 +10287,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10197,12 +10314,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10844,12 +10965,16 @@ export namespace Prisma {
     resolution?: SortOrder;
     resolved_at?: SortOrder;
     attempts?: SortOrder;
+    last_skipped_at?: SortOrder;
+    last_skip_reason?: SortOrder;
+    retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
     retriggered_at?: SortOrder;
+    cooldown_until?: SortOrder;
     failed_at?: SortOrder;
     reviewed_at?: SortOrder;
     created_at?: SortOrder;
@@ -10861,6 +10986,7 @@ export namespace Prisma {
     pull_request_id?: SortOrder;
     pr_number?: SortOrder;
     attempts?: SortOrder;
+    retrigger_skip_count?: SortOrder;
     source_comment_id?: SortOrder;
   };
 
@@ -10875,12 +11001,16 @@ export namespace Prisma {
     resolution?: SortOrder;
     resolved_at?: SortOrder;
     attempts?: SortOrder;
+    last_skipped_at?: SortOrder;
+    last_skip_reason?: SortOrder;
+    retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
     retriggered_at?: SortOrder;
+    cooldown_until?: SortOrder;
     failed_at?: SortOrder;
     reviewed_at?: SortOrder;
     created_at?: SortOrder;
@@ -10898,12 +11028,16 @@ export namespace Prisma {
     resolution?: SortOrder;
     resolved_at?: SortOrder;
     attempts?: SortOrder;
+    last_skipped_at?: SortOrder;
+    last_skip_reason?: SortOrder;
+    retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
     retriggered_at?: SortOrder;
+    cooldown_until?: SortOrder;
     failed_at?: SortOrder;
     reviewed_at?: SortOrder;
     created_at?: SortOrder;
@@ -10915,6 +11049,7 @@ export namespace Prisma {
     pull_request_id?: SortOrder;
     pr_number?: SortOrder;
     attempts?: SortOrder;
+    retrigger_skip_count?: SortOrder;
     source_comment_id?: SortOrder;
   };
 
@@ -11724,12 +11859,16 @@ export namespace Prisma {
     resolution?: string | null;
     resolved_at?: Date | string | null;
     attempts?: number;
+    last_skipped_at?: Date | string | null;
+    last_skip_reason?: string | null;
+    retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
     retriggered_at?: Date | string | null;
+    cooldown_until?: Date | string | null;
     failed_at?: Date | string | null;
     reviewed_at?: Date | string | null;
     created_at?: Date | string;
@@ -11747,12 +11886,16 @@ export namespace Prisma {
     resolution?: string | null;
     resolved_at?: Date | string | null;
     attempts?: number;
+    last_skipped_at?: Date | string | null;
+    last_skip_reason?: string | null;
+    retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
     retriggered_at?: Date | string | null;
+    cooldown_until?: Date | string | null;
     failed_at?: Date | string | null;
     reviewed_at?: Date | string | null;
     created_at?: Date | string;
@@ -11877,12 +12020,16 @@ export namespace Prisma {
     resolution?: StringNullableFilter<'ReviewQueue'> | string | null;
     resolved_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     attempts?: IntFilter<'ReviewQueue'> | number;
+    last_skipped_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
+    last_skip_reason?: StringNullableFilter<'ReviewQueue'> | string | null;
+    retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
     trigger_source?: StringFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
     retriggered_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
+    cooldown_until?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     failed_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     reviewed_at?: DateTimeNullableFilter<'ReviewQueue'> | Date | string | null;
     created_at?: DateTimeFilter<'ReviewQueue'> | Date | string;
@@ -12247,12 +12394,16 @@ export namespace Prisma {
     resolution?: string | null;
     resolved_at?: Date | string | null;
     attempts?: number;
+    last_skipped_at?: Date | string | null;
+    last_skip_reason?: string | null;
+    retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
     retriggered_at?: Date | string | null;
+    cooldown_until?: Date | string | null;
     failed_at?: Date | string | null;
     reviewed_at?: Date | string | null;
     created_at?: Date | string;
@@ -12271,12 +12422,16 @@ export namespace Prisma {
     resolution?: string | null;
     resolved_at?: Date | string | null;
     attempts?: number;
+    last_skipped_at?: Date | string | null;
+    last_skip_reason?: string | null;
+    retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
     retriggered_at?: Date | string | null;
+    cooldown_until?: Date | string | null;
     failed_at?: Date | string | null;
     reviewed_at?: Date | string | null;
     created_at?: Date | string;
@@ -12308,12 +12463,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12332,12 +12491,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12472,12 +12635,16 @@ export namespace Prisma {
     resolution?: string | null;
     resolved_at?: Date | string | null;
     attempts?: number;
+    last_skipped_at?: Date | string | null;
+    last_skip_reason?: string | null;
+    retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
     retriggered_at?: Date | string | null;
+    cooldown_until?: Date | string | null;
     failed_at?: Date | string | null;
     reviewed_at?: Date | string | null;
     created_at?: Date | string;
@@ -12524,12 +12691,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12547,12 +12718,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12570,12 +12745,16 @@ export namespace Prisma {
     resolution?: NullableStringFieldUpdateOperationsInput | string | null;
     resolved_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     attempts?: IntFieldUpdateOperationsInput | number;
+    last_skipped_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_skip_reason?: NullableStringFieldUpdateOperationsInput | string | null;
+    retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retriggered_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    cooldown_until?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     failed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     reviewed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;

@@ -29,6 +29,9 @@ export const REASON_MAX_LENGTH = 1024;
 // Column limit for source_comment_url on review_queue.
 export const SOURCE_COMMENT_URL_MAX_LENGTH = COMMENT_URL_MAX_LENGTH;
 
+// Column limit for last_skip_reason on review_queue. Currently 'cooldown' | 'settling'; 25 opens room for future values (CHECK in the 20260819 migration).
+export const SKIP_REASON_MAX_LENGTH = 25;
+
 // Column limits for last_review_url and last_review_state on pull_request.
 // Review URL format: https://github.com/{owner}/{repo}/pull/{pr}#pullrequestreview-{id}
 export const REVIEW_URL_MAX_LENGTH = COMMENT_URL_MAX_LENGTH; // 512 — same as comment URLs

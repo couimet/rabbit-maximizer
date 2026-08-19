@@ -1,4 +1,4 @@
-import { type QueueStatus, type Resolution, type TriggerSource } from '../../src/domain.js';
+import { type QueueStatus, type Resolution, type SkipReason, type TriggerSource } from '../../src/domain.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import type { QueueItem } from '../../src/types/index.js';
 import { sqlDateToDate } from '../../src/utils/index.js';
@@ -139,6 +139,10 @@ describe('ReviewQueueToQueueItemMapper', () => {
         trigger_source: row.trigger_source as TriggerSource,
         retrigger_comment_url: row.retrigger_comment_url ?? undefined,
         retriggered_at: sqlDateToDate(row.retriggered_at),
+        cooldown_until: sqlDateToDate(row.cooldown_until),
+        last_skipped_at: sqlDateToDate(row.last_skipped_at),
+        last_skip_reason: (row.last_skip_reason as SkipReason) ?? undefined,
+        retrigger_skip_count: row.retrigger_skip_count,
         failed_at: sqlDateToDate(row.failed_at),
         reviewed_at: sqlDateToDate(row.reviewed_at),
         resolved_at: sqlDateToDate(row.resolved_at),

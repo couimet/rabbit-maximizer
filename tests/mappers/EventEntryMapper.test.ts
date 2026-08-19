@@ -2,9 +2,9 @@ import { DismissalReason, EventType } from '../../src/domain.js';
 import { EventEntryMapper } from '../../src/mappers/index.js';
 import { type DetectedPayload, type EnqueuedPayload, type FailedPayload, type RetriggeredPayload } from '../../src/types/EventPayloads.js';
 import type { EventLogEntry } from '../../src/types/index.js';
-import { generateReviewRef } from '../../tests/helpers/index.js';
+import { generateEventLogEntryHydrationData, generateReviewRef } from '../../tests/helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('EventEntryMapper', () => {
@@ -24,66 +24,30 @@ describe('EventEntryMapper', () => {
     version = getUniqueString({ prefix: 'version-' });
   });
 
-  const makeDetectedEntry = (): EventLogEntry => ({
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    ts,
-    type: EventType.detected,
-    repo_full_name: ref.repoFullName,
-    pr_number: ref.prNumber,
-    correlation_id: correlationId,
-    request_id: requestId,
-    version,
-    payload: { source_comment_url: 'https://gh/c/1' } as DetectedPayload,
-  });
+  const makeEntry = (overrides: Partial<EventLogEntry>): EventLogEntry =>
+    generateEventLogEntryHydrationData({
+      ts,
+      repo_full_name: ref.repoFullName,
+      pr_number: ref.prNumber,
+      correlation_id: correlationId,
+      version,
+      ...overrides,
+    });
 
-  const makeEnqueuedEntry = (): EventLogEntry => ({
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    ts,
-    type: EventType.enqueued,
-    repo_full_name: ref.repoFullName,
-    pr_number: ref.prNumber,
-    correlation_id: correlationId,
-    version,
-    payload: {} as EnqueuedPayload,
-  });
+  const makeDetectedEntry = (): EventLogEntry =>
+    makeEntry({ type: EventType.detected, request_id: requestId, payload: { source_comment_url: 'https://gh/c/1' } as DetectedPayload });
 
-  const makeRetriggeredEntry = (): EventLogEntry => ({
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    ts,
-    type: EventType.retriggered,
-    repo_full_name: ref.repoFullName,
-    pr_number: ref.prNumber,
-    correlation_id: correlationId,
-    version,
-    payload: { source_comment_url: 'https://gh/c/2', retriggered_comment_url: 'https://gh/c/3' } as RetriggeredPayload,
-  });
+  const makeEnqueuedEntry = (): EventLogEntry => makeEntry({ type: EventType.enqueued, payload: {} as EnqueuedPayload });
 
-  const makeFailedEntry = (): EventLogEntry => ({
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    ts,
-    type: EventType.failed,
-    repo_full_name: ref.repoFullName,
-    pr_number: ref.prNumber,
-    correlation_id: correlationId,
-    version,
-    payload: { reason: 'Rate limited' } as FailedPayload,
-  });
+  const makeRetriggeredEntry = (): EventLogEntry =>
+    makeEntry({
+      type: EventType.retriggered,
+      payload: { source_comment_url: 'https://gh/c/2', retriggered_comment_url: 'https://gh/c/3' } as RetriggeredPayload,
+    });
 
-  const makeDismissedEntry = (): EventLogEntry => ({
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    ts,
-    type: EventType.dismissed,
-    repo_full_name: ref.repoFullName,
-    pr_number: ref.prNumber,
-    correlation_id: correlationId,
-    version,
-    payload: { reason: DismissalReason.prMerged },
-  });
+  const makeFailedEntry = (): EventLogEntry => makeEntry({ type: EventType.failed, payload: { reason: 'Rate limited' } as FailedPayload });
+
+  const makeDismissedEntry = (): EventLogEntry => makeEntry({ type: EventType.dismissed, payload: { reason: DismissalReason.prMerged } });
 
   describe('mapToEventEntryResponse', () => {
     it('maps shared envelope fields', () => {

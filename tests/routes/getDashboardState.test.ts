@@ -11,6 +11,7 @@ import {
   createMockQueueRepo,
   createMockSystemStateRepository,
   fetchResponse,
+  generateConfigData,
   generateQueueItemHydrationData,
   generateTrackedPrRow,
   getJson,
@@ -21,31 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'node:http';
 
-const ACCOUNT_COOLDOWN_SEC = 3600;
-
-const STALE_CONFIG: Config = {
-  CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
-  DATABASE_URL: 'file:./data/test.db',
-  DETECTION_MODE: 'poll',
-  GITHUB_API_TIMEOUT_SEC: 10,
-  GITHUB_PAT: 'test-pat',
-  MAX_RETRIGGER_ATTEMPTS: 10,
-  PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 1800,
-  PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 900,
-  POLL_INTERVAL_SEC: 90,
-  PR_SCANNER_INTERVAL_SEC: 300,
-  REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
-  REVIEW_DETECTION_LOOKBACK_SEC: 7200,
-  REVIEW_LIMIT_BUFFER_SEC: 60,
-  REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
-  SCHEDULER_MAX_RETRIGGER_AGE_SEC: 259200,
-  SCHEDULER_RETRIGGER_SPACING_SEC: 180,
-  SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
-  SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
-  SCHEDULER_STALE_TICK_MULTIPLIER: 4,
-  SCHEDULER_TICK_INTERVAL_SEC: 10,
-  WEB_PORT: 3000,
-};
+const STALE_CONFIG = generateConfigData();
 
 const STALE_TICK_MULTIPLIER = STALE_CONFIG.SCHEDULER_STALE_TICK_MULTIPLIER;
 const TICK_INTERVAL_SEC = STALE_CONFIG.SCHEDULER_TICK_INTERVAL_SEC;

@@ -1,6 +1,6 @@
-import type { QueueStatus, Resolution, TriggerSource } from '../domain.js';
+import type { QueueStatus, Resolution, SkipReason, TriggerSource } from '../domain.js';
 import type { QueueItem } from '../types/index.js';
-import { sqlDateToDate } from '../utils/index.js';
+import { nullToUndefined, sqlDateToDate } from '../utils/index.js';
 
 import type { ReviewQueue } from '@prisma/client';
 import { injectable } from 'inversify';
@@ -22,14 +22,18 @@ export class ReviewQueueToQueueItemMapper {
       attempts: row.attempts,
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,
-      original_source_comment_url: row.original_source_comment_url ?? undefined,
+      original_source_comment_url: nullToUndefined(row.original_source_comment_url),
       trigger_source: row.trigger_source as TriggerSource,
-      retrigger_comment_url: row.retrigger_comment_url ?? undefined,
+      retrigger_comment_url: nullToUndefined(row.retrigger_comment_url),
       retriggered_at: sqlDateToDate(row.retriggered_at),
+      cooldown_until: sqlDateToDate(row.cooldown_until),
+      last_skipped_at: sqlDateToDate(row.last_skipped_at),
+      last_skip_reason: nullToUndefined(row.last_skip_reason as SkipReason),
+      retrigger_skip_count: row.retrigger_skip_count,
       failed_at: sqlDateToDate(row.failed_at),
       reviewed_at: sqlDateToDate(row.reviewed_at),
       resolved_at: sqlDateToDate(row.resolved_at),
-      resolution: (row.resolution as Resolution) ?? undefined,
+      resolution: nullToUndefined(row.resolution as Resolution),
       // TODO[2026-08-22]: #79 - remove ! once pull_request_id backfill is complete
       pull_request_id: row.pull_request_id!,
       created_at: row.created_at,

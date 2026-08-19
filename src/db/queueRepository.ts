@@ -1,4 +1,4 @@
-import { QueueStatus, Resolution, TriggerSource, TYPES } from '../domain.js';
+import { QueueStatus, Resolution, SkipReason, TriggerSource, TYPES } from '../domain.js';
 import { BasePrismaRepository, PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
 import type { ProbeFactory } from '../probes/index.js';
@@ -17,6 +17,7 @@ const ACTIVE_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatu
 export interface QueueRepository {
   enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markRetriggerSkipped(id: number, reason: SkipReason, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markResolved(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markResolvedByUuid(uuid: string, resolution: Resolution, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -125,6 +126,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               source_comment_url: sourceCommentUrl,
               source_comment_id: sourceCommentId,
               trigger_source: TriggerSource.scheduler,
+              cooldown_until: data.cooldownUntil ?? null,
             },
           }),
         'QueueRepositoryImpl.enqueue',
@@ -177,6 +179,10 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               resolution: null,
               resolved_at: null,
               pr_title: prTitle,
+              cooldown_until: data.cooldownUntil ?? null,
+              last_skipped_at: null,
+              last_skip_reason: null,
+              retrigger_skip_count: 0,
             },
           });
 
@@ -211,6 +217,23 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       'QueueRepositoryImpl.markRetriggered',
     );
     this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil, retriggerCommentUrl }, 'Marked review retriggered');
+    return this.mapper.fromReviewQueue(row);
+  }
+
+  async markRetriggerSkipped(id: number, reason: SkipReason, tx: Prisma.TransactionClient): Promise<QueueItem> {
+    const row = await this.withPrismaErrorHandling(
+      () =>
+        this.client(tx).reviewQueue.update({
+          where: { id },
+          data: {
+            last_skipped_at: new Date(),
+            last_skip_reason: reason,
+            retrigger_skip_count: { increment: 1 },
+          },
+        }),
+      'QueueRepositoryImpl.markRetriggerSkipped',
+    );
+    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggerSkipped', id, reason }, 'Marked review retrigger skipped');
     return this.mapper.fromReviewQueue(row);
   }
 
