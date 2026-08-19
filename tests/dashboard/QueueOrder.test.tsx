@@ -102,13 +102,13 @@ describe('QueueOrder', () => {
       expect(link).toHaveAttribute('target', '_blank');
     });
 
-    it('shows heading with counts derived from item statuses', () => {
-      const pendingItem1 = makeQueueItem({ status: 'pending' });
-      const pendingItem2 = makeQueueItem({ status: 'pending' });
-      const retriggeredItem = makeQueueItem({ status: 'retriggered' });
+    it('shows heading with total count', () => {
+      const item1 = makeQueueItem({ status: 'pending' });
+      const item2 = makeQueueItem({ status: 'pending' });
+      const item3 = makeQueueItem({ status: 'retriggered' });
       render(
         <QueueOrder
-          items={[pendingItem1, pendingItem2, retriggeredItem]}
+          items={[item1, item2, item3]}
           schedulerStale={false}
           lastUpdatedAt={null}
           lastSchedulerTickAt={null}
@@ -336,6 +336,17 @@ describe('QueueOrder', () => {
 
       await waitFor(() => {
         expect(onMoveComplete).toHaveBeenCalled();
+      });
+    });
+
+    it('shows success toast after move', async () => {
+      createMockFetch(200, moveResponse());
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
+
+      fireEvent.click(screen.getAllByLabelText('Move up')[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Moved up')).toBeInTheDocument();
       });
     });
 
