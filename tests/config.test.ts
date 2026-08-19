@@ -34,7 +34,7 @@ describe('parseConfig', () => {
   it('fails when GITHUB_PAT is missing', () => {
     const result = parseConfig(env(BASE, { GITHUB_PAT: undefined }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['GITHUB_PAT: GITHUB_PAT is required'] },
@@ -44,7 +44,7 @@ describe('parseConfig', () => {
   it('fails when DETECTION_MODE is invalid', () => {
     const result = parseConfig(env(BASE, { DETECTION_MODE: 'invalid' }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['DETECTION_MODE: Invalid option: expected one of "poll"|"webhook"'] },
@@ -54,7 +54,7 @@ describe('parseConfig', () => {
   it('fails when DETECTION_MODE=webhook and WEBHOOK_SECRET is missing', () => {
     const result = parseConfig(env(BASE, { DETECTION_MODE: 'webhook' }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: {
@@ -66,7 +66,7 @@ describe('parseConfig', () => {
   it('fails when DETECTION_MODE=webhook and TUNNEL_URL is missing', () => {
     const result = parseConfig(env(BASE, { DETECTION_MODE: 'webhook', WEBHOOK_SECRET: webhookSecret }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['TUNNEL_URL: TUNNEL_URL is required when DETECTION_MODE=webhook'] },
@@ -76,7 +76,7 @@ describe('parseConfig', () => {
   it('fails when GITHUB_PAT is empty string', () => {
     const result = parseConfig(env(BASE, { GITHUB_PAT: '' }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['GITHUB_PAT: GITHUB_PAT is required'] },
@@ -86,7 +86,7 @@ describe('parseConfig', () => {
   it('fails when WEB_PORT is zero', () => {
     const result = parseConfig({ ...BASE, WEB_PORT: '0' });
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['WEB_PORT: WEB_PORT must be a positive integer'] },
@@ -96,7 +96,7 @@ describe('parseConfig', () => {
   it('fails when WEB_PORT is negative', () => {
     const result = parseConfig({ ...BASE, WEB_PORT: '-5' });
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['WEB_PORT: WEB_PORT must be a positive integer'] },
@@ -106,7 +106,7 @@ describe('parseConfig', () => {
   it('fails when WEB_PORT is non-numeric', () => {
     const result = parseConfig({ ...BASE, WEB_PORT: 'abc' });
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['WEB_PORT: Invalid input: expected number, received NaN'] },
@@ -156,7 +156,7 @@ describe('parseConfig', () => {
   it('fails when REPO_FILTER is missing', () => {
     const result = parseConfig(env(BASE, { REPO_FILTER: undefined }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['REPO_FILTER: REPO_FILTER must have at least one entry'] },
@@ -166,7 +166,7 @@ describe('parseConfig', () => {
   it('fails when REPO_FILTER is an empty array', () => {
     const result = parseConfig(env(BASE, { REPO_FILTER: '[]' }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['REPO_FILTER: REPO_FILTER must have at least one entry'] },
@@ -176,7 +176,7 @@ describe('parseConfig', () => {
   it('fails when REPO_FILTER is a malformed JSON array rather than treating it as a bare pattern', () => {
     const result = parseConfig(env(BASE, { REPO_FILTER: '["couimet/*"' }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['REPO_FILTER: REPO_FILTER must have at least one entry'] },
@@ -203,7 +203,7 @@ describe('parseConfig', () => {
   it('falls back to empty array when REPO_FILTER JSON is not a string array', () => {
     const result = parseConfig(env(BASE, { REPO_FILTER: '[1,2,3]' }));
 
-    expect(result.error).toBeDetailedError('CONFIG_VALIDATION_FAILED', {
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
       message: 'Config validation failed',
       functionName: 'parseConfig',
       details: { issues: ['REPO_FILTER: REPO_FILTER must have at least one entry'] },

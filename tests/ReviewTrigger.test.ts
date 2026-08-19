@@ -72,8 +72,7 @@ describe('ReviewTrigger', () => {
 
     const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
 
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({ retriggeredCommentUrl: commentUrl });
+    expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
     expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, tx);
     expect(logger.info).toHaveBeenCalledWith(
@@ -157,8 +156,7 @@ describe('ReviewTrigger', () => {
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({ retriggeredCommentUrl: commentUrl });
+    expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
