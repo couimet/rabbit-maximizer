@@ -102,13 +102,13 @@ describe('QueueOrder', () => {
       expect(link).toHaveAttribute('target', '_blank');
     });
 
-    it('shows heading with counts derived from item statuses', () => {
-      const pendingItem1 = makeQueueItem({ status: 'pending' });
-      const pendingItem2 = makeQueueItem({ status: 'pending' });
-      const retriggeredItem = makeQueueItem({ status: 'retriggered' });
+    it('shows heading with total count', () => {
+      const item1 = makeQueueItem({ status: 'pending' });
+      const item2 = makeQueueItem({ status: 'pending' });
+      const item3 = makeQueueItem({ status: 'retriggered' });
       render(
         <QueueOrder
-          items={[pendingItem1, pendingItem2, retriggeredItem]}
+          items={[item1, item2, item3]}
           schedulerStale={false}
           lastUpdatedAt={null}
           lastSchedulerTickAt={null}
@@ -117,7 +117,7 @@ describe('QueueOrder', () => {
           paused={false}
         />,
       );
-      expect(screen.getByRole('heading', { name: 'Queue Order — 2 pending, 1 retriggered' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Queue Order — 3 items' })).toBeInTheDocument();
     });
 
     it('renders up and down arrow buttons per row', () => {
@@ -339,6 +339,17 @@ describe('QueueOrder', () => {
       });
     });
 
+    it('shows success toast after move', async () => {
+      createMockFetch(200, moveResponse());
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
+
+      fireEvent.click(screen.getAllByLabelText('Move up')[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Moved up')).toBeInTheDocument();
+      });
+    });
+
     it('calls moveQueueItems with correct args on single down click', async () => {
       createMockFetch(200, moveResponse());
       renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
@@ -423,7 +434,7 @@ describe('QueueOrder', () => {
       expect(screen.getByText('Status')).toBeInTheDocument();
     });
 
-    it('applies row-waiting class to positions greater than 1', () => {
+    it('renders carrots for positions beyond the first', () => {
       renderQueueOrder({
         items: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })],
         onMoveComplete: defaultOnMoveComplete,
@@ -432,11 +443,10 @@ describe('QueueOrder', () => {
         lastUpdatedAt: null,
         lastSchedulerTickAt: null,
       });
-      const rows = screen.getAllByRole('row');
-      expect(rows[2].classList.contains('row-waiting')).toBe(true);
+      expect(screen.getByText('🥕')).toBeInTheDocument();
     });
 
-    it('does not apply row-waiting class to position 1', () => {
+    it('renders status pill at position 1', () => {
       renderQueueOrder({
         items: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })],
         onMoveComplete: defaultOnMoveComplete,

@@ -28,6 +28,7 @@ export { isApprovalReviewSignal } from './isApprovalReviewSignal.js';
 export { isCompletedReview } from './isCompletedReview.js';
 export { isMatchingCompletedReview } from './isMatchingCompletedReview.js';
 export { normalizeCommentBody } from './normalizeCommentBody.js';
+export { parseCommentUrl } from './parseCommentUrl.js';
 export { parseGitHubRateLimitError } from './parseGitHubRateLimitError.js';
 export { parseWaitSeconds } from './parseWaitSeconds.js';
 export type { PRStateFetcher } from './PRStateFetcher.js';

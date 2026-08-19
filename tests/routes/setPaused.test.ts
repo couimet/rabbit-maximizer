@@ -36,7 +36,7 @@ describe('setPaused', () => {
     const res = await postJson(port, '/api/pause', { paused: true });
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({ paused: true });
-    expect(pauseScheduler).toHaveBeenCalledWith();
+    expect(pauseScheduler).toHaveBeenCalledWith(undefined);
     expect(logger.info).toHaveBeenCalledWith({ fn: 'api.pause' }, 'Scheduler paused');
   });
 
@@ -47,7 +47,7 @@ describe('setPaused', () => {
     const res = await postJson(port, '/api/pause', { paused: false });
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({ paused: false });
-    expect(resumeScheduler).toHaveBeenCalledWith();
+    expect(resumeScheduler).toHaveBeenCalledWith(undefined);
     expect(logger.info).toHaveBeenCalledWith({ fn: 'api.pause' }, 'Scheduler resumed');
   });
 

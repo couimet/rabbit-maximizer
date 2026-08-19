@@ -3,6 +3,7 @@ import { z } from 'zod';
 // Keep keys alphabetically sorted.
 export const ConfigSchema = z
   .object({
+    CODERABBIT_ACCOUNT_COOLDOWN_SEC: z.coerce.number().int().positive('CODERABBIT_ACCOUNT_COOLDOWN_SEC must be a positive integer').default(3600),
     DATABASE_URL: z.string().min(1).default('file:./data/rabbit-maximizer.db'),
     DETECTION_MODE: z.enum(['poll', 'webhook']).default('poll'),
     GITHUB_API_TIMEOUT_SEC: z.coerce.number().int().positive('GITHUB_API_TIMEOUT_SEC must be a positive integer').default(10),
@@ -31,7 +32,6 @@ export const ConfigSchema = z
       )
       .min(1, 'REPO_FILTER must have at least one entry'),
     SCHEDULER_MAX_RETRIGGER_AGE_SEC: z.coerce.number().int().positive('SCHEDULER_MAX_RETRIGGER_AGE_SEC must be a positive integer').default(259200),
-    SCHEDULER_POST_COOLDOWN_SEC: z.coerce.number().int().positive('SCHEDULER_POST_COOLDOWN_SEC must be a positive integer').default(3600),
     SCHEDULER_RETRIGGER_SPACING_SEC: z.coerce.number().int().positive('SCHEDULER_RETRIGGER_SPACING_SEC must be a positive integer').default(180),
     SCHEDULER_RETRY_BACKOFF_BASE_SEC: z.coerce.number().int().positive('SCHEDULER_RETRY_BACKOFF_BASE_SEC must be a positive integer').default(60),
     SCHEDULER_RETRY_BACKOFF_MAX_SEC: z.coerce.number().int().positive('SCHEDULER_RETRY_BACKOFF_MAX_SEC must be a positive integer').default(3600),
@@ -58,18 +58,18 @@ export const ConfigSchema = z
       });
     }
 
-    if (cfg.SCHEDULER_RETRIGGER_SPACING_SEC >= cfg.SCHEDULER_POST_COOLDOWN_SEC) {
+    if (cfg.SCHEDULER_RETRIGGER_SPACING_SEC >= cfg.CODERABBIT_ACCOUNT_COOLDOWN_SEC) {
       ctx.addIssue({
         code: 'custom',
-        message: 'SCHEDULER_RETRIGGER_SPACING_SEC must be < SCHEDULER_POST_COOLDOWN_SEC',
+        message: 'SCHEDULER_RETRIGGER_SPACING_SEC must be < CODERABBIT_ACCOUNT_COOLDOWN_SEC',
         path: ['SCHEDULER_RETRIGGER_SPACING_SEC'],
       });
     }
 
-    if (cfg.REVIEW_DETECTION_LOOKBACK_SEC > cfg.SCHEDULER_POST_COOLDOWN_SEC * 2) {
+    if (cfg.REVIEW_DETECTION_LOOKBACK_SEC > cfg.CODERABBIT_ACCOUNT_COOLDOWN_SEC * 2) {
       ctx.addIssue({
         code: 'custom',
-        message: 'REVIEW_DETECTION_LOOKBACK_SEC must be <= SCHEDULER_POST_COOLDOWN_SEC * 2',
+        message: 'REVIEW_DETECTION_LOOKBACK_SEC must be <= CODERABBIT_ACCOUNT_COOLDOWN_SEC * 2',
         path: ['REVIEW_DETECTION_LOOKBACK_SEC'],
       });
     }

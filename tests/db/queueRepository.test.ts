@@ -898,11 +898,37 @@ describe('QueueRepositoryImpl', () => {
       const commentId = getUniqueInt();
       const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
-      const result = await sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
         data: { attempts: { increment: 1 }, source_comment_id: commentId, source_comment_url: commentUrl, retriggered_at: frozenNow },
+      });
+      expect(result.id).toBe(row.id);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
+    });
+
+    it('passes a concrete original source comment URL through to the update data', async () => {
+      const row = generateReviewQueueHydrationData();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { update: createResolvedMock(row) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const commentId = getUniqueInt();
+      const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+      const originalSourceCommentUrl = getUniqueString({ prefix: 'https://github.com/' });
+
+      const result = await sut.reschedule(row.id, { commentId, commentUrl }, originalSourceCommentUrl, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: row.id },
+        data: {
+          attempts: { increment: 1 },
+          source_comment_id: commentId,
+          source_comment_url: commentUrl,
+          original_source_comment_url: originalSourceCommentUrl,
+          retriggered_at: frozenNow,
+        },
       });
       expect(result.id).toBe(row.id);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.reschedule', id: row.id }, 'Rescheduled review');
@@ -919,6 +945,7 @@ describe('QueueRepositoryImpl', () => {
         sut.reschedule(
           getUniqueInt(),
           { commentId: getUniqueInt(), commentUrl: getUniqueString({ prefix: 'https://gh/c/' }) },
+          undefined,
           prisma as unknown as Prisma.TransactionClient,
         ),
       ).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
@@ -948,7 +975,7 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const result = await sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.update).toHaveBeenCalledTimes(2);
       expect(reviewQueue.update).toHaveBeenNthCalledWith(2, {
@@ -977,7 +1004,7 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      await expect(sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+      await expect(sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002',
         {
           message: "Unique constraint violation in table 'ReviewQueue'",
@@ -1011,7 +1038,7 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      await expect(sut.reschedule(row.id, { commentId, commentUrl }, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
+      await expect(sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002',
         {
           message: "Unique constraint violation in table 'ReviewQueue'",

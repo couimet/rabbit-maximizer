@@ -52,7 +52,7 @@ export class EnqueueService {
     await this.prisma.$transaction(async (tx) => {
       await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
 
-      const classification = classifyCoderabbitComment(comment.body);
+      const { classification } = classifyCoderabbitComment(comment.body);
 
       await this.coderabbitComments.upsert(
         {

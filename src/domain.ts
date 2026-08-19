@@ -14,6 +14,7 @@ export { FallbackReason } from './FallbackReason.js';
 export { IntervalService } from './IntervalService.js';
 export { TYPES } from './inversify-types.js';
 export { isProduction } from './isProduction.js';
+export { MatchedMarker } from './MatchedMarker.js';
 export { getPrStateFromGitHubValue, PrState } from './PrState.js';
 export { QueueStatus } from './QueueStatus.js';
 export { RabbitResult } from './RabbitResult.js';

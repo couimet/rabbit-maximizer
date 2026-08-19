@@ -60,6 +60,7 @@ const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
 export const parseConfig = (raw: Record<string, string | undefined>): RabbitResult<Config> => {
   // Keep alphabetically sorted by key.
   const prepped = {
+    CODERABBIT_ACCOUNT_COOLDOWN_SEC: emptyToUndefined(raw.CODERABBIT_ACCOUNT_COOLDOWN_SEC),
     DATABASE_URL: emptyToUndefined(raw.DATABASE_URL),
     DETECTION_MODE: emptyToUndefined(raw.DETECTION_MODE),
     GITHUB_API_TIMEOUT_SEC: emptyToUndefined(raw.GITHUB_API_TIMEOUT_SEC),
@@ -74,7 +75,6 @@ export const parseConfig = (raw: Record<string, string | undefined>): RabbitResu
     REVIEW_LIMIT_BUFFER_SEC: emptyToUndefined(raw.REVIEW_LIMIT_BUFFER_SEC),
     REVIEW_LIMIT_FALLBACK_WAIT_SEC: emptyToUndefined(raw.REVIEW_LIMIT_FALLBACK_WAIT_SEC),
     SCHEDULER_MAX_RETRIGGER_AGE_SEC: emptyToUndefined(raw.SCHEDULER_MAX_RETRIGGER_AGE_SEC),
-    SCHEDULER_POST_COOLDOWN_SEC: emptyToUndefined(raw.SCHEDULER_POST_COOLDOWN_SEC),
     SCHEDULER_RETRIGGER_SPACING_SEC: emptyToUndefined(raw.SCHEDULER_RETRIGGER_SPACING_SEC),
     SCHEDULER_RETRY_BACKOFF_BASE_SEC: emptyToUndefined(raw.SCHEDULER_RETRY_BACKOFF_BASE_SEC),
     SCHEDULER_RETRY_BACKOFF_MAX_SEC: emptyToUndefined(raw.SCHEDULER_RETRY_BACKOFF_MAX_SEC),
@@ -111,6 +111,7 @@ export const exitWithConfigErrors = (error: RabbitMaximizerError): never => {
 
 // Keep alphabetically sorted by key.
 const parsed = parseConfig({
+  CODERABBIT_ACCOUNT_COOLDOWN_SEC: process.env.CODERABBIT_ACCOUNT_COOLDOWN_SEC,
   DATABASE_URL: process.env.DATABASE_URL,
   DETECTION_MODE: process.env.DETECTION_MODE,
   GITHUB_API_TIMEOUT_SEC: process.env.GITHUB_API_TIMEOUT_SEC,
@@ -125,7 +126,6 @@ const parsed = parseConfig({
   REVIEW_LIMIT_BUFFER_SEC: process.env.REVIEW_LIMIT_BUFFER_SEC,
   REVIEW_LIMIT_FALLBACK_WAIT_SEC: process.env.REVIEW_LIMIT_FALLBACK_WAIT_SEC,
   SCHEDULER_MAX_RETRIGGER_AGE_SEC: process.env.SCHEDULER_MAX_RETRIGGER_AGE_SEC,
-  SCHEDULER_POST_COOLDOWN_SEC: process.env.SCHEDULER_POST_COOLDOWN_SEC,
   SCHEDULER_RETRIGGER_SPACING_SEC: process.env.SCHEDULER_RETRIGGER_SPACING_SEC,
   SCHEDULER_RETRY_BACKOFF_BASE_SEC: process.env.SCHEDULER_RETRY_BACKOFF_BASE_SEC,
   SCHEDULER_RETRY_BACKOFF_MAX_SEC: process.env.SCHEDULER_RETRY_BACKOFF_MAX_SEC,

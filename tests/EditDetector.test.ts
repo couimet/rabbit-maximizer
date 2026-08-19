@@ -19,8 +19,7 @@ describe('EditDetector', () => {
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({ action: 'fallback', reason: 'not_found' });
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_found' });
     expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
     expect(github.fetchComment).not.toHaveBeenCalled();
   });
@@ -39,13 +38,12 @@ describe('EditDetector', () => {
       is_not_deleted: true,
     } as any);
     // Fresh fetch returns an updatedAt <= last_seen_at, so the NotEdited guard fires
-    github.fetchComment.mockResolvedValue({ body: '', updatedAt: lastSeenAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: '', createdAt: lastSeenAt.toISOString(), updatedAt: lastSeenAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({ action: 'fallback', reason: 'not_edited' });
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_edited' });
     expect(github.fetchComment).toHaveBeenCalled();
   });
 
@@ -68,13 +66,12 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({
+    expect(result).toBeSuccess({
       action: 'resolved',
       reviewUrl: ref.commentUrl,
       verdictState: 'review_approved',
@@ -111,13 +108,12 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({
+    expect(result).toBeSuccess({
       action: 'resolved',
       reviewUrl: ref.commentUrl,
       verdictState: 'review_changes_suggested',
@@ -153,13 +149,12 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({ action: 'fallback', reason: 'not_a_review' });
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_a_review' });
     expect(comments.upsert).toHaveBeenCalledWith({
       comment_id: commentId,
       pull_request_id: item.pull_request_id,
@@ -192,7 +187,7 @@ describe('EditDetector', () => {
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result.error).toBeDetailedError('EDIT_DETECTION_FAILED', {
+    expect(result).toHaveDetailedError('EDIT_DETECTION_FAILED', {
       message: 'Edit detection failed',
       functionName: 'EditDetectorImpl.detectEdit',
       details: {
@@ -222,13 +217,12 @@ describe('EditDetector', () => {
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
     } as any);
-    github.fetchComment.mockResolvedValue({ body: fetchBody, updatedAt: ghUpdatedAt.toISOString() });
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result.success).toBe(true);
-    expect(result.value).toStrictEqual({ action: 'skipped', reviewUrl: ref.commentUrl });
+    expect(result).toBeSuccess({ action: 'skipped', reviewUrl: ref.commentUrl });
     expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
     expect(github.fetchComment).toHaveBeenCalledWith(ref.owner, ref.repo, commentId);
     expect(comments.upsert).toHaveBeenCalledWith({

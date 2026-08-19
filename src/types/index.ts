@@ -15,8 +15,11 @@ export type {
   SummaryResponse,
 } from './api.js';
 export type { CoderabbitReviewVerdict, CoderabbitReviewVerdictState } from './CoderabbitReviewVerdict.js';
+export type { CommentClassification } from './CommentClassification.js';
 export type { CommentDetails } from './CommentDetails.js';
+export type { CommentDiagnosis } from './CommentDiagnosis.js';
 export type { CreateSkippedData } from './CreateSkippedData.js';
+export type { DashboardSystemState } from './DashboardSystemState.js';
 export type { DetectedComment } from './DetectedComment.js';
 export type { DirectCheckPR } from './DirectCheckPR.js';
 export type { DiscoveredPR } from './DiscoveredPR.js';
@@ -39,6 +42,8 @@ export type {
   FailedPayload,
   RetriggeredPayload,
 } from './EventPayloads.js';
+export type { FormatRelativeTimeGranularity } from './FormatRelativeTimeGranularity.js';
+export type { FormatRelativeTimeOptions } from './FormatRelativeTimeOptions.js';
 export type { OnDetectedCallback } from './OnDetectedCallback.js';
 export type { PaginatedResult } from './PaginatedResult.js';
 export type { PendingAcknowledgement } from './PendingAcknowledgement.js';
@@ -49,6 +54,8 @@ export type { QueueItem } from './QueueItem.js';
 export type { ReEnqueueAction } from './ReEnqueueAction.js';
 export type { ReEnqueueDecision } from './ReEnqueueDecision.js';
 export type { RepoFilter } from './RepoFilter.js';
+export type { RetriggerDecision } from './RetriggerDecision.js';
+export type { RetriggerDiagnosis } from './RetriggerDiagnosis.js';
 export type { ReviewLimitCandidate } from './ReviewLimitCandidate.js';
 export type { ReviewLimitComment } from './ReviewLimitComment.js';
 export type { ScannedPR } from './ScannedPR.js';
