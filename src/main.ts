@@ -1,5 +1,11 @@
-import type { EventRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
-import { type EventCountsMapper, type EventEntryMapper, type QueueItemMapper, ReviewQueueToActivityListItemMapper } from './mappers/index.js';
+import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import {
+  type EventCountsMapper,
+  type EventEntryMapper,
+  type QueueItemMapper,
+  ReviewQueueToActivityListItemMapper,
+  type TrackedPrMapper,
+} from './mappers/index.js';
 import { describeDatabaseUrl } from './utils/index.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
@@ -52,11 +58,13 @@ const queueRepo = container.get<QueueRepository>(TYPES.QueueRepository);
 const queueOrderRepo = container.get<QueueOrderRepository>(TYPES.QueueOrderRepository);
 const eventRepo = container.get<EventRepository>(TYPES.EventRepository);
 const systemStateRepo = container.get<SystemStateRepository>(TYPES.SystemStateRepository);
+const pullRequestRepo = container.get<PullRequestRepository>(TYPES.PullRequestRepository);
 const reviewTrigger = container.get<ReviewTrigger>(TYPES.ReviewTrigger);
 const eventCountsMapper = container.get<EventCountsMapper>(TYPES.EventCountsMapper);
 const eventEntryMapper = container.get<EventEntryMapper>(TYPES.EventEntryMapper);
 const activityListMapper = container.get<ReviewQueueToActivityListItemMapper>(TYPES.ReviewQueueToActivityListItemMapper);
 const queueItemMapper = container.get<QueueItemMapper>(TYPES.QueueItemMapper);
+const trackedPrMapper = container.get<TrackedPrMapper>(TYPES.TrackedPrMapper);
 const appLogger = container.get<Logger>(TYPES.Logger);
 
 const { stop: stopServer } = await setupExpress({
@@ -66,11 +74,13 @@ const { stop: stopServer } = await setupExpress({
   eventEntryMapper,
   eventRepo,
   prisma,
+  pullRequestRepo,
   queueItemMapper,
   queueOrderRepo,
   queueRepo,
   reviewTrigger,
   systemStateRepo,
+  trackedPrMapper,
   logger: appLogger,
   port: config.WEB_PORT,
 });

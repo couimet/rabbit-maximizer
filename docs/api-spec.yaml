@@ -601,7 +601,7 @@ components:
 
     DashboardState:
       type: object
-      required: [lastSchedulerTickAt, nextReviewAvailableAt, pendingItems, skippedItems, eventCounts, paused, schedulerStale]
+      required: [lastSchedulerTickAt, nextReviewAvailableAt, pendingItems, skippedItems, eventCounts, paused, schedulerStale, trackedPrs]
       properties:
         lastSchedulerTickAt:
           type: string
@@ -625,6 +625,31 @@ components:
           type: boolean
         schedulerStale:
           type: boolean
+        trackedPrs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackedPr'
+      additionalProperties: false
+
+    TrackedPr:
+      type: object
+      required: [repo_full_name, pr_number, title, author_login]
+      properties:
+        repo_full_name:
+          type: string
+        pr_number:
+          type: integer
+        title:
+          type: string
+        author_login:
+          type: string
+        last_review_state:
+          type: string
+          nullable: true
+        last_coderabbit_review_at:
+          type: string
+          format: date-time
+          nullable: true
       additionalProperties: false
 
     PauseRequest:

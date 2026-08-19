@@ -1,16 +1,18 @@
 import type { Config } from '../../src/config.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { EventCountsMapper } from '../../src/mappers/index.js';
+import { EventCountsMapper, TrackedPrMapper } from '../../src/mappers/index.js';
 import { createGetDashboardStateHandler } from '../../src/routes/index.js';
 import {
   apiJson,
   createMockEventRepo,
+  createMockPullRequestRepo,
   createMockQueueItemMapper,
   createMockQueueOrderRepo,
   createMockQueueRepo,
   createMockSystemStateRepository,
   fetchResponse,
   generateQueueItemHydrationData,
+  generateTrackedPrRow,
   getJson,
 } from '../helpers/index.js';
 
@@ -73,6 +75,7 @@ describe('getDashboardState', () => {
     eventRepoOver: Record<string, unknown> = {},
     systemStateRepoOver: Record<string, unknown> = {},
     queueRepoOver: Record<string, unknown> = {},
+    pullRequestRepoOver: Record<string, unknown> = {},
     config?: Config,
   ) => {
     const mergedSystemState = {
@@ -87,8 +90,10 @@ describe('getDashboardState', () => {
           createMockQueueRepo(queueRepoOver as any),
           createMockEventRepo(eventRepoOver as any),
           createMockSystemStateRepository(mergedSystemState as any),
+          createMockPullRequestRepo(pullRequestRepoOver as any),
           queueItemMapper,
           eventCountsMapper,
+          new TrackedPrMapper(),
           logger,
           config ?? STALE_CONFIG,
         ),
@@ -124,6 +129,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)),
       skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
       paused: false,
     });
@@ -141,6 +147,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: [],
       skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -172,6 +179,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)),
       skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -202,6 +210,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: [],
       skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 1, enqueued: 2, retriggered: 3, failed: 6 },
       paused: false,
     });
@@ -265,6 +274,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: [],
       skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: true,
     });
@@ -332,6 +342,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: [],
       skippedItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(skipped)),
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -380,6 +391,7 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: futureNextReview.toISOString(),
       pendingItems: [],
       skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -403,10 +415,39 @@ describe('getDashboardState', () => {
       nextReviewAvailableAt: null,
       pendingItems: [],
       skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
 
     expect(getDashboardSystemState).toHaveBeenCalledWith();
+  });
+
+  it('maps tracked PR rows through TrackedPrMapper', async () => {
+    const reviewAt = new Date('2026-08-12T10:00:00.000Z');
+    const row1 = generateTrackedPrRow({ last_review_state: 'review_approved', last_coderabbit_review_at: reviewAt });
+    const row2 = generateTrackedPrRow({ last_review_state: null, last_coderabbit_review_at: null });
+    startServer({}, {}, {}, {}, { findTrackedPRs: jest.fn<any>().mockResolvedValue([row1, row2]) });
+
+    const json = await getJson(port, '/api/dashboard-state');
+
+    expect((json as Record<string, unknown>).trackedPrs).toStrictEqual([
+      {
+        repo_full_name: row1.repo_full_name,
+        pr_number: row1.pr_number,
+        title: row1.title,
+        author_login: row1.author_login,
+        last_review_state: 'review_approved',
+        last_coderabbit_review_at: reviewAt.toISOString(),
+      },
+      {
+        repo_full_name: row2.repo_full_name,
+        pr_number: row2.pr_number,
+        title: row2.title,
+        author_login: row2.author_login,
+        last_review_state: null,
+        last_coderabbit_review_at: null,
+      },
+    ]);
   });
 });

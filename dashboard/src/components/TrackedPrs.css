@@ -1,0 +1,11 @@
+/* Tracked PRs */
+
+.badge.reviewed {
+  background: #eaf5f1;
+  color: #3d6b5c;
+}
+
+.badge.awaiting {
+  background: #f4f0e7;
+  color: #8b7d6b;
+}

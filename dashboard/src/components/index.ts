@@ -9,4 +9,5 @@ export { default as Pagination } from './Pagination.js';
 export { default as QueueOrder } from './QueueOrder.js';
 export { default as ReviewCountdown } from './ReviewCountdown.js';
 export { default as SummaryStats } from './SummaryStats.js';
+export { default as TrackedPrs } from './TrackedPrs.js';
 export { usePauseNotification } from './usePauseNotification.js';

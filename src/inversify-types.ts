@@ -37,5 +37,6 @@ export const TYPES = {
   Scheduler: Symbol.for('Scheduler'),
   StalePrRecoverer: Symbol.for('StalePrRecoverer'),
   SystemStateRepository: Symbol.for('SystemStateRepository'),
+  TrackedPrMapper: Symbol.for('TrackedPrMapper'),
   // Keep this object alphabetically sorted by key.
 } as const;

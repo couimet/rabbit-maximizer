@@ -72,3 +72,4 @@ export { generateReviewQueueHydrationData } from './ReviewQueueTestSupport.js';
 export type { ReviewRef, ReviewRefInput } from './ReviewRefTestSupport.js';
 export { generateReviewRef } from './ReviewRefTestSupport.js';
 export { generateCreateSkippedData } from './SkippedDataTestSupport.js';
+export { generateTrackedPrRow } from './TrackedPrTestSupport.js';

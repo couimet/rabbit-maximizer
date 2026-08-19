@@ -13,6 +13,7 @@ export type {
   QueueItemResponse,
   QueueOrderResponse,
   SummaryResponse,
+  TrackedPrResponse,
 } from './api.js';
 export type { CoderabbitReviewVerdict, CoderabbitReviewVerdictState } from './CoderabbitReviewVerdict.js';
 export type { CommentClassification } from './CommentClassification.js';
@@ -61,5 +62,6 @@ export type { ReviewLimitComment } from './ReviewLimitComment.js';
 export type { ScannedPR } from './ScannedPR.js';
 export type { ScanResult } from './ScanResult.js';
 export type { StaleOpenPR } from './StaleOpenPR.js';
+export type { TrackedPrRow } from './TrackedPrRow.js';
 export type { TriggerDetails } from './TriggerDetails.js';
 export type { UpsertPullRequestData } from './UpsertPullRequestData.js';
