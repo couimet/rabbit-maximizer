@@ -1,6 +1,8 @@
 import pkg from '../../package.json' with { type: 'json' };
 import { TriggerSource } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
+import type { RetriggerDiagnosis } from '../types/index.js';
+import { formatRelativeTime } from '../utils/index.js';
 
 import { REVIEW_BOT_RETRIGGER_COMMAND } from './index.js';
 
@@ -8,13 +10,35 @@ const { version } = pkg;
 const repoUrl = pkg.repository.url;
 const JSON_METADATA_INDENT_SPACES = 2;
 
-export const buildCommentBody = (sourceCommentUrl: string | undefined, runId: string, triggerSource: TriggerSource): string => {
+const buildDiagnosisLine = (diagnosis: RetriggerDiagnosis): string => {
+  const { sourceComment, replacementComment, decision, waitSeconds } = diagnosis;
+
+  if (decision === 'direct') {
+    return '\u{1F50D} Posted directly; no rate-limit comment found';
+  }
+
+  const ageText = sourceComment.createdAt === '' ? '(time unavailable)' : `from ${formatRelativeTime(sourceComment.createdAt, { now: new Date() })}`;
+  const waitSuffix = waitSeconds === undefined ? '' : `, wait ${waitSeconds}s`;
+
+  if (decision === 'replacement' && replacementComment) {
+    return `\u{1F50D} Source: replacement of ${sourceComment.classification} comment ${ageText}${waitSuffix}`;
+  }
+
+  return `\u{1F50D} Source: ${sourceComment.classification} comment ${ageText}${waitSuffix}`;
+};
+
+export const buildCommentBody = (
+  sourceCommentUrl: string | undefined,
+  runId: string,
+  triggerSource: TriggerSource,
+  diagnosis: RetriggerDiagnosis | undefined,
+): string => {
   let triggerLine: string;
   let sourceUrlForMetadata: string | null;
 
   switch (triggerSource) {
     case TriggerSource.dashboard_retrigger_now:
-      triggerLine = `\u{26A1} Triggered manually from dashboard`;
+      triggerLine = '\u{26A1} Triggered manually from dashboard';
       sourceUrlForMetadata = null;
       break;
     case TriggerSource.scheduler:
@@ -33,11 +57,20 @@ export const buildCommentBody = (sourceCommentUrl: string | undefined, runId: st
     triggerSource,
     sourceCommentUrl: sourceUrlForMetadata,
     timestamp: new Date().toISOString(),
+    ...(diagnosis && triggerSource === TriggerSource.scheduler ? { diagnosis } : {}),
   };
 
   const rawJson = JSON.stringify(metadata, null, JSON_METADATA_INDENT_SPACES);
   const safeJson = rawJson.replace(/-->/g, '--\\u003E');
   const jsonComment = `<!-- rabbit-maximizer\n${safeJson}\n-->`;
 
-  return [REVIEW_BOT_RETRIGGER_COMMAND, '', triggerLine, '', '---', '', footer, '', jsonComment].join('\n');
+  const lines = [REVIEW_BOT_RETRIGGER_COMMAND, '', triggerLine];
+
+  if (diagnosis && triggerSource === TriggerSource.scheduler) {
+    lines.push(buildDiagnosisLine(diagnosis));
+  }
+
+  lines.push('', '---', '', footer, '', jsonComment);
+
+  return lines.join('\n');
 };

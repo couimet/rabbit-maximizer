@@ -63,7 +63,7 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
             continue;
           }
 
-          const classification = classifyCoderabbitComment(c.body);
+          const { classification } = classifyCoderabbitComment(c.body);
 
           if (classification === CodeRabbitCommentType.unknown) {
             this.log.debug({ ...logCtx, repo: pr.repoFullName, pr: pr.prNumber, commentId: c.id }, 'Skipping comment with unknown classification');
