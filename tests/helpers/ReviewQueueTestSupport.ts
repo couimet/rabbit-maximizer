@@ -1,4 +1,4 @@
-import { QueueStatus, Resolution, SkipReason, TriggerSource } from '../../src/domain.js';
+import { QueueStatus, Resolution, TriggerSource } from '../../src/domain.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
@@ -27,10 +27,10 @@ export const generateReviewQueueHydrationData = (overrideValues?: Partial<Review
     original_source_comment_url: null,
     retrigger_comment_url: null,
     retriggered_at: getUniqueDate(),
-    cooldown_until: getUniqueDate(),
-    last_skipped_at: getUniqueDate(),
-    last_skip_reason: getRandomEnumValue(SkipReason),
-    retrigger_skip_count: getUniqueInt(),
+    cooldown_until: null,
+    last_skipped_at: null,
+    last_skip_reason: null,
+    retrigger_skip_count: 0,
     failed_at: getUniqueDate(),
     reviewed_at: getUniqueDate(),
     pull_request_id: getUniqueInt(),

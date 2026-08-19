@@ -17,7 +17,7 @@ const ACTIVE_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatu
 export interface QueueRepository {
   enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   markRetriggered(id: number, cooldownUntil: Date, retriggerCommentUrl: string, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  markRetriggerSkipped(id: number, reason: SkipReason, tx: Prisma.TransactionClient): Promise<QueueItem>;
+  markRetriggerSkipped(id: number, reason: SkipReason, tx: Prisma.TransactionClient): Promise<boolean>;
   markResolved(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markResolvedByUuid(uuid: string, resolution: Resolution, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -220,21 +220,18 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     return this.mapper.fromReviewQueue(row);
   }
 
-  async markRetriggerSkipped(id: number, reason: SkipReason, tx: Prisma.TransactionClient): Promise<QueueItem> {
-    const row = await this.withPrismaErrorHandling(
-      () =>
-        this.client(tx).reviewQueue.update({
-          where: { id },
-          data: {
-            last_skipped_at: new Date(),
-            last_skip_reason: reason,
-            retrigger_skip_count: { increment: 1 },
-          },
-        }),
-      'QueueRepositoryImpl.markRetriggerSkipped',
-    );
-    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggerSkipped', id, reason }, 'Marked review retrigger skipped');
-    return this.mapper.fromReviewQueue(row);
+  async markRetriggerSkipped(id: number, reason: SkipReason, tx: Prisma.TransactionClient): Promise<boolean> {
+    const result = await this.client(tx).reviewQueue.updateMany({
+      where: { id, status: QueueStatus.pending },
+      data: {
+        last_skipped_at: new Date(),
+        last_skip_reason: reason,
+        retrigger_skip_count: { increment: 1 },
+      },
+    });
+    const changed = result.count === 1;
+    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggerSkipped', id, reason, changed }, 'Marked review retrigger skipped');
+    return changed;
   }
 
   async markResolved(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<QueueItem> {

@@ -219,10 +219,12 @@ export class Scheduler extends IntervalService {
   }
 
   private async skipCandidate(candidate: QueueItem, reason: SkipReason, probe: SchedulerProbe): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await this.queue.markRetriggerSkipped(candidate.id, reason, tx);
+    const changed = await this.prisma.$transaction(async (tx) => {
+      return await this.queue.markRetriggerSkipped(candidate.id, reason, tx);
     });
-    probe.retriggerSkipped(candidate, reason);
+    if (changed) {
+      probe.retriggerSkipped(candidate, reason);
+    }
   }
 
   private async resolveTerminalCandidate(candidate: QueueItem, resolution: Resolution, prState: PrState, probe: SchedulerProbe): Promise<void> {

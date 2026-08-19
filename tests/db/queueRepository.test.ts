@@ -20,8 +20,9 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
-const TEN_MINUTES_MS = 10 * 60 * 1000;
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
+const TEN_MINUTES_MS = 10 * 60 * 1000;
+const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
 describe('QueueRepositoryImpl', () => {
   let frozenNow: Date;
@@ -556,7 +557,7 @@ describe('QueueRepositoryImpl', () => {
       const ref = generateReviewRef();
       const commentId = getUniqueInt();
       const tenMinAgo = new Date(frozenNow.getTime() - TEN_MINUTES_MS);
-      const futureCooldownUntil = new Date(frozenNow.getTime() + 30 * 60 * 1000);
+      const futureCooldownUntil = new Date(frozenNow.getTime() + THIRTY_MINUTES_MS);
       const existingResolved = generateReviewQueueHydrationData({
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
@@ -880,20 +881,38 @@ describe('QueueRepositoryImpl', () => {
   });
 
   describe('markRetriggerSkipped', () => {
-    it('records the skip reason, increments the skip count, and returns the updated item', async () => {
+    it('records the skip reason and increments the skip count when the row is still pending', async () => {
       const row = generateReviewQueueHydrationData();
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { updateMany: createResolvedMock({ count: 1 }) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
       const result = await sut.markRetriggerSkipped(row.id, SkipReason.cooldown, prisma as unknown as Prisma.TransactionClient);
 
-      expect(reviewQueue.update).toHaveBeenCalledWith({
-        where: { id: row.id },
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id: row.id, status: 'pending' },
         data: { last_skipped_at: frozenNow, last_skip_reason: 'cooldown', retrigger_skip_count: { increment: 1 } },
       });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
+      expect(result).toBe(true);
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.markRetriggerSkipped', id: row.id, reason: 'cooldown' },
+        { fn: 'QueueRepositoryImpl.markRetriggerSkipped', id: row.id, reason: 'cooldown', changed: true },
+        'Marked review retrigger skipped',
+      );
+    });
+
+    it('returns false when the row is no longer pending (status changed after selection)', async () => {
+      const row = generateReviewQueueHydrationData();
+      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { updateMany: createResolvedMock({ count: 0 }) } });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.markRetriggerSkipped(row.id, SkipReason.cooldown, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id: row.id, status: 'pending' },
+        data: { last_skipped_at: frozenNow, last_skip_reason: 'cooldown', retrigger_skip_count: { increment: 1 } },
+      });
+      expect(result).toBe(false);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.markRetriggerSkipped', id: row.id, reason: 'cooldown', changed: false },
         'Marked review retrigger skipped',
       );
     });

@@ -31,7 +31,7 @@ import { type Prisma, type PrismaClient } from '@prisma/client';
 const pendingItem = (overrides?: Parameters<typeof generateQueueItemHydrationData>[0]) =>
   generateQueueItemHydrationData({
     status: QueueStatus.pending,
-    created_at: new Date(Date.now() - SETTLING_WINDOW_MS * 2),
+    created_at: new Date(Date.now() - SETTLING_WINDOW_MS * SETTLING_AGE_MULTIPLIER),
     ...overrides,
   });
 
@@ -39,6 +39,10 @@ const SETTLING_WINDOW_MS = 180_000;
 const TICK_INTERVAL_MS = 10_000;
 const SHORT_DRAIN = 5;
 const BASE_BACKOFF_MS = 60_000;
+const SETTLING_AGE_MULTIPLIER = 2;
+const OLDER_THAN_SETTLING_MULTIPLIER = 3;
+const FUTURE_COOLDOWN_MS = 60_000;
+const ONE_SECOND_MS = 1_000;
 
 interface MockSchedulerDeps {
   config: Config;
@@ -703,7 +707,7 @@ describe('Scheduler', () => {
       });
 
       it('skips a candidate whose cooldown_until is still in the future', async () => {
-        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() + 60_000) });
+        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() + FUTURE_COOLDOWN_MS) });
         deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
         deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
@@ -721,8 +725,28 @@ describe('Scheduler', () => {
         await stop();
       });
 
+      it('does not report a skip when the candidate status changed before recording', async () => {
+        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() + FUTURE_COOLDOWN_MS) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.queue.markRetriggerSkipped.mockResolvedValue(false);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).toHaveBeenCalledWith(item.id, 'cooldown', deps.tx);
+        expect(deps.mockProbe.retriggerSkipped).not.toHaveBeenCalled();
+        expect(deps.prStateFetcher.fetch).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).toHaveBeenCalled();
+
+        await stop();
+      });
+
       it('triggers a candidate whose cooldown_until has expired', async () => {
-        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() - 1_000) });
+        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() - ONE_SECOND_MS) });
         deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
         deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
@@ -738,7 +762,7 @@ describe('Scheduler', () => {
       });
 
       it('skips a candidate still within the settling window', async () => {
-        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - 1_000) });
+        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - ONE_SECOND_MS) });
         deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
         deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
@@ -773,7 +797,7 @@ describe('Scheduler', () => {
       });
 
       it('triggers a candidate older than the settling boundary', async () => {
-        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - SETTLING_WINDOW_MS * 3) });
+        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - SETTLING_WINDOW_MS * OLDER_THAN_SETTLING_MULTIPLIER) });
         deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
         deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
