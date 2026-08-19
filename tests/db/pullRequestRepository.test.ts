@@ -664,6 +664,59 @@ describe('PullRequestRepositoryImpl', () => {
     });
   });
 
+  describe('findTrackedPRs', () => {
+    it('returns tracked PRs with last_coderabbit_review_at converted to Date or null', async () => {
+      const reviewAt = getUniqueDate();
+      const trackedRef1 = generateReviewRef();
+      const trackedRef2 = generateReviewRef();
+      const rowWithReview = {
+        id: getUniqueInt(),
+        title: getUniqueString(),
+        repo_full_name: trackedRef1.repoFullName,
+        pr_number: trackedRef1.prNumber,
+        author_login: getUniqueString(),
+        last_review_state: 'review_approved',
+        last_coderabbit_review_at: reviewAt.toISOString(),
+      };
+      const rowWithoutReview = {
+        id: getUniqueInt(),
+        title: getUniqueString(),
+        repo_full_name: trackedRef2.repoFullName,
+        pr_number: trackedRef2.prNumber,
+        author_login: getUniqueString(),
+        last_review_state: null,
+        last_coderabbit_review_at: null,
+      };
+      const rows = [rowWithReview, rowWithoutReview];
+      const queryRawUnsafe = jest.fn<any>().mockResolvedValue(rows);
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.findTrackedPRs();
+
+      expect(queryRawUnsafe).toHaveBeenCalledWith(
+        expect.toEqualIgnoringWhitespace(
+          "SELECT pr.id, pr.title, pr.repo_full_name, pr.pr_number, pr.author_login, pr.last_review_state, pr.last_coderabbit_review_at FROM pull_request pr WHERE pr.pr_state = 'open' AND (pr.last_coderabbit_review_at IS NOT NULL OR pr.last_review_requested_at IS NOT NULL) AND pr.last_coderabbit_acknowledged_at IS NULL AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) ORDER BY pr.last_coderabbit_review_at DESC NULLS LAST, pr.last_review_requested_at DESC NULLS LAST",
+        ),
+      );
+      expect(result).toStrictEqual([
+        { ...rowWithReview, last_coderabbit_review_at: new Date(rowWithReview.last_coderabbit_review_at) },
+        { ...rowWithoutReview, last_coderabbit_review_at: null },
+      ]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findTrackedPRs', count: rows.length }, 'Found tracked open PRs');
+    });
+
+    it('returns empty array when no tracked PRs exist', async () => {
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      const result = await sut.findTrackedPRs();
+
+      expect(result).toStrictEqual([]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findTrackedPRs', count: 0 }, 'Found tracked open PRs');
+    });
+  });
+
   describe('recordReviewLimitDetection', () => {
     it('sets both timestamps when first is null', async () => {
       const id = getUniqueInt();

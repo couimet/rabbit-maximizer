@@ -1,6 +1,6 @@
 import type { Config } from '../config.js';
-import { type EventRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from '../db/index.js';
-import type { EventCountsMapper, QueueItemMapper } from '../mappers/index.js';
+import { type EventRepository, type PullRequestRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from '../db/index.js';
+import type { EventCountsMapper, QueueItemMapper, TrackedPrMapper } from '../mappers/index.js';
 import { MS_PER_SECOND, resolveDurationSince } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -12,8 +12,10 @@ export const createGetDashboardStateHandler = (
   queueRepo: QueueRepository,
   eventRepo: EventRepository,
   systemStateRepo: SystemStateRepository,
+  pullRequestRepo: PullRequestRepository,
   queueItemMapper: QueueItemMapper,
   eventCountsMapper: EventCountsMapper,
+  trackedPrMapper: TrackedPrMapper,
   logger: Logger,
   config: Config,
 ) => {
@@ -21,11 +23,12 @@ export const createGetDashboardStateHandler = (
     try {
       const since = resolveDurationSince(req.query.duration);
 
-      const [items, eventCounts, systemState, skippedQueueItems] = await Promise.all([
+      const [items, eventCounts, systemState, skippedQueueItems, trackedPrRows] = await Promise.all([
         queueOrderRepo.getEffectiveOrder(),
         eventRepo.countByType(since),
         systemStateRepo.getDashboardSystemState(),
         queueRepo.getSkippedItems(),
+        pullRequestRepo.findTrackedPRs(),
       ]);
       const { paused, lastSchedulerTickAt, nextReviewAvailableAt: storedNextReviewAt } = systemState;
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
@@ -33,6 +36,7 @@ export const createGetDashboardStateHandler = (
         queueItemMapper.mapToQueueItemResponseList(items),
         queueItemMapper.mapToQueueItemResponseList(skippedQueueItems),
       ]);
+      const trackedPrs = trackedPrRows.map((row) => trackedPrMapper.mapToResponse(row));
 
       const nextReviewAvailableAt = storedNextReviewAt && storedNextReviewAt.getTime() > Date.now() ? storedNextReviewAt.toISOString() : null;
 
@@ -47,6 +51,7 @@ export const createGetDashboardStateHandler = (
         eventCounts: activeEventCounts,
         paused,
         schedulerStale,
+        trackedPrs,
       });
     } catch (error) {
       logger.error({ fn: 'api.dashboardState', error }, 'Failed to get dashboard state');

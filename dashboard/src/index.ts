@@ -10,6 +10,7 @@ export {
   QueueOrder,
   ReviewCountdown,
   SummaryStats,
+  TrackedPrs,
   usePauseNotification,
 } from './components/index.js';
 export { ErrorProvider, useErrorContext } from './context/index.js';
