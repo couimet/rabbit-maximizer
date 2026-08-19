@@ -10,7 +10,7 @@ import './QueueOrder.css';
 import { useEffect, useRef, useState } from 'react';
 
 const RELATIVE_TIME_REFRESH_MS = 60_000;
-const TOAST_DISMISS_MS = 5000;
+const TOAST_DISMISS_MS = 8000;
 
 const renderQueueOrderStatus = (item: QueueItemResponse) => {
   const { state, linkUrl } = safeDeriveActivityStatus(item);
@@ -97,6 +97,7 @@ const QueueOrder = ({
       .then((res) => {
         if (!mountedRef.current) return;
         if (Array.isArray(res.data)) {
+          setToast({ message: `Moved ${direction}`, variant: 'success' });
           onMoveComplete();
         } else {
           setMoveError('Unexpected response from server');
@@ -185,27 +186,29 @@ const QueueOrder = ({
         Queue Order — {items.length} {items.length === 1 ? 'item' : 'items'}
       </Heading>
       {moveError && <div className="error">Move failed: {moveError}</div>}
-      {toast && <div className={'toast toast-' + toast.variant}>{toast.message}</div>}
       {staleBanner}
       {items.length === 0 ? (
         <p>No items in queue.</p>
       ) : (
         <>
-          <div className="queue-order-toolbar">
-            <button
-              disabled={!hasSelection || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
-              onClick={() => moveSelected('up')}
-              title={schedulerStale ? 'Unavailable while scheduler is down' : undefined}
-            >
-              Move Up
-            </button>
-            <button
-              disabled={!hasSelection || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
-              onClick={() => moveSelected('down')}
-              title={schedulerStale ? 'Unavailable while scheduler is down' : undefined}
-            >
-              Move Down
-            </button>
+          <div className="queue-order-toolbar-wrapper">
+            <div className="queue-order-toolbar">
+              <button
+                disabled={!hasSelection || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
+                onClick={() => moveSelected('up')}
+                title={schedulerStale ? 'Unavailable while scheduler is down' : undefined}
+              >
+                Move Up
+              </button>
+              <button
+                disabled={!hasSelection || moving || retriggeringUuid !== null || movingToTopUuid !== null || schedulerStale}
+                onClick={() => moveSelected('down')}
+                title={schedulerStale ? 'Unavailable while scheduler is down' : undefined}
+              >
+                Move Down
+              </button>
+            </div>
+            {toast && <div className={'toast toast-' + toast.variant}>{toast.message}</div>}
           </div>
           <table className="data-table queue-order-table">
             <thead>
