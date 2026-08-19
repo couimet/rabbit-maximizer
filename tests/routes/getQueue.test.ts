@@ -4,8 +4,8 @@ import { apiJson, createMockQueueItemMapper, createMockQueueRepo, fetchResponse,
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
+import type { Server } from 'node:http';
 
 describe('getQueue', () => {
   let server: Server;

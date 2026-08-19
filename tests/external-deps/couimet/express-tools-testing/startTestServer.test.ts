@@ -2,7 +2,7 @@ import { startTestServer } from '../../../../src/external-deps/couimet/express-t
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
+import type { Server } from 'node:http';
 
 describe('startTestServer', () => {
   const servers: Server[] = [];

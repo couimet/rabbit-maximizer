@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
+import type { Server } from 'node:http';
 
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 

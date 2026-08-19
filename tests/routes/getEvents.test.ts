@@ -5,8 +5,8 @@ import { apiJson, createMockEventRepo, fetchResponse, generateEventLogEntryHydra
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
+import type { Server } from 'node:http';
 
 describe('getEvents', () => {
   let server: Server;

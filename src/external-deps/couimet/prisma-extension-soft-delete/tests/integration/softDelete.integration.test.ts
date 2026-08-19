@@ -2,10 +2,10 @@ import { SoftDeleteConfig, softDeleteExtension } from '../../src/index.js';
 
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
-import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const ACTIVE_LABEL = 'active';
 const SCHEMA_PATH = join(import.meta.dirname, 'schema.prisma');

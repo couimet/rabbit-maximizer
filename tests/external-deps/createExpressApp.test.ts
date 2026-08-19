@@ -1,7 +1,7 @@
 import type { Logger } from '@couimet/logger-contract';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { RequestHandler } from 'express';
-import type { Server } from 'http';
+import type { Server } from 'node:http';
 
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
