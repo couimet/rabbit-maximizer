@@ -5,6 +5,7 @@ import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentReschedule
 import type { ProbeFactory } from '../src/probes/index.js';
 import { type Pruner, ReviewTrigger, Scheduler } from '../src/services.js';
 import type { PRState, QueueItem } from '../src/types/index.js';
+import { MS_PER_SECOND } from '../src/utils/index.js';
 
 import {
   createMockProbeFactory,
@@ -79,7 +80,7 @@ const setup = (): MockSchedulerDeps => {
 
   const prStateFetcher = createMockPRStateFetcher();
 
-  const config = generateConfigData({ SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000 });
+  const config = generateConfigData({ SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / MS_PER_SECOND });
 
   return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState, pullRequests, prStateFetcher };
 };
