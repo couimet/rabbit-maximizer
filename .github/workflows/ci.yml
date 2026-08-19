@@ -63,6 +63,17 @@ jobs:
       - uses: couimet/github-actions/install-deps@main
       - run: pnpm ci:test:integration
 
+  validate-migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: couimet/github-actions/setup-node-pnpm@main
+      - run: cp .env.ci .env
+      - uses: couimet/github-actions/install-deps@main
+      - run: bash scripts/validate-migrations.sh
+
   bats-test:
     runs-on: ubuntu-latest
     steps:

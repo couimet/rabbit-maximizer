@@ -13,5 +13,5 @@ WHERE "status" = 'pending'
 
 -- Recreate the partial unique index that was accidentally omitted when this table
 -- was rebuilt in migration 20260707000000_add_source_comment_id.
-CREATE UNIQUE INDEX "review_queue_pending_unique" ON "review_queue"
+CREATE UNIQUE INDEX IF NOT EXISTS "review_queue_pending_unique" ON "review_queue"
   ("repo_full_name", "pr_number") WHERE "status" = 'pending';
