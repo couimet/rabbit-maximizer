@@ -27,7 +27,7 @@ const TrackedPrs = ({ items, headingLevel }: { items: TrackedPrResponse[] | null
               <tr key={`${item.repo_full_name}#${item.pr_number}`}>
                 <td>
                   <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
-                    {item.title} (#{item.pr_number})
+                    {item.repo_full_name} — {item.title} (#{item.pr_number})
                   </a>
                 </td>
                 <td>{item.author_login}</td>

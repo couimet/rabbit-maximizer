@@ -38,7 +38,7 @@ describe('TrackedPrs', () => {
     render(<TrackedPrs items={items} headingLevel="h3" />);
 
     expect(screen.getByRole('heading', { level: 3, name: 'Tracked PRs — 1' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: `${title} (#${prNumber})` })).toHaveAttribute('href', `https://github.com/${repo}/pull/${prNumber}`);
+    expect(screen.getByRole('link', { name: `${repo} — ${title} (#${prNumber})` })).toHaveAttribute('href', `https://github.com/${repo}/pull/${prNumber}`);
     expect(screen.getByText(author)).toBeInTheDocument();
     expect(screen.getByText('Reviewed')).toBeInTheDocument();
     expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument();
