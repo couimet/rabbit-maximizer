@@ -6,8 +6,8 @@ import { createMockSystemStateRepository, postJson } from '../helpers/index.js';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
-import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
+import type { Server } from 'node:http';
 
 describe('setPaused', () => {
   let logger: ReturnType<typeof createMockLogger>;

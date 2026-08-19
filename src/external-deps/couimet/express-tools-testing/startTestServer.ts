@@ -2,7 +2,7 @@ import { createExpressApp } from '../express-tools/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Application } from 'express';
-import type { Server } from 'http';
+import type { Server } from 'node:http';
 
 export interface TestServer {
   server: Server;

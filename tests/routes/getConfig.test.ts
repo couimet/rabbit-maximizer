@@ -4,8 +4,8 @@ import { createGetConfigHandler } from '../../src/routes/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it } from '@jest/globals';
-import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
+import type { Server } from 'node:http';
 
 const STALE_TICK_MULTIPLIER = 4;
 const TICK_INTERVAL_SEC = 10;
