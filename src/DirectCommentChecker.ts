@@ -1,3 +1,4 @@
+import type { CoderabbitCommentRepository } from './db/index.js';
 import {
   buildCommentUrl,
   classifyCoderabbitComment,
@@ -27,6 +28,8 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
     private readonly github: CoderabbitGitHubClient,
     @inject(TYPES.OnDetectedCallback)
     private readonly onDetected: OnDetectedCallback,
+    @inject(TYPES.CoderabbitCommentRepository)
+    private readonly coderabbitComments: CoderabbitCommentRepository,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
@@ -77,6 +80,12 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
 
           if (classification === CodeRabbitCommentType.review_limited) {
             candidates.push({ updatedAt: c.updatedAt, waitSeconds: parseWaitSeconds(c.body) });
+          }
+
+          const row = await this.coderabbitComments.findByCommentId(pr.pullRequestId, c.id);
+          if (row && c.updatedAt <= row.last_seen_at) {
+            this.log.debug({ ...logCtx, repo: pr.repoFullName, pr: pr.prNumber, commentId: c.id }, 'Skipping comment already processed and not edited since');
+            continue;
           }
 
           const comment = {

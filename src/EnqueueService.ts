@@ -3,7 +3,7 @@ import { classifyCoderabbitComment, parseWaitSeconds } from './github/index.js';
 import type { ObservationContextProvider } from './observability/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
-import { isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
+import { extractCoderabbitRunId, isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
 import { TYPES } from './domain.js';
 
@@ -31,6 +31,7 @@ export class EnqueueService {
 
   readonly handle: OnDetectedCallback = async (comment, pullRequestId) => {
     const obs = this.observation.current();
+    const coderabbitRunId = extractCoderabbitRunId(comment.body);
 
     const probe = this.probes.createDetectedProbe(
       {
@@ -38,6 +39,7 @@ export class EnqueueService {
         pr_number: comment.prNumber,
         source_ts: new Date(comment.createdAt),
         source_comment_url: comment.url,
+        coderabbit_run_id: coderabbitRunId,
       },
       obs,
     );
@@ -63,27 +65,31 @@ export class EnqueueService {
           body: comment.body,
           gh_created_at: new Date(comment.createdAt),
           gh_updated_at: new Date(comment.updatedAt),
+          coderabbit_run_id: coderabbitRunId ?? null,
         },
         tx,
       );
 
       if (classification === 'review_skipped') {
-        const { item, created } = await this.queue.createSkipped(
+        const { created } = await this.queue.enqueue(
           {
             repo: comment.repoFullName,
             pr: comment.prNumber,
             prTitle: comment.prTitle,
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.commentId,
+            commentUpdatedAt: new Date(comment.updatedAt),
+            cooldownUntil: undefined,
             pullRequestId,
           },
           tx,
         );
         if (created) {
-          await probe.skipped(tx);
+          await probe.enqueued(tx);
         } else {
-          probe.alreadySkipped(item.status);
+          probe.alreadyQueued();
         }
+        await probe.skipped(tx);
         return;
       }
 

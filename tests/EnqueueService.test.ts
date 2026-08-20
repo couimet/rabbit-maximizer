@@ -70,6 +70,7 @@ describe('EnqueueService', () => {
           pr_number: comment.prNumber,
           source_ts: new Date(comment.createdAt),
           source_comment_url: comment.url,
+          coderabbit_run_id: undefined,
         },
         observation.current(),
       );
@@ -110,6 +111,7 @@ describe('EnqueueService', () => {
           body: comment.body,
           gh_created_at: new Date(comment.createdAt),
           gh_updated_at: new Date(comment.updatedAt),
+          coderabbit_run_id: null,
         },
         tx,
       );
@@ -179,41 +181,60 @@ describe('EnqueueService', () => {
     });
 
     describe('skip path', () => {
-      it('creates skipped entry when comment classifies as review_skipped', async () => {
+      it('enqueues with the skip comment as source and records the skipped encounter', async () => {
+        const coderabbitRunId = getUuid();
         const svc = createService();
-        const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
+        const comment = generateDetectedCommentHydrationData({
+          body: `${FOR_TEST_SKIP_BODY}\n\n**Run ID**: \`${coderabbitRunId}\``,
+        });
         const pullRequestId = getUniqueInt();
-        (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: {}, created: true });
 
         await svc.handle(comment, pullRequestId);
 
         expect(probe.detected).toHaveBeenCalled();
         expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
-        expect(queue.createSkipped).toHaveBeenCalledWith(
+        expect(coderabbitComments.upsert).toHaveBeenCalledWith(
+          {
+            comment_id: comment.commentId,
+            pull_request_id: pullRequestId,
+            url: comment.url,
+            comment_type: 'review_skipped',
+            body: comment.body,
+            gh_created_at: new Date(comment.createdAt),
+            gh_updated_at: new Date(comment.updatedAt),
+            coderabbit_run_id: coderabbitRunId,
+          },
+          tx,
+        );
+        expect(queue.enqueue).toHaveBeenCalledWith(
           {
             repo: comment.repoFullName,
             pr: comment.prNumber,
             prTitle: comment.prTitle,
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.commentId,
+            commentUpdatedAt: new Date(comment.updatedAt),
+            cooldownUntil: undefined,
             pullRequestId,
           },
           tx,
         );
+        expect(probe.enqueued).toHaveBeenCalledWith(tx);
         expect(probe.skipped).toHaveBeenCalledWith(tx);
-        expect(queue.enqueue).not.toHaveBeenCalled();
       });
 
-      it('calls alreadySkipped when createSkipped returns created: false', async () => {
-        (queue.createSkipped as jest.Mock<any>).mockResolvedValue({ item: { status: 'resolved' }, created: false });
+      it('drives alreadyQueued and still records the skipped encounter when enqueue returns created: false', async () => {
+        (queue.enqueue as jest.Mock<any>).mockResolvedValue({ item: {}, created: false });
         const svc = createService();
         const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
         const pullRequestId = getUniqueInt();
 
         await svc.handle(comment, pullRequestId);
 
-        expect(probe.alreadySkipped).toHaveBeenCalledWith('resolved');
-        expect(probe.skipped).not.toHaveBeenCalled();
+        expect(queue.enqueue).toHaveBeenCalled();
+        expect(probe.enqueued).not.toHaveBeenCalled();
+        expect(probe.alreadyQueued).toHaveBeenCalled();
+        expect(probe.skipped).toHaveBeenCalledWith(tx);
       });
     });
 

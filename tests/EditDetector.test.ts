@@ -2,7 +2,7 @@ import { EditDetectorImpl } from '../src/EditDetector.js';
 
 import { createMockCoderabbitCommentRepo, createMockCoderabbitGitHubClient, generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 
 const ONE_MINUTE_MS = 60_000;
@@ -86,6 +86,7 @@ describe('EditDetector', () => {
       body: fetchBody,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
+      coderabbit_run_id: null,
     });
   });
 
@@ -127,6 +128,7 @@ describe('EditDetector', () => {
       body: fetchBody,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
+      coderabbit_run_id: null,
     });
   });
 
@@ -163,6 +165,7 @@ describe('EditDetector', () => {
       body: fetchBody,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
+      coderabbit_run_id: null,
     });
   });
 
@@ -207,7 +210,8 @@ describe('EditDetector', () => {
     const ghCreatedAt = getUniqueDate();
     const lastSeenAt = getUniqueDate();
     const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
-    const fetchBody = 'skip review by coderabbit.ai';
+    const coderabbitRunId = getUuid();
+    const fetchBody = `skip review by coderabbit.ai\n\n**Run ID**: \`${coderabbitRunId}\``;
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
@@ -233,6 +237,7 @@ describe('EditDetector', () => {
       body: fetchBody,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
+      coderabbit_run_id: coderabbitRunId,
     });
   });
 });

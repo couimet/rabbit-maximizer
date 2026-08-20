@@ -3,7 +3,7 @@ import { CodeRabbitCommentType } from '../../src/domain.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { createMockPrismaClient, generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from '../helpers/index.js';
 
-import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
@@ -23,7 +23,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
 
   describe('upsert', () => {
     it('creates a new coderabbit_comment row when none exists', async () => {
-      const data = generateCoderabbitCommentCreationData();
+      const data = generateCoderabbitCommentCreationData({ coderabbit_run_id: getUuid() });
       const created = generateCoderabbitCommentHydrationData();
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(created) },
@@ -39,6 +39,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           url: data.url,
           comment_type: data.comment_type,
           last_body_preview: data.body,
+          coderabbit_run_id: data.coderabbit_run_id,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
@@ -70,6 +71,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           url: data.url,
           comment_type: data.comment_type,
           last_body_preview: data.body,
+          coderabbit_run_id: data.coderabbit_run_id,
           gh_updated_at: data.gh_updated_at,
           last_seen_at: frozenNow,
         },
@@ -98,6 +100,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           url: data.url,
           comment_type: data.comment_type,
           last_body_preview: '',
+          coderabbit_run_id: data.coderabbit_run_id,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
@@ -128,6 +131,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           url: data.url,
           comment_type: data.comment_type,
           last_body_preview: null,
+          coderabbit_run_id: data.coderabbit_run_id,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
@@ -159,6 +163,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           url: data.url,
           comment_type: data.comment_type,
           last_body_preview: longBody.slice(0, EXPECTED_BODY_PREVIEW_MAX_LENGTH),
+          coderabbit_run_id: data.coderabbit_run_id,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
@@ -213,6 +218,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           url: data.url,
           comment_type: data.comment_type,
           last_body_preview: data.body,
+          coderabbit_run_id: data.coderabbit_run_id,
           gh_updated_at: data.gh_updated_at,
           last_seen_at: frozenNow,
         },

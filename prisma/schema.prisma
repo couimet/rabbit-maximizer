@@ -205,6 +205,8 @@ model CoderabbitComment {
   comment_type    String
   /// Max 1024. First N chars of the comment body, truncated by the repository on upsert.
   last_body_preview String?
+  /// Max 75. CodeRabbit's per-comment Run ID from the '**Run ID**: ' line in the body; distinct from our own runId (generateRunId in ReviewTrigger). CHECK in the 20260820 migration.
+  coderabbit_run_id String?
   gh_created_at   DateTime
   gh_updated_at   DateTime
   first_seen_at   DateTime

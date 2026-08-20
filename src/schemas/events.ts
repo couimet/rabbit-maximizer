@@ -43,6 +43,7 @@ export const CoderabbitReviewSkippedPayloadSchema = z.object({
   source_ts: z.coerce.date(),
   comment_url: COMMENT_URL_SCHEMA,
   skip_reason: z.string(),
+  coderabbit_run_id: z.string().optional(),
 });
 
 export const FailedPayloadSchema = z.object({

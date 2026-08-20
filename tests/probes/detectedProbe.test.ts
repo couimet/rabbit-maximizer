@@ -29,7 +29,13 @@ describe('DetectedProbe', () => {
     const logger = createMockLogger();
 
     const probe = new DetectedProbe(
-      { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: sourceTs,
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: undefined,
+      },
       eventRepository,
       observation,
       logger,
@@ -72,7 +78,13 @@ describe('DetectedProbe', () => {
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
     const probe = new DetectedProbe(
-      { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: sourceTs,
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: undefined,
+      },
       eventRepository,
       observation,
       logger,
@@ -113,6 +125,7 @@ describe('DetectedProbe', () => {
         pr_number: ref.prNumber,
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+        coderabbit_run_id: undefined,
       },
       eventRepository,
       observation,
@@ -156,6 +169,7 @@ describe('DetectedProbe', () => {
         pr_number: ref.prNumber,
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+        coderabbit_run_id: undefined,
       },
       eventRepository,
       observation,
@@ -199,6 +213,7 @@ describe('DetectedProbe', () => {
         pr_number: ref.prNumber,
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+        coderabbit_run_id: undefined,
       },
       eventRepository,
       observation,
@@ -237,6 +252,7 @@ describe('DetectedProbe', () => {
         pr_number: ref.prNumber,
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+        coderabbit_run_id: undefined,
       },
       {} as EventRepository,
       observation,
@@ -251,11 +267,12 @@ describe('DetectedProbe', () => {
     );
   });
 
-  it('records a coderabbit_review_skipped event with source_ts and comment_url', async () => {
+  it('records a coderabbit_review_skipped event with source_ts, comment_url, and coderabbit_run_id', async () => {
     const ref = generateReviewRef();
     const observation = generateObservationContextHydrationData();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+    const coderabbitRunId = getUuid();
     const entryUuid = getUuid();
     const tx = createMockTx();
 
@@ -264,7 +281,13 @@ describe('DetectedProbe', () => {
     const logger = createMockLogger();
 
     const probe = new DetectedProbe(
-      { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: sourceTs,
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: coderabbitRunId,
+      },
       eventRepository,
       observation,
       logger,
@@ -280,14 +303,19 @@ describe('DetectedProbe', () => {
         correlation_id: observation.correlationId,
         request_id: observation.requestId,
         version: observation.version,
-        payload: { source_ts: sourceTs, comment_url: sourceCommentUrl, skip_reason: 'CodeRabbit explicitly skipped this review' },
+        payload: {
+          source_ts: sourceTs,
+          comment_url: sourceCommentUrl,
+          skip_reason: 'CodeRabbit explicitly skipped this review',
+          coderabbit_run_id: coderabbitRunId,
+        },
       },
       tx,
     );
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid },
-      'CodeRabbit skipped review event recorded',
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId },
+      'CodeRabbit skip comment encountered; full-review trigger enqueued',
     );
   });
 
@@ -302,6 +330,7 @@ describe('DetectedProbe', () => {
         pr_number: ref.prNumber,
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+        coderabbit_run_id: undefined,
       },
       {} as EventRepository,
       observation,
@@ -327,6 +356,7 @@ describe('DetectedProbe', () => {
         pr_number: ref.prNumber,
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+        coderabbit_run_id: undefined,
       },
       {} as EventRepository,
       observation,
@@ -357,7 +387,13 @@ describe('DetectedProbe', () => {
     const logger = createMockLogger();
 
     const probe = new DetectedProbe(
-      { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: sourceTs,
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: undefined,
+      },
       eventRepository,
       observation,
       logger,
@@ -397,7 +433,13 @@ describe('DetectedProbe', () => {
     const logger = createMockLogger();
 
     const probe = new DetectedProbe(
-      { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: sourceTs,
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: undefined,
+      },
       eventRepository,
       observation,
       logger,

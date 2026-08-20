@@ -95,6 +95,11 @@ export class ReviewTrigger {
       return this.postAndRecord(item, probe, triggerSource, item.source_comment_url, diagnosis);
     }
 
+    if (storedBody !== '' && classifyCoderabbitComment(storedBody).classification === CodeRabbitCommentType.review_skipped) {
+      const diagnosis = includeDiagnosis ? this.buildDiagnosis(item.source_comment_url, sourceCreatedAt, sourceUpdatedAt, storedBody, 'source') : undefined;
+      return this.postAndRecord(item, probe, triggerSource, item.source_comment_url, diagnosis);
+    }
+
     const latest = await this.github.findLatestReviewLimitComment(owner, repo, item.pr_number);
 
     if (!latest) {

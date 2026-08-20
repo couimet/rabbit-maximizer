@@ -21,6 +21,8 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 const ACCOUNT_COOLDOWN_SEC = 3600;
 const MS_PER_SECOND = 1000;
 const ACCOUNT_COOLDOWN_MS = ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
+const SKIP_COMMENT_BODY =
+  '## Review available on request\n\nThis repository has fewer than 10 stars. To request a review, comment "@coderabbitai full review".\n\n<details>\n<summary>skip review by coderabbit.ai</summary>\n</details>';
 
 const setup = () => {
   const github = {
@@ -126,6 +128,68 @@ describe('ReviewTrigger', () => {
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',
     );
+  });
+
+  it('posts retrigger with skip comment as reply target and passes diagnosis (scheduler)', async () => {
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    const createdAt = getUniqueDate().toISOString();
+    const updatedAt = getUniqueDate().toISOString();
+    github.fetchComment.mockResolvedValue({ body: SKIP_COMMENT_BODY, createdAt, updatedAt });
+    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(result.success).toBe(true);
+    expect(github.findLatestReviewLimitComment).not.toHaveBeenCalled();
+    expect(github.postRetrigger).toHaveBeenCalledWith(
+      item.repo_full_name,
+      item.pr_number,
+      item.source_comment_url,
+      expect.any(String) as unknown as string,
+      'scheduler',
+      {
+        sourceComment: {
+          url: item.source_comment_url,
+          createdAt,
+          updatedAt,
+          classification: 'review_skipped',
+          matchedMarker: 'skip review by coderabbit.ai',
+        },
+        waitSeconds: undefined,
+        decision: 'source',
+      },
+    );
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
+    );
+  });
+
+  it('posts retrigger with skip comment as reply target and without diagnosis (dashboard)', async () => {
+    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    github.fetchComment.mockResolvedValue(makeFetchResult(SKIP_COMMENT_BODY));
+    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
+
+    expect(result.success).toBe(true);
+    expect(github.findLatestReviewLimitComment).not.toHaveBeenCalled();
+    expect(github.postRetrigger).toHaveBeenCalledWith(
+      item.repo_full_name,
+      item.pr_number,
+      item.source_comment_url,
+      expect.any(String) as unknown as string,
+      'dashboard_retrigger_now',
+      undefined,
+    );
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found and source body is non-empty', async () => {

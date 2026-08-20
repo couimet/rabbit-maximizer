@@ -2,7 +2,7 @@ import { QueueStatus, Resolution, SkipReason, TriggerSource, TYPES } from '../do
 import { BasePrismaRepository, PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
 import type { ProbeFactory } from '../probes/index.js';
-import { type CommentDetails, type CreateSkippedData, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem } from '../types/index.js';
+import { type CommentDetails, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem } from '../types/index.js';
 import { MS_PER_MINUTE } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -23,7 +23,6 @@ export interface QueueRepository {
   reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   findBySourceCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
-  createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
   resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
@@ -343,46 +342,6 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       this.log.debug({ fn: 'QueueRepositoryImpl.findBySourceCommentId', commentId, found: row !== null }, 'Searched by source comment ID');
       return row ? this.mapper.fromReviewQueue(row) : undefined;
     });
-  }
-
-  async createSkipped(data: CreateSkippedData, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
-    const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId, pullRequestId } = data;
-    try {
-      const row = await this.withPrismaErrorHandling(
-        () =>
-          this.client(tx).reviewQueue.create({
-            data: {
-              pull_request_id: pullRequestId,
-              repo_full_name: repo,
-              pr_number: pr,
-              pr_title: prTitle,
-              source_comment_url: sourceCommentUrl,
-              source_comment_id: sourceCommentId,
-              status: QueueStatus.resolved,
-              resolution: Resolution.Skipped,
-              resolved_at: new Date(),
-            },
-          }),
-        'QueueRepositoryImpl.createSkipped',
-      );
-      this.log.debug({ fn: 'QueueRepositoryImpl.createSkipped', repo, pr, commentId: sourceCommentId }, 'Created skipped entry');
-      return { item: this.mapper.fromReviewQueue(row), created: true };
-    } catch (err) {
-      if (err instanceof PrismaUniqueConstraintViolationError) {
-        const existing = await this.client(tx).reviewQueue.findFirst({
-          where: { source_comment_id: sourceCommentId },
-        });
-        if (existing) {
-          this.log.debug(
-            { fn: 'QueueRepositoryImpl.createSkipped', repo, pr, commentId: sourceCommentId, status: existing.status },
-            'Skipped entry already exists for this source comment',
-          );
-          return { item: this.mapper.fromReviewQueue(existing), created: false };
-        }
-      }
-      this.log.warn({ fn: 'QueueRepositoryImpl.createSkipped', repo, pr, error: err }, 'Create skipped failed; rethrowing');
-      throw err;
-    }
   }
 
   async resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number> {

@@ -8,7 +8,6 @@ import {
   createMockObservationContextProvider,
   createMockPrismaClient,
   createResolvedMock,
-  generateCreateSkippedData,
   generateReviewQueueHydrationData,
   generateReviewRef,
 } from '../helpers/index.js';
@@ -1606,93 +1605,6 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.findBySourceCommentId(row.source_comment_id);
 
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
-    });
-  });
-
-  describe('createSkipped', () => {
-    it('creates a row with resolved status / skipped resolution and returns item with created: true', async () => {
-      const row = generateReviewQueueHydrationData({ status: QueueStatus.resolved, resolution: Resolution.Skipped, resolved_at: frozenNow });
-      const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { create: createResolvedMock(row) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
-      const data = generateCreateSkippedData({
-        repo: row.repo_full_name,
-        pr: row.pr_number,
-        prTitle: row.pr_title,
-        sourceCommentUrl: row.source_comment_url,
-        sourceCommentId: row.source_comment_id,
-        pullRequestId: row.pull_request_id!,
-      });
-
-      const result = await sut.createSkipped(data, prisma as unknown as Prisma.TransactionClient);
-
-      expect(reviewQueue.create).toHaveBeenCalledWith({
-        data: {
-          pull_request_id: data.pullRequestId,
-          repo_full_name: data.repo,
-          pr_number: data.pr,
-          pr_title: data.prTitle,
-          source_comment_url: data.sourceCommentUrl,
-          source_comment_id: data.sourceCommentId,
-          status: 'resolved',
-          resolution: 'skipped',
-          resolved_at: frozenNow,
-        },
-      });
-      expect(result).toStrictEqual({ item: mapper.fromReviewQueue(row), created: true });
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.createSkipped', repo: data.repo, pr: data.pr, commentId: data.sourceCommentId },
-        'Created skipped entry',
-      );
-    });
-
-    it('returns existing row with created: false on unique constraint violation', async () => {
-      const existingRow = generateReviewQueueHydrationData({ status: QueueStatus.resolved, resolution: Resolution.Skipped });
-      const prismaError = new Prisma.PrismaClientKnownRequestError('Unique constraint violation', {
-        code: 'P2002',
-        clientVersion: '7.8.0',
-        meta: { target: ['source_comment_id'] },
-      });
-      const { prisma, reviewQueue } = createMockPrismaClient({
-        reviewQueue: {
-          create: jest.fn<any>().mockRejectedValue(prismaError),
-          findFirst: createResolvedMock(existingRow),
-        },
-      });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
-      const data = generateCreateSkippedData({
-        repo: existingRow.repo_full_name,
-        pr: existingRow.pr_number,
-        prTitle: existingRow.pr_title,
-        sourceCommentUrl: existingRow.source_comment_url,
-        sourceCommentId: existingRow.source_comment_id,
-        pullRequestId: existingRow.pull_request_id!,
-      });
-
-      const result = await sut.createSkipped(data, prisma as unknown as Prisma.TransactionClient);
-
-      expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { source_comment_id: data.sourceCommentId } });
-      expect(result).toStrictEqual({ item: mapper.fromReviewQueue(existingRow), created: false });
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.createSkipped', repo: data.repo, pr: data.pr, commentId: data.sourceCommentId, status: existingRow.status },
-        'Skipped entry already exists for this source comment',
-      );
-    });
-
-    it('rethrows errors that are not unique constraint violations', async () => {
-      const error = new Error('connection lost');
-      const { prisma } = createMockPrismaClient({
-        reviewQueue: {
-          create: jest.fn<any>().mockRejectedValue(error),
-        },
-      });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
-      const data = generateCreateSkippedData();
-
-      await expect(sut.createSkipped(data, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow('connection lost');
-      expect(logger.warn).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.createSkipped', repo: data.repo, pr: data.pr, error },
-        'Create skipped failed; rethrowing',
-      );
     });
   });
 

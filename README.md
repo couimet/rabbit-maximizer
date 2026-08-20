@@ -29,6 +29,8 @@ flowchart TD
 
 The poll detector and scheduler run on independent intervals. The detector finds review-limit comments and enqueues PRs with their cooldown time. The scheduler picks due items and posts retrigger comments. If a retrigger hits another review limit, CodeRabbit posts a new comment — the detector finds it and the cycle continues. If the PR is closed or merged, the item is marked failed and stops retrying.
 
+Repos with fewer than 10 stars get no automatic reviews: CodeRabbit posts a "Review available on request" comment instead. The detector recognizes these skip comments too, enqueues a full-review trigger through the same queue, and posts `@coderabbitai full review` on the comment.
+
 Queue statuses: [state diagram](docs/queue-status.md). Authoritative behavior: [`QueueStatus`](src/QueueStatus.ts), [`queueOrderRepository`](src/db/queueOrderRepository.ts), [`queueRepository`](src/db/queueRepository.ts)
 
 ## Stack

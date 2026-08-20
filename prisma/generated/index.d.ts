@@ -6775,6 +6775,7 @@ export namespace Prisma {
     url: string | null;
     comment_type: string | null;
     last_body_preview: string | null;
+    coderabbit_run_id: string | null;
     gh_created_at: Date | null;
     gh_updated_at: Date | null;
     first_seen_at: Date | null;
@@ -6793,6 +6794,7 @@ export namespace Prisma {
     url: string | null;
     comment_type: string | null;
     last_body_preview: string | null;
+    coderabbit_run_id: string | null;
     gh_created_at: Date | null;
     gh_updated_at: Date | null;
     first_seen_at: Date | null;
@@ -6811,6 +6813,7 @@ export namespace Prisma {
     url: number;
     comment_type: number;
     last_body_preview: number;
+    coderabbit_run_id: number;
     gh_created_at: number;
     gh_updated_at: number;
     first_seen_at: number;
@@ -6842,6 +6845,7 @@ export namespace Prisma {
     url?: true;
     comment_type?: true;
     last_body_preview?: true;
+    coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
     first_seen_at?: true;
@@ -6860,6 +6864,7 @@ export namespace Prisma {
     url?: true;
     comment_type?: true;
     last_body_preview?: true;
+    coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
     first_seen_at?: true;
@@ -6878,6 +6883,7 @@ export namespace Prisma {
     url?: true;
     comment_type?: true;
     last_body_preview?: true;
+    coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
     first_seen_at?: true;
@@ -6980,6 +6986,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview: string | null;
+    coderabbit_run_id: string | null;
     gh_created_at: Date;
     gh_updated_at: Date;
     first_seen_at: Date;
@@ -7016,6 +7023,7 @@ export namespace Prisma {
       url?: boolean;
       comment_type?: boolean;
       last_body_preview?: boolean;
+      coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
       first_seen_at?: boolean;
@@ -7038,6 +7046,7 @@ export namespace Prisma {
       url?: boolean;
       comment_type?: boolean;
       last_body_preview?: boolean;
+      coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
       first_seen_at?: boolean;
@@ -7060,6 +7069,7 @@ export namespace Prisma {
       url?: boolean;
       comment_type?: boolean;
       last_body_preview?: boolean;
+      coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
       first_seen_at?: boolean;
@@ -7081,6 +7091,7 @@ export namespace Prisma {
     url?: boolean;
     comment_type?: boolean;
     last_body_preview?: boolean;
+    coderabbit_run_id?: boolean;
     gh_created_at?: boolean;
     gh_updated_at?: boolean;
     first_seen_at?: boolean;
@@ -7099,6 +7110,7 @@ export namespace Prisma {
     | 'url'
     | 'comment_type'
     | 'last_body_preview'
+    | 'coderabbit_run_id'
     | 'gh_created_at'
     | 'gh_updated_at'
     | 'first_seen_at'
@@ -7146,6 +7158,10 @@ export namespace Prisma {
          * Max 1024. First N chars of the comment body, truncated by the repository on upsert.
          */
         last_body_preview: string | null;
+        /**
+         * Max 75. CodeRabbit's per-comment Run ID from the '**Run ID**: ' line in the body; distinct from our own runId (generateRunId in ReviewTrigger). CHECK in the 20260820 migration.
+         */
+        coderabbit_run_id: string | null;
         gh_created_at: Date;
         gh_updated_at: Date;
         first_seen_at: Date;
@@ -7655,6 +7671,7 @@ export namespace Prisma {
     readonly url: FieldRef<'CoderabbitComment', 'String'>;
     readonly comment_type: FieldRef<'CoderabbitComment', 'String'>;
     readonly last_body_preview: FieldRef<'CoderabbitComment', 'String'>;
+    readonly coderabbit_run_id: FieldRef<'CoderabbitComment', 'String'>;
     readonly gh_created_at: FieldRef<'CoderabbitComment', 'DateTime'>;
     readonly gh_updated_at: FieldRef<'CoderabbitComment', 'DateTime'>;
     readonly first_seen_at: FieldRef<'CoderabbitComment', 'DateTime'>;
@@ -9264,6 +9281,7 @@ export namespace Prisma {
     url: 'url';
     comment_type: 'comment_type';
     last_body_preview: 'last_body_preview';
+    coderabbit_run_id: 'coderabbit_run_id';
     gh_created_at: 'gh_created_at';
     gh_updated_at: 'gh_updated_at';
     first_seen_at: 'first_seen_at';
@@ -9805,6 +9823,7 @@ export namespace Prisma {
     url?: StringFilter<'CoderabbitComment'> | string;
     comment_type?: StringFilter<'CoderabbitComment'> | string;
     last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -9824,6 +9843,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrderInput | SortOrder;
+    coderabbit_run_id?: SortOrderInput | SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -9848,6 +9868,7 @@ export namespace Prisma {
       url?: StringFilter<'CoderabbitComment'> | string;
       comment_type?: StringFilter<'CoderabbitComment'> | string;
       last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+      coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
       gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
       gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
       first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -9869,6 +9890,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrderInput | SortOrder;
+    coderabbit_run_id?: SortOrderInput | SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -9895,6 +9917,7 @@ export namespace Prisma {
     url?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
     comment_type?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
     last_body_preview?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
+    coderabbit_run_id?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
     first_seen_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
@@ -10492,6 +10515,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -10511,6 +10535,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -10527,6 +10552,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10546,6 +10572,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10564,6 +10591,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -10580,6 +10608,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10598,6 +10627,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -11193,6 +11223,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrder;
+    coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -11217,6 +11248,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrder;
+    coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -11235,6 +11267,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrder;
+    coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -11957,6 +11990,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -11974,6 +12008,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -12100,6 +12135,7 @@ export namespace Prisma {
     url?: StringFilter<'CoderabbitComment'> | string;
     comment_type?: StringFilter<'CoderabbitComment'> | string;
     last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -12675,6 +12711,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -12811,6 +12848,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12828,6 +12866,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12845,6 +12884,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;

@@ -12,7 +12,6 @@ export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueReposit
     reschedule: jest.fn<any>(),
     backoff: jest.fn<any>(),
     findBySourceCommentId: jest.fn<any>().mockResolvedValue(null),
-    createSkipped: jest.fn<any>(),
     resolveStaleRetriggered: jest.fn<any>().mockResolvedValue(0),
     getActiveQueue: jest.fn<any>().mockResolvedValue([]),
     getPendingQueue: jest.fn<any>().mockResolvedValue([]),

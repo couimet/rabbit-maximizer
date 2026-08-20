@@ -14,6 +14,7 @@ export interface DetectedProbeContext {
   readonly pr_number: number;
   readonly source_ts: Date;
   readonly source_comment_url: string;
+  readonly coderabbit_run_id: string | undefined;
 }
 
 export class DetectedProbe {
@@ -100,11 +101,15 @@ export class DetectedProbe {
           source_ts: this.context.source_ts,
           comment_url: this.context.source_comment_url,
           skip_reason: 'CodeRabbit explicitly skipped this review',
+          coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,
     );
-    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit skipped review event recorded');
+    this.log.info(
+      { ...this.loggingCtx, eventUuid: event.uuid, coderabbit_run_id: this.context.coderabbit_run_id },
+      'CodeRabbit skip comment encountered; full-review trigger enqueued',
+    );
     return event;
   }
 

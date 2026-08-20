@@ -17,6 +17,7 @@ export interface UpsertCommentData {
   readonly body: string | null;
   readonly gh_created_at: Date;
   readonly gh_updated_at: Date;
+  readonly coderabbit_run_id: string | null;
 }
 
 export interface CoderabbitCommentRepository {
@@ -56,6 +57,7 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
                 url: data.url,
                 comment_type: data.comment_type,
                 last_body_preview: lastBodyPreviewForSql,
+                coderabbit_run_id: data.coderabbit_run_id,
                 gh_updated_at: data.gh_updated_at,
                 last_seen_at: now,
               },
@@ -76,6 +78,7 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
                 url: data.url,
                 comment_type: data.comment_type,
                 last_body_preview: lastBodyPreviewForSql,
+                coderabbit_run_id: data.coderabbit_run_id,
                 gh_created_at: data.gh_created_at,
                 gh_updated_at: data.gh_updated_at,
                 first_seen_at: now,
@@ -103,6 +106,7 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
                     url: data.url,
                     comment_type: data.comment_type,
                     last_body_preview: lastBodyPreviewForSql,
+                    coderabbit_run_id: data.coderabbit_run_id,
                     gh_updated_at: data.gh_updated_at,
                     last_seen_at: now,
                   },

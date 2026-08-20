@@ -2,7 +2,7 @@ import { buildCommentUrl } from '../src/github/buildCommentUrl.js';
 import { DirectCommentCheckerImpl } from '../src/services.js';
 import type { OnDetectedCallback } from '../src/types/index.js';
 
-import { createMockCoderabbitGitHubClient, createMockOnDetectedCallback, generateReviewRef } from './helpers/index.js';
+import { createMockCoderabbitCommentRepo, createMockCoderabbitGitHubClient, createMockOnDetectedCallback, generateReviewRef } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -13,18 +13,22 @@ const APPROVED_COMMENT_BODY =
   'No actionable comments were generated in the recent review.\n\n<!-- rabbit-maximizer\n{"version":"0.1.0","triggerSource":"scheduler"}\n-->';
 const REVIEW_LIMITED_BODY = 'rate limited by coderabbit.ai';
 const REVIEW_LIMITED_WITH_WAIT = 'rate limited by coderabbit.ai\n\n**Next review available in:** **34 minutes**';
+const ONE_MINUTE_MS = 60_000;
 
 describe('DirectCommentCheckerImpl', () => {
   let github: ReturnType<typeof createMockCoderabbitGitHubClient>;
   let onDetected: jest.Mocked<OnDetectedCallback>;
+  let coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
   let logger: ReturnType<typeof createMockLogger>;
   let checker: DirectCommentCheckerImpl;
 
   beforeEach(() => {
     github = createMockCoderabbitGitHubClient();
     onDetected = createMockOnDetectedCallback();
+    coderabbitComments = createMockCoderabbitCommentRepo();
+    coderabbitComments.findByCommentId.mockResolvedValue(undefined);
     logger = createMockLogger();
-    checker = new DirectCommentCheckerImpl(github, onDetected, logger);
+    checker = new DirectCommentCheckerImpl(github, onDetected, coderabbitComments, logger);
   });
 
   it('fetches comments and calls onDetected for rate-limit comments', async () => {
@@ -103,6 +107,99 @@ describe('DirectCommentCheckerImpl', () => {
         prTitle: ref.prTitle,
         body: SKIPPED_COMMENT_BODY,
         commentType: 'review_skipped',
+      },
+      pullRequestId,
+    );
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
+  });
+
+  it('skips stale comments already processed and not edited since', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentUpdatedAt = getUniqueDate();
+    const lastSeenAt = new Date(commentUpdatedAt.getTime() + ONE_MINUTE_MS);
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      { user: 'coderabbitai[bot]', body: REVIEW_LIMITED_BODY, id: commentId, createdAt: commentUpdatedAt, updatedAt: commentUpdatedAt },
+    ]);
+    coderabbitComments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+
+    const candidates = await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(coderabbitComments.findByCommentId).toHaveBeenCalledWith(pullRequestId, commentId);
+    expect(onDetected).not.toHaveBeenCalled();
+    // Freshness gate sits around onDetected only — the candidates push stays ungated
+    expect(candidates).toStrictEqual([{ updatedAt: commentUpdatedAt, waitSeconds: undefined }]);
+    expect(logger.info).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'DirectCommentChecker.check', repo: ref.repoFullName, pr: ref.prNumber, commentId },
+      'Skipping comment already processed and not edited since',
+    );
+  });
+
+  it('calls onDetected for edited comments with updatedAt newer than last_seen_at', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentCreatedAt = getUniqueDate();
+    const lastSeenAt = getUniqueDate();
+    const commentUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      { user: 'coderabbitai[bot]', body: SKIPPED_COMMENT_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentUpdatedAt },
+    ]);
+    coderabbitComments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(onDetected).toHaveBeenCalledWith(
+      {
+        url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
+        repoFullName: ref.repoFullName,
+        prNumber: ref.prNumber,
+        commentId,
+        createdAt: commentCreatedAt.toISOString(),
+        updatedAt: commentUpdatedAt.toISOString(),
+        prTitle: ref.prTitle,
+        body: SKIPPED_COMMENT_BODY,
+        commentType: 'review_skipped',
+      },
+      pullRequestId,
+    );
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentChecker.check', found: 1, checked: 1 }, 'Direct comment check found comments');
+  });
+
+  it('calls onDetected for first-seen comments with no stored row', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentCreatedAt = getUniqueDate();
+    const commentUpdatedAt = getUniqueDate();
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      { user: 'coderabbitai[bot]', body: REVIEW_LIMITED_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentUpdatedAt },
+    ]);
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(coderabbitComments.findByCommentId).toHaveBeenCalledWith(pullRequestId, commentId);
+    expect(onDetected).toHaveBeenCalledWith(
+      {
+        url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
+        repoFullName: ref.repoFullName,
+        prNumber: ref.prNumber,
+        commentId,
+        createdAt: commentCreatedAt.toISOString(),
+        updatedAt: commentUpdatedAt.toISOString(),
+        prTitle: ref.prTitle,
+        body: REVIEW_LIMITED_BODY,
+        commentType: 'review_limited',
       },
       pullRequestId,
     );

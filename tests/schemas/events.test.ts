@@ -107,7 +107,7 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses a coderabbit_review_skipped event', () => {
+  it('parses a coderabbit_review_skipped event without coderabbit_run_id', () => {
     const commentUrl = getUniqueString();
     const skipReason = getUniqueString();
     const sourceTs = getUniqueDate();
@@ -123,6 +123,32 @@ describe('parseEventRow', () => {
       source_ts: sourceTs,
       comment_url: commentUrl,
       skip_reason: skipReason,
+    });
+  });
+
+  it('parses a coderabbit_review_skipped event with coderabbit_run_id', () => {
+    const commentUrl = getUniqueString();
+    const skipReason = getUniqueString();
+    const sourceTs = getUniqueDate();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_skipped',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        comment_url: commentUrl,
+        skip_reason: skipReason,
+        coderabbit_run_id: coderabbitRunId,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_skipped');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      skip_reason: skipReason,
+      coderabbit_run_id: coderabbitRunId,
     });
   });
 
