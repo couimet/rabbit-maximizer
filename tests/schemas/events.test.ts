@@ -2,7 +2,7 @@ import { EventType } from '../../src/domain.js';
 import { COMMENT_URL_MAX_LENGTH, parseEventRow, REASON_MAX_LENGTH } from '../../src/schemas/index.js';
 import { generateEventHydrationData } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 
 const EXCEEDS_MAX_BY = 1;
@@ -40,6 +40,28 @@ describe('parseEventRow', () => {
       metadata,
       type: 'detected',
       payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+    });
+  });
+
+  it('parses a detected event with coderabbit_run_id', () => {
+    const sourceTs = getUniqueDate();
+    const sourceCommentUrl = getUniqueString();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'detected',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: coderabbitRunId,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      source_comment_url: sourceCommentUrl,
+      coderabbit_run_id: coderabbitRunId,
     });
   });
 
@@ -107,6 +129,22 @@ describe('parseEventRow', () => {
     });
   });
 
+  it('parses a coderabbit_review_approved event with coderabbit_run_id', () => {
+    const coderabbitCommentUrl = getUniqueString();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_approved',
+      payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl, coderabbit_run_id: coderabbitRunId }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.payload).toStrictEqual({
+      coderabbit_comment_url: coderabbitCommentUrl,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
   it('parses a coderabbit_review_skipped event without coderabbit_run_id', () => {
     const commentUrl = getUniqueString();
     const skipReason = getUniqueString();
@@ -152,6 +190,70 @@ describe('parseEventRow', () => {
     });
   });
 
+  it('parses a coderabbit_run_id_first_seen event', () => {
+    const commentUrl = getUniqueString();
+    const commentId = getUniqueInt();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_run_id_first_seen',
+      payload: JSON.stringify({ comment_id: commentId, comment_url: commentUrl, coderabbit_run_id: coderabbitRunId }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_run_id_first_seen');
+    expect(result.payload).toStrictEqual({
+      comment_id: commentId,
+      comment_url: commentUrl,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('parses a coderabbit_run_id_changed event', () => {
+    const commentUrl = getUniqueString();
+    const commentId = getUniqueInt();
+    const previousRunId = getUuid();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_run_id_changed',
+      payload: JSON.stringify({
+        comment_id: commentId,
+        comment_url: commentUrl,
+        previous_coderabbit_run_id: previousRunId,
+        coderabbit_run_id: coderabbitRunId,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_run_id_changed');
+    expect(result.payload).toStrictEqual({
+      comment_id: commentId,
+      comment_url: commentUrl,
+      previous_coderabbit_run_id: previousRunId,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('parses a coderabbit_run_id_cleared event', () => {
+    const commentUrl = getUniqueString();
+    const commentId = getUniqueInt();
+    const previousRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_run_id_cleared',
+      payload: JSON.stringify({ comment_id: commentId, comment_url: commentUrl, previous_coderabbit_run_id: previousRunId }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_run_id_cleared');
+    expect(result.payload).toStrictEqual({
+      comment_id: commentId,
+      comment_url: commentUrl,
+      previous_coderabbit_run_id: previousRunId,
+    });
+  });
+
   it('parses a coderabbit_review_changes_suggested event', () => {
     const coderabbitCommentUrl = getUniqueString();
     const row = generateEventHydrationData({
@@ -164,6 +266,22 @@ describe('parseEventRow', () => {
     expect(result.type).toBe('coderabbit_review_changes_suggested');
     expect(result.payload).toStrictEqual({
       coderabbit_comment_url: coderabbitCommentUrl,
+    });
+  });
+
+  it('parses a coderabbit_review_changes_suggested event with coderabbit_run_id', () => {
+    const coderabbitCommentUrl = getUniqueString();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_changes_suggested',
+      payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl, coderabbit_run_id: coderabbitRunId }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.payload).toStrictEqual({
+      coderabbit_comment_url: coderabbitCommentUrl,
+      coderabbit_run_id: coderabbitRunId,
     });
   });
 

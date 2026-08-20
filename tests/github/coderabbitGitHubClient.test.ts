@@ -2,7 +2,7 @@ import pkg from '../../package.json' with { type: 'json' };
 import { CodeRabbitCommentType, MatchedMarker, TriggerSource, TYPES } from '../../src/domain.js';
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/index.js';
 import type { RepoFilter } from '../../src/types/index.js';
-import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockSearchRest } from '../helpers/index.js';
+import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockReposRest, type MockSearchRest } from '../helpers/index.js';
 
 import { getRandomString, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -24,6 +24,7 @@ describe('client', () => {
   let octokit: Octokit;
   let issues: MockIssuesRest;
   let pulls: MockPullsRest;
+  let repos: MockReposRest;
   let search: MockSearchRest;
   let logger: ReturnType<typeof createMockLogger>;
 
@@ -44,7 +45,7 @@ describe('client', () => {
     jest.setSystemTime(frozenDate);
     ({
       octokit,
-      rest: { issues, pulls, search },
+      rest: { issues, pulls, search, repos },
     } = createMockOctokit());
     logger = createMockLogger();
   });
@@ -810,6 +811,37 @@ describe('client', () => {
       const result = await client.getPRState(fullName, prNumber);
 
       expect(result).toStrictEqual({ state: 'closed', merged_at: mergedAt, closed_at: closedAt });
+    });
+  });
+
+  describe('getPRHeadSha', () => {
+    it('calls pulls.get and returns the head sha', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const headSha = getUniqueString({ prefix: 'head-' });
+      pulls.get.mockResolvedValue({ data: { head: { sha: headSha } } });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.getPRHeadSha(owner, repo, prNumber);
+
+      expect(pulls.get).toHaveBeenCalledWith({ owner, repo, pull_number: prNumber });
+      expect(result).toBe(headSha);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'getPRHeadSha', owner, repo, prNumber }, 'Fetching PR head sha');
+    });
+  });
+
+  describe('getCommitCommittedAt', () => {
+    it('calls repos.getCommit and returns the committer date', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const headSha = getUniqueString({ prefix: 'head-' });
+      const committedAt = getUniqueDate().toISOString();
+      repos.getCommit.mockResolvedValue({ data: { commit: { committer: { date: committedAt } } } });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.getCommitCommittedAt(owner, repo, headSha);
+
+      expect(repos.getCommit).toHaveBeenCalledWith({ owner, repo, ref: headSha });
+      expect(result).toBe(committedAt);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'getCommitCommittedAt', owner, repo, sha: headSha }, 'Fetching commit timestamp');
     });
   });
 

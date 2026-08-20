@@ -1,4 +1,4 @@
-import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository } from './db/index.js';
+import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository, UpsertCommentData } from './db/index.js';
 import { classifyCoderabbitComment, parseWaitSeconds } from './github/index.js';
 import type { ObservationContextProvider } from './observability/index.js';
 import type { ProbeFactory } from './probes/index.js';
@@ -45,30 +45,35 @@ export class EnqueueService {
     );
     await probe.detected();
 
+    const { classification } = classifyCoderabbitComment(comment.body);
+    const commentData: UpsertCommentData = {
+      comment_id: comment.commentId,
+      pull_request_id: pullRequestId,
+      url: comment.url,
+      comment_type: classification,
+      body: comment.body,
+      gh_created_at: new Date(comment.createdAt),
+      gh_updated_at: new Date(comment.updatedAt),
+      coderabbit_run_id: coderabbitRunId ?? null,
+    };
+
+    // A completed review only dismisses comments from runs it already saw. CodeRabbit
+    // edits its comment in place per push, so an edit newer than the recorded verdict
+    // is a new run and must flow through the normal branches.
     const existingReview = await this.coderabbitComments.findCompletedReview(pullRequestId);
-    if (existingReview) {
+    if (existingReview && new Date(comment.updatedAt) <= existingReview.gh_updated_at) {
+      await this.prisma.$transaction(async (tx) => {
+        // Latch last_seen_at even when dismissing, or the DirectCommentChecker
+        // freshness gate re-detects this comment on every scan.
+        await this.coderabbitComments.upsert(commentData, tx);
+      });
       probe.alreadyReviewed(existingReview);
       return;
     }
 
     await this.prisma.$transaction(async (tx) => {
       await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
-
-      const { classification } = classifyCoderabbitComment(comment.body);
-
-      await this.coderabbitComments.upsert(
-        {
-          comment_id: comment.commentId,
-          pull_request_id: pullRequestId,
-          url: comment.url,
-          comment_type: classification,
-          body: comment.body,
-          gh_created_at: new Date(comment.createdAt),
-          gh_updated_at: new Date(comment.updatedAt),
-          coderabbit_run_id: coderabbitRunId ?? null,
-        },
-        tx,
-      );
+      await this.coderabbitComments.upsert(commentData, tx);
 
       if (classification === 'review_skipped') {
         const { created } = await this.queue.enqueue(

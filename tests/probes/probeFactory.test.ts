@@ -3,6 +3,7 @@ import { TYPES } from '../../src/domain.js';
 import { type ObservationContextProvider, UuidObservationContextProvider } from '../../src/observability/index.js';
 import {
   DetectedProbe,
+  DirectCommentCheckProbe,
   EnqueueProbe,
   MarkQueueItemReviewedProbe,
   ProbeFactory,
@@ -100,6 +101,13 @@ describe('ProbeFactory', () => {
     const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
     const probe = factory.createReviewDetectorProbe();
     expect(probe).toBeInstanceOf(ReviewDetectorProbe);
+  });
+
+  it('creates a DirectCommentCheckProbe', () => {
+    const { eventRepository, logger } = makeMocks();
+    const factory = new ProbeFactory(eventRepository, observationProvider as any, logger);
+    const probe = factory.createDirectCommentCheckProbe();
+    expect(probe).toBeInstanceOf(DirectCommentCheckProbe);
   });
 
   it('creates a ReviewRetriggerProbe', () => {

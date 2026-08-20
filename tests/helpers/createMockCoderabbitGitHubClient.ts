@@ -10,6 +10,8 @@ export const createMockCoderabbitGitHubClient = (overrides?: Partial<jest.Mocked
     listOpenPRs: jest.fn<any>().mockResolvedValue([]),
     postRetrigger: jest.fn<any>(),
     getPRState: jest.fn<any>(),
+    getPRHeadSha: jest.fn<any>().mockResolvedValue('default-head-sha'),
+    getCommitCommittedAt: jest.fn<any>().mockResolvedValue('2026-08-20T00:00:00.000Z'),
     findCompletedReview: jest.fn<any>(),
     findLatestReviewLimitComment: jest.fn<any>(),
     findAcknowledgement: jest.fn<any>(),

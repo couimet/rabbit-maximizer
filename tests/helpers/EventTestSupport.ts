@@ -1,6 +1,8 @@
+import { EventType } from '../../src/domain.js';
+
 import { generateReviewRef } from './ReviewRefTestSupport.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Event } from '@prisma/client';
 
 export const generateEventHydrationData = (overrideValues?: Partial<Event>): Event => {
@@ -13,7 +15,7 @@ export const generateEventHydrationData = (overrideValues?: Partial<Event>): Eve
     id: getUniqueInt(),
     uuid: getUuid(),
     ts: getUniqueDate(),
-    type: 'detected',
+    type: getRandomEnumValue(EventType),
     pull_request_id: getUniqueInt(),
     repo_full_name: ref.repoFullName,
     pr_number: ref.prNumber,

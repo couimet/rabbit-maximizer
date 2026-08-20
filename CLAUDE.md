@@ -2,6 +2,8 @@
 
 Project-specific guidance for Claude Code.
 
+The authoritative description of what this product does and why is in [docs/business-rules.md](docs/business-rules.md) — read it before changing behavior; rules below govern how the code is written.
+
 Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies everywhere), **T** for tests. Numbered sequentially from 1 within each category.
 
 <rule id="C001" priority="critical">

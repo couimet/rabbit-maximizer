@@ -43,6 +43,12 @@ model PullRequest {
   last_review_url                 String?
   last_review_state               String?
   last_coderabbit_acknowledged_at DateTime?
+  /// Max 40 (git sha). Head commit of the branch at the last scan.
+  head_sha String?
+  /// Max 40 (git sha). Head commit at the time the last CodeRabbit review was recorded.
+  reviewed_head_sha String?
+  /// Timestamp of the head commit; fetched only when head_sha changes.
+  head_committed_at DateTime?
   retrigger_count           Int       @default(0)
   review_count              Int       @default(0)
   created_at                DateTime  @default(now())
@@ -51,12 +57,36 @@ model PullRequest {
   queueItems  ReviewQueue[]
   events      Event[]
   comments    CoderabbitComment[]
+  shaHistory  PullRequestSha[]
 
   @@index([last_coderabbit_acknowledged_at])
   @@index([last_coderabbit_review_at])
   @@index([last_review_requested_at])
   @@unique([repo_full_name, pr_number])
   @@map("pull_request")
+}
+
+// ---------------------------------------------------------------------------
+// PullRequestSha — append-only history of observed head commits per PR.
+//
+// One row per distinct head sha ever seen by the scanner. Rebase and
+// force-push sequences are diagnosable from the observation timestamps.
+// ---------------------------------------------------------------------------
+
+/// Tracks each distinct head sha observed on a PR.
+model PullRequestSha {
+  id               Int      @id @default(autoincrement())
+  pull_request_id  Int
+  /// Max 40 (git sha).
+  sha              String
+  first_observed_at DateTime @default(now())
+  last_observed_at  DateTime @default(now())
+
+  pullRequest PullRequest @relation(fields: [pull_request_id], references: [id])
+
+  @@unique([pull_request_id, sha])
+  @@index([pull_request_id])
+  @@map("pull_request_sha")
 }
 
 // ---------------------------------------------------------------------------

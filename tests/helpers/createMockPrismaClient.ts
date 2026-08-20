@@ -49,6 +49,10 @@ export interface MockPullRequestDelegate {
   update: jest.Mock<any>;
 }
 
+export interface MockPullRequestShaDelegate {
+  upsert: jest.Mock<any>;
+}
+
 export interface MockSystemStateDelegate {
   findUnique: jest.Mock<any>;
   upsert: jest.Mock<any>;
@@ -65,6 +69,7 @@ export interface MockPrismaOptions {
   event?: Partial<MockEventDelegate>;
   queueOrder?: Partial<MockQueueOrderDelegate>;
   pullRequest?: Partial<MockPullRequestDelegate>;
+  pullRequestSha?: Partial<MockPullRequestShaDelegate>;
   systemState?: Partial<MockSystemStateDelegate>;
   $executeRawUnsafe?: jest.Mock<any>;
   $executeRaw?: jest.Mock<any>;
@@ -80,6 +85,7 @@ export interface MockPrismaResult {
   event: MockEventDelegate;
   queueOrder: MockQueueOrderDelegate;
   pullRequest: MockPullRequestDelegate;
+  pullRequestSha: MockPullRequestShaDelegate;
   systemState: MockSystemStateDelegate;
 }
 
@@ -133,6 +139,10 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
     update: jest.fn<any>(),
     ...overrides.pullRequest,
   };
+  const pullRequestSha: MockPullRequestShaDelegate = {
+    upsert: jest.fn<any>(),
+    ...overrides.pullRequestSha,
+  };
   const systemState: MockSystemStateDelegate = {
     findUnique: jest.fn<any>(),
     upsert: jest.fn<any>(),
@@ -148,7 +158,19 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
   const $queryRawUnsafe: jest.Mock<any> = overrides.$queryRawUnsafe ?? jest.fn<any>();
   const $queryRaw: jest.Mock<any> = overrides.$queryRaw ?? jest.fn<any>();
 
-  const mockForTx = { coderabbitComment, reviewQueue, event, queueOrder, pullRequest, systemState, $executeRawUnsafe, $executeRaw, $queryRawUnsafe, $queryRaw };
+  const mockForTx = {
+    coderabbitComment,
+    reviewQueue,
+    event,
+    queueOrder,
+    pullRequest,
+    pullRequestSha,
+    systemState,
+    $executeRawUnsafe,
+    $executeRaw,
+    $queryRawUnsafe,
+    $queryRaw,
+  };
   const $transaction: jest.Mock<any> = overrides.$transaction ?? jest.fn<any>().mockImplementation((fn: (tx: unknown) => unknown) => fn(mockForTx));
 
   return {
@@ -157,6 +179,7 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
     reviewQueue,
     event,
     pullRequest,
+    pullRequestSha,
     queueOrder,
     systemState,
   };

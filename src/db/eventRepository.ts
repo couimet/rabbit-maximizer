@@ -4,6 +4,9 @@ import type {
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
   CoderabbitReviewSkippedPayload,
+  CoderabbitRunIdChangedPayload,
+  CoderabbitRunIdClearedPayload,
+  CoderabbitRunIdFirstSeenPayload,
   DetectedPayload,
   DismissedPayload,
   EnqueuedPayload,
@@ -35,10 +38,13 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.coderabbit_review_approved; payload: CoderabbitReviewApprovedPayload })
   | (NewEventBase & { type: EventType.coderabbit_review_changes_suggested; payload: CoderabbitReviewChangesSuggestedPayload })
   | (NewEventBase & { type: EventType.coderabbit_review_skipped; payload: CoderabbitReviewSkippedPayload })
+  | (NewEventBase & { type: EventType.coderabbit_run_id_changed; payload: CoderabbitRunIdChangedPayload })
+  | (NewEventBase & { type: EventType.coderabbit_run_id_cleared; payload: CoderabbitRunIdClearedPayload })
+  | (NewEventBase & { type: EventType.coderabbit_run_id_first_seen; payload: CoderabbitRunIdFirstSeenPayload })
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
 export interface EventRepository {
-  record(input: NewEvent, tx: Prisma.TransactionClient): Promise<EventLogEntry>;
+  record(input: NewEvent, tx: Prisma.TransactionClient | undefined): Promise<EventLogEntry>;
   listForPr(repo: string, pr: number): Promise<EventLogEntry[]>;
   listRecent(skip: number, take: number): Promise<PaginatedResult<EventLogEntry>>;
   countByType(since: Date): Promise<Record<EventType, number>>;
@@ -53,8 +59,9 @@ export class EventRepositoryImpl implements EventRepository {
   ) {}
   /* c8 ignore stop */
 
-  async record(input: NewEvent, tx: Prisma.TransactionClient): Promise<EventLogEntry> {
-    const row = await tx.event.create({
+  async record(input: NewEvent, tx: Prisma.TransactionClient | undefined): Promise<EventLogEntry> {
+    const db = tx ?? this.prisma;
+    const row = await db.event.create({
       data: {
         type: input.type,
         repo_full_name: input.repo_full_name,
@@ -108,6 +115,9 @@ export class EventRepositoryImpl implements EventRepository {
       coderabbit_review_approved: 0,
       coderabbit_review_changes_suggested: 0,
       coderabbit_review_skipped: 0,
+      coderabbit_run_id_changed: 0,
+      coderabbit_run_id_cleared: 0,
+      coderabbit_run_id_first_seen: 0,
       detected: 0,
       dismissed: 0,
       enqueued: 0,

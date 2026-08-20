@@ -12,6 +12,7 @@ const COMMENT_URL_SCHEMA = z.string().max(COMMENT_URL_MAX_LENGTH);
 export const DetectedPayloadSchema = z.object({
   source_ts: z.coerce.date().optional(),
   source_comment_url: COMMENT_URL_SCHEMA.optional(),
+  coderabbit_run_id: z.string().optional(),
 });
 
 export const EnqueuedPayloadSchema = z.object({});
@@ -30,6 +31,7 @@ export const CoderabbitReviewApprovedPayloadSchema = z.object({
   source_ts: z.coerce.date().optional(),
   verdict_state: z.enum([CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested]).optional(),
   detected_via: z.enum(ReviewDetectionMethod).optional(),
+  coderabbit_run_id: z.string().optional(),
 });
 
 export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
@@ -37,6 +39,7 @@ export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
   source_ts: z.coerce.date().optional(),
   verdict_state: z.enum([CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested]).optional(),
   detected_via: z.enum(ReviewDetectionMethod).optional(),
+  coderabbit_run_id: z.string().optional(),
 });
 
 export const CoderabbitReviewSkippedPayloadSchema = z.object({
@@ -44,6 +47,25 @@ export const CoderabbitReviewSkippedPayloadSchema = z.object({
   comment_url: COMMENT_URL_SCHEMA,
   skip_reason: z.string(),
   coderabbit_run_id: z.string().optional(),
+});
+
+export const CoderabbitRunIdChangedPayloadSchema = z.object({
+  comment_id: z.number().int(),
+  comment_url: COMMENT_URL_SCHEMA,
+  previous_coderabbit_run_id: z.string(),
+  coderabbit_run_id: z.string(),
+});
+
+export const CoderabbitRunIdClearedPayloadSchema = z.object({
+  comment_id: z.number().int(),
+  comment_url: COMMENT_URL_SCHEMA,
+  previous_coderabbit_run_id: z.string(),
+});
+
+export const CoderabbitRunIdFirstSeenPayloadSchema = z.object({
+  comment_id: z.number().int(),
+  comment_url: COMMENT_URL_SCHEMA,
+  coderabbit_run_id: z.string(),
 });
 
 export const FailedPayloadSchema = z.object({
@@ -117,6 +139,24 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         ...envelope,
         type: EventType.coderabbit_review_skipped,
         payload: CoderabbitReviewSkippedPayloadSchema.parse(payload),
+      };
+    case EventType.coderabbit_run_id_changed:
+      return {
+        ...envelope,
+        type: EventType.coderabbit_run_id_changed,
+        payload: CoderabbitRunIdChangedPayloadSchema.parse(payload),
+      };
+    case EventType.coderabbit_run_id_cleared:
+      return {
+        ...envelope,
+        type: EventType.coderabbit_run_id_cleared,
+        payload: CoderabbitRunIdClearedPayloadSchema.parse(payload),
+      };
+    case EventType.coderabbit_run_id_first_seen:
+      return {
+        ...envelope,
+        type: EventType.coderabbit_run_id_first_seen,
+        payload: CoderabbitRunIdFirstSeenPayloadSchema.parse(payload),
       };
     case EventType.failed:
       return {

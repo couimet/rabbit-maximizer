@@ -144,6 +144,8 @@ describe('PullRequestRepositoryImpl', () => {
           pr_state: 'closed',
           merged_at: null,
           closed_at: null,
+          head_sha: null,
+          head_committed_at: null,
           first_seen_at: frozenNow,
         },
       });
@@ -174,6 +176,8 @@ describe('PullRequestRepositoryImpl', () => {
           pr_state: 'open',
           merged_at: null,
           closed_at: null,
+          head_sha: null,
+          head_committed_at: null,
           first_seen_at: frozenNow,
         },
       });
@@ -204,6 +208,8 @@ describe('PullRequestRepositoryImpl', () => {
           pr_state: 'merged',
           merged_at: mergedAt,
           closed_at: null,
+          head_sha: null,
+          head_committed_at: null,
           first_seen_at: frozenNow,
         },
       });
@@ -293,9 +299,76 @@ describe('PullRequestRepositoryImpl', () => {
     });
   });
 
+  it('creates with head fields and records the sha observation', async () => {
+    const headSha = getUniqueString({ prefix: 'head-' });
+    const headCommittedAt = getUniqueDate();
+    const row = { id: getUniqueInt() };
+    const { prisma, pullRequest, pullRequestSha } = createMockPrismaClient({
+      pullRequest: { findUnique: createResolvedMock(null), create: createResolvedMock(row) },
+    });
+    const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+    await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open, headSha, headCommittedAt });
+
+    expect(pullRequest.create).toHaveBeenCalledWith({
+      data: {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        title: '<unknown>',
+        author_login: '<unknown>',
+        pr_state: 'open',
+        merged_at: null,
+        closed_at: null,
+        head_sha: headSha,
+        head_committed_at: headCommittedAt,
+        first_seen_at: frozenNow,
+      },
+    });
+    expect(pullRequestSha.upsert).toHaveBeenCalledWith({
+      where: { pull_request_id_sha: { pull_request_id: row.id, sha: headSha } },
+      update: { last_observed_at: frozenNow },
+      create: { pull_request_id: row.id, sha: headSha },
+    });
+  });
+
+  it('updates head fields and refreshes the sha observation on an existing PR', async () => {
+    const headSha = getUniqueString({ prefix: 'head-' });
+    const headCommittedAt = getUniqueDate();
+    const existing = { id: getUniqueInt() };
+    const { prisma, pullRequest, pullRequestSha } = createMockPrismaClient({
+      pullRequest: { findUnique: createResolvedMock(existing) },
+    });
+    const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+    await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open, headSha, headCommittedAt });
+
+    expect(pullRequest.update).toHaveBeenCalledWith({
+      where: { id: existing.id },
+      data: { pr_state: 'open', head_sha: headSha, head_committed_at: headCommittedAt },
+    });
+    expect(pullRequestSha.upsert).toHaveBeenCalledWith({
+      where: { pull_request_id_sha: { pull_request_id: existing.id, sha: headSha } },
+      update: { last_observed_at: frozenNow },
+      create: { pull_request_id: existing.id, sha: headSha },
+    });
+  });
+
+  it('does not touch the sha history when no head data is provided', async () => {
+    const existing = { id: getUniqueInt() };
+    const { prisma, pullRequestSha } = createMockPrismaClient({
+      pullRequest: { findUnique: createResolvedMock(existing) },
+    });
+    const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+    await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open });
+
+    expect(pullRequestSha.upsert).not.toHaveBeenCalled();
+  });
+
   describe('findByRepoAndPr', () => {
-    it('returns the PR id when found', async () => {
-      const row = { id: getUniqueInt() };
+    it('returns the PR id and head sha when found', async () => {
+      const headSha = getUniqueString({ prefix: 'head-' });
+      const row = { id: getUniqueInt(), head_sha: headSha };
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(row) },
       });
@@ -303,7 +376,7 @@ describe('PullRequestRepositoryImpl', () => {
 
       const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber);
 
-      expect(result).toStrictEqual({ id: row.id });
+      expect(result).toStrictEqual({ id: row.id, head_sha: headSha });
     });
 
     it('returns null when not found', async () => {
@@ -455,9 +528,34 @@ describe('PullRequestRepositoryImpl', () => {
           last_coderabbit_review_at: frozenNow,
           last_review_url: reviewUrl,
           last_review_state: 'review_approved',
+          reviewed_head_sha: null,
         },
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+    });
+
+    it('snapshots the current head sha as reviewed_head_sha', async () => {
+      const id = getUniqueInt();
+      const reviewUrl = generateReviewRef().commentUrl;
+      const headSha = getUniqueString({ prefix: 'head-' });
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock({ id, head_sha: headSha }) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_approved, prisma);
+
+      expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id }, select: { head_sha: true } });
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id },
+        data: {
+          review_count: { increment: 1 },
+          last_coderabbit_review_at: frozenNow,
+          last_review_url: reviewUrl,
+          last_review_state: 'review_approved',
+          reviewed_head_sha: headSha,
+        },
+      });
     });
 
     it('stores review_changes_suggested verdict state', async () => {
@@ -475,6 +573,7 @@ describe('PullRequestRepositoryImpl', () => {
           last_coderabbit_review_at: frozenNow,
           last_review_url: reviewUrl,
           last_review_state: 'review_changes_suggested',
+          reviewed_head_sha: null,
         },
       });
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');

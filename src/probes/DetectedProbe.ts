@@ -30,6 +30,7 @@ export class DetectedProbe {
       fn: 'DetectedProbe',
       repo: context.repo_full_name,
       pr: context.pr_number,
+      ...(context.coderabbit_run_id !== undefined ? { coderabbit_run_id: context.coderabbit_run_id } : {}),
     };
   }
 
@@ -63,6 +64,7 @@ export class DetectedProbe {
         payload: {
           source_ts: this.context.source_ts,
           source_comment_url: this.context.source_comment_url,
+          coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,
@@ -106,10 +108,7 @@ export class DetectedProbe {
       },
       tx,
     );
-    this.log.info(
-      { ...this.loggingCtx, eventUuid: event.uuid, coderabbit_run_id: this.context.coderabbit_run_id },
-      'CodeRabbit skip comment encountered; full-review trigger enqueued',
-    );
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit skip comment encountered; full-review trigger enqueued');
     return event;
   }
 
@@ -126,6 +125,7 @@ export class DetectedProbe {
           coderabbit_comment_url: this.context.source_comment_url,
           source_ts: this.context.source_ts,
           verdict_state: verdictState,
+          coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,

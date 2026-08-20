@@ -52,6 +52,8 @@ export interface CoderabbitGitHubClient {
   ): Promise<RetriggerComment>;
 
   getPRState(repo: string, pr: number): Promise<PRState>;
+  getPRHeadSha(owner: string, repo: string, prNumber: number): Promise<string>;
+  getCommitCommittedAt(owner: string, repo: string, sha: string): Promise<string>;
 
   findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined>;
 
@@ -245,6 +247,31 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     });
 
     return { state: response.data.state, merged_at: response.data.merged_at, closed_at: response.data.closed_at };
+  }
+
+  async getPRHeadSha(owner: string, repo: string, prNumber: number): Promise<string> {
+    this.log.debug({ fn: 'getPRHeadSha', owner, repo, prNumber }, 'Fetching PR head sha');
+
+    const response = await this.octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+
+    return response.data.head.sha;
+  }
+
+  async getCommitCommittedAt(owner: string, repo: string, sha: string): Promise<string> {
+    this.log.debug({ fn: 'getCommitCommittedAt', owner, repo, sha }, 'Fetching commit timestamp');
+
+    const response = await this.octokit.rest.repos.getCommit({
+      owner,
+      repo,
+      ref: sha,
+    });
+
+    // Every commit has a committer date; the API type only marks it nullable.
+    return response.data.commit.committer!.date!;
   }
 
   async findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined> {

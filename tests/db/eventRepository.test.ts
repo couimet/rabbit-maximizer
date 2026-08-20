@@ -13,7 +13,7 @@ describe('EventRepositoryImpl', () => {
   const EXPECTED_EVENT_COUNT = 2;
 
   describe('record', () => {
-    it('inserts a detected event and returns the parsed entry', async () => {
+    it('inserts a detected event standalone through its own client when no tx is passed', async () => {
       const ref = generateReviewRef();
       const correlationId = getUuid();
       const requestId = getUuid();
@@ -52,7 +52,7 @@ describe('EventRepositoryImpl', () => {
         version,
         payload: { source_comment_url: sourceCommentUrl },
       };
-      const result = await sut.record(input, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.record(input, undefined);
 
       expect(event.create).toHaveBeenCalledWith({
         data: {
@@ -336,6 +336,9 @@ describe('EventRepositoryImpl', () => {
         coderabbit_review_approved: approvedCnt,
         coderabbit_review_changes_suggested: changesReqCnt,
         coderabbit_review_skipped: skippedCnt,
+        coderabbit_run_id_changed: 0,
+        coderabbit_run_id_cleared: 0,
+        coderabbit_run_id_first_seen: 0,
         detected: detectedCnt,
         enqueued: enqueuedCnt,
         failed: failedCnt,
@@ -349,6 +352,9 @@ describe('EventRepositoryImpl', () => {
             coderabbit_review_approved: approvedCnt,
             coderabbit_review_changes_suggested: changesReqCnt,
             coderabbit_review_skipped: skippedCnt,
+            coderabbit_run_id_changed: 0,
+            coderabbit_run_id_cleared: 0,
+            coderabbit_run_id_first_seen: 0,
             detected: detectedCnt,
             enqueued: enqueuedCnt,
             failed: failedCnt,
@@ -373,6 +379,9 @@ describe('EventRepositoryImpl', () => {
         coderabbit_review_approved: 0,
         coderabbit_review_changes_suggested: 0,
         coderabbit_review_skipped: 0,
+        coderabbit_run_id_changed: 0,
+        coderabbit_run_id_cleared: 0,
+        coderabbit_run_id_first_seen: 0,
         detected: detectedCnt,
         enqueued: enqueuedCnt,
         failed: 0,

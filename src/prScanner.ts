@@ -1,5 +1,5 @@
 import { type PullRequestRepository, type SystemStateRepository } from './db/index.js';
-import { type CoderabbitGitHubClient, isPRClosedWithoutMerge, isPRMerged } from './github/index.js';
+import { type CoderabbitGitHubClient, isPRClosedWithoutMerge, isPRMerged, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import type { ScannedPR, ScanResult } from './types/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
@@ -72,10 +72,20 @@ export class PrScannerImpl implements PrScanner {
       // Upsert each discovered PR
       for (const pr of discoveredPRs) {
         try {
+          const { owner, repo } = splitRepo(pr.repoFullName);
+          const headSha = await this.github.getPRHeadSha(owner, repo, pr.prNumber);
+          const existing = await this.pullRequests.findByRepoAndPr(pr.repoFullName, pr.prNumber);
+          let headCommittedAt: Date | undefined;
+          if ((existing?.head_sha ?? null) !== headSha) {
+            // One commit fetch per push: the timestamp only changes with the head.
+            headCommittedAt = new Date(await this.github.getCommitCommittedAt(owner, repo, headSha));
+          }
           const result = await this.pullRequests.upsert(pr.repoFullName, pr.prNumber, {
             prTitle: pr.prTitle,
             prState: PrState.open,
             authorLogin: pr.authorLogin,
+            headSha,
+            headCommittedAt,
           });
           scannedPRs.push({ repoFullName: pr.repoFullName, prNumber: pr.prNumber, pullRequestId: result.id, prTitle: pr.prTitle });
           if (result.created) {

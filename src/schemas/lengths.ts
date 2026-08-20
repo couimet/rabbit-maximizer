@@ -43,3 +43,5 @@ export const BODY_PREVIEW_MAX_LENGTH = 1024;
 // Column limit for coderabbit_run_id on coderabbit_comment (CodeRabbit's per-comment Run ID).
 // UUIDs are 36 chars; 75 leaves room for a future longer identifier format.
 export const CODERABBIT_RUN_ID_MAX_LENGTH = 75;
+
+export const PULL_REQUEST_SHA_MAX_LENGTH = 40;

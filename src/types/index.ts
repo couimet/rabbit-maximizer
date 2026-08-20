@@ -36,6 +36,9 @@ export type {
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
   CoderabbitReviewSkippedPayload,
+  CoderabbitRunIdChangedPayload,
+  CoderabbitRunIdClearedPayload,
+  CoderabbitRunIdFirstSeenPayload,
   DetectedPayload,
   DismissedPayload,
   EnqueuedPayload,
@@ -51,6 +54,7 @@ export type { PendingAcknowledgement } from './PendingAcknowledgement.js';
 export type { PRState } from './PRState.js';
 export type { PruneOutcome } from './PruneOutcome.js';
 export type { PullRequestColumnTypes } from './PullRequestColumnTypes.js';
+export type { PullRequestHeadSha } from './PullRequestHeadSha.js';
 export type { QueueItem } from './QueueItem.js';
 export type { ReEnqueueAction } from './ReEnqueueAction.js';
 export type { ReEnqueueDecision } from './ReEnqueueDecision.js';

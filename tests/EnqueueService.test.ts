@@ -13,7 +13,7 @@ import {
   generateDetectedCommentHydrationData,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
@@ -117,18 +117,59 @@ describe('EnqueueService', () => {
       );
     });
 
-    it('skips enqueue when existing review_approved comment is found', async () => {
-      const reviewComment = { id: 1, comment_id: 99, url: 'https://gh/1', comment_type: 'review_approved' } as never;
-      coderabbitComments.findCompletedReview.mockResolvedValueOnce(reviewComment);
+    it('dismisses the comment but still upserts it when the existing review is newer', async () => {
       const svc = createService();
-      const comment = generateDetectedCommentHydrationData();
+      const comment = generateDetectedCommentHydrationData({ body: 'rate limited by coderabbit.ai' });
+      const reviewComment = {
+        id: getUniqueInt(),
+        comment_id: getUniqueInt(),
+        url: getUniqueString({ prefix: 'https://gh/' }),
+        comment_type: 'review_approved',
+        gh_updated_at: new Date(new Date(comment.updatedAt).getTime() + 60 * MS_PER_SECOND),
+      } as never;
+      coderabbitComments.findCompletedReview.mockResolvedValueOnce(reviewComment);
       const pullRequestId = getUniqueInt();
 
       await svc.handle(comment, pullRequestId);
 
       expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(coderabbitComments.upsert).toHaveBeenCalledWith(
+        {
+          comment_id: comment.commentId,
+          pull_request_id: pullRequestId,
+          url: comment.url,
+          comment_type: 'review_limited',
+          body: comment.body,
+          gh_created_at: new Date(comment.createdAt),
+          gh_updated_at: new Date(comment.updatedAt),
+          coderabbit_run_id: null,
+        },
+        tx,
+      );
+      expect(queue.enqueue).not.toHaveBeenCalled();
       expect(probe.alreadyReviewed).toHaveBeenCalledWith(reviewComment);
+    });
+
+    it('proceeds past the guard when the comment is newer than the existing review', async () => {
+      const svc = createService();
+      const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
+      const reviewComment = {
+        id: getUniqueInt(),
+        comment_id: getUniqueInt(),
+        url: getUniqueString({ prefix: 'https://gh/' }),
+        comment_type: 'review_approved',
+        gh_updated_at: new Date(new Date(comment.updatedAt).getTime() - 60 * MS_PER_SECOND),
+      } as never;
+      coderabbitComments.findCompletedReview.mockResolvedValueOnce(reviewComment);
+      const pullRequestId = getUniqueInt();
+
+      await svc.handle(comment, pullRequestId);
+
+      expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
+      expect(queue.enqueue).toHaveBeenCalled();
+      expect(probe.alreadyReviewed).not.toHaveBeenCalled();
+      expect(probe.skipped).toHaveBeenCalledWith(tx);
     });
 
     it('proceeds with enqueue when findCompletedReview returns no existing review', async () => {

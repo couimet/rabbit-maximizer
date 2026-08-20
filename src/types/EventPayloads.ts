@@ -12,6 +12,7 @@ import type { CoderabbitReviewVerdictState } from './CoderabbitReviewVerdict.js'
 export interface DetectedPayload {
   readonly source_ts?: Date; // from the incoming event payload, when available
   readonly source_comment_url?: string;
+  readonly coderabbit_run_id?: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -27,6 +28,7 @@ export interface CoderabbitReviewApprovedPayload {
   readonly source_ts?: Date;
   readonly verdict_state?: CoderabbitReviewVerdictState;
   readonly detected_via?: ReviewDetectionMethod;
+  readonly coderabbit_run_id?: string;
 }
 
 export interface CoderabbitReviewChangesSuggestedPayload {
@@ -34,6 +36,7 @@ export interface CoderabbitReviewChangesSuggestedPayload {
   readonly source_ts?: Date;
   readonly verdict_state?: CoderabbitReviewVerdictState;
   readonly detected_via?: ReviewDetectionMethod;
+  readonly coderabbit_run_id?: string;
 }
 
 export interface CoderabbitReviewSkippedPayload {
@@ -41,6 +44,25 @@ export interface CoderabbitReviewSkippedPayload {
   readonly comment_url: string;
   readonly skip_reason: string;
   readonly coderabbit_run_id?: string;
+}
+
+export interface CoderabbitRunIdChangedPayload {
+  readonly comment_id: number;
+  readonly comment_url: string;
+  readonly previous_coderabbit_run_id: string;
+  readonly coderabbit_run_id: string;
+}
+
+export interface CoderabbitRunIdClearedPayload {
+  readonly comment_id: number;
+  readonly comment_url: string;
+  readonly previous_coderabbit_run_id: string;
+}
+
+export interface CoderabbitRunIdFirstSeenPayload {
+  readonly comment_id: number;
+  readonly comment_url: string;
+  readonly coderabbit_run_id: string;
 }
 
 export interface FailedPayload {
