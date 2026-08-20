@@ -24,6 +24,7 @@ export const generateQueueItemHydrationData = (overrideValues?: Partial<QueueIte
     source_comment_url: ref.commentUrl,
     trigger_source: getRandomEnumValue(TriggerSource),
     pull_request_id: getUniqueInt(),
+    retrigger_skip_count: getUniqueInt(),
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
     ...rest,

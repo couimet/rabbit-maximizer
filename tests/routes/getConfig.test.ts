@@ -1,44 +1,16 @@
 import type { Config } from '../../src/config.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { createGetConfigHandler } from '../../src/routes/index.js';
+import { generateConfigData } from '../helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it } from '@jest/globals';
 import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'node:http';
 
-const STALE_TICK_MULTIPLIER = 4;
-const TICK_INTERVAL_SEC = 10;
 const MS_PER_SECOND = 1000;
-const SCHEDULER_STALE_THRESHOLD_MS = STALE_TICK_MULTIPLIER * TICK_INTERVAL_SEC * MS_PER_SECOND;
-const ACCOUNT_COOLDOWN_SEC = 3600;
-
-const makeConfig = (overrides?: Partial<Config>): Config => ({
-  CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
-  DATABASE_URL: 'file:./data/rabbit-maximizer.db',
-  DETECTION_MODE: 'poll',
-  GITHUB_API_TIMEOUT_SEC: 10,
-  GITHUB_PAT: 'ghp_fake',
-  MAX_RETRIGGER_ATTEMPTS: 10,
-  PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 1800,
-  PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 900,
-  POLL_INTERVAL_SEC: 90,
-  PR_SCANNER_INTERVAL_SEC: 300,
-  REPO_FILTER: [{ pattern: 'couimet/*', scope: 'user' }],
-  REVIEW_DETECTION_LOOKBACK_SEC: 7200,
-  REVIEW_LIMIT_BUFFER_SEC: 60,
-  REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
-  SCHEDULER_MAX_RETRIGGER_AGE_SEC: 259200,
-  SCHEDULER_RETRIGGER_SPACING_SEC: 180,
-  SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
-  SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
-  SCHEDULER_STALE_TICK_MULTIPLIER: 4,
-  SCHEDULER_TICK_INTERVAL_SEC: 10,
-  TUNNEL_URL: undefined,
-  WEB_PORT: 3000,
-  WEBHOOK_SECRET: undefined,
-  ...overrides,
-});
+const BASE_CONFIG = generateConfigData();
+const SCHEDULER_STALE_THRESHOLD_MS = BASE_CONFIG.SCHEDULER_STALE_TICK_MULTIPLIER * BASE_CONFIG.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND;
 
 describe('getConfig', () => {
   let logger: ReturnType<typeof createMockLogger>;
@@ -59,7 +31,7 @@ describe('getConfig', () => {
   };
 
   it('returns config values', async () => {
-    const config = makeConfig();
+    const config = generateConfigData();
     startServer(config);
 
     const res = await fetch(`http://[::1]:${port}/api/config`);
@@ -74,7 +46,7 @@ describe('getConfig', () => {
   it('returns configured values when non-default', async () => {
     const customInitialDelaySec = 60;
     const customRepeatIntervalSec = 10;
-    const config = makeConfig({
+    const config = generateConfigData({
       PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: customInitialDelaySec,
       PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: customRepeatIntervalSec,
     });
@@ -90,7 +62,7 @@ describe('getConfig', () => {
   });
 
   it('returns 500 and logs error on unexpected failure', async () => {
-    const throwingConfig = new Proxy<Config>(makeConfig(), {
+    const throwingConfig = new Proxy<Config>(generateConfigData(), {
       get(_target: Config, prop: string | symbol) {
         if (prop === 'PAUSE_NOTIFICATION_INITIAL_DELAY_SEC' || prop === 'PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC') {
           throw new Error('Unexpected error');

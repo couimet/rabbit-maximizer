@@ -1,4 +1,4 @@
-import type { QueueStatus, Resolution, TriggerSource } from '../domain.js';
+import type { QueueStatus, Resolution, SkipReason, TriggerSource } from '../domain.js';
 
 export interface QueueItem {
   readonly id: number;
@@ -14,6 +14,10 @@ export interface QueueItem {
   readonly trigger_source: TriggerSource;
   readonly retrigger_comment_url?: string;
   readonly retriggered_at?: Date;
+  readonly cooldown_until?: Date;
+  readonly last_skipped_at?: Date;
+  readonly last_skip_reason?: SkipReason;
+  readonly retrigger_skip_count: number;
   readonly failed_at?: Date;
   readonly reviewed_at?: Date;
   readonly resolved_at?: Date;

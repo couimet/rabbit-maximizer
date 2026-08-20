@@ -1,4 +1,4 @@
-import { PrState } from '../../src/domain.js';
+import { PrState, SkipReason } from '../../src/domain.js';
 import { RabbitMaximizerError } from '../../src/errors/index.js';
 import type { ObservationContext } from '../../src/observability/index.js';
 import { SchedulerProbe } from '../../src/probes/index.js';
@@ -67,6 +67,19 @@ describe('SchedulerProbe', () => {
       const probe = createProbe();
       probe.tickSkippedCooldown();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'SchedulerProbe.tickSkippedCooldown' }, 'Tick skipped: review cooldown active');
+    });
+  });
+
+  describe('retriggerSkipped', () => {
+    it('logs debug with item and reason', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.retriggerSkipped(item, SkipReason.cooldown);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'SchedulerProbe.retriggerSkipped', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, reason: 'cooldown' },
+        'Retrigger skipped for this candidate',
+      );
     });
   });
 

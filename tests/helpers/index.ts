@@ -1,5 +1,6 @@
 export { apiJson } from './apiJson.js';
 export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
+export { generateConfigData } from './ConfigTestSupport.js';
 export { createMockActivityListMapper } from './createMockActivityListMapper.js';
 export { createMockCoderabbitCommentRepo } from './createMockCoderabbitCommentRepo.js';
 export { createMockCoderabbitGitHubClient } from './createMockCoderabbitGitHubClient.js';
@@ -59,6 +60,7 @@ export { generateDetectedCommentHydrationData } from './DetectedCommentTestSuppo
 export { drainMicrotasks } from './drainMicrotasks.js';
 export { generateEnrichedQueueItemData } from './EnrichedQueueItemTestSupport.js';
 export { generateEventLogEntryHydrationData } from './EventLogEntryTestSupport.js';
+export { generateEventHydrationData } from './EventTestSupport.js';
 export { fetchResponse } from './fetchResponse.js';
 export { getJson } from './getJson.js';
 export { createMockObservationContextProvider } from './ObservationContextProviderTestSupport.js';

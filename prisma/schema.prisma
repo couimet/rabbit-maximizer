@@ -86,6 +86,12 @@ model ReviewQueue {
   resolution     String?
   resolved_at    DateTime?
   attempts       Int       @default(0)
+  /// Set by markRetriggerSkipped.
+  last_skipped_at DateTime?
+  /// Max 25; one of 'cooldown' | 'settling' (CHECK in migration). Set by markRetriggerSkipped.
+  last_skip_reason String?
+  /// Times the scheduler skipped this item since enqueue.
+  retrigger_skip_count Int @default(0)
   /// Max 512 (GitHub comment URL). Source rate-limit comment that triggered this queue entry.
   source_comment_url String
   /// Numeric comment ID extracted from source_comment_url at enqueue time.
@@ -97,6 +103,8 @@ model ReviewQueue {
   /// Max 512 (GitHub comment URL). Set by markRetriggered when the retrigger comment is posted.
   retrigger_comment_url String?
   retriggered_at DateTime?
+  /// Set by enqueue() from the source comment wait; scheduler skips pending candidates whose cooldown is active.
+  cooldown_until DateTime?
   failed_at      DateTime?
   reviewed_at    DateTime?
   queueOrder     QueueOrder?

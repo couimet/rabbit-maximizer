@@ -1,4 +1,4 @@
-import { CodeRabbitCommentType, FallbackReason, PrState, QueueStatus, TriggerSource } from '../src/domain.js';
+import { CodeRabbitCommentType, FallbackReason, PrState } from '../src/domain.js';
 import type { EditDetector } from '../src/EditDetector.js';
 import { buildCommentUrl, type CoderabbitGitHubClient } from '../src/github/index.js';
 import { RabbitResult } from '../src/RabbitResult.js';
@@ -11,10 +11,11 @@ import {
   createMockProbeFactory,
   createMockQueueRepo,
   createMockReviewDetectorProbe,
+  generateQueueItemHydrationData,
   generateReviewRef,
 } from './helpers/index.js';
 
-import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -44,29 +45,7 @@ interface MockReviewDetectorDeps {
   config: { POLL_INTERVAL_SEC: number; REVIEW_DETECTION_LOOKBACK_SEC: number };
 }
 
-const makeRetriggeredItem = (overrides?: Partial<QueueItem> & { commentId?: number }): QueueItem => {
-  const { commentId: overrideCommentId, ...rest } = overrides ?? {};
-  const commentId = overrideCommentId ?? getUniqueInt();
-  const ref = generateReviewRef();
-  const defaults: QueueItem = {
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    repo_full_name: ref.repoFullName,
-    pr_number: ref.prNumber,
-    pr_title: 'Test PR title',
-    status: getRandomEnumValue(QueueStatus),
-    attempts: 1,
-    source_comment_url: `https://github.com/org/repo/issues/1#issuecomment-${commentId}`,
-    source_comment_id: commentId,
-    original_source_comment_url: undefined,
-    trigger_source: getRandomEnumValue(TriggerSource),
-    pull_request_id: getUniqueInt(),
-    retriggered_at: getUniqueDate(),
-    created_at: getUniqueDate(),
-    updated_at: getUniqueDate(),
-  };
-  return { ...defaults, ...rest };
-};
+const makeRetriggeredItem = (overrides?: Partial<QueueItem>): QueueItem => generateQueueItemHydrationData({ retriggered_at: getUniqueDate(), ...overrides });
 
 const setup = (): MockReviewDetectorDeps => {
   const queue = createMockQueueRepo() as unknown as MockReviewDetectorDeps['queue'];

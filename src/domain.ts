@@ -21,4 +21,5 @@ export { RabbitResult } from './RabbitResult.js';
 export { Resolution } from './Resolution.js';
 export { ReviewDetectionMethod } from './ReviewDetectionMethod.js';
 export { SchedulerStatus } from './SchedulerStatus.js';
+export { SkipReason } from './SkipReason.js';
 export { TriggerSource } from './TriggerSource.js';
