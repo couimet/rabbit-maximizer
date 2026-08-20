@@ -133,7 +133,7 @@ describe('DirectCommentCheckerImpl', () => {
     const ref = generateReviewRef();
     const pullRequestId = getUniqueInt();
     const commentUpdatedAt = getUniqueDate();
-    const lastSeenAt = new Date(commentUpdatedAt.getTime() + ONE_MINUTE_MS);
+    const lastSeenAt = commentUpdatedAt;
     const commentId = getUniqueInt();
     github.listComments.mockResolvedValue([
       { user: 'coderabbitai[bot]', body: REVIEW_LIMITED_BODY, id: commentId, createdAt: commentUpdatedAt, updatedAt: commentUpdatedAt },

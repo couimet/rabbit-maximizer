@@ -108,7 +108,7 @@ export class DetectedProbe {
       },
       tx,
     );
-    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit skip comment encountered; full-review trigger enqueued');
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit skip comment encountered');
     return event;
   }
 

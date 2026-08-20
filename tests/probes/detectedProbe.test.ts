@@ -315,7 +315,7 @@ describe('DetectedProbe', () => {
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId },
-      'CodeRabbit skip comment encountered; full-review trigger enqueued',
+      'CodeRabbit skip comment encountered',
     );
   });
 

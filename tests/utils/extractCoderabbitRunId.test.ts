@@ -1,3 +1,4 @@
+import { CODERABBIT_RUN_ID_MAX_LENGTH } from '../../src/schemas/index.js';
 import { extractCoderabbitRunId } from '../../src/utils/index.js';
 
 import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
@@ -6,6 +7,11 @@ import { describe, expect, it } from '@jest/globals';
 const SKIP_TEMPLATE_RUN_ID = getUuid();
 const WALKTHROUGH_RUN_ID = getUuid();
 const CHECKBOX_ID = getUniqueString();
+const RUN_ID_EXCEEDS_MAX_BY = 10;
+const LONG_RUN_ID = 'a'.repeat(CODERABBIT_RUN_ID_MAX_LENGTH + RUN_ID_EXCEEDS_MAX_BY);
+const LONG_RUN_ID_PREFIX = LONG_RUN_ID.slice(0, CODERABBIT_RUN_ID_MAX_LENGTH);
+
+const LONG_RUN_ID_BODY = `> **Run ID**: \`${LONG_RUN_ID}\``;
 
 const SKIP_TEMPLATE_BODY = `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
 <!-- review_stack_entry_start -->
@@ -84,6 +90,10 @@ describe('extractCoderabbitRunId', () => {
 
   it('extracts the run ID from a walkthrough-style body', () => {
     expect(extractCoderabbitRunId(WALKTHROUGH_BODY)).toBe(WALKTHROUGH_RUN_ID);
+  });
+
+  it('truncates a run ID longer than the max length', () => {
+    expect(extractCoderabbitRunId(LONG_RUN_ID_BODY)).toBe(LONG_RUN_ID_PREFIX);
   });
 
   it('returns undefined when the body has no Run ID line', () => {

@@ -5,4 +5,6 @@ ALTER TABLE "coderabbit_comment" ADD COLUMN "coderabbit_run_id" TEXT CHECK(lengt
 -- the migration trail (its _prisma_migrations history shows repeated 20260720 apply
 -- attempts), which let duplicate source_comment_id rows accumulate. Fresh databases
 -- never lost it; this restores parity.
-CREATE UNIQUE INDEX IF NOT EXISTS "review_queue_source_comment_id_unique" ON "review_queue"("source_comment_id");
+-- DROP first: IF NOT EXISTS is name-based and would silently keep a same-named non-unique index.
+DROP INDEX IF EXISTS "review_queue_source_comment_id_unique";
+CREATE UNIQUE INDEX "review_queue_source_comment_id_unique" ON "review_queue"("source_comment_id");
