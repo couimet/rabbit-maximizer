@@ -30,6 +30,7 @@ export interface QueueRepository {
   reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
   findBySourceCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
+  existsByPullRequestId(pullRequestId: number): Promise<boolean>;
   resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number>;
   getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
   getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
@@ -405,6 +406,14 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       this.log.debug({ fn: 'QueueRepositoryImpl.findBySourceCommentId', commentId, found: row !== null }, 'Searched by source comment ID');
       return row ? this.mapper.fromReviewQueue(row) : undefined;
     });
+  }
+
+  async existsByPullRequestId(pullRequestId: number): Promise<boolean> {
+    const db = this.client();
+    const count = await db.reviewQueue.count({ where: { pull_request_id: pullRequestId } });
+    const exists = count > 0;
+    this.log.debug({ fn: 'QueueRepositoryImpl.existsByPullRequestId', pullRequestId, exists }, 'Checked queue existence by pull request');
+    return exists;
   }
 
   async resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number> {

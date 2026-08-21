@@ -43,6 +43,14 @@ export class DirectCommentCheckProbe {
     this.log.debug({ fn: 'DirectCommentCheckProbe.skippedOwnRetrigger', repo: repoFullName, pr: prNumber, commentId }, 'Skipping own retrigger comment');
   }
 
+  walkthroughRecorded(reviewedAt: Date): void {
+    const { repoFullName, prNumber, commentId } = this.comment!;
+    this.log.info(
+      { fn: 'DirectCommentCheckProbe.walkthroughRecorded', repo: repoFullName, pr: prNumber, commentId, reviewedAt: reviewedAt.toISOString() },
+      'Recorded walkthrough review activity',
+    );
+  }
+
   skippedAlreadySeen(): void {
     const { repoFullName, prNumber, commentId } = this.comment!;
     this.log.debug(

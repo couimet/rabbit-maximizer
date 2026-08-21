@@ -5,6 +5,7 @@ import { jest } from '@jest/globals';
 export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueRepository>>): jest.Mocked<QueueRepository> =>
   ({
     enqueue: jest.fn<any>(),
+    existsByPullRequestId: jest.fn<any>().mockResolvedValue(false),
     markRetriggered: jest.fn<any>(),
     markRetriggerSkipped: jest.fn<any>().mockResolvedValue(true),
     markResolved: jest.fn<any>(),

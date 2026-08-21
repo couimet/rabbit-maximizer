@@ -3,7 +3,7 @@ import { DirectCommentCheckProbe } from '../../src/probes/index.js';
 import type { EventLogEntry } from '../../src/types/index.js';
 import { createMockEventRepo, generateObservationContextHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
@@ -40,6 +40,19 @@ describe('DirectCommentCheckProbe', () => {
     expect(logger.debug).toHaveBeenCalledWith(
       { fn: 'DirectCommentCheckProbe.skippedUnclassified', repo: ref.repoFullName, pr: ref.prNumber, commentId },
       'Skipping comment with unknown classification',
+    );
+  });
+
+  it('logs an info when a walkthrough review is recorded', () => {
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const reviewedAt = getUniqueDate();
+    const probe = createProbe();
+    probe.withComment(ref.repoFullName, ref.prNumber, commentId);
+    probe.walkthroughRecorded(reviewedAt);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.walkthroughRecorded', repo: ref.repoFullName, pr: ref.prNumber, commentId, reviewedAt: reviewedAt.toISOString() },
+      'Recorded walkthrough review activity',
     );
   });
 

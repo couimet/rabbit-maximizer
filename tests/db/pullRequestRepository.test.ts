@@ -776,7 +776,7 @@ describe('PullRequestRepositoryImpl', () => {
         last_review_state: 'review_approved',
         last_coderabbit_review_at: reviewAt.toISOString(),
       };
-      const rowWithoutReview = {
+      const neverEnqueuedRow = {
         id: getUniqueInt(),
         title: getUniqueString(),
         repo_full_name: trackedRef2.repoFullName,
@@ -785,7 +785,7 @@ describe('PullRequestRepositoryImpl', () => {
         last_review_state: null,
         last_coderabbit_review_at: null,
       };
-      const rows = [rowWithReview, rowWithoutReview];
+      const rows = [rowWithReview, neverEnqueuedRow];
       const queryRawUnsafe = jest.fn<any>().mockResolvedValue(rows);
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
@@ -794,12 +794,12 @@ describe('PullRequestRepositoryImpl', () => {
 
       expect(queryRawUnsafe).toHaveBeenCalledWith(
         expect.toEqualIgnoringWhitespace(
-          "SELECT pr.id, pr.title, pr.repo_full_name, pr.pr_number, pr.author_login, pr.last_review_state, pr.last_coderabbit_review_at FROM pull_request pr WHERE pr.pr_state = 'open' AND (pr.last_coderabbit_review_at IS NOT NULL OR pr.last_review_requested_at IS NOT NULL) AND pr.last_coderabbit_acknowledged_at IS NULL AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) ORDER BY pr.last_coderabbit_review_at DESC NULLS LAST, pr.last_review_requested_at DESC NULLS LAST",
+          "SELECT pr.id, pr.title, pr.repo_full_name, pr.pr_number, pr.author_login, pr.last_review_state, pr.last_coderabbit_review_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.last_coderabbit_acknowledged_at IS NULL AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) ORDER BY pr.last_coderabbit_review_at DESC NULLS LAST, pr.last_review_requested_at DESC NULLS LAST",
         ),
       );
       expect(result).toStrictEqual([
         { ...rowWithReview, last_coderabbit_review_at: new Date(rowWithReview.last_coderabbit_review_at) },
-        { ...rowWithoutReview, last_coderabbit_review_at: null },
+        { ...neverEnqueuedRow, last_coderabbit_review_at: null },
       ]);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findTrackedPRs', count: rows.length }, 'Found tracked open PRs');
     });
@@ -856,6 +856,23 @@ describe('PullRequestRepositoryImpl', () => {
         { fn: 'PullRequestRepositoryImpl.recordReviewLimitDetection', id },
         'Recorded review limit detection on PullRequest',
       );
+    });
+  });
+
+  describe('recordWalkthroughReview', () => {
+    it('updates last_coderabbit_review_at with the walkthrough time', async () => {
+      const id = getUniqueInt();
+      const reviewedAt = getUniqueDate();
+      const { prisma, pullRequest } = createMockPrismaClient();
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.recordWalkthroughReview(id, reviewedAt);
+
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id },
+        data: { last_coderabbit_review_at: reviewedAt },
+      });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordWalkthroughReview', id }, 'Recorded walkthrough review on PullRequest');
     });
   });
 });

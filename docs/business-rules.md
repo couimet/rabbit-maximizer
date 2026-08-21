@@ -295,7 +295,7 @@ When GitHub responds with a quota-exhausted status (403 or 429 with zero quota r
 
 ### Dashboard surfaces
 
-- Tracked PRs: open PRs CodeRabbit has touched (review or request) but never acknowledged, with no active item — the "awaiting acknowledgement" view.
+- Tracked PRs: open PRs never acknowledged by CodeRabbit and with no active item — the "awaiting acknowledgement" view. PRs CodeRabbit never touched appear too, sorted by last review time. When a walkthrough-summary comment (`review_stack_entry_start`) appears on such a PR, its comment time is recorded as `last_coderabbit_review_at` — evidence of the walkthrough without classifying it as a verdict.
 - Skipped items: the most recent items the scheduler skipped for cooldown or settling.
 
 ## 10. Fewer-than-10-stars behavior

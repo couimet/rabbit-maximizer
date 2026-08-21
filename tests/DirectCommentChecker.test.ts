@@ -9,6 +9,8 @@ import {
   createMockEventRepo,
   createMockOnDetectedCallback,
   createMockProbeFactory,
+  createMockPullRequestRepo,
+  createMockQueueRepo,
   generateObservationContextHydrationData,
   generateReviewRef,
 } from './helpers/index.js';
@@ -23,12 +25,15 @@ const APPROVED_COMMENT_BODY =
 const REVIEW_LIMITED_BODY = 'rate limited by coderabbit.ai';
 const REVIEW_LIMITED_WITH_WAIT = 'rate limited by coderabbit.ai\n\n**Next review available in:** **34 minutes**';
 const ONE_MINUTE_MS = 60_000;
+const WALKTHROUGH_BODY = 'review_stack_entry_start';
 
 describe('DirectCommentCheckerImpl', () => {
   let github: ReturnType<typeof createMockCoderabbitGitHubClient>;
   let onDetected: jest.Mocked<OnDetectedCallback>;
   let coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
   let events: ReturnType<typeof createMockEventRepo>;
+  let queue: ReturnType<typeof createMockQueueRepo>;
+  let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let observation: ReturnType<typeof generateObservationContextHydrationData>;
   let probeFactory: ReturnType<typeof createMockProbeFactory>;
   let logger: ReturnType<typeof createMockLogger>;
@@ -44,7 +49,9 @@ describe('DirectCommentCheckerImpl', () => {
     logger = createMockLogger();
     const probe = new DirectCommentCheckProbe(events, observation, logger);
     probeFactory = createMockProbeFactory({ createDirectCommentCheckProbe: jest.fn().mockReturnValue(probe) });
-    checker = new DirectCommentCheckerImpl(github, onDetected, coderabbitComments, probeFactory);
+    queue = createMockQueueRepo();
+    pullRequests = createMockPullRequestRepo();
+    checker = new DirectCommentCheckerImpl(github, onDetected, coderabbitComments, queue, pullRequests, probeFactory);
   });
 
   it('fetches comments and calls onDetected for rate-limit comments', async () => {
@@ -96,6 +103,47 @@ describe('DirectCommentCheckerImpl', () => {
       { fn: 'DirectCommentCheckProbe.skippedUnclassified', repo: ref.repoFullName, pr: ref.prNumber, commentId },
       'Skipping comment with unknown classification',
     );
+  });
+
+  it('records a walkthrough review when an unknown comment carries the stack marker on a never-enqueued PR', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentCreatedAt = getUniqueDate();
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      { user: 'coderabbitai[bot]', body: WALKTHROUGH_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentCreatedAt },
+    ]);
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(queue.existsByPullRequestId).toHaveBeenCalledWith(pullRequestId);
+    expect(pullRequests.recordWalkthroughReview).toHaveBeenCalledWith(pullRequestId, commentCreatedAt);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.walkthroughRecorded', repo: ref.repoFullName, pr: ref.prNumber, commentId, reviewedAt: commentCreatedAt.toISOString() },
+      'Recorded walkthrough review activity',
+    );
+    expect(logger.debug).not.toHaveBeenCalled();
+    expect(onDetected).not.toHaveBeenCalled();
+  });
+
+  it('skips walkthrough comments when a queue item exists for the PR', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentCreatedAt = getUniqueDate();
+    const commentId = getUniqueInt();
+    queue.existsByPullRequestId.mockResolvedValue(true);
+    github.listComments.mockResolvedValue([
+      { user: 'coderabbitai[bot]', body: WALKTHROUGH_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentCreatedAt },
+    ]);
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(pullRequests.recordWalkthroughReview).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.skippedUnclassified', repo: ref.repoFullName, pr: ref.prNumber, commentId },
+      'Skipping comment with unknown classification',
+    );
+    expect(onDetected).not.toHaveBeenCalled();
   });
 
   it('detects review_skipped comments and calls onDetected', async () => {

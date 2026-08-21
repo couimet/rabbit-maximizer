@@ -1975,6 +1975,41 @@ describe('QueueRepositoryImpl', () => {
     });
   });
 
+  describe('existsByPullRequestId', () => {
+    it('returns false when no queue items exist for the pull request', async () => {
+      const pullRequestId = getUniqueInt();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { count: createResolvedMock(0) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.existsByPullRequestId(pullRequestId);
+
+      expect(reviewQueue.count).toHaveBeenCalledWith({ where: { pull_request_id: pullRequestId } });
+      expect(result).toBe(false);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.existsByPullRequestId', pullRequestId, exists: false },
+        'Checked queue existence by pull request',
+      );
+    });
+
+    it('returns true when a queue item exists for the pull request', async () => {
+      const pullRequestId = getUniqueInt();
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: { count: createResolvedMock(1) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.existsByPullRequestId(pullRequestId);
+
+      expect(result).toBe(true);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.existsByPullRequestId', pullRequestId, exists: true },
+        'Checked queue existence by pull request',
+      );
+    });
+  });
+
   describe('container binding', () => {
     it('resolves QueueRepository from the container', () => {
       const { prisma } = createMockPrismaClient();

@@ -44,7 +44,6 @@ const FIND_TRACKED_PRS_SQL = `
   SELECT pr.id, pr.title, pr.repo_full_name, pr.pr_number, pr.author_login, pr.last_review_state, pr.last_coderabbit_review_at
   FROM ${PULL_REQUEST_TABLE} pr
   WHERE pr.pr_state = 'open'
-    AND (pr.last_coderabbit_review_at IS NOT NULL OR pr.last_review_requested_at IS NOT NULL)
     AND pr.last_coderabbit_acknowledged_at IS NULL
     AND NOT EXISTS (
       SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
@@ -79,6 +78,7 @@ export interface PullRequestRepository {
     tx: Prisma.TransactionClient,
   ): Promise<void>;
   recordReviewLimitDetection(id: number, reviewLimitAt: Date, tx: Prisma.TransactionClient): Promise<void>;
+  recordWalkthroughReview(id: number, reviewedAt: Date): Promise<void>;
   updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
 }
 
@@ -218,6 +218,19 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       'PullRequestRepositoryImpl.recordReview',
     );
     this.log.debug({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+  }
+
+  async recordWalkthroughReview(id: number, reviewedAt: Date): Promise<void> {
+    const db = this.client();
+    await this.withPrismaErrorHandling(
+      () =>
+        db.pullRequest.update({
+          where: { id },
+          data: { last_coderabbit_review_at: reviewedAt },
+        }),
+      'PullRequestRepositoryImpl.recordWalkthroughReview',
+    );
+    this.log.debug({ fn: 'PullRequestRepositoryImpl.recordWalkthroughReview', id }, 'Recorded walkthrough review on PullRequest');
   }
 
   async findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined> {

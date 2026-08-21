@@ -1,4 +1,4 @@
-import type { CoderabbitCommentRepository } from './db/index.js';
+import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository } from './db/index.js';
 import {
   buildCommentUrl,
   classifyCoderabbitComment,
@@ -6,6 +6,7 @@ import {
   hasOwnRetriggerMarker,
   parseWaitSeconds,
   REVIEW_BOT_LOGIN,
+  REVIEW_STACK_MARKER,
   splitRepo,
 } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
@@ -31,6 +32,10 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
     private readonly onDetected: OnDetectedCallback,
     @inject(TYPES.CoderabbitCommentRepository)
     private readonly coderabbitComments: CoderabbitCommentRepository,
+    @inject(TYPES.QueueRepository)
+    private readonly queue: QueueRepository,
+    @inject(TYPES.PullRequestRepository)
+    private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.ProbeFactory)
     private readonly probeFactory: ProbeFactory,
   ) {}
@@ -69,7 +74,14 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
           const { classification } = classifyCoderabbitComment(c.body);
 
           if (classification === CodeRabbitCommentType.unknown) {
-            probe.skippedUnclassified();
+            // Walkthrough summaries carry no verdict but mark when CodeRabbit reviewed;
+            // on a never-enqueued PR they are the only signal, so record the activity.
+            if (c.body.includes(REVIEW_STACK_MARKER) && !(await this.queue.existsByPullRequestId(pr.pullRequestId))) {
+              await this.pullRequests.recordWalkthroughReview(pr.pullRequestId, c.createdAt);
+              await probe.walkthroughRecorded(c.createdAt);
+            } else {
+              probe.skippedUnclassified();
+            }
             continue;
           }
 
