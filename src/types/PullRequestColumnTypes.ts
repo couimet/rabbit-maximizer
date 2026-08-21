@@ -13,6 +13,7 @@ export interface PullRequestColumnTypes {
   last_review_limit_at: Date | null;
   first_review_limit_at: Date | null;
   last_coderabbit_review_at: Date | null;
+  head_sha: string | null;
   last_review_url: string | null;
   last_review_state: CodeRabbitCommentType | null;
   merged_at: Date | null;

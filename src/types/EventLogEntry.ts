@@ -4,6 +4,9 @@ import type {
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
   CoderabbitReviewSkippedPayload,
+  CoderabbitRunIdChangedPayload,
+  CoderabbitRunIdClearedPayload,
+  CoderabbitRunIdFirstSeenPayload,
   DetectedPayload,
   DismissedPayload,
   EnqueuedPayload,
@@ -58,6 +61,18 @@ export type EventLogEntry =
   | (EventEnvelope & {
       readonly type: EventType.coderabbit_review_skipped;
       readonly payload: CoderabbitReviewSkippedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_run_id_changed;
+      readonly payload: CoderabbitRunIdChangedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_run_id_cleared;
+      readonly payload: CoderabbitRunIdClearedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_run_id_first_seen;
+      readonly payload: CoderabbitRunIdFirstSeenPayload;
     })
   | (EventEnvelope & {
       readonly type: string;

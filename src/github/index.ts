@@ -16,6 +16,7 @@ export {
   REVIEW_BOT_RETRIGGER_COMMAND,
   REVIEW_BOT_SELF_MARKER_PREFIX,
   REVIEW_BOT_SKIP_MARKER,
+  REVIEW_BOT_SKIP_SEARCH_TEXTS,
   REVIEW_STACK_MARKER,
 } from './coderabbitConstants.js';
 export type { CoderabbitGitHubClient } from './coderabbitGitHubClient.js';
@@ -27,6 +28,7 @@ export { isAcknowledgementComment } from './isAcknowledgementComment.js';
 export { isApprovalReviewSignal } from './isApprovalReviewSignal.js';
 export { isCompletedReview } from './isCompletedReview.js';
 export { isMatchingCompletedReview } from './isMatchingCompletedReview.js';
+export { isReviewForRun } from './isReviewForRun.js';
 export { normalizeCommentBody } from './normalizeCommentBody.js';
 export { parseCommentUrl } from './parseCommentUrl.js';
 export { parseGitHubRateLimitError } from './parseGitHubRateLimitError.js';

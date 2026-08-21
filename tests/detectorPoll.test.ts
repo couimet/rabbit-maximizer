@@ -115,7 +115,7 @@ describe('PollDetector', () => {
       const bodyText = 'some text rate limited by coderabbit.ai more text Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
-      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
 
       const detector = createDetector();
       await detector.start();
@@ -132,7 +132,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai but no wait time pattern';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
-      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
 
       const detector = createDetector();
       await detector.start();
@@ -193,7 +193,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
-      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
 
       const detector = createDetector();
       await detector.start();
@@ -248,7 +248,7 @@ describe('PollDetector', () => {
       const bodyText = 'skip review by coderabbit.ai some additional context';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
-      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
 
       const detector = createDetector();
       await detector.start();
@@ -455,7 +455,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
-      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
 
       const expectedWaitSeconds = 5 * 60 + 30;
       const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * MS_PER_SECOND);
@@ -488,7 +488,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([earlyComment, laterComment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: earlyComment.createdAt, updatedAt: earlyComment.updatedAt });
-      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
 
       const expectedWaitSeconds = 600;
       const expectedDate = new Date(new Date(earlyComment.updatedAt).getTime() + expectedWaitSeconds * 1000);
@@ -546,7 +546,7 @@ describe('PollDetector', () => {
       const bodyText = 'rate limited by coderabbit.ai Please wait 10 minutes before requesting another review.';
       deps.github.searchReviewLimitComments.mockResolvedValue([searchComment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: searchComment.createdAt, updatedAt: searchComment.updatedAt });
-      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
       deps.directCommentChecker.check.mockResolvedValue([{ updatedAt: directEarly, waitSeconds: 120 }]);
 
       const detector = createDetector();

@@ -11,6 +11,7 @@ export const createMockPullRequestRepo = (overrides?: Partial<jest.Mocked<PullRe
     incrementRetriggerCount: jest.fn<any>(),
     recordReview: jest.fn<any>(),
     recordReviewLimitDetection: jest.fn<any>(),
+    recordWalkthroughReview: jest.fn<any>(),
     findPendingAcknowledgement: jest.fn<any>().mockResolvedValue(undefined),
     findStaleOpenPRs: jest.fn<any>().mockResolvedValue([]),
     findTrackedPRs: jest.fn<any>().mockResolvedValue([]),

@@ -46,10 +46,11 @@ export class ReviewDetector extends IntervalService {
       return;
     }
     const prIds = retriggeredItems.map((item) => item.pull_request_id);
-    const { pr_state: prStateMap, last_coderabbit_review_at: lastCoderabbitReviewAtMap } = await this.pullRequests.getColumnMaps(prIds, [
-      'pr_state',
-      'last_coderabbit_review_at',
-    ]);
+    const {
+      pr_state: prStateMap,
+      last_coderabbit_review_at: lastCoderabbitReviewAtMap,
+      head_sha: headShaMap,
+    } = await this.pullRequests.getColumnMaps(prIds, ['pr_state', 'last_coderabbit_review_at', 'head_sha']);
     for (const item of retriggeredItems) {
       probe.withItem(item);
       try {
@@ -58,9 +59,11 @@ export class ReviewDetector extends IntervalService {
         const prState = prStateMap.get(item.pull_request_id);
         if (prState === PrState.merged || prState === PrState.closed) {
           const resolution = prState === PrState.merged ? Resolution.PrMerged : Resolution.PrClosedWithoutMerge;
-          await this.prisma.$transaction(async (tx) => {
-            await this.queue.markResolved(item.id, resolution, tx);
-          });
+          const resolved = await this.prisma.$transaction((tx) => this.queue.markResolvedIfStillRetriggered(item.id, resolution, tx));
+          if (!resolved) {
+            probe.resolutionLostRace(resolution);
+            continue;
+          }
           probe.prClosedResolved(prState);
           continue;
         }
@@ -73,16 +76,28 @@ export class ReviewDetector extends IntervalService {
         const editOutcome = result.value;
         switch (editOutcome.action) {
           case 'resolved':
-            await this.prisma.$transaction(async (tx) => {
-              await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
-              await this.pullRequests.recordReview(item.pull_request_id, editOutcome.reviewUrl, editOutcome.verdictState, tx);
-              await probe.reviewed(editOutcome.reviewUrl, editOutcome.verdictState, ReviewDetectionMethod.EditDetection, tx);
-            });
+            {
+              const resolved = await this.prisma.$transaction(async (tx) => {
+                const ok = await this.queue.markResolvedIfStillRetriggered(item.id, Resolution.ReviewCompleted, tx);
+                if (!ok) return false;
+                await this.pullRequests.recordReview(item.pull_request_id, editOutcome.reviewUrl, editOutcome.verdictState, undefined, tx);
+                await probe.reviewed(editOutcome.reviewUrl, editOutcome.verdictState, ReviewDetectionMethod.EditDetection, tx);
+                return true;
+              });
+              if (!resolved) {
+                probe.resolutionLostRace(Resolution.ReviewCompleted);
+                continue;
+              }
+            }
             continue;
           case 'skipped':
-            await this.prisma.$transaction(async (tx) => {
-              await this.queue.markResolved(item.id, Resolution.Skipped, tx);
-            });
+            {
+              const resolved = await this.prisma.$transaction((tx) => this.queue.markResolvedIfStillRetriggered(item.id, Resolution.Skipped, tx));
+              if (!resolved) {
+                probe.resolutionLostRace(Resolution.Skipped);
+                continue;
+              }
+            }
             continue;
           case 'fallback':
             break;
@@ -97,15 +112,30 @@ export class ReviewDetector extends IntervalService {
         const lookbackSince = new Date(item.retriggered_at.getTime() - this.lookbackMs);
 
         const { owner, repo } = splitRepo(item.repo_full_name);
-        const completedReview = await this.github.findCompletedReview(owner, repo, item.pr_number, lookbackSince);
+        const completedReview = await this.github.findCompletedReview(
+          owner,
+          repo,
+          item.pr_number,
+          lookbackSince,
+          item.source_comment_run_id ?? undefined,
+          headShaMap.get(item.pull_request_id) ?? undefined,
+        );
 
         if (!completedReview) {
+          // The last-review-at fallback only applies when no run is known: a known run
+          // that produced nothing yet must stay retriggered for the stale sweep to fail it.
           const lastCoderabbitReviewAt = lastCoderabbitReviewAtMap.get(item.pull_request_id);
-          if (lastCoderabbitReviewAt != null && lastCoderabbitReviewAt >= lookbackSince) {
-            await this.prisma.$transaction(async (tx) => {
-              await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
+          if (item.source_comment_run_id === undefined && lastCoderabbitReviewAt != null && lastCoderabbitReviewAt >= lookbackSince) {
+            const resolved = await this.prisma.$transaction(async (tx) => {
+              const ok = await this.queue.markResolvedIfStillRetriggered(item.id, Resolution.ReviewCompleted, tx);
+              if (!ok) return false;
               await probe.reviewedViaFallback(tx);
+              return true;
             });
+            if (!resolved) {
+              probe.resolutionLostRace(Resolution.ReviewCompleted);
+              continue;
+            }
             continue;
           }
           probe.noCompletedReviewFound();
@@ -114,11 +144,17 @@ export class ReviewDetector extends IntervalService {
 
         const verdictState = completedReview.isApproval ? CodeRabbitCommentType.review_approved : CodeRabbitCommentType.review_changes_suggested;
 
-        await this.prisma.$transaction(async (tx) => {
-          await this.queue.markResolved(item.id, Resolution.ReviewCompleted, tx);
-          await this.pullRequests.recordReview(item.pull_request_id, completedReview.htmlUrl, verdictState, tx);
+        const resolved = await this.prisma.$transaction(async (tx) => {
+          const ok = await this.queue.markResolvedIfStillRetriggered(item.id, Resolution.ReviewCompleted, tx);
+          if (!ok) return false;
+          await this.pullRequests.recordReview(item.pull_request_id, completedReview.htmlUrl, verdictState, completedReview.commitId, tx);
           await probe.reviewed(completedReview.htmlUrl, verdictState, ReviewDetectionMethod.GitHubReviewsApi, tx);
+          return true;
         });
+        if (!resolved) {
+          probe.resolutionLostRace(Resolution.ReviewCompleted);
+          continue;
+        }
       } catch (err: unknown) {
         probe.caughtError(err);
       }
