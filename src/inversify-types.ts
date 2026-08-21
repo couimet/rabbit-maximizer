@@ -13,7 +13,6 @@ export const TYPES = {
   EventEntryMapper: Symbol.for('EventEntryMapper'),
   EventRepository: Symbol.for('EventRepository'),
   Logger: Symbol.for('Logger'),
-  ObservationContextProvider: Symbol.for('ObservationContextProvider'),
   DirectCommentChecker: Symbol.for('DirectCommentChecker'),
   EditDetector: Symbol.for('EditDetector'),
   OnDetectedCallback: Symbol.for('OnDetectedCallback'),

@@ -1,9 +1,9 @@
 import { PrState, SkipReason } from '../../src/domain.js';
 import { RabbitMaximizerError } from '../../src/errors/index.js';
-import type { ObservationContext } from '../../src/observability/index.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { SchedulerProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
-import { createMockEventRepo, generateObservationContextHydrationData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
+import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -15,16 +15,19 @@ const MAX_RETRIGGER_ATTEMPTS = 10;
 
 describe('SchedulerProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
   let logger: ReturnType<typeof createMockLogger>;
-  let observation: ObservationContext;
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
+    eventTrace = generateEventTraceContext();
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = generateObservationContextHydrationData();
   });
 
-  const createProbe = () => new SchedulerProbe(BASE_BACKOFF_MS, MAX_BACKOFF_MS, MAX_RETRIGGER_ATTEMPTS, events, observation, logger);
+  const createProbe = () => new SchedulerProbe(BASE_BACKOFF_MS, MAX_BACKOFF_MS, MAX_RETRIGGER_ATTEMPTS, events, logger);
 
   describe('pruningCompleted', () => {
     it('logs debug', () => {
@@ -151,15 +154,15 @@ describe('SchedulerProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.retriggered(retriggeredCommentUrl, tx);
+      await runInContext(() => probe.retriggered(retriggeredCommentUrl, tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'retriggered',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { source_comment_url: item.source_comment_url, retriggered_comment_url: retriggeredCommentUrl },
         },
         tx,
@@ -176,15 +179,15 @@ describe('SchedulerProbe', () => {
       const ref = generateReviewRef();
       const tx = createMockTx();
       const probe = createProbe();
-      await probe.prClosedDuringScan(ref.repoFullName, ref.prNumber, PrState.merged, tx);
+      await runInContext(() => probe.prClosedDuringScan(ref.repoFullName, ref.prNumber, PrState.merged, tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'dismissed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { reason: 'prMerged' },
         },
         tx,
@@ -199,15 +202,15 @@ describe('SchedulerProbe', () => {
       const ref = generateReviewRef();
       const tx = createMockTx();
       const probe = createProbe();
-      await probe.prClosedDuringScan(ref.repoFullName, ref.prNumber, PrState.closed, tx);
+      await runInContext(() => probe.prClosedDuringScan(ref.repoFullName, ref.prNumber, PrState.closed, tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'dismissed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { reason: 'prClosedWithoutMerge' },
         },
         tx,
@@ -227,15 +230,15 @@ describe('SchedulerProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.prDeleted(status, tx);
+      await runInContext(() => probe.prDeleted(status, tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'dismissed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { reason: 'prDeleted' },
         },
         tx,
@@ -255,15 +258,15 @@ describe('SchedulerProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.maxRetriggersExceeded(retriggerCount, tx);
+      await runInContext(() => probe.maxRetriggersExceeded(retriggerCount, tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'failed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { reason: 'max_retrigger_attempts_exceeded', retrigger_count: retriggerCount, max: MAX_RETRIGGER_ATTEMPTS },
         },
         tx,

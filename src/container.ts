@@ -23,7 +23,6 @@ import {
   ReviewQueueToQueueItemMapper,
   TrackedPrMapper,
 } from './mappers/index.js';
-import { type ObservationContextProvider, UuidObservationContextProvider } from './observability/index.js';
 import { ProbeFactory } from './probes/index.js';
 import type { OnDetectedCallback } from './types/index.js';
 import { MS_PER_SECOND, QueueItemEnricher } from './utils/index.js';
@@ -85,8 +84,6 @@ container.bind<QueueOrderRepository>(TYPES.QueueOrderRepository).to(QueueOrderRe
 container.bind<QueueRepository>(TYPES.QueueRepository).to(QueueRepositoryImpl).inSingletonScope();
 
 container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStateRepositoryImpl).inSingletonScope();
-
-container.bind<ObservationContextProvider>(TYPES.ObservationContextProvider).to(UuidObservationContextProvider).inSingletonScope();
 
 container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory).inSingletonScope();
 

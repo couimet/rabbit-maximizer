@@ -1,8 +1,9 @@
 import type { EventRepository } from '../db/index.js';
 import { EventType, PrState, Resolution, ReviewDetectionMethod } from '../domain.js';
-import type { ObservationContext } from '../observability/index.js';
 import type { CoderabbitReviewVerdictState, QueueItem } from '../types/index.js';
 import { toReviewEventType } from '../utils/index.js';
+
+import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -12,7 +13,6 @@ export class ReviewDetectorProbe {
 
   constructor(
     private readonly events: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly log: Logger,
   ) {}
 
@@ -50,9 +50,7 @@ export class ReviewDetectorProbe {
         type: EventType.coderabbit_review_approved,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {
           detected_via: ReviewDetectionMethod.LastReviewAtFallback,
         },
@@ -82,9 +80,7 @@ export class ReviewDetectorProbe {
         type: eventType,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {
           coderabbit_comment_url: commentUrl,
           verdict_state: verdictState,

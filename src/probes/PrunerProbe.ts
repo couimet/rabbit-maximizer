@@ -1,6 +1,5 @@
 import type { EventRepository } from '../db/index.js';
 import { DismissalReason } from '../domain.js';
-import type { ObservationContext } from '../observability/index.js';
 import type { QueueItem } from '../types/index.js';
 
 import { recordDismissalEvent } from './index.js';
@@ -13,7 +12,6 @@ export class PrunerProbe {
 
   constructor(
     private readonly events: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly log: Logger,
   ) {}
 
@@ -30,7 +28,6 @@ export class PrunerProbe {
       events: this.events,
       tx,
       reason: DismissalReason.prMerged,
-      observation: this.observation,
       repo_full_name: this.item!.repo_full_name,
       pr_number: this.item!.pr_number,
     });
@@ -45,7 +42,6 @@ export class PrunerProbe {
       events: this.events,
       tx,
       reason: DismissalReason.prClosedWithoutMerge,
-      observation: this.observation,
       repo_full_name: this.item!.repo_full_name,
       pr_number: this.item!.pr_number,
     });

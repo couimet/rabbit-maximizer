@@ -51,6 +51,8 @@
     "@couimet/logger-contract-adapters": "^0.1.1",
     "@octokit/auth-token": "^6.0.0",
     "@octokit/rest": "^22.0.1",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/context-async-hooks": "^2.10.0",
     "@prisma/adapter-better-sqlite3": "^7.9.1",
     "@prisma/client": "^7.9.1",
     "better-sqlite3": "^13.0.3",
@@ -68,6 +70,7 @@
     "react-dom": "^19.2.8",
     "reflect-metadata": "^0.2.2",
     "remove-markdown": "^0.6.4",
+    "uuid": "^14.0.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

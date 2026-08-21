@@ -42,9 +42,10 @@ const getHeaders = (server: Server, path: string): Promise<Headers> =>
   });
 
 const assertNoMiddlewareApplied = (logger: Logger) => {
-  const middlewareApplyCalls = (logger.info as ReturnType<typeof jest.fn>).mock.calls.filter(
-    (call: unknown[]) => (call[0] as Record<string, unknown>)?.middleware !== undefined,
-  );
+  const middlewareApplyCalls = (logger.info as ReturnType<typeof jest.fn>).mock.calls.filter((call: unknown[]) => {
+    const attrs = call[0] as Record<string, unknown>;
+    return attrs?.middleware !== undefined || attrs?.middlewareIndex !== undefined;
+  });
   expect(middlewareApplyCalls).toHaveLength(0);
 };
 
@@ -114,10 +115,14 @@ describe('createExpressApp', () => {
     server = app.listen(0);
     const body = await getBody(server, '/smoke');
     expect(body).toBe('ok');
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      { fn: 'inboundRequestLogger', method: 'GET', originalUrl: '/smoke', url: '/smoke' },
+      'Request started: GET /smoke',
+    );
     expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'http.request' }, expect.stringMatching(/^GET \/smoke 200 \d+\.\d+ ms$/));
   });
 
-  it('replaces default middlewares entirely when a custom middlewares option is provided', async () => {
+  it('replaces default middlewares entirely when a custom middlewares array is provided', async () => {
     const customHandler: RequestHandler = (_req, res, next) => {
       res.setHeader('x-custom', 'present');
       next();
@@ -126,13 +131,14 @@ describe('createExpressApp', () => {
     const app = createExpressApp({
       logger: mockLogger,
       helmet: false,
-      middlewares: { custom: customHandler },
+      middlewares: [{ label: 'custom', handler: customHandler }],
     });
     app.get('/smoke', (_req, res) => res.send('ok'));
 
     server = app.listen(0);
     const headers = await getHeaders(server, '/smoke');
     expect(headers.get('x-custom')).toBe('present');
+    expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'createExpressApp', middleware: 'custom', middlewareIndex: 0 }, 'Applying middleware');
     const morganApplyCalls = (mockLogger.info as ReturnType<typeof jest.fn>).mock.calls.filter(
       (call: unknown[]) => (call[0] as Record<string, unknown>)?.middleware === 'morgan',
     );
@@ -163,7 +169,7 @@ describe('createExpressApp', () => {
     const app = createExpressApp({
       logger: mockLogger,
       helmet: false,
-      middlewares: { tracking: trackingMiddleware },
+      middlewares: [trackingMiddleware],
     });
     app.get('/smoke', (_req, res) => {
       order.push('route');
@@ -175,9 +181,76 @@ describe('createExpressApp', () => {
     expect(order).toStrictEqual(['middleware', 'route']);
   });
 
-  it('buildDefaultMiddlewares returns a map with the morgan entry', () => {
+  it('runs beforeMiddlewares before helmet and the middlewares array', async () => {
+    const order: string[] = [];
+    const beforeMiddleware: RequestHandler = (_req, _res, next) => {
+      order.push('before');
+      next();
+    };
+    const mapMiddleware: RequestHandler = (_req, _res, next) => {
+      order.push('map');
+      next();
+    };
+
+    const app = createExpressApp({
+      logger: mockLogger,
+      helmet: false,
+      beforeMiddlewares: [beforeMiddleware],
+      middlewares: [mapMiddleware],
+    });
+    app.get('/smoke', (_req, res) => {
+      order.push('route');
+      res.send('ok');
+    });
+
+    server = app.listen(0);
+    await getBody(server, '/smoke');
+    expect(order).toStrictEqual(['before', 'map', 'route']);
+  });
+
+  it('buildDefaultMiddlewares returns labeled entries for the inbound logger and morgan', () => {
     const middlewares = buildDefaultMiddlewares({ logger: mockLogger });
-    expect(middlewares).toHaveProperty('morgan');
-    expect(typeof middlewares.morgan).toBe('function');
+    expect(middlewares.map((m) => ('label' in m ? m.label : undefined))).toStrictEqual(['inbound-request-logger', 'morgan']);
+    expect(middlewares.every((m) => 'label' in m && typeof m.handler === 'function')).toBe(true);
+  });
+
+  it('registers middlewares in array order and logs unlabeled entries with their index', async () => {
+    const order: string[] = [];
+    const first: RequestHandler = (_req, _res, next) => {
+      order.push('first');
+      next();
+    };
+    const second: RequestHandler = (_req, _res, next) => {
+      order.push('second');
+      next();
+    };
+
+    const app = createExpressApp({
+      logger: mockLogger,
+      helmet: false,
+      middlewares: [first, second],
+    });
+    app.get('/smoke', (_req, res) => res.send('ok'));
+
+    server = app.listen(0);
+    await getBody(server, '/smoke');
+    expect(order).toStrictEqual(['first', 'second']);
+    expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'createExpressApp', middlewareIndex: 0 }, 'Applying middleware without a name (index 0)');
+    expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'createExpressApp', middlewareIndex: 1 }, 'Applying middleware without a name (index 1)');
+  });
+
+  it('logs labeled beforeMiddlewares entries at registration', async () => {
+    const beforeMiddleware: RequestHandler = (_req, _res, next) => next();
+
+    const app = createExpressApp({
+      logger: mockLogger,
+      helmet: false,
+      beforeMiddlewares: [{ label: 'prime', handler: beforeMiddleware }],
+    });
+    app.get('/smoke', (_req, res) => res.send('ok'));
+
+    server = app.listen(0);
+    await getBody(server, '/smoke');
+    expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'createExpressApp', middleware: 'prime', middlewareIndex: 0 }, 'Applying middleware');
   });
 });

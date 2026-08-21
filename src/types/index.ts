@@ -46,6 +46,7 @@ export type {
   FailedPayload,
   RetriggeredPayload,
 } from './EventPayloads.js';
+export type { EventTraceAttributes } from './EventTraceAttributes.js';
 export type { FormatRelativeTimeGranularity } from './FormatRelativeTimeGranularity.js';
 export type { FormatRelativeTimeOptions } from './FormatRelativeTimeOptions.js';
 export type { OnDetectedCallback } from './OnDetectedCallback.js';

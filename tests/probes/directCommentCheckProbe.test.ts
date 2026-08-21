@@ -1,7 +1,7 @@
-import type { ObservationContext } from '../../src/observability/index.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { DirectCommentCheckProbe } from '../../src/probes/index.js';
 import type { EventLogEntry } from '../../src/types/index.js';
-import { createMockEventRepo, generateObservationContextHydrationData, generateReviewRef } from '../helpers/index.js';
+import { createMockEventRepo, generateEventTraceContext, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -9,16 +9,19 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('DirectCommentCheckProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
   let logger: ReturnType<typeof createMockLogger>;
-  let observation: ObservationContext;
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
+    eventTrace = generateEventTraceContext();
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = generateObservationContextHydrationData();
   });
 
-  const createProbe = () => new DirectCommentCheckProbe(events, observation, logger);
+  const createProbe = () => new DirectCommentCheckProbe(events, logger);
 
   it('logs a warn when the PR count is truncated to the direct-check limit', () => {
     const probe = createProbe();
@@ -109,16 +112,16 @@ describe('DirectCommentCheckProbe', () => {
     const probe = createProbe();
 
     probe.withComment(ref.repoFullName, ref.prNumber, commentId);
-    await probe.runIdFirstSeen(commentUrl, coderabbitRunId);
+    await runInContext(() => probe.runIdFirstSeen(commentUrl, coderabbitRunId));
 
     expect(events.record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_run_id_first_seen',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { comment_id: commentId, comment_url: commentUrl, coderabbit_run_id: coderabbitRunId },
       },
       undefined,
@@ -140,16 +143,16 @@ describe('DirectCommentCheckProbe', () => {
     const probe = createProbe();
 
     probe.withComment(ref.repoFullName, ref.prNumber, commentId);
-    await probe.runIdChanged(commentUrl, previousRunId, coderabbitRunId);
+    await runInContext(() => probe.runIdChanged(commentUrl, previousRunId, coderabbitRunId));
 
     expect(events.record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_run_id_changed',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: {
           comment_id: commentId,
           comment_url: commentUrl,
@@ -183,16 +186,16 @@ describe('DirectCommentCheckProbe', () => {
     const probe = createProbe();
 
     probe.withComment(ref.repoFullName, ref.prNumber, commentId);
-    await probe.runIdCleared(commentUrl, previousRunId);
+    await runInContext(() => probe.runIdCleared(commentUrl, previousRunId));
 
     expect(events.record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_run_id_cleared',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: {
           comment_id: commentId,
           comment_url: commentUrl,

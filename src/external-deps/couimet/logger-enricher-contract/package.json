@@ -1,0 +1,10 @@
+{
+  "name": "@couimet/logger-enricher-contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "peerDependencies": {
+    "@couimet/logger-contract": ">=1.0.0"
+  }
+}

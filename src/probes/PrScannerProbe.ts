@@ -1,12 +1,7 @@
-import type { ObservationContext } from '../observability/index.js';
-
 import type { Logger } from '@couimet/logger-contract';
 
 export class PrScannerProbe {
-  constructor(
-    private readonly observation: ObservationContext,
-    private readonly log: Logger,
-  ) {}
+  constructor(private readonly log: Logger) {}
 
   skipped(elapsedMs: number, intervalMs: number): void {
     this.log.debug({ fn: 'PrScannerProbe.skipped', elapsedMs, intervalMs }, 'Skipping scan; within interval');

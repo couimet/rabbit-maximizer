@@ -1,6 +1,7 @@
 import type { EventRepository } from '../db/index.js';
 import { EventType } from '../domain.js';
-import type { ObservationContext } from '../observability/index.js';
+
+import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
 import type { Logger } from '@couimet/logger-contract';
 
@@ -9,7 +10,6 @@ export class DirectCommentCheckProbe {
 
   constructor(
     private readonly events: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly log: Logger,
   ) {}
 
@@ -74,9 +74,7 @@ export class DirectCommentCheckProbe {
         type: EventType.coderabbit_run_id_first_seen,
         repo_full_name: repoFullName,
         pr_number: prNumber,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: { comment_id: commentId, comment_url: commentUrl, coderabbit_run_id: coderabbitRunId },
       },
       // Run ID events observe a comment; with no state-change partner
@@ -95,9 +93,7 @@ export class DirectCommentCheckProbe {
         type: EventType.coderabbit_run_id_changed,
         repo_full_name: repoFullName,
         pr_number: prNumber,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {
           comment_id: commentId,
           comment_url: commentUrl,
@@ -129,9 +125,7 @@ export class DirectCommentCheckProbe {
         type: EventType.coderabbit_run_id_cleared,
         repo_full_name: repoFullName,
         pr_number: prNumber,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {
           comment_id: commentId,
           comment_url: commentUrl,

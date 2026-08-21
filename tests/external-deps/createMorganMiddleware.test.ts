@@ -37,7 +37,7 @@ describe('createMorganMiddleware', () => {
   };
 
   it('has the expected middleware identifier value for MORGAN', () => {
-    expect(MiddlewareIdentifier.MORGAN).toBe('morgan');
+    expect(MiddlewareIdentifier.Morgan).toBe('morgan');
   });
 
   it('has the expected default format', () => {
