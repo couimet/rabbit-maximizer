@@ -1,3 +1,5 @@
+import type { SubmittedReviewFields, SubmittedReviewRaw } from '../types/index.js';
+
 export class SubmittedReview {
   readonly userLogin: string | undefined;
   readonly body: string | undefined;
@@ -5,13 +7,7 @@ export class SubmittedReview {
   readonly commitId: string | undefined;
   readonly state?: string;
 
-  private constructor(fields: {
-    userLogin: string | undefined;
-    body: string | undefined;
-    submittedAt: string | undefined;
-    commitId: string | undefined;
-    state?: string;
-  }) {
+  private constructor(fields: SubmittedReviewFields) {
     this.userLogin = fields.userLogin;
     this.body = fields.body;
     this.submittedAt = fields.submittedAt;
@@ -19,13 +15,7 @@ export class SubmittedReview {
     this.state = fields.state;
   }
 
-  static from(raw: {
-    user?: { login?: string } | null;
-    body?: string | null;
-    submitted_at?: string | null;
-    commit_id?: string | null;
-    state?: string;
-  }): SubmittedReview {
+  static from(raw: SubmittedReviewRaw): SubmittedReview {
     return new SubmittedReview({
       userLogin: raw.user?.login ?? undefined,
       body: raw.body ?? undefined,
@@ -35,13 +25,7 @@ export class SubmittedReview {
     });
   }
 
-  static create(fields: {
-    userLogin: string | undefined;
-    body: string | undefined;
-    submittedAt: string | undefined;
-    commitId: string | undefined;
-    state?: string;
-  }): SubmittedReview {
+  static create(fields: SubmittedReviewFields): SubmittedReview {
     return new SubmittedReview(fields);
   }
 }

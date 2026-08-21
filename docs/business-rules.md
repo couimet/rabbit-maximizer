@@ -42,7 +42,7 @@ Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: 
 
 Two complementary paths feed the same detection handler:
 
-- **Search path** — GitHub search over the monitored repos for open PRs whose comments mention the rate-limit phrases CodeRabbit uses in its comments ("review limit" or "rate limit"). The full body of every hit is fetched before classification, because the search index returns truncated bodies. This path has no per-comment freshness memory; re-detection of the same comment is deduplicated at enqueue.
+- **Search path** — GitHub search over the monitored repos for open PRs whose comments mention the rate-limit phrases CodeRabbit uses in its comments ("review limit" or "rate limit") or the on-request skip phrase ("review available"). The full body of every hit is fetched before classification, because the search index returns truncated bodies. This path has no per-comment freshness memory; re-detection of the same comment is deduplicated at enqueue.
 - **Direct check path** — for every PR known to the scanner plus recovered PRs, list the PR's comments directly and consider only comments authored by the CodeRabbit bot. This bypasses search-index delay. The number of directly checked PRs per tick is capped (125); beyond the cap, coverage falls back to the search path.
 
 ### Comment classification
@@ -104,8 +104,9 @@ The enqueue decision depends on the existing item for the same PR and source com
 
 | Existing item | Condition                                                                                                        | Outcome                                                                                                                                                                 |
 | ------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retriggered` | Same source comment, same run ID (or the run is unknown on either side)                                          | No-op — already retriggered                                                                                                                                             |
-| `retriggered` | Same source comment, new run ID                                                                                  | Adopt in place — update `source_comment_run_id` and refresh `retriggered_at`; the in-flight run fulfills the outstanding trigger; no new item, no new retrigger comment |
+| `retriggered` | Same source comment, same run ID                                                                                 | No-op — already retriggered                                                                                                                                             |
+| `retriggered` | Same source comment, incoming run ID absent                                                                      | No-op — stored run ID preserved                                                                                                                                         |
+| `retriggered` | Same source comment, incoming run ID known and differing from (or absent in) the stored run ID                   | Adopt in place — update `source_comment_run_id` and refresh `retriggered_at`; the in-flight run fulfills the outstanding trigger; no new item, no new retrigger comment |
 | `retriggered` | Different source comment                                                                                         | Recycle — the item adopts the new source comment (and its run ID) in place; no new item is created                                                                      |
 | `resolved`    | Same source comment, resolved within the last 5 minutes                                                          | No-op — recently-resolved loop guard                                                                                                                                    |
 | `resolved`    | Same source comment, still inside the cooldown window                                                            | No-op                                                                                                                                                                   |
@@ -302,7 +303,7 @@ When GitHub responds with a quota-exhausted status (403 or 429 with zero quota r
 
 Sources: [`EnqueueService`](../src/EnqueueService.ts), [`DirectCommentChecker`](../src/DirectCommentChecker.ts), [`detectorPoll`](../src/detectorPoll.ts), [`extractCoderabbitRunId`](../src/utils/extractCoderabbitRunId.ts), [`schemas/lengths`](../src/schemas/lengths.ts), [`pullRequestRepository`](../src/db/pullRequestRepository.ts).
 
-On repos with fewer than 10 stars, CodeRabbit posts a "Review available on request" comment instead of reviewing. The maximizer must turn that comment into a full-review request — without ever pressuring CodeRabbit while it is working.
+On repos with fewer than 10 stars, CodeRabbit posts a "Review available on request" comment instead of reviewing. The comment search path also searches the "review available" phrase, so the skip comment is discoverable even on PRs beyond the direct-check cap. The maximizer must turn that comment into a full-review request — without ever pressuring CodeRabbit while it is working.
 
 Rabbit Maximizer never proactively requests a review on an observed push. It lets CodeRabbit detect the push, waits out CodeRabbit's processing, and acts only on the comment CodeRabbit adds or updates for the new head. It must never post a request while CodeRabbit is still processing a new push.
 

@@ -49,10 +49,10 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
       });
 
       if (existing) {
-        const updated = await this.withPrismaErrorHandling(
+        await this.withPrismaErrorHandling(
           () =>
-            db.coderabbitComment.update({
-              where: { id: existing.id },
+            db.coderabbitComment.updateMany({
+              where: { id: existing.id, gh_updated_at: { lte: data.gh_updated_at } },
               data: {
                 url: data.url,
                 comment_type: data.comment_type,
@@ -64,8 +64,10 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
             }),
           'CoderabbitCommentRepositoryImpl.upsert',
         );
-        this.log.debug({ fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: existing.id }, 'Updated CoderabbitComment');
-        return updated;
+        // updateMany returns only a count; re-read the row so a newer stored revision is returned when the stale delivery is rejected
+        const updated = await db.coderabbitComment.findFirst({ where: { id: existing.id } });
+        this.log.debug({ fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: updated!.id }, 'Updated CoderabbitComment');
+        return updated!;
       }
 
       try {
@@ -98,10 +100,10 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
             select: { id: true },
           });
           if (winner) {
-            const updated = await this.withPrismaErrorHandling(
+            await this.withPrismaErrorHandling(
               () =>
-                db.coderabbitComment.update({
-                  where: { id: winner.id },
+                db.coderabbitComment.updateMany({
+                  where: { id: winner.id, gh_updated_at: { lte: data.gh_updated_at } },
                   data: {
                     url: data.url,
                     comment_type: data.comment_type,
@@ -113,11 +115,12 @@ export class CoderabbitCommentRepositoryImpl extends BasePrismaRepository implem
                 }),
               'CoderabbitCommentRepositoryImpl.upsert',
             );
+            const updated = await db.coderabbitComment.findFirst({ where: { id: winner.id } });
             this.log.debug(
-              { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: updated.id },
+              { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: updated!.id },
               'Updated CoderabbitComment (race recovery)',
             );
-            return updated;
+            return updated!;
           }
         }
         throw err;

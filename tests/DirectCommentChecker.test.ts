@@ -11,6 +11,7 @@ import {
   createMockProbeFactory,
   createMockPullRequestRepo,
   createMockQueueRepo,
+  generateCoderabbitCommentHydrationData,
   generateObservationContextHydrationData,
   generateReviewRef,
 } from './helpers/index.js';
@@ -108,21 +109,61 @@ describe('DirectCommentCheckerImpl', () => {
   it('records a walkthrough review when an unknown comment carries the stack marker on a never-enqueued PR', async () => {
     const ref = generateReviewRef();
     const pullRequestId = getUniqueInt();
-    const commentCreatedAt = getUniqueDate();
+    const commentUpdatedAt = getUniqueDate();
     const commentId = getUniqueInt();
     github.listComments.mockResolvedValue([
-      { user: 'coderabbitai[bot]', body: WALKTHROUGH_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentCreatedAt },
+      { user: 'coderabbitai[bot]', body: WALKTHROUGH_BODY, id: commentId, createdAt: commentUpdatedAt, updatedAt: commentUpdatedAt },
     ]);
 
     await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
 
     expect(queue.existsByPullRequestId).toHaveBeenCalledWith(pullRequestId);
-    expect(pullRequests.recordWalkthroughReview).toHaveBeenCalledWith(pullRequestId, commentCreatedAt);
+    expect(coderabbitComments.findByCommentId).toHaveBeenCalledWith(pullRequestId, commentId);
+    expect(coderabbitComments.upsert).toHaveBeenCalledWith({
+      comment_id: commentId,
+      pull_request_id: pullRequestId,
+      url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
+      comment_type: 'unknown',
+      body: WALKTHROUGH_BODY,
+      gh_created_at: commentUpdatedAt,
+      gh_updated_at: commentUpdatedAt,
+      coderabbit_run_id: null,
+    });
+    expect(pullRequests.recordWalkthroughReview).toHaveBeenCalledWith(pullRequestId, commentUpdatedAt);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'DirectCommentCheckProbe.walkthroughRecorded', repo: ref.repoFullName, pr: ref.prNumber, commentId, reviewedAt: commentCreatedAt.toISOString() },
+      { fn: 'DirectCommentCheckProbe.walkthroughRecorded', repo: ref.repoFullName, pr: ref.prNumber, commentId, reviewedAt: commentUpdatedAt.toISOString() },
       'Recorded walkthrough review activity',
     );
     expect(logger.debug).not.toHaveBeenCalled();
+    expect(onDetected).not.toHaveBeenCalled();
+  });
+
+  it('does not re-record a walkthrough already latched with last_seen_at at or after the comment update', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentUpdatedAt = getUniqueDate();
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      { user: 'coderabbitai[bot]', body: WALKTHROUGH_BODY, id: commentId, createdAt: commentUpdatedAt, updatedAt: commentUpdatedAt },
+    ]);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: commentUpdatedAt,
+        coderabbit_run_id: null,
+      }),
+    );
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(coderabbitComments.findByCommentId).toHaveBeenCalledWith(pullRequestId, commentId);
+    expect(coderabbitComments.upsert).not.toHaveBeenCalled();
+    expect(pullRequests.recordWalkthroughReview).not.toHaveBeenCalled();
+    expect(logger.info).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.skippedAlreadySeen', repo: ref.repoFullName, pr: ref.prNumber, commentId },
+      'Skipping comment already processed and not edited since',
+    );
     expect(onDetected).not.toHaveBeenCalled();
   });
 
@@ -186,12 +227,13 @@ describe('DirectCommentCheckerImpl', () => {
     github.listComments.mockResolvedValue([
       { user: 'coderabbitai[bot]', body: REVIEW_LIMITED_BODY, id: commentId, createdAt: commentUpdatedAt, updatedAt: commentUpdatedAt },
     ]);
-    coderabbitComments.findByCommentId.mockResolvedValue({
-      comment_id: commentId,
-      last_seen_at: lastSeenAt,
-      coderabbit_run_id: null,
-      is_not_deleted: true,
-    } as any);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: lastSeenAt,
+        coderabbit_run_id: null,
+      }),
+    );
 
     const candidates = await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
 
@@ -216,12 +258,13 @@ describe('DirectCommentCheckerImpl', () => {
     github.listComments.mockResolvedValue([
       { user: 'coderabbitai[bot]', body: SKIPPED_COMMENT_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentUpdatedAt },
     ]);
-    coderabbitComments.findByCommentId.mockResolvedValue({
-      comment_id: commentId,
-      last_seen_at: lastSeenAt,
-      coderabbit_run_id: null,
-      is_not_deleted: true,
-    } as any);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: lastSeenAt,
+        coderabbit_run_id: null,
+      }),
+    );
 
     await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
 
@@ -260,12 +303,13 @@ describe('DirectCommentCheckerImpl', () => {
         updatedAt: commentUpdatedAt,
       },
     ]);
-    coderabbitComments.findByCommentId.mockResolvedValue({
-      comment_id: commentId,
-      last_seen_at: new Date(commentUpdatedAt.getTime() - ONE_MINUTE_MS),
-      coderabbit_run_id: storedRunId,
-      is_not_deleted: true,
-    } as any);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: new Date(commentUpdatedAt.getTime() - ONE_MINUTE_MS),
+        coderabbit_run_id: storedRunId,
+      }),
+    );
 
     await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
 
@@ -318,12 +362,13 @@ describe('DirectCommentCheckerImpl', () => {
         updatedAt: commentUpdatedAt,
       },
     ]);
-    coderabbitComments.findByCommentId.mockResolvedValue({
-      comment_id: commentId,
-      last_seen_at: new Date(commentUpdatedAt.getTime() - ONE_MINUTE_MS),
-      coderabbit_run_id: null,
-      is_not_deleted: true,
-    } as any);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: new Date(commentUpdatedAt.getTime() - ONE_MINUTE_MS),
+        coderabbit_run_id: null,
+      }),
+    );
 
     await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
 
@@ -367,12 +412,13 @@ describe('DirectCommentCheckerImpl', () => {
         updatedAt: commentUpdatedAt,
       },
     ]);
-    coderabbitComments.findByCommentId.mockResolvedValue({
-      comment_id: commentId,
-      last_seen_at: new Date(commentUpdatedAt.getTime() - ONE_MINUTE_MS),
-      coderabbit_run_id: storedRunId,
-      is_not_deleted: true,
-    } as any);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: new Date(commentUpdatedAt.getTime() - ONE_MINUTE_MS),
+        coderabbit_run_id: storedRunId,
+      }),
+    );
 
     await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
 
@@ -414,12 +460,13 @@ describe('DirectCommentCheckerImpl', () => {
         updatedAt: commentUpdatedAt,
       },
     ]);
-    coderabbitComments.findByCommentId.mockResolvedValue({
-      comment_id: commentId,
-      last_seen_at: new Date(commentUpdatedAt.getTime() - ONE_MINUTE_MS),
-      coderabbit_run_id: storedRunId,
-      is_not_deleted: true,
-    } as any);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: new Date(commentUpdatedAt.getTime() - ONE_MINUTE_MS),
+        coderabbit_run_id: storedRunId,
+      }),
+    );
 
     await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
 

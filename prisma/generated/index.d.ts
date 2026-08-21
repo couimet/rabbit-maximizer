@@ -4210,6 +4210,7 @@ export namespace Prisma {
     retrigger_skip_count: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
+    source_comment_run_id: string | null;
     trigger_source: string | null;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
@@ -4237,6 +4238,7 @@ export namespace Prisma {
     retrigger_skip_count: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
+    source_comment_run_id: string | null;
     trigger_source: string | null;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
@@ -4264,6 +4266,7 @@ export namespace Prisma {
     retrigger_skip_count: number;
     source_comment_url: number;
     source_comment_id: number;
+    source_comment_run_id: number;
     trigger_source: number;
     original_source_comment_url: number;
     retrigger_comment_url: number;
@@ -4310,6 +4313,7 @@ export namespace Prisma {
     retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
+    source_comment_run_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
@@ -4337,6 +4341,7 @@ export namespace Prisma {
     retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
+    source_comment_run_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
@@ -4364,6 +4369,7 @@ export namespace Prisma {
     retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
+    source_comment_run_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
@@ -4475,6 +4481,7 @@ export namespace Prisma {
     retrigger_skip_count: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id: string | null;
     trigger_source: string;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
@@ -4520,6 +4527,7 @@ export namespace Prisma {
       retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
+      source_comment_run_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
@@ -4552,6 +4560,7 @@ export namespace Prisma {
       retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
+      source_comment_run_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
@@ -4583,6 +4592,7 @@ export namespace Prisma {
       retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
+      source_comment_run_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
@@ -4613,6 +4623,7 @@ export namespace Prisma {
     retrigger_skip_count?: boolean;
     source_comment_url?: boolean;
     source_comment_id?: boolean;
+    source_comment_run_id?: boolean;
     trigger_source?: boolean;
     original_source_comment_url?: boolean;
     retrigger_comment_url?: boolean;
@@ -4640,6 +4651,7 @@ export namespace Prisma {
     | 'retrigger_skip_count'
     | 'source_comment_url'
     | 'source_comment_id'
+    | 'source_comment_run_id'
     | 'trigger_source'
     | 'original_source_comment_url'
     | 'retrigger_comment_url'
@@ -4715,6 +4727,10 @@ export namespace Prisma {
          * Numeric comment ID extracted from source_comment_url at enqueue time.
          */
         source_comment_id: number;
+        /**
+         * Max 75. CodeRabbit's per-comment Run ID adopted at enqueue/retrigger time, so review matching can reject reviews from earlier runs. CHECK in the 20260820 migration.
+         */
+        source_comment_run_id: string | null;
         /**
          * Max 25; one of 'dashboard_retrigger_now' | 'scheduler' (CHECK in the add_trigger_source_check migration).
          */
@@ -5222,6 +5238,7 @@ export namespace Prisma {
     readonly retrigger_skip_count: FieldRef<'ReviewQueue', 'Int'>;
     readonly source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly source_comment_id: FieldRef<'ReviewQueue', 'Int'>;
+    readonly source_comment_run_id: FieldRef<'ReviewQueue', 'String'>;
     readonly trigger_source: FieldRef<'ReviewQueue', 'String'>;
     readonly original_source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly retrigger_comment_url: FieldRef<'ReviewQueue', 'String'>;
@@ -8500,7 +8517,7 @@ export namespace Prisma {
          */
         url: string;
         /**
-         * One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' (CHECK in migration).
+         * One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
          */
         comment_type: string;
         /**
@@ -10595,6 +10612,7 @@ export namespace Prisma {
     retrigger_skip_count: 'retrigger_skip_count';
     source_comment_url: 'source_comment_url';
     source_comment_id: 'source_comment_id';
+    source_comment_run_id: 'source_comment_run_id';
     trigger_source: 'trigger_source';
     original_source_comment_url: 'original_source_comment_url';
     retrigger_comment_url: 'retrigger_comment_url';
@@ -10959,6 +10977,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
+    source_comment_run_id?: StringNullableFilter<'ReviewQueue'> | string | null;
     trigger_source?: StringFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
@@ -10988,6 +11007,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrderInput | SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrderInput | SortOrder;
     retrigger_comment_url?: SortOrderInput | SortOrder;
@@ -11005,6 +11025,7 @@ export namespace Prisma {
     {
       id?: number;
       uuid?: string;
+      source_comment_id?: number;
       AND?: ReviewQueueWhereInput | ReviewQueueWhereInput[];
       OR?: ReviewQueueWhereInput[];
       NOT?: ReviewQueueWhereInput | ReviewQueueWhereInput[];
@@ -11020,7 +11041,7 @@ export namespace Prisma {
       last_skip_reason?: StringNullableFilter<'ReviewQueue'> | string | null;
       retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
       source_comment_url?: StringFilter<'ReviewQueue'> | string;
-      source_comment_id?: IntFilter<'ReviewQueue'> | number;
+      source_comment_run_id?: StringNullableFilter<'ReviewQueue'> | string | null;
       trigger_source?: StringFilter<'ReviewQueue'> | string;
       original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
       retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
@@ -11033,7 +11054,7 @@ export namespace Prisma {
       queueOrder?: XOR<QueueOrderNullableScalarRelationFilter, QueueOrderWhereInput> | null;
       pullRequest?: XOR<PullRequestNullableScalarRelationFilter, PullRequestWhereInput> | null;
     },
-    'id' | 'uuid'
+    'id' | 'uuid' | 'source_comment_id'
   >;
 
   export type ReviewQueueOrderByWithAggregationInput = {
@@ -11052,6 +11073,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrderInput | SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrderInput | SortOrder;
     retrigger_comment_url?: SortOrderInput | SortOrder;
@@ -11087,6 +11109,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     source_comment_url?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     source_comment_id?: IntWithAggregatesFilter<'ReviewQueue'> | number;
+    source_comment_run_id?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
     trigger_source?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
@@ -11699,6 +11722,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -11728,6 +11752,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -11754,6 +11779,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -11783,6 +11809,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -11811,6 +11838,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -11836,6 +11864,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -11863,6 +11892,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -12584,6 +12614,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
@@ -12620,6 +12651,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
@@ -12647,6 +12679,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
@@ -13547,6 +13580,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -13574,6 +13608,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -13732,6 +13767,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
+    source_comment_run_id?: StringNullableFilter<'ReviewQueue'> | string | null;
     trigger_source?: StringFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
@@ -14300,6 +14336,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -14328,6 +14365,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -14369,6 +14407,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -14397,6 +14436,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -14557,6 +14597,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -14621,6 +14662,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -14648,6 +14690,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -14675,6 +14718,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;

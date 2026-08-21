@@ -97,7 +97,11 @@ describe('ReviewTrigger', () => {
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     const runId = getUniqueString({ prefix: 'run-' });
     github.fetchComment.mockResolvedValue(makeFetchResult(`**Run ID**: \`${runId}\`\n\nrate limited by coderabbit.ai`));
-    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    let capturedRunId: string | undefined;
+    github.postRetrigger.mockImplementation((_repo, _pr, _sourceCommentUrl, generatedRunId) => {
+      capturedRunId = generatedRunId;
+      return Promise.resolve({ htmlUrl: commentUrl });
+    });
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
 
@@ -107,7 +111,7 @@ describe('ReviewTrigger', () => {
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
     expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: capturedRunId! },
       'Posting retrigger',
     );
     expect(systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), tx);

@@ -474,7 +474,7 @@ describe('client', () => {
       await client.searchReviewLimitComments([USER_FILTER, REPO_FILTER]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `("review limit" OR "rate limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
+        q: `("review limit" OR "rate limit" OR "review available") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -484,7 +484,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
+          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
         },
         'Searching for rate-limit comments',
       );
@@ -500,7 +500,7 @@ describe('client', () => {
       await client.searchReviewLimitComments([]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `("review limit" OR "rate limit") type:pr state:open`,
+        q: `("review limit" OR "rate limit" OR "review available") type:pr state:open`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -510,7 +510,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open`,
+          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open`,
         },
         'Searching for rate-limit comments',
       );
@@ -569,7 +569,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open user:couimet`,
+          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -610,7 +610,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open user:couimet`,
+          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -630,7 +630,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open user:couimet`,
+          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -1084,6 +1084,11 @@ describe('client', () => {
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toStrictEqual({ htmlUrl: newerHtmlUrl, reviewId: newerReviewId, isApproval: false, commitId: undefined });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId: newerReviewId, htmlUrl: newerHtmlUrl },
+        'Found completed review',
+      );
     });
 
     it('still requests the next page when page 1 is full and already contains a match', async () => {
@@ -1125,6 +1130,8 @@ describe('client', () => {
         page: 2,
       });
       expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false, commitId: undefined });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
     });
 
     it('accepts a review only when its body Run ID equals the expected run', async () => {
@@ -1158,6 +1165,11 @@ describe('client', () => {
       const result = await client.findCompletedReview(owner, repo, prNumber, since, expectedRunId, undefined);
 
       expect(result).toStrictEqual({ htmlUrl: matchingHtmlUrl, reviewId: matchingReviewId, isApproval: false, commitId: undefined });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId: matchingReviewId, htmlUrl: matchingHtmlUrl },
+        'Found completed review',
+      );
     });
 
     it('rejects every review when none matches the expected run', async () => {
@@ -1181,6 +1193,7 @@ describe('client', () => {
       const result = await client.findCompletedReview(owner, repo, prNumber, since, getUniqueString({ prefix: 'run-' }), undefined);
 
       expect(result).toBeUndefined();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
     });
 
     it('surfaces the review commit ID in the result', async () => {
@@ -1208,6 +1221,8 @@ describe('client', () => {
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false, commitId });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
     });
   });
 

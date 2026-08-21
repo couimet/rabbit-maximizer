@@ -129,8 +129,7 @@ describe('PrScannerImpl', () => {
     const scanner = createScanner();
     await scanner.scan();
 
-    const [owner, repo] = ref.repoFullName.split('/');
-    expect(github.getCommitCommittedAt).toHaveBeenCalledWith(owner, repo, headSha);
+    expect(github.getCommitCommittedAt).toHaveBeenCalledWith(ref.owner, ref.repo, headSha);
     expect(pullRequests.upsert).toHaveBeenCalledWith(ref.repoFullName, ref.prNumber, {
       prTitle,
       prState: 'open',

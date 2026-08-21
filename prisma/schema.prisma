@@ -147,6 +147,7 @@ model ReviewQueue {
 
   @@index([status])
   @@index([pull_request_id])
+  @@unique([source_comment_id])
   @@map("review_queue")
 }
 

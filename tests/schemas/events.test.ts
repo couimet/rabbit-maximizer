@@ -298,25 +298,13 @@ describe('parseEventRow', () => {
     expect(result.payload).toStrictEqual({ reason });
   });
 
-  it('returns raw payload for an unknown event type with object payload', () => {
+  it('throws for an unknown event type', () => {
     const row = generateEventHydrationData({ type: 'bogus', payload: '{}' });
-    const result = parseEventRow(row);
-    expect(result.type).toBe('bogus');
-    expect(result.payload).toStrictEqual({});
-  });
-
-  it('wraps non-object payloads in a raw envelope for an unknown event type', () => {
-    const row = generateEventHydrationData({ type: 'bogus', payload: '"just a string"' });
-    const result = parseEventRow(row);
-    expect(result.type).toBe('bogus');
-    expect(result.payload).toStrictEqual({ raw: 'just a string' });
-  });
-
-  it('wraps a null payload in a raw envelope for an unknown event type', () => {
-    const row = generateEventHydrationData({ type: 'bogus', payload: 'null' });
-    const result = parseEventRow(row);
-    expect(result.type).toBe('bogus');
-    expect(result.payload).toStrictEqual({ raw: null });
+    expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
+      message: 'Unexpected event type: "bogus"',
+      functionName: 'parseEventRow',
+      details: { unexpectedValue: 'bogus' },
+    });
   });
 });
 

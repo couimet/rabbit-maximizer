@@ -74,7 +74,7 @@ export class PrScannerImpl implements PrScanner {
         try {
           const { owner, repo } = splitRepo(pr.repoFullName);
           const headSha = await this.github.getPRHeadSha(owner, repo, pr.prNumber);
-          const existing = await this.pullRequests.findByRepoAndPr(pr.repoFullName, pr.prNumber);
+          const existing = await this.pullRequests.findByRepoAndPr(pr.repoFullName, pr.prNumber, undefined);
           let headCommittedAt: Date | undefined;
           if ((existing?.head_sha ?? null) !== headSha) {
             // One commit fetch per push: the timestamp only changes with the head.

@@ -1,4 +1,5 @@
 import { config } from '../src/config.js';
+import { CodeRabbitCommentType } from '../src/domain.js';
 import type { ObservationContextProvider } from '../src/observability/index.js';
 import type { DetectedProbe, ProbeFactory } from '../src/probes/index.js';
 import { EnqueueService } from '../src/services.js';
@@ -10,6 +11,7 @@ import {
   createMockProbeFactory,
   createMockPullRequestRepo,
   createMockQueueRepo,
+  generateCoderabbitCommentHydrationData,
   generateDetectedCommentHydrationData,
 } from './helpers/index.js';
 
@@ -120,13 +122,12 @@ describe('EnqueueService', () => {
     it('dismisses the comment but still upserts it when the existing review is newer', async () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData({ body: 'rate limited by coderabbit.ai' });
-      const reviewComment = {
-        id: getUniqueInt(),
+      const reviewComment = generateCoderabbitCommentHydrationData({
         comment_id: getUniqueInt(),
         url: getUniqueString({ prefix: 'https://gh/' }),
-        comment_type: 'review_approved',
+        comment_type: CodeRabbitCommentType.review_approved,
         gh_updated_at: new Date(new Date(comment.updatedAt).getTime() + 60 * MS_PER_SECOND),
-      } as never;
+      });
       coderabbitComments.findCompletedReview.mockResolvedValueOnce(reviewComment);
       const pullRequestId = getUniqueInt();
 
@@ -154,20 +155,31 @@ describe('EnqueueService', () => {
     it('proceeds past the guard when the comment is newer than the existing review', async () => {
       const svc = createService();
       const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
-      const reviewComment = {
-        id: getUniqueInt(),
+      const reviewComment = generateCoderabbitCommentHydrationData({
         comment_id: getUniqueInt(),
         url: getUniqueString({ prefix: 'https://gh/' }),
-        comment_type: 'review_approved',
+        comment_type: CodeRabbitCommentType.review_approved,
         gh_updated_at: new Date(new Date(comment.updatedAt).getTime() - 60 * MS_PER_SECOND),
-      } as never;
+      });
       coderabbitComments.findCompletedReview.mockResolvedValueOnce(reviewComment);
       const pullRequestId = getUniqueInt();
 
       await svc.handle(comment, pullRequestId);
 
       expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
-      expect(queue.enqueue).toHaveBeenCalled();
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        {
+          repo: comment.repoFullName,
+          pr: comment.prNumber,
+          prTitle: comment.prTitle,
+          sourceCommentUrl: comment.url,
+          sourceCommentId: comment.commentId,
+          commentUpdatedAt: new Date(comment.updatedAt),
+          cooldownUntil: undefined,
+          pullRequestId,
+        },
+        tx,
+      );
       expect(probe.alreadyReviewed).not.toHaveBeenCalled();
       expect(probe.skipped).toHaveBeenCalledWith(tx);
     });

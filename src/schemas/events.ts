@@ -1,4 +1,5 @@
 import { CodeRabbitCommentType, DismissalReason, EventType } from '../domain.js';
+import { RabbitMaximizerError } from '../errors/index.js';
 import { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
 import type { EventEnvelope, EventLogEntry } from '../types/index.js';
 
@@ -165,10 +166,6 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         payload: FailedPayloadSchema.parse(payload),
       };
     default:
-      return {
-        ...envelope,
-        type: row.type,
-        payload: typeof payload === 'object' && payload !== null ? payload : { raw: payload },
-      } as EventLogEntry;
+      throw RabbitMaximizerError.forUnexpectedSwitchDefault('event type', row.type, 'parseEventRow');
   }
 };

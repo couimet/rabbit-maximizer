@@ -59,14 +59,17 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const existing = generateCoderabbitCommentHydrationData({ comment_id: data.comment_id });
       const updated = { ...existing, url: data.url };
       const { prisma, coderabbitComment } = createMockPrismaClient({
-        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(existing), update: jest.fn<any>().mockResolvedValue(updated) },
+        coderabbitComment: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(existing).mockResolvedValue(updated),
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 1 }),
+        },
       });
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
 
       const result = await sut.upsert(data);
 
-      expect(coderabbitComment.update).toHaveBeenCalledWith({
-        where: { id: existing.id },
+      expect(coderabbitComment.updateMany).toHaveBeenCalledWith({
+        where: { id: existing.id, gh_updated_at: { lte: data.gh_updated_at } },
         data: {
           url: data.url,
           comment_type: data.comment_type,
@@ -76,7 +79,41 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           last_seen_at: frozenNow,
         },
       });
-      expect(result.id).toBe(existing.id);
+      expect(result).toStrictEqual(updated);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: existing.id },
+        'Updated CoderabbitComment',
+      );
+    });
+
+    it('preserves the newer run ID and gh_updated_at when an older revision arrives after a newer one', async () => {
+      const data = generateCoderabbitCommentCreationData();
+      const existing = generateCoderabbitCommentHydrationData({ comment_id: data.comment_id });
+      const newer = { ...existing, coderabbit_run_id: getUuid(), gh_updated_at: getUniqueDate() };
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(existing).mockResolvedValue(newer),
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 0 }),
+        },
+      });
+      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+
+      const result = await sut.upsert(data);
+
+      expect(coderabbitComment.updateMany).toHaveBeenCalledWith({
+        where: { id: existing.id, gh_updated_at: { lte: data.gh_updated_at } },
+        data: {
+          url: data.url,
+          comment_type: data.comment_type,
+          last_body_preview: data.body,
+          coderabbit_run_id: data.coderabbit_run_id,
+          gh_updated_at: data.gh_updated_at,
+          last_seen_at: frozenNow,
+        },
+      });
+      expect(result).toStrictEqual(newer);
+      expect(result.coderabbit_run_id).toBe(newer.coderabbit_run_id);
+      expect(result.gh_updated_at).toBe(newer.gh_updated_at);
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: existing.id },
         'Updated CoderabbitComment',
@@ -173,12 +210,12 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       });
     });
 
-    it('wraps P2025 errors in PrismaRecordNotFoundError on update', async () => {
+    it('wraps P2025 errors in PrismaRecordNotFoundError on updateMany', async () => {
       const data = generateCoderabbitCommentCreationData();
       const existing = generateCoderabbitCommentHydrationData({ comment_id: data.comment_id });
       const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
       const { prisma } = createMockPrismaClient({
-        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(existing), update: jest.fn<any>().mockRejectedValue(p2025) },
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(existing), updateMany: jest.fn<any>().mockRejectedValue(p2025) },
       });
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
 
@@ -201,19 +238,17 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const updated = { ...winningRow, url: data.url };
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: {
-          findFirst: jest.fn<any>().mockResolvedValue(null),
+          findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(winningRow).mockResolvedValue(updated),
           create: jest.fn<any>().mockRejectedValue(p2002),
-          update: jest.fn<any>().mockResolvedValue(updated),
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 1 }),
         },
       });
-      jest.spyOn(coderabbitComment, 'findFirst').mockResolvedValueOnce(null).mockResolvedValueOnce(winningRow);
-
       const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
 
       const result = await sut.upsert(data);
 
-      expect(coderabbitComment.update).toHaveBeenCalledWith({
-        where: { id: winningRow.id },
+      expect(coderabbitComment.updateMany).toHaveBeenCalledWith({
+        where: { id: winningRow.id, gh_updated_at: { lte: data.gh_updated_at } },
         data: {
           url: data.url,
           comment_type: data.comment_type,
@@ -223,7 +258,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           last_seen_at: frozenNow,
         },
       });
-      expect(result.id).toBe(updated.id);
+      expect(result).toStrictEqual(updated);
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: winningRow.id },
         'Updated CoderabbitComment (race recovery)',

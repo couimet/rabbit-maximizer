@@ -94,7 +94,7 @@ export class PollDetector extends IntervalService {
           }
         }
 
-        const existingPr = await this.pullRequests.findByRepoAndPr(c.repoFullName, c.prNumber);
+        const existingPr = await this.pullRequests.findByRepoAndPr(c.repoFullName, c.prNumber, undefined);
         if (!existingPr) {
           this.log.warn({ ...logCtx, repo: c.repoFullName, pr: c.prNumber }, 'PR not registered; skipping comment');
           continue;

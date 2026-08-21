@@ -329,6 +329,10 @@ describe('PullRequestRepositoryImpl', () => {
       update: { last_observed_at: frozenNow },
       create: { pull_request_id: row.id, sha: headSha },
     });
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
+      'Created PullRequest',
+    );
   });
 
   it('updates head fields and refreshes the sha observation on an existing PR', async () => {
@@ -351,6 +355,10 @@ describe('PullRequestRepositoryImpl', () => {
       update: { last_observed_at: frozenNow },
       create: { pull_request_id: existing.id, sha: headSha },
     });
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+      'PullRequest already exists',
+    );
   });
 
   it('does not touch the sha history when no head data is provided', async () => {
@@ -374,7 +382,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber);
+      const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber, undefined);
 
       expect(result).toStrictEqual({ id: row.id, head_sha: headSha });
     });
@@ -385,7 +393,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber);
+      const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber, undefined);
 
       expect(result).toBeNull();
     });
@@ -556,6 +564,7 @@ describe('PullRequestRepositoryImpl', () => {
           reviewed_head_sha: headSha,
         },
       });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
     });
 
     it('stores review_changes_suggested verdict state', async () => {

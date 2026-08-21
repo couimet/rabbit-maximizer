@@ -77,8 +77,23 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
             // Walkthrough summaries carry no verdict but mark when CodeRabbit reviewed;
             // on a never-enqueued PR they are the only signal, so record the activity.
             if (c.body.includes(REVIEW_STACK_MARKER) && !(await this.queue.existsByPullRequestId(pr.pullRequestId))) {
-              await this.pullRequests.recordWalkthroughReview(pr.pullRequestId, c.createdAt);
-              await probe.walkthroughRecorded(c.createdAt);
+              const stored = await this.coderabbitComments.findByCommentId(pr.pullRequestId, c.id);
+              if (stored && c.updatedAt <= stored.last_seen_at) {
+                probe.skippedAlreadySeen();
+                continue;
+              }
+              await this.coderabbitComments.upsert({
+                comment_id: c.id,
+                pull_request_id: pr.pullRequestId,
+                url: buildCommentUrl(pr.repoFullName, pr.prNumber, c.id),
+                comment_type: classification,
+                body: c.body,
+                gh_created_at: c.createdAt,
+                gh_updated_at: c.updatedAt,
+                coderabbit_run_id: extractCoderabbitRunId(c.body) ?? null,
+              });
+              await this.pullRequests.recordWalkthroughReview(pr.pullRequestId, c.updatedAt);
+              probe.walkthroughRecorded(c.updatedAt);
             } else {
               probe.skippedUnclassified();
             }

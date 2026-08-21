@@ -58,7 +58,7 @@ type TrackedPrRawRow = Omit<TrackedPrRow, 'last_coderabbit_review_at'> & { reado
 
 export interface PullRequestRepository {
   upsert(repoFullName: string, prNumber: number, data: UpsertPullRequestData, tx?: Prisma.TransactionClient): Promise<{ id: number; created: boolean }>;
-  findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<PullRequestHeadSha | null>;
+  findByRepoAndPr(repoFullName: string, prNumber: number, tx: Prisma.TransactionClient | undefined): Promise<PullRequestHeadSha | null>;
   findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
   findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
   findStaleOpenPRs(): Promise<StaleOpenPR[]>;
@@ -150,7 +150,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
   }
 
   // eslint-disable-next-line require-await
-  async findByRepoAndPr(repoFullName: string, prNumber: number, tx?: Prisma.TransactionClient): Promise<PullRequestHeadSha | null> {
+  async findByRepoAndPr(repoFullName: string, prNumber: number, tx: Prisma.TransactionClient | undefined): Promise<PullRequestHeadSha | null> {
     return this.enforceTx(tx, (db) =>
       db.pullRequest.findUnique({
         where: { repo_full_name_pr_number: { repo_full_name: repoFullName, pr_number: prNumber } },

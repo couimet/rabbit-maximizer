@@ -16,6 +16,7 @@ export {
   REVIEW_BOT_RETRIGGER_COMMAND,
   REVIEW_BOT_SELF_MARKER_PREFIX,
   REVIEW_BOT_SKIP_MARKER,
+  REVIEW_BOT_SKIP_SEARCH_TEXTS,
   REVIEW_STACK_MARKER,
 } from './coderabbitConstants.js';
 export type { CoderabbitGitHubClient } from './coderabbitGitHubClient.js';

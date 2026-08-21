@@ -111,6 +111,7 @@ export interface MockDirectCommentCheckProbe {
   truncated: jest.Mock<any>;
   skippedUnclassified: jest.Mock<any>;
   skippedOwnRetrigger: jest.Mock<any>;
+  walkthroughRecorded: jest.Mock<any>;
   skippedAlreadySeen: jest.Mock<any>;
   prCheckFailed: jest.Mock<any>;
   found: jest.Mock<any>;
@@ -124,6 +125,7 @@ export const createMockDirectCommentCheckProbe = (): MockDirectCommentCheckProbe
   truncated: jest.fn<any>(),
   skippedUnclassified: jest.fn<any>(),
   skippedOwnRetrigger: jest.fn<any>(),
+  walkthroughRecorded: jest.fn<any>(),
   skippedAlreadySeen: jest.fn<any>(),
   prCheckFailed: jest.fn<any>(),
   found: jest.fn<any>(),

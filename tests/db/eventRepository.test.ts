@@ -297,7 +297,19 @@ describe('EventRepositoryImpl', () => {
   describe('countByType', () => {
     it('returns counts keyed by EventType for events since the given date', async () => {
       const since = getUniqueDate();
-      const { detectedCnt, enqueuedCnt, retriggeredCnt, dismissedCnt, approvedCnt, changesReqCnt, skippedCnt, failedCnt } = getUniqueIntsNamed([
+      const {
+        detectedCnt,
+        enqueuedCnt,
+        retriggeredCnt,
+        dismissedCnt,
+        approvedCnt,
+        changesReqCnt,
+        skippedCnt,
+        failedCnt,
+        runIdChangedCnt,
+        runIdClearedCnt,
+        runIdFirstSeenCnt,
+      } = getUniqueIntsNamed([
         'detectedCnt',
         'enqueuedCnt',
         'retriggeredCnt',
@@ -306,6 +318,9 @@ describe('EventRepositoryImpl', () => {
         'changesReqCnt',
         'skippedCnt',
         'failedCnt',
+        'runIdChangedCnt',
+        'runIdClearedCnt',
+        'runIdFirstSeenCnt',
       ]);
       const rows = [
         { type: 'detected', _count: { type: detectedCnt } },
@@ -315,6 +330,9 @@ describe('EventRepositoryImpl', () => {
         { type: 'coderabbit_review_approved', _count: { type: approvedCnt } },
         { type: 'coderabbit_review_changes_suggested', _count: { type: changesReqCnt } },
         { type: 'coderabbit_review_skipped', _count: { type: skippedCnt } },
+        { type: 'coderabbit_run_id_changed', _count: { type: runIdChangedCnt } },
+        { type: 'coderabbit_run_id_cleared', _count: { type: runIdClearedCnt } },
+        { type: 'coderabbit_run_id_first_seen', _count: { type: runIdFirstSeenCnt } },
         { type: 'failed', _count: { type: failedCnt } },
       ];
 
@@ -336,9 +354,9 @@ describe('EventRepositoryImpl', () => {
         coderabbit_review_approved: approvedCnt,
         coderabbit_review_changes_suggested: changesReqCnt,
         coderabbit_review_skipped: skippedCnt,
-        coderabbit_run_id_changed: 0,
-        coderabbit_run_id_cleared: 0,
-        coderabbit_run_id_first_seen: 0,
+        coderabbit_run_id_changed: runIdChangedCnt,
+        coderabbit_run_id_cleared: runIdClearedCnt,
+        coderabbit_run_id_first_seen: runIdFirstSeenCnt,
         detected: detectedCnt,
         enqueued: enqueuedCnt,
         failed: failedCnt,
@@ -352,9 +370,9 @@ describe('EventRepositoryImpl', () => {
             coderabbit_review_approved: approvedCnt,
             coderabbit_review_changes_suggested: changesReqCnt,
             coderabbit_review_skipped: skippedCnt,
-            coderabbit_run_id_changed: 0,
-            coderabbit_run_id_cleared: 0,
-            coderabbit_run_id_first_seen: 0,
+            coderabbit_run_id_changed: runIdChangedCnt,
+            coderabbit_run_id_cleared: runIdClearedCnt,
+            coderabbit_run_id_first_seen: runIdFirstSeenCnt,
             detected: detectedCnt,
             enqueued: enqueuedCnt,
             failed: failedCnt,
