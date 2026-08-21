@@ -20,4 +20,4 @@ Resolution reasons:
 - `skipped` — CodeRabbit re-skipped the review after the request.
 - `stale_comment` — the source comment is gone and no replacement exists.
 
-`EFFECTIVE_ORDER_STATUSES` includes both `pending` and `retriggered` — both appear in Queue Order. When a new rate-limit comment arrives on a `retriggered` item, the source comment is updated in place; no new item is created.
+`EFFECTIVE_ORDER_STATUSES` includes both `pending` and `retriggered` — both appear in Queue Order. When a new rate-limit comment arrives on a `retriggered` item, the source comment is updated in place; no new item is created. When the same comment is re-edited with a new CodeRabbit Run ID, the item's run tracking is updated in place and the retrigger clock restarts; no new item is created and no new retrigger comment is posted.

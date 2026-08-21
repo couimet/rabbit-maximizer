@@ -1,5 +1,6 @@
 import { SubmittedReview } from '../../../src/github/index.js';
 
+import { getUniqueString } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 
 const OCTOCAT = 'octocat';
@@ -8,16 +9,19 @@ const REVIEW_TIMESTAMP = '2024-01-15T10:00:00Z';
 describe('SubmittedReview', () => {
   describe('from', () => {
     it('maps all fields from raw data', () => {
+      const commitId = getUniqueString({ prefix: 'sha-' });
       const raw = {
         user: { login: OCTOCAT },
         body: 'Looks good to me',
         submitted_at: REVIEW_TIMESTAMP,
+        commit_id: commitId,
         state: 'APPROVED',
       };
       const result = SubmittedReview.from(raw);
 
       expect(result).toStrictEqual(
         SubmittedReview.create({
+          commitId,
           userLogin: OCTOCAT,
           body: 'Looks good to me',
           submittedAt: REVIEW_TIMESTAMP,
@@ -32,6 +36,7 @@ describe('SubmittedReview', () => {
 
       expect(result).toStrictEqual(
         SubmittedReview.create({
+          commitId: undefined,
           userLogin: undefined,
           body: 'OK',
           submittedAt: REVIEW_TIMESTAMP,
@@ -46,6 +51,7 @@ describe('SubmittedReview', () => {
 
       expect(result).toStrictEqual(
         SubmittedReview.create({
+          commitId: undefined,
           userLogin: OCTOCAT,
           body: undefined,
           submittedAt: REVIEW_TIMESTAMP,
@@ -60,6 +66,7 @@ describe('SubmittedReview', () => {
 
       expect(result).toStrictEqual(
         SubmittedReview.create({
+          commitId: undefined,
           userLogin: OCTOCAT,
           body: 'Looks good',
           submittedAt: undefined,
@@ -74,6 +81,7 @@ describe('SubmittedReview', () => {
 
       expect(result).toStrictEqual(
         SubmittedReview.create({
+          commitId: undefined,
           userLogin: OCTOCAT,
           body: 'Looks good',
           submittedAt: REVIEW_TIMESTAMP,
@@ -88,6 +96,7 @@ describe('SubmittedReview', () => {
 
       expect(result).toStrictEqual(
         SubmittedReview.create({
+          commitId: undefined,
           userLogin: undefined,
           body: undefined,
           submittedAt: undefined,

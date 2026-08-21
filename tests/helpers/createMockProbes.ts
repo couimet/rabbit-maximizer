@@ -70,6 +70,7 @@ export interface MockReviewDetectorProbe {
   reviewed: jest.Mock<any>;
   reviewedViaFallback: jest.Mock<any>;
   prClosedResolved: jest.Mock<any>;
+  resolutionLostRace: jest.Mock<any>;
   caughtError: jest.Mock<any>;
   editDetectionFailed: jest.Mock<any>;
 }
@@ -80,6 +81,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   reviewed: jest.fn<any>(),
   reviewedViaFallback: jest.fn<any>(),
   prClosedResolved: jest.fn<any>(),
+  resolutionLostRace: jest.fn<any>(),
   caughtError: jest.fn<any>(),
   editDetectionFailed: jest.fn<any>(),
 });

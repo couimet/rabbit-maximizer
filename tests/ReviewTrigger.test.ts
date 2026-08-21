@@ -75,7 +75,7 @@ describe('ReviewTrigger', () => {
     const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
 
     expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
@@ -88,6 +88,27 @@ describe('ReviewTrigger', () => {
       expect.any(String) as unknown as string,
       'dashboard_retrigger_now',
       undefined,
+    );
+    expect(systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), tx);
+  });
+
+  it('snapshots the extracted run ID from the stored source comment on the retriggered item', async () => {
+    const { github, probeFactory, logger, reviewTrigger, queue, pullRequests, tx, systemState } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    const runId = getUniqueString({ prefix: 'run-' });
+    github.fetchComment.mockResolvedValue(makeFetchResult(`**Run ID**: \`${runId}\`\n\nrate limited by coderabbit.ai`));
+    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
+
+    expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
+    expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
     );
     expect(systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), tx);
   });
@@ -123,7 +144,7 @@ describe('ReviewTrigger', () => {
         decision: 'source',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',
@@ -135,7 +156,8 @@ describe('ReviewTrigger', () => {
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     const createdAt = getUniqueDate().toISOString();
     const updatedAt = getUniqueDate().toISOString();
-    github.fetchComment.mockResolvedValue({ body: SKIP_COMMENT_BODY, createdAt, updatedAt });
+    const runId = getUniqueString({ prefix: 'run-' });
+    github.fetchComment.mockResolvedValue({ body: `${SKIP_COMMENT_BODY}\n\n**Run ID**: \`${runId}\``, createdAt, updatedAt });
     github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
@@ -162,7 +184,7 @@ describe('ReviewTrigger', () => {
         decision: 'source',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',
@@ -189,7 +211,7 @@ describe('ReviewTrigger', () => {
       'dashboard_retrigger_now',
       undefined,
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found and source body is non-empty', async () => {
@@ -221,7 +243,7 @@ describe('ReviewTrigger', () => {
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
     expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'No review-limit comment found; posting retrigger without a reply target',
@@ -259,7 +281,7 @@ describe('ReviewTrigger', () => {
       'dashboard_retrigger_now',
       undefined,
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED when replacement is deleted', async () => {
@@ -306,7 +328,8 @@ describe('ReviewTrigger', () => {
       createdAt: getUniqueDate().toISOString(),
       updatedAt: updatedAt.toISOString(),
     });
-    github.fetchComment.mockResolvedValueOnce(makeFetchResult('[rate limit](...) wait 3600 seconds'));
+    const replacementRunId = getUniqueString({ prefix: 'run-' });
+    github.fetchComment.mockResolvedValueOnce(makeFetchResult(`[rate limit](...) wait 3600 seconds\n\n**Run ID**: \`${replacementRunId}\``));
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
 
@@ -319,7 +342,7 @@ describe('ReviewTrigger', () => {
     });
     expect(result.error).toBeInstanceOf(StaleCommentRescheduledError);
     const err = result.error as StaleCommentRescheduledError;
-    expect(err.sourceComment).toStrictEqual({ commentId: newCommentId, commentUrl: newCommentUrl });
+    expect(err.sourceComment).toStrictEqual({ commentId: newCommentId, commentUrl: newCommentUrl, coderabbitRunId: replacementRunId });
     expect(err.originalSource).toStrictEqual({
       url: item.source_comment_url,
       createdAt: sourceFetch.createdAt,
@@ -464,7 +487,7 @@ describe('ReviewTrigger', () => {
         decision: 'replacement',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',
@@ -518,7 +541,7 @@ describe('ReviewTrigger', () => {
         decision: 'replacement',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',
@@ -577,7 +600,7 @@ describe('ReviewTrigger', () => {
         decision: 'replacement',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
   });
 
   it('preserves existing later cooldown when bumping nextReviewAvailableAt', async () => {

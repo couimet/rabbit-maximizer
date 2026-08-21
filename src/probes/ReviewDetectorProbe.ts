@@ -1,5 +1,5 @@
 import type { EventRepository } from '../db/index.js';
-import { EventType, PrState, ReviewDetectionMethod } from '../domain.js';
+import { EventType, PrState, Resolution, ReviewDetectionMethod } from '../domain.js';
 import type { ObservationContext } from '../observability/index.js';
 import type { CoderabbitReviewVerdictState, QueueItem } from '../types/index.js';
 import { toReviewEventType } from '../utils/index.js';
@@ -28,6 +28,19 @@ export class ReviewDetectorProbe {
     this.log.debug(
       { fn: 'ReviewDetectorProbe.noCompletedReviewFound', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id },
       'No completed review found; will retry on next tick',
+    );
+  }
+
+  resolutionLostRace(resolution: Resolution): void {
+    this.log.warn(
+      {
+        fn: 'ReviewDetectorProbe.resolutionLostRace',
+        repo: this.item!.repo_full_name,
+        pr: this.item!.pr_number,
+        queueId: this.item!.id,
+        resolution,
+      },
+      'Item was no longer retriggered; another writer resolved it first — skipping resolution',
     );
   }
 

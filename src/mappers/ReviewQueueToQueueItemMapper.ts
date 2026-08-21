@@ -22,6 +22,7 @@ export class ReviewQueueToQueueItemMapper {
       attempts: row.attempts,
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,
+      source_comment_run_id: nullToUndefined(row.source_comment_run_id),
       original_source_comment_url: nullToUndefined(row.original_source_comment_url),
       trigger_source: row.trigger_source as TriggerSource,
       retrigger_comment_url: nullToUndefined(row.retrigger_comment_url),

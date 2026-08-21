@@ -108,4 +108,12 @@ describe('extractCoderabbitRunId', () => {
 
     expect(extractCoderabbitRunId(body)).toBeUndefined();
   });
+
+  it('returns undefined when the body is undefined', () => {
+    expect(extractCoderabbitRunId(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined when the body is empty', () => {
+    expect(extractCoderabbitRunId('')).toBeUndefined();
+  });
 });

@@ -27,6 +27,7 @@ export { isAcknowledgementComment } from './isAcknowledgementComment.js';
 export { isApprovalReviewSignal } from './isApprovalReviewSignal.js';
 export { isCompletedReview } from './isCompletedReview.js';
 export { isMatchingCompletedReview } from './isMatchingCompletedReview.js';
+export { isReviewForRun } from './isReviewForRun.js';
 export { normalizeCommentBody } from './normalizeCommentBody.js';
 export { parseCommentUrl } from './parseCommentUrl.js';
 export { parseGitHubRateLimitError } from './parseGitHubRateLimitError.js';

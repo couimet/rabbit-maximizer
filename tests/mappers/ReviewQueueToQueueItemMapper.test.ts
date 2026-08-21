@@ -41,13 +41,14 @@ describe('ReviewQueueToQueueItemMapper', () => {
       expect(result.trigger_source).toBe('scheduler');
     });
 
-    it('converts null timestamps to undefined', () => {
+    it('converts null timestamps and nullable fields to undefined', () => {
       const row = generateReviewQueueHydrationData({
         retriggered_at: null as unknown as Date,
         failed_at: null as unknown as Date,
         reviewed_at: null as unknown as Date,
         resolved_at: null as unknown as Date,
         resolution: null as unknown as string,
+        source_comment_run_id: null as unknown as string,
       });
 
       const result = mapper.fromReviewQueue(row);
@@ -57,6 +58,7 @@ describe('ReviewQueueToQueueItemMapper', () => {
       expect(result.reviewed_at).toBeUndefined();
       expect(result.resolved_at).toBeUndefined();
       expect(result.resolution).toBeUndefined();
+      expect(result.source_comment_run_id).toBeUndefined();
     });
 
     it('preserves non-null timestamps as Date objects', () => {
@@ -135,6 +137,7 @@ describe('ReviewQueueToQueueItemMapper', () => {
         attempts: row.attempts,
         source_comment_url: row.source_comment_url,
         source_comment_id: row.source_comment_id,
+        source_comment_run_id: row.source_comment_run_id ?? undefined,
         original_source_comment_url: row.original_source_comment_url ?? undefined,
         trigger_source: row.trigger_source as TriggerSource,
         retrigger_comment_url: row.retrigger_comment_url ?? undefined,

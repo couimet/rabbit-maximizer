@@ -13,8 +13,26 @@ export class EnqueueProbe {
     private readonly log: Logger,
   ) {}
 
-  recentlyRetriggered(repo: string, pr: number): void {
-    this.log.info({ fn: 'EnqueueProbe.recentlyRetriggered', repo, pr }, 'PR was recently retriggered; skipping');
+  recentlyRetriggered(repo: string, pr: number, commentId: number, runId: string | undefined): void {
+    this.log.info(
+      { fn: 'EnqueueProbe.recentlyRetriggered', repo, pr, commentId, ...(runId !== undefined ? { coderabbit_run_id: runId } : {}) },
+      'PR was recently retriggered; skipping',
+    );
+  }
+
+  retriggeredRunAdopted(repo: string, pr: number, queueItemId: number, commentId: number, previousRunId: string | undefined, runId: string): void {
+    this.log.info(
+      {
+        fn: 'EnqueueProbe.retriggeredRunAdopted',
+        repo,
+        pr,
+        queueItemId,
+        commentId,
+        ...(previousRunId !== undefined ? { previousCoderabbitRunId: previousRunId } : {}),
+        coderabbit_run_id: runId,
+      },
+      'Same-comment retriggered item adopted the new CodeRabbit run in place',
+    );
   }
 
   async enqueued(params: { repo: string; pr: number }): Promise<void> {

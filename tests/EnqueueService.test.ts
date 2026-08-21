@@ -254,6 +254,7 @@ describe('EnqueueService', () => {
             prTitle: comment.prTitle,
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.commentId,
+            coderabbitRunId,
             commentUpdatedAt: new Date(comment.updatedAt),
             cooldownUntil: undefined,
             pullRequestId,
@@ -289,7 +290,7 @@ describe('EnqueueService', () => {
 
         await svc.handle(comment, pullRequestId);
 
-        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_approved', tx);
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_approved', undefined, tx);
         expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_approved');
         expect(queue.enqueue).not.toHaveBeenCalled();
       });
@@ -303,7 +304,7 @@ describe('EnqueueService', () => {
 
         await svc.handle(comment, pullRequestId);
 
-        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_changes_suggested', tx);
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_changes_suggested', undefined, tx);
         expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_changes_suggested');
         expect(queue.enqueue).not.toHaveBeenCalled();
       });

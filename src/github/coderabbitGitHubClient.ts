@@ -14,6 +14,7 @@ import {
   isAcknowledgementComment,
   isApprovalReviewSignal,
   isMatchingCompletedReview,
+  isReviewForRun,
   normalizeCommentBody,
   parseCommentUrl,
   splitRepo,
@@ -55,7 +56,14 @@ export interface CoderabbitGitHubClient {
   getPRHeadSha(owner: string, repo: string, prNumber: number): Promise<string>;
   getCommitCommittedAt(owner: string, repo: string, sha: string): Promise<string>;
 
-  findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined>;
+  findCompletedReview(
+    owner: string,
+    repo: string,
+    pr: number,
+    since: Date,
+    expectedRunId: string | undefined,
+    expectedHeadSha: string | undefined,
+  ): Promise<CompletedReview | undefined>;
 
   findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
 
@@ -274,9 +282,19 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return response.data.commit.committer!.date!;
   }
 
-  async findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined> {
+  async findCompletedReview(
+    owner: string,
+    repo: string,
+    pr: number,
+    since: Date,
+    expectedRunId: string | undefined,
+    expectedHeadSha: string | undefined,
+  ): Promise<CompletedReview | undefined> {
     this.log.debug({ fn: 'findCompletedReview', owner, repo, pr }, 'Searching for completed review');
 
+    // listReviews returns reviews oldest-first, so the first accepted match is the OLDEST,
+    // not the freshest. Scan every page and keep the newest accepted review.
+    let latest: CompletedReview | undefined;
     for (let page = 1; ; page++) {
       const response = await this.octokit.rest.pulls.listReviews({
         owner,
@@ -286,20 +304,25 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         page,
       });
 
-      const completedReview = response.data.find((r) => isMatchingCompletedReview(SubmittedReview.from(r), since));
-
-      if (completedReview) {
-        this.log.info(
-          { fn: 'findCompletedReview', owner, repo, pr, reviewId: completedReview.id, htmlUrl: completedReview.html_url },
-          'Found completed review',
-        );
-        return { htmlUrl: completedReview.html_url, reviewId: completedReview.id, isApproval: isApprovalReviewSignal(completedReview.body!) };
+      for (const r of response.data) {
+        const review = SubmittedReview.from(r);
+        if (!isMatchingCompletedReview(review, since) || !isReviewForRun(review, expectedRunId, expectedHeadSha)) continue;
+        latest = {
+          htmlUrl: r.html_url,
+          reviewId: r.id,
+          // Body is a string here: isMatchingCompletedReview rejects bodyless reviews first.
+          isApproval: isApprovalReviewSignal(r.body!),
+          commitId: r.commit_id ?? undefined,
+        };
       }
 
       if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
     }
 
-    return undefined;
+    if (latest) {
+      this.log.info({ fn: 'findCompletedReview', owner, repo, pr, reviewId: latest.reviewId, htmlUrl: latest.htmlUrl }, 'Found completed review');
+    }
+    return latest;
   }
 
   async findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined> {

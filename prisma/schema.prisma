@@ -126,6 +126,8 @@ model ReviewQueue {
   source_comment_url String
   /// Numeric comment ID extracted from source_comment_url at enqueue time.
   source_comment_id Int
+  /// Max 75. CodeRabbit's per-comment Run ID adopted at enqueue/retrigger time, so review matching can reject reviews from earlier runs. CHECK in the 20260820 migration.
+  source_comment_run_id String?
   /// Max 25; one of 'dashboard_retrigger_now' | 'scheduler' (CHECK in the add_trigger_source_check migration).
   trigger_source String @default("scheduler")
   /// Max 512 (GitHub comment URL). Set by reschedule when a fresher rate-limit comment replaces the source. Preserved for diagnosis on the next retry.
@@ -231,7 +233,7 @@ model CoderabbitComment {
   comment_id      Int
   /// Max 512 (GitHub comment URL).
   url             String
-  /// One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' (CHECK in migration).
+  /// One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
   comment_type    String
   /// Max 1024. First N chars of the comment body, truncated by the repository on upsert.
   last_body_preview String?

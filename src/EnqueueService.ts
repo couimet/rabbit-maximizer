@@ -83,6 +83,7 @@ export class EnqueueService {
             prTitle: comment.prTitle,
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.commentId,
+            coderabbitRunId,
             commentUpdatedAt: new Date(comment.updatedAt),
             cooldownUntil: undefined,
             pullRequestId,
@@ -99,7 +100,7 @@ export class EnqueueService {
       }
 
       if (isReviewVerdictState(classification)) {
-        await this.pullRequests.recordReview(pullRequestId, comment.url, classification, tx);
+        await this.pullRequests.recordReview(pullRequestId, comment.url, classification, undefined, tx);
         await probe.verdictResolved(tx, classification);
         return;
       }
@@ -115,6 +116,7 @@ export class EnqueueService {
           prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
+          coderabbitRunId,
           commentUpdatedAt: new Date(comment.updatedAt),
           cooldownUntil,
           pullRequestId,

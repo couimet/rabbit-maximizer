@@ -71,7 +71,13 @@ export interface PullRequestRepository {
   ): Promise<{ [K in C]: Map<number, PullRequestColumnTypes[K]> }>;
   incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
   recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void>;
-  recordReview(id: number, reviewUrl: string, reviewState: CodeRabbitCommentType, tx: Prisma.TransactionClient): Promise<void>;
+  recordReview(
+    id: number,
+    reviewUrl: string,
+    reviewState: CodeRabbitCommentType,
+    reviewedHeadSha: string | undefined,
+    tx: Prisma.TransactionClient,
+  ): Promise<void>;
   recordReviewLimitDetection(id: number, reviewLimitAt: Date, tx: Prisma.TransactionClient): Promise<void>;
   updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
 }
@@ -188,7 +194,13 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
     this.log.debug({ fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
   }
 
-  async recordReview(id: number, reviewUrl: string, reviewState: CodeRabbitCommentType, tx: Prisma.TransactionClient): Promise<void> {
+  async recordReview(
+    id: number,
+    reviewUrl: string,
+    reviewState: CodeRabbitCommentType,
+    reviewedHeadSha: string | undefined,
+    tx: Prisma.TransactionClient,
+  ): Promise<void> {
     const db = this.client(tx);
     const existing = await db.pullRequest.findUnique({ where: { id }, select: { head_sha: true } });
     await this.withPrismaErrorHandling(
@@ -200,7 +212,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
             last_coderabbit_review_at: new Date(),
             last_review_url: reviewUrl,
             last_review_state: reviewState,
-            reviewed_head_sha: existing?.head_sha ?? null,
+            reviewed_head_sha: reviewedHeadSha ?? existing?.head_sha ?? null,
           },
         }),
       'PullRequestRepositoryImpl.recordReview',

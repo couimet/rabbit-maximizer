@@ -519,7 +519,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient();
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.recordReview(id, reviewUrl, reviewState, prisma);
+      await sut.recordReview(id, reviewUrl, reviewState, undefined, prisma);
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id },
@@ -543,7 +543,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_approved, prisma);
+      await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_approved, undefined, prisma);
 
       expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id }, select: { head_sha: true } });
       expect(pullRequest.update).toHaveBeenCalledWith({
@@ -564,7 +564,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient();
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_changes_suggested, prisma);
+      await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_changes_suggested, undefined, prisma);
 
       expect(pullRequest.update).toHaveBeenCalledWith({
         where: { id },
@@ -586,15 +586,14 @@ describe('PullRequestRepositoryImpl', () => {
       });
       const sut = new PullRequestRepositoryImpl(prisma, logger);
 
-      await expect(sut.recordReview(getUniqueInt(), generateReviewRef().commentUrl, CodeRabbitCommentType.review_approved, prisma)).rejects.toBeDetailedError(
-        'PRISMA_RECORD_NOT_FOUND_P2025',
-        {
-          message: "Record not found in table 'PullRequest'",
-          functionName: 'PullRequestRepositoryImpl.recordReview',
-          details: { tableName: 'PullRequest' },
-          cause: p2025,
-        },
-      );
+      await expect(
+        sut.recordReview(getUniqueInt(), generateReviewRef().commentUrl, CodeRabbitCommentType.review_approved, undefined, prisma),
+      ).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'PullRequest'",
+        functionName: 'PullRequestRepositoryImpl.recordReview',
+        details: { tableName: 'PullRequest' },
+        cause: p2025,
+      });
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'PullRequestRepositoryImpl.recordReview', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',

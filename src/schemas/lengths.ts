@@ -44,4 +44,8 @@ export const BODY_PREVIEW_MAX_LENGTH = 1024;
 // UUIDs are 36 chars; 75 leaves room for a future longer identifier format.
 export const CODERABBIT_RUN_ID_MAX_LENGTH = 75;
 
+// Column limit for source_comment_run_id on review_queue — the same CodeRabbit per-comment Run ID,
+// adopted onto the queue item. CHECK in the 20260820 migration.
+export const SOURCE_COMMENT_RUN_ID_MAX_LENGTH = CODERABBIT_RUN_ID_MAX_LENGTH;
+
 export const PULL_REQUEST_SHA_MAX_LENGTH = 40;
