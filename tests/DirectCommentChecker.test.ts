@@ -239,8 +239,7 @@ describe('DirectCommentCheckerImpl', () => {
 
     expect(coderabbitComments.findByCommentId).toHaveBeenCalledWith(pullRequestId, commentId);
     expect(onDetected).not.toHaveBeenCalled();
-    // Freshness gate sits around onDetected only — the candidates push stays ungated
-    expect(candidates).toStrictEqual([{ updatedAt: commentUpdatedAt, waitSeconds: undefined }]);
+    expect(candidates).toStrictEqual([]);
     expect(logger.info).not.toHaveBeenCalled();
     expect(logger.debug).toHaveBeenCalledWith(
       { fn: 'DirectCommentCheckProbe.skippedAlreadySeen', repo: ref.repoFullName, pr: ref.prNumber, commentId },

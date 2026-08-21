@@ -105,10 +105,6 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
             continue;
           }
 
-          if (classification === CodeRabbitCommentType.review_limited) {
-            candidates.push({ updatedAt: c.updatedAt, waitSeconds: parseWaitSeconds(c.body) });
-          }
-
           const commentUrl = buildCommentUrl(pr.repoFullName, pr.prNumber, c.id);
 
           const row = await this.coderabbitComments.findByCommentId(pr.pullRequestId, c.id);
@@ -124,6 +120,10 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
           if (row && c.updatedAt <= row.last_seen_at) {
             probe.skippedAlreadySeen();
             continue;
+          }
+
+          if (classification === CodeRabbitCommentType.review_limited) {
+            candidates.push({ updatedAt: c.updatedAt, waitSeconds: parseWaitSeconds(c.body) });
           }
 
           const comment = {
