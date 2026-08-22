@@ -1,13 +1,14 @@
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/index.js';
 import { QueueStatus, Resolution, SkipReason, TYPES } from '../../src/domain.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
 import {
-  createMockObservationContextProvider,
   createMockPrismaClient,
   createResolvedMock,
+  generateEventTraceContext,
   generateReviewQueueHydrationData,
   generateReviewRef,
 } from '../helpers/index.js';
@@ -25,26 +26,21 @@ const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 
 describe('QueueRepositoryImpl', () => {
   let frozenNow: Date;
-  let correlationId: string;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
   let logger: ReturnType<typeof createMockLogger>;
-  let observation: ReturnType<typeof createMockObservationContextProvider>;
   let probeEvents: { record: jest.Mock<any>; listForPr: jest.Mock<any> };
   let probeFactory: ProbeFactory;
-  let requestId: string;
   let mapper: ReviewQueueToQueueItemMapper;
-  let version: string;
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
     frozenNow = getUniqueDate();
-    correlationId = getUuid();
-    requestId = getUuid();
-    version = '1.0.0-test';
+    eventTrace = generateEventTraceContext();
     logger = createMockLogger();
-    observation = createMockObservationContextProvider({
-      current: jest.fn<any>().mockReturnValue({ correlationId, requestId, version }),
-    });
     probeEvents = { record: jest.fn<any>().mockResolvedValue({ uuid: getUuid() }), listForPr: jest.fn<any>() };
-    probeFactory = new ProbeFactory(probeEvents as any, observation as any, logger);
+    probeFactory = new ProbeFactory(probeEvents as any, logger);
     mapper = new ReviewQueueToQueueItemMapper();
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);
@@ -61,18 +57,20 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
 
-          pullRequestId,
-        },
-        prisma as unknown as Prisma.TransactionClient,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.create).toHaveBeenCalledWith({
@@ -106,18 +104,20 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
 
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.findFirst).toHaveBeenNthCalledWith(3, { where: { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: 'pending' } });
@@ -139,18 +139,20 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
 
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
@@ -177,17 +179,19 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: runId,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: runId,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
@@ -221,17 +225,19 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
@@ -267,17 +273,19 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: newRunId,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: newRunId,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
@@ -324,17 +332,19 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: newRunId,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: newRunId,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
@@ -368,17 +378,19 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
       const pullRequestId = getUniqueInt();
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: runId,
-          pullRequestId,
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: runId,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.create).toHaveBeenCalledWith({
@@ -420,17 +432,19 @@ describe('QueueRepositoryImpl', () => {
 
       const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: newCommentUrl,
-          sourceCommentId: newCommentId,
-          coderabbitRunId: undefined,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: newCommentUrl,
+            sourceCommentId: newCommentId,
+            coderabbitRunId: undefined,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
@@ -479,17 +493,19 @@ describe('QueueRepositoryImpl', () => {
 
       const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: newCommentUrl,
-          sourceCommentId: newCommentId,
-          coderabbitRunId: undefined,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: newCommentUrl,
+            sourceCommentId: newCommentId,
+            coderabbitRunId: undefined,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
@@ -522,17 +538,19 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
       const pullRequestId = getUniqueInt();
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
-          pullRequestId,
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
@@ -573,17 +591,19 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.findFirst).toHaveBeenCalledTimes(2);
@@ -621,18 +641,20 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
-          cooldownUntil: futureCooldownUntil,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            cooldownUntil: futureCooldownUntil,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(created).toBe(false);
@@ -664,18 +686,20 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
       const pullRequestId = getUniqueInt();
-      const { created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
-          cooldownUntil: pastCooldownUntil,
-          pullRequestId,
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            cooldownUntil: pastCooldownUntil,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(created).toBe(true);
@@ -708,17 +732,19 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
       const pullRequestId = getUniqueInt();
-      const { created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: ref.commentId,
-          coderabbitRunId: undefined,
-          pullRequestId,
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.create).toHaveBeenCalled();
@@ -757,18 +783,20 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Re-enqueued PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: commentId,
-          coderabbitRunId: undefined,
-          commentUpdatedAt: frozenNow,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Re-enqueued PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: commentId,
+            coderabbitRunId: undefined,
+            commentUpdatedAt: frozenNow,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
@@ -792,9 +820,9 @@ describe('QueueRepositoryImpl', () => {
         type: 'enqueued',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: correlationId,
-        request_id: requestId,
-        version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: {},
       });
       expect(recordedTx).toBe(prisma);
@@ -845,19 +873,21 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Re-enqueued PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: commentId,
-          coderabbitRunId: undefined,
-          commentUpdatedAt: frozenNow,
-          cooldownUntil: futureCooldownUntil,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Re-enqueued PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: commentId,
+            coderabbitRunId: undefined,
+            commentUpdatedAt: frozenNow,
+            cooldownUntil: futureCooldownUntil,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
@@ -908,18 +938,20 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Re-enqueued PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: commentId,
-          coderabbitRunId: undefined,
-          commentUpdatedAt: frozenNow,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Re-enqueued PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: commentId,
+            coderabbitRunId: undefined,
+            commentUpdatedAt: frozenNow,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
@@ -966,18 +998,20 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Test PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: commentId,
-          coderabbitRunId: undefined,
-          commentUpdatedAt,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Test PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: commentId,
+            coderabbitRunId: undefined,
+            commentUpdatedAt,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(created).toBe(false);
@@ -1020,18 +1054,20 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
 
-      const { item: result, created } = await sut.enqueue(
-        {
-          repo: ref.repoFullName,
-          pr: ref.prNumber,
-          prTitle: 'Re-enqueued PR title',
-          sourceCommentUrl: ref.commentUrl,
-          sourceCommentId: commentId,
-          coderabbitRunId: undefined,
-          commentUpdatedAt: frozenNow,
-          pullRequestId: getUniqueInt(),
-        },
-        prisma as unknown as Prisma.TransactionClient,
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Re-enqueued PR title',
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: commentId,
+            coderabbitRunId: undefined,
+            commentUpdatedAt: frozenNow,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       );
 
       expect(reviewQueue.update).toHaveBeenCalledWith({

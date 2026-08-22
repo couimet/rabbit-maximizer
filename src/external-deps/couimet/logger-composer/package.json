@@ -1,0 +1,11 @@
+{
+  "name": "@couimet/logger-composer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "peerDependencies": {
+    "@couimet/logger-contract": ">=1.0.0",
+    "@couimet/logger-enricher-contract": ">=0.1.0"
+  }
+}

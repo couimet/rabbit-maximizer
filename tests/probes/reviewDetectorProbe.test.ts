@@ -1,8 +1,8 @@
 import { CodeRabbitCommentType, PrState, Resolution, ReviewDetectionMethod } from '../../src/domain.js';
-import type { ObservationContext } from '../../src/observability/index.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { ReviewDetectorProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
-import { createMockEventRepo, generateObservationContextHydrationData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
+import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -10,16 +10,19 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('ReviewDetectorProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
   let logger: ReturnType<typeof createMockLogger>;
-  let observation: ObservationContext;
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
+    eventTrace = generateEventTraceContext();
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = generateObservationContextHydrationData();
   });
 
-  const createProbe = () => new ReviewDetectorProbe(events, observation, logger);
+  const createProbe = () => new ReviewDetectorProbe(events, logger);
 
   describe('noRetriggeredItemFound', () => {
     it('logs info when no retriggered items exist', () => {
@@ -50,15 +53,15 @@ describe('ReviewDetectorProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.reviewedViaFallback(tx);
+      await runInContext(() => probe.reviewedViaFallback(tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'coderabbit_review_approved',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { detected_via: 'last_coderabbit_review_at_fallback' },
         },
         tx,
@@ -78,15 +81,15 @@ describe('ReviewDetectorProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.reviewed(commentUrl, CodeRabbitCommentType.review_approved, ReviewDetectionMethod.EditDetection, tx);
+      await runInContext(() => probe.reviewed(commentUrl, CodeRabbitCommentType.review_approved, ReviewDetectionMethod.EditDetection, tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'coderabbit_review_approved',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { coderabbit_comment_url: commentUrl, verdict_state: 'review_approved', detected_via: 'edit_detection' },
         },
         tx,

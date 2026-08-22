@@ -1,6 +1,5 @@
 import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository, UpsertCommentData } from './db/index.js';
 import { classifyCoderabbitComment, parseWaitSeconds } from './github/index.js';
-import type { ObservationContextProvider } from './observability/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
 import { extractCoderabbitRunId, isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
@@ -24,25 +23,19 @@ export class EnqueueService {
     private readonly probes: ProbeFactory,
     @inject(TYPES.CoderabbitCommentRepository)
     private readonly coderabbitComments: CoderabbitCommentRepository,
-    @inject(TYPES.ObservationContextProvider)
-    private readonly observation: ObservationContextProvider,
   ) {}
   /* c8 ignore stop */
 
   readonly handle: OnDetectedCallback = async (comment, pullRequestId) => {
-    const obs = this.observation.current();
     const coderabbitRunId = extractCoderabbitRunId(comment.body);
 
-    const probe = this.probes.createDetectedProbe(
-      {
-        repo_full_name: comment.repoFullName,
-        pr_number: comment.prNumber,
-        source_ts: new Date(comment.createdAt),
-        source_comment_url: comment.url,
-        coderabbit_run_id: coderabbitRunId,
-      },
-      obs,
-    );
+    const probe = this.probes.createDetectedProbe({
+      repo_full_name: comment.repoFullName,
+      pr_number: comment.prNumber,
+      source_ts: new Date(comment.createdAt),
+      source_comment_url: comment.url,
+      coderabbit_run_id: coderabbitRunId,
+    });
     await probe.detected();
 
     const { classification } = classifyCoderabbitComment(comment.body);

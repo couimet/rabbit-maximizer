@@ -1,3 +1,6 @@
+import { createLogger } from './external-deps/couimet/logger-composer/src/index.js';
+import { executionContextEnricher } from './external-deps/couimet/logger-enricher-execution-context/src/index.js';
+
 import { setLogger } from '@couimet/logger-contract';
 import { PinoAdapter } from '@couimet/logger-contract-adapters';
 import pino from 'pino';
@@ -23,5 +26,5 @@ export const initLogger = (): void => {
     ],
   });
 
-  setLogger(new PinoAdapter(pino({ level: LOG_LEVEL }, transport)));
+  setLogger(createLogger({ adapter: new PinoAdapter(pino({ level: LOG_LEVEL }, transport)), enrichments: [executionContextEnricher] }));
 };

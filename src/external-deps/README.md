@@ -27,6 +27,10 @@ Real usage feedback lands immediately. The API is exercised by production code f
 3. Once the API has settled, contribute the module upstream through a PR. File paths, tests, and docs transfer as-is. If you are still making breaking changes, it is not ready.
 4. After the shared package ships, add it to `package.json`, `pnpm install`, run a mechanical find-and-replace from `…/external-deps/<org>/<package>/` to `@<org>/<package>` across every import path, and delete the incubated copy.
 
+## Practical notes
+
+- Incubated packages are compiled by the parent repo's root `tsconfig.json` — its `include` already covers `src/`, and the build runs plain `tsc`. Do not add per-package `tsconfig.json` files while incubating; they exist only to build the package standalone, which nothing does until it ships. Recreate them as part of the upstream contribution (step 3).
+
 ## What this is not
 
 This is not copy-paste, and it's not vendoring. Vendoring pins something that already exists. Incubation builds something that doesn't. The only reason the directory lives here is that its real home hasn't been built yet. The exit plan is part of it from the start.

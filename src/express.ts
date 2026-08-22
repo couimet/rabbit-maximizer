@@ -1,5 +1,6 @@
 import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
-import { createExpressApp, startServer } from './external-deps/couimet/express-tools/index.js';
+import { createExpressAppWithExecutionContext } from './external-deps/couimet/execution-context-http-express/src/index.js';
+import { startServer } from './external-deps/couimet/express-tools/index.js';
 import type { EventCountsMapper, EventEntryMapper, QueueItemMapper, ReviewQueueToActivityListItemMapper, TrackedPrMapper } from './mappers/index.js';
 import {
   createGetActivityListHandler,
@@ -70,7 +71,7 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
     port,
   } = deps;
   const production = isProduction();
-  const app = createExpressApp({ logger, helmet: production });
+  const app = createExpressAppWithExecutionContext({ logger, helmet: production });
 
   app.use(express.json());
   app.get('/api/summary', createGetSummaryHandler(queueRepo, eventRepo, queueItemMapper, eventCountsMapper, logger));

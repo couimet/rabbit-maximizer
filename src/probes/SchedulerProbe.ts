@@ -1,9 +1,10 @@
 import type { EventRepository } from '../db/index.js';
 import { DismissalReason, EventType, PrState, SkipReason } from '../domain.js';
 import { type RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
-import type { ObservationContext } from '../observability/index.js';
 import type { QueueItem } from '../types/index.js';
 import { computeSchedulerBackoff, dismissalReasonFromPrState } from '../utils/index.js';
+
+import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -22,7 +23,6 @@ export class SchedulerProbe {
     private readonly maxBackoff: number,
     private readonly maxRetriggerAttempts: number,
     private readonly events: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly log: Logger,
   ) {}
 
@@ -66,9 +66,7 @@ export class SchedulerProbe {
         type: EventType.retriggered,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: { source_comment_url: this.item!.source_comment_url, retriggered_comment_url: retriggeredCommentUrl },
       },
       tx,
@@ -86,9 +84,7 @@ export class SchedulerProbe {
         type: EventType.dismissed,
         repo_full_name: repo,
         pr_number: pr,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: { reason },
       },
       tx,
@@ -102,9 +98,7 @@ export class SchedulerProbe {
         type: EventType.dismissed,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: { reason: DismissalReason.prDeleted },
       },
       tx,
@@ -121,9 +115,7 @@ export class SchedulerProbe {
         type: EventType.failed,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: { reason: 'max_retrigger_attempts_exceeded', retrigger_count: retriggerCount, max: this.maxRetriggerAttempts },
       },
       tx,

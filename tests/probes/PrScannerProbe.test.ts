@@ -6,18 +6,12 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('PrScannerProbe', () => {
   let logger: ReturnType<typeof createMockLogger>;
-  let observation: { correlationId: string; requestId: string; version: string };
 
   beforeEach(() => {
     logger = createMockLogger();
-    observation = {
-      correlationId: getUniqueString(),
-      requestId: getUniqueString(),
-      version: '1.0.0',
-    };
   });
 
-  const createProbe = () => new PrScannerProbe(observation, logger);
+  const createProbe = () => new PrScannerProbe(logger);
 
   describe('scanStarted', () => {
     it('logs info when scan starts', () => {

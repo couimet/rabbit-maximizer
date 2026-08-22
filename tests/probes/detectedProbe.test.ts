@@ -1,9 +1,10 @@
 import type { EventRepository } from '../../src/db/index.js';
 import { CodeRabbitCommentType } from '../../src/domain.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { DetectedProbe } from '../../src/probes/index.js';
 import type { EventLogEntry } from '../../src/types/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
-import { generateObservationContextHydrationData, generateReviewRef } from '../helpers/index.js';
+import { generateEventTraceContext, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -16,9 +17,16 @@ const makeEventRepository = (entry: EventLogEntry): { eventRepository: EventRepo
 };
 
 describe('DetectedProbe', () => {
+  let eventTrace: { correlationId: string; requestId: string; version: string };
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
+
+  beforeEach(() => {
+    eventTrace = generateEventTraceContext();
+  });
   it('logs intent and records a detected event', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const entryUuid = getUuid();
@@ -37,23 +45,22 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       eventRepository,
-      observation,
       logger,
     );
 
     await probe.detected();
     expect(logger.debug).toHaveBeenCalledWith({ fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber }, 'Review-limit comment detected');
 
-    const result = await probe.enqueued(tx);
+    const result = await runInContext(() => probe.enqueued(tx));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'detected',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl },
       },
       tx,
@@ -67,7 +74,6 @@ describe('DetectedProbe', () => {
 
   it('forwards the transaction client to the repository', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData({ requestId: undefined, version: getUniqueString() });
     const entryUuid = getUuid();
     const entry = { uuid: entryUuid } as unknown as EventLogEntry;
     const { eventRepository, record } = makeEventRepository(entry);
@@ -86,19 +92,18 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       eventRepository,
-      observation,
       logger,
     );
-    await probe.enqueued(tx);
+    await runInContext(() => probe.enqueued(tx));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'detected',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: undefined,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl },
       },
       tx,
@@ -111,7 +116,6 @@ describe('DetectedProbe', () => {
 
   it('records a dismissed event for merged PRs', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const entryUuid = getUuid();
     const tx = createMockTx();
 
@@ -128,20 +132,19 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       eventRepository,
-      observation,
       logger,
     );
 
-    const result = await probe.prMerged(tx);
+    const result = await runInContext(() => probe.prMerged(tx));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'dismissed',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { reason: 'prMerged' },
       },
       tx,
@@ -155,7 +158,6 @@ describe('DetectedProbe', () => {
 
   it('records a dismissed event for closed-without-merge PRs', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const entryUuid = getUuid();
     const tx = createMockTx();
 
@@ -172,20 +174,19 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       eventRepository,
-      observation,
       logger,
     );
 
-    const result = await probe.prClosedWithoutMerge(tx);
+    const result = await runInContext(() => probe.prClosedWithoutMerge(tx));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'dismissed',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { reason: 'prClosedWithoutMerge' },
       },
       tx,
@@ -199,7 +200,6 @@ describe('DetectedProbe', () => {
 
   it('records a dismissed event for unregistered PRs', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const entryUuid = getUuid();
     const tx = createMockTx();
 
@@ -216,20 +216,19 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       eventRepository,
-      observation,
       logger,
     );
 
-    const result = await probe.prNotRegistered(tx);
+    const result = await runInContext(() => probe.prNotRegistered(tx));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'dismissed',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { reason: 'prNotRegistered' },
       },
       tx,
@@ -243,7 +242,6 @@ describe('DetectedProbe', () => {
 
   it('logs when the queue item already exists', () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const logger = createMockLogger();
 
     const probe = new DetectedProbe(
@@ -255,7 +253,6 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       {} as EventRepository,
-      observation,
       logger,
     );
 
@@ -269,7 +266,6 @@ describe('DetectedProbe', () => {
 
   it('records a coderabbit_review_skipped event with source_ts, comment_url, and coderabbit_run_id', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const coderabbitRunId = getUuid();
@@ -289,20 +285,19 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: coderabbitRunId,
       },
       eventRepository,
-      observation,
       logger,
     );
 
-    const result = await probe.skipped(tx);
+    const result = await runInContext(() => probe.skipped(tx));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_review_skipped',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: {
           source_ts: sourceTs,
           comment_url: sourceCommentUrl,
@@ -321,7 +316,6 @@ describe('DetectedProbe', () => {
 
   it('records a detected event with coderabbit_run_id as evidence', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const coderabbitRunId = getUuid();
@@ -341,20 +335,19 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: coderabbitRunId,
       },
       eventRepository,
-      observation,
       logger,
     );
 
-    await probe.enqueued(tx);
+    await runInContext(() => probe.enqueued(tx));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'detected',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl, coderabbit_run_id: coderabbitRunId },
       },
       tx,
@@ -367,7 +360,6 @@ describe('DetectedProbe', () => {
 
   it('records a coderabbit_review_approved event with coderabbit_run_id as evidence', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const coderabbitRunId = getUuid();
@@ -387,20 +379,19 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: coderabbitRunId,
       },
       eventRepository,
-      observation,
       logger,
     );
 
-    await probe.verdictResolved(tx, CodeRabbitCommentType.review_approved);
+    await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_approved));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_review_approved',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { coderabbit_comment_url: sourceCommentUrl, source_ts: sourceTs, verdict_state: 'review_approved', coderabbit_run_id: coderabbitRunId },
       },
       tx,
@@ -413,7 +404,6 @@ describe('DetectedProbe', () => {
 
   it('logs when a skipped comment was already recorded', () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const logger = createMockLogger();
 
     const probe = new DetectedProbe(
@@ -425,7 +415,6 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       {} as EventRepository,
-      observation,
       logger,
     );
 
@@ -439,7 +428,6 @@ describe('DetectedProbe', () => {
 
   it('logs when a reviewed comment was already recorded', () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const logger = createMockLogger();
 
     const probe = new DetectedProbe(
@@ -451,7 +439,6 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       {} as EventRepository,
-      observation,
       logger,
     );
 
@@ -468,7 +455,6 @@ describe('DetectedProbe', () => {
 
   it('records a coderabbit_review_approved event and logs when verdict is approved', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const entryUuid = getUuid();
@@ -487,20 +473,19 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       eventRepository,
-      observation,
       logger,
     );
 
-    const result = await probe.verdictResolved(tx, CodeRabbitCommentType.review_approved);
+    const result = await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_approved));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_review_approved',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { coderabbit_comment_url: sourceCommentUrl, source_ts: sourceTs, verdict_state: 'review_approved' },
       },
       tx,
@@ -514,7 +499,6 @@ describe('DetectedProbe', () => {
 
   it('records a coderabbit_review_changes_suggested event when verdict is changes requested', async () => {
     const ref = generateReviewRef();
-    const observation = generateObservationContextHydrationData();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const entryUuid = getUuid();
@@ -533,20 +517,19 @@ describe('DetectedProbe', () => {
         coderabbit_run_id: undefined,
       },
       eventRepository,
-      observation,
       logger,
     );
 
-    const result = await probe.verdictResolved(tx, CodeRabbitCommentType.review_changes_suggested);
+    const result = await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_changes_suggested));
 
     expect(record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_review_changes_suggested',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: { coderabbit_comment_url: sourceCommentUrl, source_ts: sourceTs, verdict_state: 'review_changes_suggested' },
       },
       tx,

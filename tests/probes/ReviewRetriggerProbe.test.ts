@@ -1,12 +1,12 @@
 import type { EventRepository } from '../../src/db/index.js';
 import { EventType } from '../../src/domain.js';
-import type { ObservationContext } from '../../src/observability/index.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { ReviewRetriggerProbe } from '../../src/probes/index.js';
 import { type QueueItem } from '../../src/types/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
-import { createMockEventRepo, generateQueueItemHydrationData } from '../helpers/index.js';
+import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
@@ -16,36 +16,35 @@ const loggingCtx = (item: QueueItem) => (fn: string) => ({ fn, repo: item.repo_f
 
 describe('ReviewRetriggerProbe', () => {
   let events: jest.Mocked<EventRepository>;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
   let logger: ReturnType<typeof createMockLogger>;
-  let observation: ObservationContext;
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
+    eventTrace = generateEventTraceContext();
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = {
-      correlationId: getUuid(),
-      requestId: getUuid(),
-      version: getUniqueString({ prefix: 'v' }),
-    };
   });
 
-  const createProbe = (item: QueueItem) => new ReviewRetriggerProbe(item, events, observation, logger);
+  const createProbe = (item: QueueItem) => new ReviewRetriggerProbe(item, events, logger);
 
   it('records event, and logs on reviewRetriggered', async () => {
     const item = generateQueueItemHydrationData();
     const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
     const probe = createProbe(item);
-    await probe.reviewRetriggered(retriggeredCommentUrl, tx);
+    await runInContext(() => probe.reviewRetriggered(retriggeredCommentUrl, tx));
 
     expect(events.record).toHaveBeenCalledWith(
       {
         type: EventType.retriggered,
         repo_full_name: item.repo_full_name,
         pr_number: item.pr_number,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: {
           source_comment_url: item.source_comment_url,
           retriggered_comment_url: retriggeredCommentUrl,

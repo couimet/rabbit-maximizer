@@ -1,0 +1,10 @@
+{
+  "name": "@couimet/execution-context",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "peerDependencies": {
+    "@couimet/detailed-error": ">=1.0.0"
+  }
+}

@@ -33,11 +33,11 @@ A probe MUST NOT be reused across business processes. Each probe is tied to exac
 
 ### Single-entity callers
 
-Each repository should deal with exactly one entity. `QueueRepositoryImpl` only touches `reviewQueue` rows. Cross-entity concerns (event recording, observation context) live in probes.
+Each repository should deal with exactly one entity. `QueueRepositoryImpl` only touches `reviewQueue` rows. Cross-entity concerns (event recording, execution-context ids) live in probes.
 
 ### Construction and wiring
 
-`ProbeFactory` is the single entry point. It injects the repositories and providers each probe needs, so callers never assemble probes by hand. The factory owns the `ObservationContextProvider`; callers never extract the current context themselves and generally never pass an `ObservationContext` to a factory method. With one exception: `createDetectedProbe` accepts `ObservationContext` when the same instance must be shared with `queue.enqueue()` (see C011). For all other probes, callers pass only their domain object (a `QueueItem`, a `uuid`) to the factory.
+`ProbeFactory` is the single entry point. It injects the repositories each probe needs, so callers never assemble probes by hand. Callers pass only their domain object (a `QueueItem`, a `uuid`) to the factory — they never pass an observation context. When a probe records an event, it reads the ids (`correlation_id`, `request_id`, `version`) from the execution-context module; the caller is expected to be inside one of the three priming kinds: the bootstrap (see `src/main.ts`), a request primed by the express execution-context middleware, or a timer run primed by `IntervalService.tick`.
 
 ### What belongs in a probe
 

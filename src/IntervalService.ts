@@ -1,3 +1,5 @@
+import { ExecutionContext, RequestId } from './external-deps/couimet/execution-context/src/index.js';
+
 import type { Logger } from '@couimet/logger-contract';
 
 /**
@@ -11,6 +13,8 @@ export abstract class IntervalService {
   protected stopped = false;
 
   constructor(
+    /** Stable per job: every tick of this service shares the same correlation id. */
+    private readonly correlationId: string,
     protected readonly log: Logger,
     protected readonly intervalMs: number,
   ) {}
@@ -50,7 +54,14 @@ export abstract class IntervalService {
 
   private async tick(): Promise<void> {
     if (!this.tickGuard()) return;
-    this.tickPromise = this.executeTick();
+    this.tickPromise = ExecutionContext.run(
+      {
+        correlationId: this.correlationId,
+        requestId: RequestId.create().toString(),
+        attributes: ExecutionContext.getAttributes(),
+      },
+      () => this.executeTick(),
+    );
     try {
       await this.tickPromise;
     } catch (err) {
