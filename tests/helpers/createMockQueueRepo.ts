@@ -5,14 +5,15 @@ import { jest } from '@jest/globals';
 export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueRepository>>): jest.Mocked<QueueRepository> =>
   ({
     enqueue: jest.fn<any>(),
+    existsByPullRequestId: jest.fn<any>().mockResolvedValue(false),
     markRetriggered: jest.fn<any>(),
     markRetriggerSkipped: jest.fn<any>().mockResolvedValue(true),
     markResolved: jest.fn<any>(),
+    markResolvedIfStillRetriggered: jest.fn<any>().mockResolvedValue(true),
     markResolvedByUuid: jest.fn<any>().mockResolvedValue(undefined),
     reschedule: jest.fn<any>(),
     backoff: jest.fn<any>(),
     findBySourceCommentId: jest.fn<any>().mockResolvedValue(null),
-    createSkipped: jest.fn<any>(),
     resolveStaleRetriggered: jest.fn<any>().mockResolvedValue(0),
     getActiveQueue: jest.fn<any>().mockResolvedValue([]),
     getPendingQueue: jest.fn<any>().mockResolvedValue([]),

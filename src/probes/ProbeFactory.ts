@@ -7,6 +7,7 @@ import {
   type CreateSchedulerProbeParams,
   DetectedProbe,
   type DetectedProbeContext,
+  DirectCommentCheckProbe,
   EnqueueProbe,
   MarkQueueItemReviewedProbe,
   PrScannerProbe,
@@ -62,5 +63,9 @@ export class ProbeFactory {
 
   createReviewDetectorProbe(): ReviewDetectorProbe {
     return new ReviewDetectorProbe(this.eventRepository, this.observation.current(), this.log);
+  }
+
+  createDirectCommentCheckProbe(): DirectCommentCheckProbe {
+    return new DirectCommentCheckProbe(this.eventRepository, this.observation.current(), this.log);
   }
 }

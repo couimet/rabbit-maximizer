@@ -12,6 +12,9 @@ export const REVIEW_BOT_RATE_LIMIT_MARKER = 'rate limited by coderabbit.ai';
 /** Two-word search phrases that survive GitHub's exact-phrase matching with `state:open`. Longer phrases containing "reached" (e.g. "reached your PR review limit") return zero results when combined with `state:open` on the Search API. Short two-word phrases avoid the tokenization gap. Both variants are kept to cover past and current CodeRabbit wordings. */
 export const REVIEW_BOT_RATE_LIMIT_SEARCH_TEXTS: readonly string[] = ['review limit', 'rate limit'];
 
+/** Two-word search phrase for CodeRabbit's "Review available on request" comment, posted on fewer-than-10-star repos. The full phrase does not survive GitHub exact-phrase matching with `state:open`; "review available" is the short wording that does. */
+export const REVIEW_BOT_SKIP_SEARCH_TEXTS: readonly string[] = ['review available'];
+
 /** GitHub login of the CodeRabbit bot. */
 export const REVIEW_BOT_LOGIN = 'coderabbitai[bot]';
 

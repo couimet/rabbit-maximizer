@@ -21,6 +21,8 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 const ACCOUNT_COOLDOWN_SEC = 3600;
 const MS_PER_SECOND = 1000;
 const ACCOUNT_COOLDOWN_MS = ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
+const SKIP_COMMENT_BODY =
+  '## Review available on request\n\nThis repository has fewer than 10 stars. To request a review, comment "@coderabbitai full review".\n\n<details>\n<summary>skip review by coderabbit.ai</summary>\n</details>';
 
 const setup = () => {
   const github = {
@@ -73,7 +75,7 @@ describe('ReviewTrigger', () => {
     const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
 
     expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
@@ -86,6 +88,31 @@ describe('ReviewTrigger', () => {
       expect.any(String) as unknown as string,
       'dashboard_retrigger_now',
       undefined,
+    );
+    expect(systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), tx);
+  });
+
+  it('snapshots the extracted run ID from the stored source comment on the retriggered item', async () => {
+    const { github, probeFactory, logger, reviewTrigger, queue, pullRequests, tx, systemState } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    const runId = getUniqueString({ prefix: 'run-' });
+    github.fetchComment.mockResolvedValue(makeFetchResult(`**Run ID**: \`${runId}\`\n\nrate limited by coderabbit.ai`));
+    let capturedRunId: string | undefined;
+    github.postRetrigger.mockImplementation((_repo, _pr, _sourceCommentUrl, generatedRunId) => {
+      capturedRunId = generatedRunId;
+      return Promise.resolve({ htmlUrl: commentUrl });
+    });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
+
+    expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
+    expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: capturedRunId! },
+      'Posting retrigger',
     );
     expect(systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), tx);
   });
@@ -121,7 +148,74 @@ describe('ReviewTrigger', () => {
         decision: 'source',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
+    );
+  });
+
+  it('posts retrigger with skip comment as reply target and passes diagnosis (scheduler)', async () => {
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    const createdAt = getUniqueDate().toISOString();
+    const updatedAt = getUniqueDate().toISOString();
+    const runId = getUniqueString({ prefix: 'run-' });
+    github.fetchComment.mockResolvedValue({ body: `${SKIP_COMMENT_BODY}\n\n**Run ID**: \`${runId}\``, createdAt, updatedAt });
+    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(result.success).toBe(true);
+    expect(github.findLatestReviewLimitComment).not.toHaveBeenCalled();
+    expect(github.postRetrigger).toHaveBeenCalledWith(
+      item.repo_full_name,
+      item.pr_number,
+      item.source_comment_url,
+      expect.any(String) as unknown as string,
+      'scheduler',
+      {
+        sourceComment: {
+          url: item.source_comment_url,
+          createdAt,
+          updatedAt,
+          classification: 'review_skipped',
+          matchedMarker: 'skip review by coderabbit.ai',
+        },
+        waitSeconds: undefined,
+        decision: 'source',
+      },
+    );
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
+    );
+  });
+
+  it('posts retrigger with skip comment as reply target and without diagnosis (dashboard)', async () => {
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    github.fetchComment.mockResolvedValue(makeFetchResult(SKIP_COMMENT_BODY));
+    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
+
+    expect(result.success).toBe(true);
+    expect(github.findLatestReviewLimitComment).not.toHaveBeenCalled();
+    expect(github.postRetrigger).toHaveBeenCalledWith(
+      item.repo_full_name,
+      item.pr_number,
+      item.source_comment_url,
+      expect.any(String) as unknown as string,
+      'dashboard_retrigger_now',
+      undefined,
+    );
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',
@@ -145,6 +239,24 @@ describe('ReviewTrigger', () => {
     });
   });
 
+  it('returns err with RETRIGGER_STALE_COMMENT_SKIP when source comment carries both the skip and own-retrigger markers', async () => {
+    const { github, probeFactory, reviewTrigger } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    github.fetchComment.mockResolvedValue(makeFetchResult(`${SKIP_COMMENT_BODY}\n\n<!-- rabbit-maximizer already processed -->`));
+    github.findLatestReviewLimitComment.mockResolvedValue(undefined);
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(github.postRetrigger).not.toHaveBeenCalled();
+    expect(probe.staleCommentSkipped).toHaveBeenCalled();
+    expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_SKIP', {
+      message: 'No replacement rate-limit comment found',
+      functionName: 'ReviewTrigger.trigger',
+    });
+  });
+
   it('posts retrigger without reply target and passes direct diagnosis when source comment is deleted and no replacement exists', async () => {
     const { github, probeFactory, reviewTrigger, queue, tx, logger } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
@@ -157,7 +269,7 @@ describe('ReviewTrigger', () => {
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
     expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'No review-limit comment found; posting retrigger without a reply target',
@@ -195,7 +307,7 @@ describe('ReviewTrigger', () => {
       'dashboard_retrigger_now',
       undefined,
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED when replacement is deleted', async () => {
@@ -242,7 +354,8 @@ describe('ReviewTrigger', () => {
       createdAt: getUniqueDate().toISOString(),
       updatedAt: updatedAt.toISOString(),
     });
-    github.fetchComment.mockResolvedValueOnce(makeFetchResult('[rate limit](...) wait 3600 seconds'));
+    const replacementRunId = getUniqueString({ prefix: 'run-' });
+    github.fetchComment.mockResolvedValueOnce(makeFetchResult(`[rate limit](...) wait 3600 seconds\n\n**Run ID**: \`${replacementRunId}\``));
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
 
@@ -255,7 +368,7 @@ describe('ReviewTrigger', () => {
     });
     expect(result.error).toBeInstanceOf(StaleCommentRescheduledError);
     const err = result.error as StaleCommentRescheduledError;
-    expect(err.sourceComment).toStrictEqual({ commentId: newCommentId, commentUrl: newCommentUrl });
+    expect(err.sourceComment).toStrictEqual({ commentId: newCommentId, commentUrl: newCommentUrl, coderabbitRunId: replacementRunId });
     expect(err.originalSource).toStrictEqual({
       url: item.source_comment_url,
       createdAt: sourceFetch.createdAt,
@@ -400,7 +513,7 @@ describe('ReviewTrigger', () => {
         decision: 'replacement',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',
@@ -454,7 +567,7 @@ describe('ReviewTrigger', () => {
         decision: 'replacement',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
       'Posting retrigger',
@@ -513,7 +626,7 @@ describe('ReviewTrigger', () => {
         decision: 'replacement',
       },
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
   });
 
   it('preserves existing later cooldown when bumping nextReviewAvailableAt', async () => {

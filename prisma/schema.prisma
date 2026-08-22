@@ -43,6 +43,12 @@ model PullRequest {
   last_review_url                 String?
   last_review_state               String?
   last_coderabbit_acknowledged_at DateTime?
+  /// Max 40 (git sha). Head commit of the branch at the last scan.
+  head_sha String?
+  /// Max 40 (git sha). Head commit at the time the last CodeRabbit review was recorded.
+  reviewed_head_sha String?
+  /// Timestamp of the head commit; fetched only when head_sha changes.
+  head_committed_at DateTime?
   retrigger_count           Int       @default(0)
   review_count              Int       @default(0)
   created_at                DateTime  @default(now())
@@ -51,12 +57,36 @@ model PullRequest {
   queueItems  ReviewQueue[]
   events      Event[]
   comments    CoderabbitComment[]
+  shaHistory  PullRequestSha[]
 
   @@index([last_coderabbit_acknowledged_at])
   @@index([last_coderabbit_review_at])
   @@index([last_review_requested_at])
   @@unique([repo_full_name, pr_number])
   @@map("pull_request")
+}
+
+// ---------------------------------------------------------------------------
+// PullRequestSha — append-only history of observed head commits per PR.
+//
+// One row per distinct head sha ever seen by the scanner. Rebase and
+// force-push sequences are diagnosable from the observation timestamps.
+// ---------------------------------------------------------------------------
+
+/// Tracks each distinct head sha observed on a PR.
+model PullRequestSha {
+  id               Int      @id @default(autoincrement())
+  pull_request_id  Int
+  /// Max 40 (git sha).
+  sha              String
+  first_observed_at DateTime @default(now())
+  last_observed_at  DateTime @default(now())
+
+  pullRequest PullRequest @relation(fields: [pull_request_id], references: [id])
+
+  @@unique([pull_request_id, sha])
+  @@index([pull_request_id])
+  @@map("pull_request_sha")
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +126,8 @@ model ReviewQueue {
   source_comment_url String
   /// Numeric comment ID extracted from source_comment_url at enqueue time.
   source_comment_id Int
+  /// Max 75. CodeRabbit's per-comment Run ID adopted at enqueue/retrigger time, so review matching can reject reviews from earlier runs. CHECK in the 20260820 migration.
+  source_comment_run_id String?
   /// Max 25; one of 'dashboard_retrigger_now' | 'scheduler' (CHECK in the add_trigger_source_check migration).
   trigger_source String @default("scheduler")
   /// Max 512 (GitHub comment URL). Set by reschedule when a fresher rate-limit comment replaces the source. Preserved for diagnosis on the next retry.
@@ -115,6 +147,7 @@ model ReviewQueue {
 
   @@index([status])
   @@index([pull_request_id])
+  @@unique([source_comment_id])
   @@map("review_queue")
 }
 
@@ -201,10 +234,12 @@ model CoderabbitComment {
   comment_id      Int
   /// Max 512 (GitHub comment URL).
   url             String
-  /// One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' (CHECK in migration).
+  /// One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
   comment_type    String
   /// Max 1024. First N chars of the comment body, truncated by the repository on upsert.
   last_body_preview String?
+  /// Max 75. CodeRabbit's per-comment Run ID from the '**Run ID**: ' line in the body; distinct from our own runId (generateRunId in ReviewTrigger). CHECK in the 20260820 migration.
+  coderabbit_run_id String?
   gh_created_at   DateTime
   gh_updated_at   DateTime
   first_seen_at   DateTime

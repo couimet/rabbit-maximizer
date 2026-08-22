@@ -6,4 +6,6 @@ export interface UpsertPullRequestData {
   readonly authorLogin?: string;
   readonly mergedAt?: Date;
   readonly closedAt?: Date;
+  readonly headSha?: string;
+  readonly headCommittedAt?: Date;
 }

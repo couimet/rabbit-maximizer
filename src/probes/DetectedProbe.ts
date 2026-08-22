@@ -14,6 +14,7 @@ export interface DetectedProbeContext {
   readonly pr_number: number;
   readonly source_ts: Date;
   readonly source_comment_url: string;
+  readonly coderabbit_run_id: string | undefined;
 }
 
 export class DetectedProbe {
@@ -29,6 +30,7 @@ export class DetectedProbe {
       fn: 'DetectedProbe',
       repo: context.repo_full_name,
       pr: context.pr_number,
+      ...(context.coderabbit_run_id !== undefined ? { coderabbit_run_id: context.coderabbit_run_id } : {}),
     };
   }
 
@@ -62,6 +64,7 @@ export class DetectedProbe {
         payload: {
           source_ts: this.context.source_ts,
           source_comment_url: this.context.source_comment_url,
+          coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,
@@ -100,11 +103,12 @@ export class DetectedProbe {
           source_ts: this.context.source_ts,
           comment_url: this.context.source_comment_url,
           skip_reason: 'CodeRabbit explicitly skipped this review',
+          coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,
     );
-    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit skipped review event recorded');
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit skip comment encountered');
     return event;
   }
 
@@ -121,6 +125,7 @@ export class DetectedProbe {
           coderabbit_comment_url: this.context.source_comment_url,
           source_ts: this.context.source_ts,
           verdict_state: verdictState,
+          coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,
