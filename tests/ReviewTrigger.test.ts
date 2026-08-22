@@ -196,7 +196,7 @@ describe('ReviewTrigger', () => {
   });
 
   it('posts retrigger with skip comment as reply target and without diagnosis (dashboard)', async () => {
-    const { github, probeFactory, reviewTrigger, queue, tx } = setup();
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     github.fetchComment.mockResolvedValue(makeFetchResult(SKIP_COMMENT_BODY));
     github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
@@ -216,6 +216,10 @@ describe('ReviewTrigger', () => {
       undefined,
     );
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      'Posting retrigger',
+    );
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found and source body is non-empty', async () => {
@@ -228,6 +232,24 @@ describe('ReviewTrigger', () => {
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
+    expect(probe.staleCommentSkipped).toHaveBeenCalled();
+    expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_SKIP', {
+      message: 'No replacement rate-limit comment found',
+      functionName: 'ReviewTrigger.trigger',
+    });
+  });
+
+  it('returns err with RETRIGGER_STALE_COMMENT_SKIP when source comment carries both the skip and own-retrigger markers', async () => {
+    const { github, probeFactory, reviewTrigger } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    github.fetchComment.mockResolvedValue(makeFetchResult(`${SKIP_COMMENT_BODY}\n\n<!-- rabbit-maximizer already processed -->`));
+    github.findLatestReviewLimitComment.mockResolvedValue(undefined);
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
+
+    expect(github.postRetrigger).not.toHaveBeenCalled();
     expect(probe.staleCommentSkipped).toHaveBeenCalled();
     expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_SKIP', {
       message: 'No replacement rate-limit comment found',

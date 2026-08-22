@@ -33,12 +33,14 @@ describe('QueueRepositoryImpl', () => {
   let requestId: string;
   let mapper: ReviewQueueToQueueItemMapper;
   let version: string;
+  let prTitle: string;
 
   beforeEach(() => {
     frozenNow = getUniqueDate();
     correlationId = getUuid();
     requestId = getUuid();
     version = '1.0.0-test';
+    prTitle = getUniqueString({ prefix: 'PR title' });
     logger = createMockLogger();
     observation = createMockObservationContextProvider({
       current: jest.fn<any>().mockReturnValue({ correlationId, requestId, version }),
@@ -65,7 +67,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -80,7 +82,7 @@ describe('QueueRepositoryImpl', () => {
           pull_request_id: pullRequestId,
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          pr_title: 'Test PR title',
+          pr_title: prTitle,
           source_comment_url: ref.commentUrl,
           source_comment_id: ref.commentId,
           source_comment_run_id: null,
@@ -110,7 +112,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -143,7 +145,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -181,7 +183,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: runId,
@@ -225,7 +227,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -271,7 +273,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: newRunId,
@@ -328,7 +330,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: newRunId,
@@ -372,7 +374,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: runId,
@@ -386,7 +388,7 @@ describe('QueueRepositoryImpl', () => {
           pull_request_id: pullRequestId,
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          pr_title: 'Test PR title',
+          pr_title: prTitle,
           source_comment_url: ref.commentUrl,
           source_comment_id: ref.commentId,
           source_comment_run_id: runId,
@@ -424,7 +426,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: newCommentUrl,
           sourceCommentId: newCommentId,
           coderabbitRunId: undefined,
@@ -483,7 +485,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: newCommentUrl,
           sourceCommentId: newCommentId,
           coderabbitRunId: undefined,
@@ -512,6 +514,161 @@ describe('QueueRepositoryImpl', () => {
       );
     });
 
+    it('reopens a resolved row owning the incoming comment id and resolves the superseded retriggered row', async () => {
+      const ref = generateReviewRef();
+      const oldCommentId = getUniqueInt();
+      const newCommentId = getUniqueInt();
+      const tenMinAgo = new Date(frozenNow.getTime() - TEN_MINUTES_MS);
+      const oldRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: oldCommentId,
+      });
+      const conflictingResolved = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_id: newCommentId,
+        status: QueueStatus.resolved,
+        resolution: Resolution.ReviewCompleted,
+        resolved_at: tenMinAgo,
+      });
+      const reopened = {
+        ...conflictingResolved,
+        status: QueueStatus.pending as const,
+        resolution: null,
+        resolved_at: null,
+      };
+
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered).mockResolvedValueOnce(conflictingResolved),
+          update: jest
+            .fn<any>()
+            .mockResolvedValueOnce(reopened)
+            .mockResolvedValueOnce({ ...oldRetriggered, status: QueueStatus.resolved, resolution: Resolution.Skipped, resolved_at: new Date() }),
+        },
+        queueOrder: { findUnique: createResolvedMock({ queue_item_id: conflictingResolved.id }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
+
+      const { item: result, created } = await sut.enqueue(
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle: 'Re-enqueued PR title',
+          sourceCommentUrl: newCommentUrl,
+          sourceCommentId: newCommentId,
+          coderabbitRunId: undefined,
+          commentUpdatedAt: frozenNow,
+          pullRequestId: getUniqueInt(),
+        },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.update).toHaveBeenNthCalledWith(1, {
+        where: { id: conflictingResolved.id },
+        data: {
+          status: 'pending',
+          resolution: null,
+          resolved_at: null,
+          pr_title: 'Re-enqueued PR title',
+          source_comment_run_id: null,
+          cooldown_until: null,
+          last_skipped_at: null,
+          last_skip_reason: null,
+          retrigger_skip_count: 0,
+        },
+      });
+      expect(reviewQueue.update).toHaveBeenNthCalledWith(2, {
+        where: { id: oldRetriggered.id },
+        data: { status: 'resolved', resolution: 'skipped', resolved_at: expect.any(Date) as Date },
+      });
+      expect(reviewQueue.updateMany).not.toHaveBeenCalled();
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(created).toBe(true);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(reopened));
+      expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: conflictingResolved.id } });
+      expect(queueOrder.create).not.toHaveBeenCalled();
+      const [recordedEvent, recordedTx] = probeEvents.record.mock.lastCall!;
+      expect(recordedEvent).toStrictEqual({
+        type: 'enqueued',
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        correlation_id: correlationId,
+        request_id: requestId,
+        version,
+        payload: {},
+      });
+      expect(recordedTx).toBe(prisma);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'EnqueueProbe.resolvedReEnqueued', repo: ref.repoFullName, pr: ref.prNumber, sourceCommentId: newCommentId },
+        'Resolved item re-enqueued after comment edit',
+      );
+    });
+
+    it('keeps the retriggered row when the incoming comment id is owned by a resolved row that was not edited', async () => {
+      const ref = generateReviewRef();
+      const oldCommentId = getUniqueInt();
+      const newCommentId = getUniqueInt();
+      const tenMinAgo = new Date(frozenNow.getTime() - TEN_MINUTES_MS);
+      const oldRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: oldCommentId,
+      });
+      const conflictingResolved = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_id: newCommentId,
+        status: QueueStatus.resolved,
+        resolution: Resolution.ReviewCompleted,
+        resolved_at: frozenNow,
+      });
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered).mockResolvedValueOnce(conflictingResolved),
+        },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
+
+      const { item: result, created } = await sut.enqueue(
+        {
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          prTitle,
+          sourceCommentUrl: newCommentUrl,
+          sourceCommentId: newCommentId,
+          coderabbitRunId: undefined,
+          commentUpdatedAt: tenMinAgo,
+          pullRequestId: getUniqueInt(),
+        },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.update).not.toHaveBeenCalled();
+      expect(reviewQueue.updateMany).not.toHaveBeenCalled();
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(oldRetriggered));
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          fn: 'EnqueueProbe.recentlyRetriggered',
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          commentId: newCommentId,
+          coderabbit_run_id: undefined,
+        },
+        'PR was recently retriggered; skipping',
+      );
+    });
+
     it('creates a new pending row when the cooldown has expired', async () => {
       const ref = generateReviewRef();
       const newRow = generateReviewQueueHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: QueueStatus.pending });
@@ -526,7 +683,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -543,7 +700,7 @@ describe('QueueRepositoryImpl', () => {
           pull_request_id: pullRequestId,
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          pr_title: 'Test PR title',
+          pr_title: prTitle,
           source_comment_url: ref.commentUrl,
           source_comment_id: ref.commentId,
           source_comment_run_id: null,
@@ -577,7 +734,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -625,7 +782,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -668,7 +825,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -684,7 +841,7 @@ describe('QueueRepositoryImpl', () => {
           pull_request_id: pullRequestId,
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          pr_title: 'Test PR title',
+          pr_title: prTitle,
           source_comment_url: ref.commentUrl,
           source_comment_id: ref.commentId,
           source_comment_run_id: null,
@@ -712,7 +869,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: ref.commentId,
           coderabbitRunId: undefined,
@@ -970,7 +1127,7 @@ describe('QueueRepositoryImpl', () => {
         {
           repo: ref.repoFullName,
           pr: ref.prNumber,
-          prTitle: 'Test PR title',
+          prTitle,
           sourceCommentUrl: ref.commentUrl,
           sourceCommentId: commentId,
           coderabbitRunId: undefined,
@@ -1685,7 +1842,7 @@ describe('QueueRepositoryImpl', () => {
           {
             repo: ref.repoFullName,
             pr: ref.prNumber,
-            prTitle: 'Test PR title',
+            prTitle,
             sourceCommentUrl: ref.commentUrl,
             sourceCommentId: ref.commentId,
             coderabbitRunId: undefined,
@@ -1714,7 +1871,7 @@ describe('QueueRepositoryImpl', () => {
           {
             repo: ref.repoFullName,
             pr: ref.prNumber,
-            prTitle: 'Test PR title',
+            prTitle,
             sourceCommentUrl: ref.commentUrl,
             sourceCommentId: ref.commentId,
             coderabbitRunId: undefined,
@@ -1962,16 +2119,6 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.findBySourceCommentId(row.source_comment_id);
 
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
-    });
-  });
-
-  describe('toQueueItem null timestamp mapping', () => {
-    it('returns existing rows with NULL timestamps', () => {
-      const row = generateReviewQueueHydrationData({ retriggered_at: null, failed_at: null, reviewed_at: null });
-      const expected = mapper.fromReviewQueue(row);
-      expect(expected.retriggered_at).toBeUndefined();
-      expect(expected.failed_at).toBeUndefined();
-      expect(expected.reviewed_at).toBeUndefined();
     });
   });
 

@@ -45,7 +45,7 @@ export const generateCoderabbitCommentHydrationData = (overrideValues?: Partial<
     deleted_at: null,
     created_at: getUniqueDate(),
     updated_at: getUniqueDate(),
-    coderabbit_run_id: getUuid(),
+    coderabbit_run_id: creationData.coderabbit_run_id,
     ...overrideValues,
   };
 };

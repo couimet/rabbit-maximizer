@@ -4,6 +4,7 @@ import { generateEventHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
+import { z } from 'zod';
 
 const EXCEEDS_MAX_BY = 1;
 
@@ -317,7 +318,7 @@ describe('payload length limits', () => {
         retriggered_comment_url: getUniqueString(),
       }),
     });
-    expect(() => parseEventRow(row)).toThrow();
+    expect(() => parseEventRow(row)).toThrow(z.ZodError);
   });
 
   it('rejects a failed event whose reason exceeds the max', () => {
@@ -327,7 +328,7 @@ describe('payload length limits', () => {
         reason: 'a'.repeat(REASON_MAX_LENGTH + EXCEEDS_MAX_BY),
       }),
     });
-    expect(() => parseEventRow(row)).toThrow();
+    expect(() => parseEventRow(row)).toThrow(z.ZodError);
   });
 
   it('rejects a coderabbit_review_skipped event whose coderabbit_run_id exceeds the max', () => {
@@ -340,7 +341,7 @@ describe('payload length limits', () => {
         coderabbit_run_id: 'a'.repeat(CODERABBIT_RUN_ID_MAX_LENGTH + EXCEEDS_MAX_BY),
       }),
     });
-    expect(() => parseEventRow(row)).toThrow();
+    expect(() => parseEventRow(row)).toThrow(z.ZodError);
   });
 });
 

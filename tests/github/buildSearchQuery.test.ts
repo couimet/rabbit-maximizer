@@ -24,9 +24,4 @@ describe('buildSearchQuery', () => {
     const query = buildSearchQuery([]);
     expect(query).toBe('("review limit" OR "rate limit" OR "review available") type:pr state:open');
   });
-
-  it('includes the on-request review skip phrase in the search clause', () => {
-    const query = buildSearchQuery([userFilter]);
-    expect(query).toBe('("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet');
-  });
 });

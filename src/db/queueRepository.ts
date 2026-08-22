@@ -57,9 +57,22 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   /* c8 ignore stop */
 
   async enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult> {
-    const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId } = data;
     const probe = this.probeFactory.createEnqueueProbe(tx);
     const db = this.client(tx);
+    return (
+      (await this.tryAdoptRetriggered(data, db, probe)) ??
+      (await this.tryCooldownGuard(data, db, probe)) ??
+      (await this.tryRecentResolvedGuard(data, db, probe)) ??
+      this.createQueueRow(data, db, probe)
+    );
+  }
+
+  private async tryAdoptRetriggered(
+    data: EnqueueData,
+    db: Prisma.TransactionClient,
+    probe: ReturnType<ProbeFactory['createEnqueueProbe']>,
+  ): Promise<EnqueueResult | undefined> {
+    const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId } = data;
     const recentRetriggered = await db.reviewQueue.findFirst({
       where: {
         repo_full_name: repo,
@@ -67,80 +80,139 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         status: QueueStatus.retriggered,
       },
     });
-    if (recentRetriggered) {
-      if (recentRetriggered.source_comment_id === sourceCommentId) {
-        // Same comment: no-op unless the comment carries a NEW run — then the in-flight
-        // run fulfills the outstanding trigger, so adopt it in place and restart the clock.
-        if (data.coderabbitRunId !== undefined && recentRetriggered.source_comment_run_id !== data.coderabbitRunId) {
-          const { count } = await db.reviewQueue.updateMany({
-            where: { id: recentRetriggered.id, status: QueueStatus.retriggered },
-            data: { source_comment_run_id: data.coderabbitRunId, retriggered_at: new Date() },
-          });
-          if (count === 0) {
-            probe.recentlyRetriggered(repo, pr, sourceCommentId, data.coderabbitRunId);
-            return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
-          }
-          probe.retriggeredRunAdopted(
-            repo,
-            pr,
-            recentRetriggered.id,
-            sourceCommentId,
-            nullToUndefined(recentRetriggered.source_comment_run_id),
-            data.coderabbitRunId,
-          );
-          return {
-            item: this.mapper.fromReviewQueue({
-              ...recentRetriggered,
-              source_comment_run_id: data.coderabbitRunId,
-              retriggered_at: new Date(),
-            }),
-            created: false,
-          };
+    if (!recentRetriggered) {
+      return undefined;
+    }
+    if (recentRetriggered.source_comment_id === sourceCommentId) {
+      // Same comment: no-op unless the comment carries a NEW run — then the in-flight
+      // run fulfills the outstanding trigger, so adopt it in place and restart the clock.
+      if (data.coderabbitRunId !== undefined && recentRetriggered.source_comment_run_id !== data.coderabbitRunId) {
+        const { count } = await db.reviewQueue.updateMany({
+          where: { id: recentRetriggered.id, status: QueueStatus.retriggered },
+          data: { source_comment_run_id: data.coderabbitRunId, retriggered_at: new Date() },
+        });
+        if (count === 0) {
+          probe.recentlyRetriggered(repo, pr, sourceCommentId, data.coderabbitRunId);
+          return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
         }
-        probe.recentlyRetriggered(repo, pr, sourceCommentId, data.coderabbitRunId);
-        return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
+        probe.retriggeredRunAdopted(
+          repo,
+          pr,
+          recentRetriggered.id,
+          sourceCommentId,
+          nullToUndefined(recentRetriggered.source_comment_run_id),
+          data.coderabbitRunId,
+        );
+        return {
+          item: this.mapper.fromReviewQueue({
+            ...recentRetriggered,
+            source_comment_run_id: data.coderabbitRunId,
+            retriggered_at: new Date(),
+          }),
+          created: false,
+        };
       }
-      const { count } = await db.reviewQueue.updateMany({
-        where: { id: recentRetriggered.id, status: QueueStatus.retriggered },
-        data: {
-          source_comment_url: sourceCommentUrl,
-          source_comment_id: sourceCommentId,
-          source_comment_run_id: data.coderabbitRunId ?? null,
-          retriggered_at: new Date(),
-        },
-      });
-      if (count === 0) {
-        probe.recentlyRetriggered(repo, pr, sourceCommentId, data.coderabbitRunId);
-        return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
-      }
-      probe.retriggeredReplaced(repo, pr, recentRetriggered.source_comment_id, sourceCommentId);
-      return {
-        item: this.mapper.fromReviewQueue({
-          ...recentRetriggered,
-          source_comment_url: sourceCommentUrl,
-          source_comment_id: sourceCommentId,
-          source_comment_run_id: data.coderabbitRunId ?? null,
-          retriggered_at: new Date(),
-        }),
-        created: false,
-      };
+      probe.recentlyRetriggered(repo, pr, sourceCommentId, data.coderabbitRunId);
+      return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
     }
+    const conflictingResolved = await db.reviewQueue.findFirst({
+      where: {
+        source_comment_id: sourceCommentId,
+        id: { not: recentRetriggered.id },
+        status: QueueStatus.resolved,
+        resolution: { in: [...REOPENABLE_RESOLUTIONS] },
+      },
+    });
+    if (conflictingResolved) {
+      if (data.commentUpdatedAt !== undefined && data.commentUpdatedAt > conflictingResolved.resolved_at!) {
+        const reopened = await db.reviewQueue.update({
+          where: { id: conflictingResolved.id },
+          data: {
+            status: QueueStatus.pending,
+            resolution: null,
+            resolved_at: null,
+            pr_title: prTitle,
+            source_comment_run_id: data.coderabbitRunId ?? null,
+            cooldown_until: data.cooldownUntil ?? null,
+            last_skipped_at: null,
+            last_skip_reason: null,
+            retrigger_skip_count: 0,
+          },
+        });
 
-    if (data.cooldownUntil && Date.now() < data.cooldownUntil.getTime()) {
-      const cooldownResolved = await db.reviewQueue.findFirst({
-        where: {
-          repo_full_name: repo,
-          pr_number: pr,
-          source_comment_id: sourceCommentId,
-          status: QueueStatus.resolved,
-        },
-      });
-      if (cooldownResolved) {
-        probe.recentlyResolved(repo, pr, cooldownResolved.uuid, sourceCommentId, cooldownResolved.resolved_at!);
-        return { item: this.mapper.fromReviewQueue(cooldownResolved), created: false };
+        const existingOrder = await db.queueOrder.findUnique({ where: { queue_item_id: conflictingResolved.id } });
+        if (!existingOrder) {
+          await db.queueOrder.create({ data: { queue_item_id: conflictingResolved.id } });
+        }
+
+        await db.reviewQueue.update({
+          where: { id: recentRetriggered.id },
+          data: { status: QueueStatus.resolved, resolution: Resolution.Skipped, resolved_at: new Date() },
+        });
+
+        await probe.enqueued({ repo, pr });
+        probe.resolvedReEnqueued(repo, pr, sourceCommentId);
+        return { item: this.mapper.fromReviewQueue(reopened), created: true };
       }
+      probe.recentlyRetriggered(repo, pr, sourceCommentId, data.coderabbitRunId);
+      return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
     }
+    const { count } = await db.reviewQueue.updateMany({
+      where: { id: recentRetriggered.id, status: QueueStatus.retriggered },
+      data: {
+        source_comment_url: sourceCommentUrl,
+        source_comment_id: sourceCommentId,
+        source_comment_run_id: data.coderabbitRunId ?? null,
+        retriggered_at: new Date(),
+      },
+    });
+    if (count === 0) {
+      probe.recentlyRetriggered(repo, pr, sourceCommentId, data.coderabbitRunId);
+      return { item: this.mapper.fromReviewQueue(recentRetriggered), created: false };
+    }
+    probe.retriggeredReplaced(repo, pr, recentRetriggered.source_comment_id, sourceCommentId);
+    return {
+      item: this.mapper.fromReviewQueue({
+        ...recentRetriggered,
+        source_comment_url: sourceCommentUrl,
+        source_comment_id: sourceCommentId,
+        source_comment_run_id: data.coderabbitRunId ?? null,
+        retriggered_at: new Date(),
+      }),
+      created: false,
+    };
+  }
 
+  private async tryCooldownGuard(
+    data: EnqueueData,
+    db: Prisma.TransactionClient,
+    probe: ReturnType<ProbeFactory['createEnqueueProbe']>,
+  ): Promise<EnqueueResult | undefined> {
+    const { repo, pr, sourceCommentId } = data;
+    if (!data.cooldownUntil || Date.now() >= data.cooldownUntil.getTime()) {
+      return undefined;
+    }
+    const cooldownResolved = await db.reviewQueue.findFirst({
+      where: {
+        repo_full_name: repo,
+        pr_number: pr,
+        source_comment_id: sourceCommentId,
+        status: QueueStatus.resolved,
+      },
+    });
+    if (!cooldownResolved) {
+      return undefined;
+    }
+    probe.recentlyResolved(repo, pr, cooldownResolved.uuid, sourceCommentId, cooldownResolved.resolved_at!);
+    return { item: this.mapper.fromReviewQueue(cooldownResolved), created: false };
+  }
+
+  private async tryRecentResolvedGuard(
+    data: EnqueueData,
+    db: Prisma.TransactionClient,
+    probe: ReturnType<ProbeFactory['createEnqueueProbe']>,
+  ): Promise<EnqueueResult | undefined> {
+    const { repo, pr, sourceCommentId } = data;
     const recentResolved = await db.reviewQueue.findFirst({
       where: {
         repo_full_name: repo,
@@ -150,11 +222,15 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         resolved_at: { gte: new Date(Date.now() - COMPLETED_GUARD_WINDOW_MS) },
       },
     });
-    if (recentResolved) {
-      probe.recentlyResolved(repo, pr, recentResolved.uuid, sourceCommentId, recentResolved.resolved_at!);
-      return { item: this.mapper.fromReviewQueue(recentResolved), created: false };
+    if (!recentResolved) {
+      return undefined;
     }
+    probe.recentlyResolved(repo, pr, recentResolved.uuid, sourceCommentId, recentResolved.resolved_at!);
+    return { item: this.mapper.fromReviewQueue(recentResolved), created: false };
+  }
 
+  private async createQueueRow(data: EnqueueData, db: Prisma.TransactionClient, probe: ReturnType<ProbeFactory['createEnqueueProbe']>): Promise<EnqueueResult> {
+    const { repo, pr, prTitle, sourceCommentUrl, sourceCommentId } = data;
     try {
       const row = await this.withPrismaErrorHandling(
         () =>

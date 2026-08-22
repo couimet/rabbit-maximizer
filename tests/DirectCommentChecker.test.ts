@@ -1,4 +1,5 @@
 import { buildCommentUrl } from '../src/github/buildCommentUrl.js';
+import { REVIEW_STACK_MARKER } from '../src/github/index.js';
 import { DirectCommentCheckProbe } from '../src/probes/index.js';
 import { DirectCommentCheckerImpl } from '../src/services.js';
 import type { EventLogEntry, OnDetectedCallback } from '../src/types/index.js';
@@ -26,7 +27,7 @@ const APPROVED_COMMENT_BODY =
 const REVIEW_LIMITED_BODY = 'rate limited by coderabbit.ai';
 const REVIEW_LIMITED_WITH_WAIT = 'rate limited by coderabbit.ai\n\n**Next review available in:** **34 minutes**';
 const ONE_MINUTE_MS = 60_000;
-const WALKTHROUGH_BODY = 'review_stack_entry_start';
+const WALKTHROUGH_BODY = `${REVIEW_STACK_MARKER}\n\nwalkthrough summary`;
 
 describe('DirectCommentCheckerImpl', () => {
   let github: ReturnType<typeof createMockCoderabbitGitHubClient>;
