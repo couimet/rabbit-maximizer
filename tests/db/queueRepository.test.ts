@@ -1219,7 +1219,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { status: 'retriggered', retriggered_at: frozenNow, retrigger_comment_url: COMMENT_URL },
+        data: { status: 'retriggered', retriggered_at: frozenNow, retrigger_comment_url: COMMENT_URL, cooldown_until: cooldownUntil },
       });
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
       expect(logger.debug).toHaveBeenCalledWith(
@@ -1239,7 +1239,13 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { status: 'retriggered', retriggered_at: frozenNow, retrigger_comment_url: COMMENT_URL, source_comment_run_id: runId },
+        data: {
+          status: 'retriggered',
+          retriggered_at: frozenNow,
+          retrigger_comment_url: COMMENT_URL,
+          source_comment_run_id: runId,
+          cooldown_until: cooldownUntil,
+        },
       });
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
       expect(logger.debug).toHaveBeenCalledWith(

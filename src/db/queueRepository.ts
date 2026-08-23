@@ -340,6 +340,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             // Snapshot the run the comment carries at trigger time; undefined preserves
             // the adopted run (deleted source comment path) instead of wiping it.
             source_comment_run_id: coderabbitRunId,
+            cooldown_until: cooldownUntil,
           },
         }),
       'QueueRepositoryImpl.markRetriggered',
