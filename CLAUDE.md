@@ -2,6 +2,8 @@
 
 Project-specific guidance for Claude Code.
 
+The authoritative description of what this product does and why is in [docs/business-rules.md](docs/business-rules.md) — read it before changing behavior; rules below govern how the code is written.
+
 Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies everywhere), **T** for tests. Numbered sequentially from 1 within each category.
 
 <rule id="C001" priority="critical">
@@ -51,9 +53,10 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 
 <rule id="C004" priority="critical">
   <title>Logger is always the last constructor parameter</title>
-  <do>Place `@inject(TYPES.Logger) private readonly log: Logger` as the last parameter in every DI constructor</do>
+  <do>Place `@inject(TYPES.Logger) private readonly log: Logger` as the last parameter in every DI constructor that logs directly</do>
+  <do>Omit the Logger from a DI constructor when the module never logs directly — its observability is fully owned by a probe (see C011), so a Logger would be a dead dependency</do>
   <never>Add Logger anywhere other than last in the constructor parameter list</never>
-  <rationale>Consistent ordering makes constructors predictable and diffs cleaner</rationale>
+  <rationale>Consistent ordering makes constructors predictable and diffs cleaner. The Logger requirement applies only when the module has something to log; a module whose every outcome is recorded through a probe has no direct logging to write.</rationale>
 </rule>
 
 <rule id="C005" priority="critical">

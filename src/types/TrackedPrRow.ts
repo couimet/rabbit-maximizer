@@ -1,4 +1,4 @@
-/** An open PR that CodeRabbit has touched, has not been acknowledged, and has no active queue item. */
+/** An open PR that has not been acknowledged and has no active queue item; review fields stay null until the first CodeRabbit verdict. */
 export interface TrackedPrRow {
   readonly id: number;
   readonly title: string;

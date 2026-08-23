@@ -8,7 +8,7 @@ export { createMockDirectCommentChecker } from './createMockDirectCommentChecker
 export { createMockEditDetector } from './createMockEditDetector.js';
 export { createMockEventRepo } from './createMockEventRepo.js';
 export { createMockFetch } from './createMockFetch.js';
-export type { MockIssuesRest, MockOctokitOptions, MockOctokitResult, MockPullsRest, MockSearchRest } from './createMockOctokit.js';
+export type { MockIssuesRest, MockOctokitOptions, MockOctokitResult, MockPullsRest, MockReposRest, MockSearchRest } from './createMockOctokit.js';
 export { createMockOctokit } from './createMockOctokit.js';
 export { createMockOnDetectedCallback } from './createMockOnDetectedCallback.js';
 export type {
@@ -17,6 +17,7 @@ export type {
   MockPrismaOptions,
   MockPrismaResult,
   MockPullRequestDelegate,
+  MockPullRequestShaDelegate,
   MockQueueOrderDelegate,
   MockReviewQueueDelegate,
   MockSystemStateDelegate,
@@ -25,6 +26,7 @@ export { createMockPrismaClient } from './createMockPrismaClient.js';
 export { createMockProbeFactory } from './createMockProbeFactory.js';
 export type {
   MockDetectedProbe,
+  MockDirectCommentCheckProbe,
   MockEnqueueProbe,
   MockMarkQueueItemReviewedProbe,
   MockPrScannerProbe,
@@ -35,6 +37,7 @@ export type {
 } from './createMockProbes.js';
 export {
   createMockDetectedProbe,
+  createMockDirectCommentCheckProbe,
   createMockEnqueueProbe,
   createMockMarkQueueItemReviewedProbe,
   createMockPrScannerProbe,
@@ -73,5 +76,4 @@ export { generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } 
 export { generateReviewQueueHydrationData } from './ReviewQueueTestSupport.js';
 export type { ReviewRef, ReviewRefInput } from './ReviewRefTestSupport.js';
 export { generateReviewRef } from './ReviewRefTestSupport.js';
-export { generateCreateSkippedData } from './SkippedDataTestSupport.js';
 export { generateTrackedPrRow } from './TrackedPrTestSupport.js';

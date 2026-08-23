@@ -531,7 +531,20 @@ components:
 
     EventType:
       type: string
-      enum: [coderabbit_review_approved, coderabbit_review_changes_suggested, coderabbit_review_skipped, detected, dismissed, enqueued, failed, retriggered]
+      enum:
+        [
+          coderabbit_review_approved,
+          coderabbit_review_changes_suggested,
+          coderabbit_review_skipped,
+          coderabbit_run_id_changed,
+          coderabbit_run_id_cleared,
+          coderabbit_run_id_first_seen,
+          detected,
+          dismissed,
+          enqueued,
+          failed,
+          retriggered,
+        ]
 
     EventEntry:
       type: object

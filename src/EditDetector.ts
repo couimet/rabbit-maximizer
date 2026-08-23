@@ -2,7 +2,7 @@ import type { CoderabbitCommentRepository } from './db/index.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
 import { classifyCoderabbitComment, type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import { type EditDetectionOutcome, type QueueItem } from './types/index.js';
-import { isReviewVerdictState } from './utils/index.js';
+import { extractCoderabbitRunId, isReviewVerdictState } from './utils/index.js';
 import { CodeRabbitCommentType, FallbackReason, TYPES } from './domain.js';
 import { RabbitResult } from './RabbitResult.js';
 
@@ -49,6 +49,7 @@ export class EditDetectorImpl implements EditDetector {
         body: fetchResult.body,
         gh_created_at: matchingComment.gh_created_at,
         gh_updated_at: freshGhUpdatedAt,
+        coderabbit_run_id: extractCoderabbitRunId(fetchResult.body) ?? null,
       };
 
       await this.coderabbitComments.upsert(updatedComment);

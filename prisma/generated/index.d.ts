@@ -17,6 +17,11 @@ export type PrismaPromise<T> = $Public.PrismaPromise<T>;
  */
 export type PullRequest = $Result.DefaultSelection<Prisma.$PullRequestPayload>;
 /**
+ * Model PullRequestSha
+ * Tracks each distinct head sha observed on a PR.
+ */
+export type PullRequestSha = $Result.DefaultSelection<Prisma.$PullRequestShaPayload>;
+/**
  * Model ReviewQueue
  * Tracks a PR that needs (or has received) a review retrigger.
  */
@@ -189,6 +194,16 @@ export class PrismaClient<
    * ```
    */
   get pullRequest(): Prisma.PullRequestDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.pullRequestSha`: Exposes CRUD operations for the **PullRequestSha** model.
+   * Example usage:
+   * ```ts
+   * // Fetch zero or more PullRequestShas
+   * const pullRequestShas = await prisma.pullRequestSha.findMany()
+   * ```
+   */
+  get pullRequestSha(): Prisma.PullRequestShaDelegate<ExtArgs, ClientOptions>;
 
   /**
    * `prisma.reviewQueue`: Exposes CRUD operations for the **ReviewQueue** model.
@@ -644,6 +659,7 @@ export namespace Prisma {
 
   export const ModelName: {
     PullRequest: 'PullRequest';
+    PullRequestSha: 'PullRequestSha';
     ReviewQueue: 'ReviewQueue';
     Event: 'Event';
     QueueOrder: 'QueueOrder';
@@ -662,7 +678,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions;
     };
     meta: {
-      modelProps: 'pullRequest' | 'reviewQueue' | 'event' | 'queueOrder' | 'coderabbitComment' | 'systemState';
+      modelProps: 'pullRequest' | 'pullRequestSha' | 'reviewQueue' | 'event' | 'queueOrder' | 'coderabbitComment' | 'systemState';
       txIsolationLevel: Prisma.TransactionIsolationLevel;
     };
     model: {
@@ -737,6 +753,80 @@ export namespace Prisma {
           count: {
             args: Prisma.PullRequestCountArgs<ExtArgs>;
             result: $Utils.Optional<PullRequestCountAggregateOutputType> | number;
+          };
+        };
+      };
+      PullRequestSha: {
+        payload: Prisma.$PullRequestShaPayload<ExtArgs>;
+        fields: Prisma.PullRequestShaFieldRefs;
+        operations: {
+          findUnique: {
+            args: Prisma.PullRequestShaFindUniqueArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload> | null;
+          };
+          findUniqueOrThrow: {
+            args: Prisma.PullRequestShaFindUniqueOrThrowArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>;
+          };
+          findFirst: {
+            args: Prisma.PullRequestShaFindFirstArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload> | null;
+          };
+          findFirstOrThrow: {
+            args: Prisma.PullRequestShaFindFirstOrThrowArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>;
+          };
+          findMany: {
+            args: Prisma.PullRequestShaFindManyArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>[];
+          };
+          create: {
+            args: Prisma.PullRequestShaCreateArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>;
+          };
+          createMany: {
+            args: Prisma.PullRequestShaCreateManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          createManyAndReturn: {
+            args: Prisma.PullRequestShaCreateManyAndReturnArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>[];
+          };
+          delete: {
+            args: Prisma.PullRequestShaDeleteArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>;
+          };
+          update: {
+            args: Prisma.PullRequestShaUpdateArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>;
+          };
+          deleteMany: {
+            args: Prisma.PullRequestShaDeleteManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          updateMany: {
+            args: Prisma.PullRequestShaUpdateManyArgs<ExtArgs>;
+            result: BatchPayload;
+          };
+          updateManyAndReturn: {
+            args: Prisma.PullRequestShaUpdateManyAndReturnArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>[];
+          };
+          upsert: {
+            args: Prisma.PullRequestShaUpsertArgs<ExtArgs>;
+            result: $Utils.PayloadToResult<Prisma.$PullRequestShaPayload>;
+          };
+          aggregate: {
+            args: Prisma.PullRequestShaAggregateArgs<ExtArgs>;
+            result: $Utils.Optional<AggregatePullRequestSha>;
+          };
+          groupBy: {
+            args: Prisma.PullRequestShaGroupByArgs<ExtArgs>;
+            result: $Utils.Optional<PullRequestShaGroupByOutputType>[];
+          };
+          count: {
+            args: Prisma.PullRequestShaCountArgs<ExtArgs>;
+            result: $Utils.Optional<PullRequestShaCountAggregateOutputType> | number;
           };
         };
       };
@@ -1234,6 +1324,7 @@ export namespace Prisma {
   }
   export type GlobalOmitConfig = {
     pullRequest?: PullRequestOmit;
+    pullRequestSha?: PullRequestShaOmit;
     reviewQueue?: ReviewQueueOmit;
     event?: EventOmit;
     queueOrder?: QueueOrderOmit;
@@ -1316,12 +1407,14 @@ export namespace Prisma {
     queueItems: number;
     events: number;
     comments: number;
+    shaHistory: number;
   };
 
   export type PullRequestCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     queueItems?: boolean | PullRequestCountOutputTypeCountQueueItemsArgs;
     events?: boolean | PullRequestCountOutputTypeCountEventsArgs;
     comments?: boolean | PullRequestCountOutputTypeCountCommentsArgs;
+    shaHistory?: boolean | PullRequestCountOutputTypeCountShaHistoryArgs;
   };
 
   // Custom InputTypes
@@ -1354,6 +1447,13 @@ export namespace Prisma {
    */
   export type PullRequestCountOutputTypeCountCommentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: CoderabbitCommentWhereInput;
+  };
+
+  /**
+   * PullRequestCountOutputType without action
+   */
+  export type PullRequestCountOutputTypeCountShaHistoryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: PullRequestShaWhereInput;
   };
 
   /**
@@ -1404,6 +1504,9 @@ export namespace Prisma {
     last_review_url: string | null;
     last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
+    head_sha: string | null;
+    reviewed_head_sha: string | null;
+    head_committed_at: Date | null;
     retrigger_count: number | null;
     review_count: number | null;
     created_at: Date | null;
@@ -1428,6 +1531,9 @@ export namespace Prisma {
     last_review_url: string | null;
     last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
+    head_sha: string | null;
+    reviewed_head_sha: string | null;
+    head_committed_at: Date | null;
     retrigger_count: number | null;
     review_count: number | null;
     created_at: Date | null;
@@ -1452,6 +1558,9 @@ export namespace Prisma {
     last_review_url: number;
     last_review_state: number;
     last_coderabbit_acknowledged_at: number;
+    head_sha: number;
+    reviewed_head_sha: number;
+    head_committed_at: number;
     retrigger_count: number;
     review_count: number;
     created_at: number;
@@ -1491,6 +1600,9 @@ export namespace Prisma {
     last_review_url?: true;
     last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
+    head_sha?: true;
+    reviewed_head_sha?: true;
+    head_committed_at?: true;
     retrigger_count?: true;
     review_count?: true;
     created_at?: true;
@@ -1515,6 +1627,9 @@ export namespace Prisma {
     last_review_url?: true;
     last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
+    head_sha?: true;
+    reviewed_head_sha?: true;
+    head_committed_at?: true;
     retrigger_count?: true;
     review_count?: true;
     created_at?: true;
@@ -1539,6 +1654,9 @@ export namespace Prisma {
     last_review_url?: true;
     last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
+    head_sha?: true;
+    reviewed_head_sha?: true;
+    head_committed_at?: true;
     retrigger_count?: true;
     review_count?: true;
     created_at?: true;
@@ -1647,6 +1765,9 @@ export namespace Prisma {
     last_review_url: string | null;
     last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
+    head_sha: string | null;
+    reviewed_head_sha: string | null;
+    head_committed_at: Date | null;
     retrigger_count: number;
     review_count: number;
     created_at: Date;
@@ -1689,6 +1810,9 @@ export namespace Prisma {
       last_review_url?: boolean;
       last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
+      head_sha?: boolean;
+      reviewed_head_sha?: boolean;
+      head_committed_at?: boolean;
       retrigger_count?: boolean;
       review_count?: boolean;
       created_at?: boolean;
@@ -1696,6 +1820,7 @@ export namespace Prisma {
       queueItems?: boolean | PullRequest$queueItemsArgs<ExtArgs>;
       events?: boolean | PullRequest$eventsArgs<ExtArgs>;
       comments?: boolean | PullRequest$commentsArgs<ExtArgs>;
+      shaHistory?: boolean | PullRequest$shaHistoryArgs<ExtArgs>;
       _count?: boolean | PullRequestCountOutputTypeDefaultArgs<ExtArgs>;
     },
     ExtArgs['result']['pullRequest']
@@ -1720,6 +1845,9 @@ export namespace Prisma {
       last_review_url?: boolean;
       last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
+      head_sha?: boolean;
+      reviewed_head_sha?: boolean;
+      head_committed_at?: boolean;
       retrigger_count?: boolean;
       review_count?: boolean;
       created_at?: boolean;
@@ -1747,6 +1875,9 @@ export namespace Prisma {
       last_review_url?: boolean;
       last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
+      head_sha?: boolean;
+      reviewed_head_sha?: boolean;
+      head_committed_at?: boolean;
       retrigger_count?: boolean;
       review_count?: boolean;
       created_at?: boolean;
@@ -1773,6 +1904,9 @@ export namespace Prisma {
     last_review_url?: boolean;
     last_review_state?: boolean;
     last_coderabbit_acknowledged_at?: boolean;
+    head_sha?: boolean;
+    reviewed_head_sha?: boolean;
+    head_committed_at?: boolean;
     retrigger_count?: boolean;
     review_count?: boolean;
     created_at?: boolean;
@@ -1797,6 +1931,9 @@ export namespace Prisma {
     | 'last_review_url'
     | 'last_review_state'
     | 'last_coderabbit_acknowledged_at'
+    | 'head_sha'
+    | 'reviewed_head_sha'
+    | 'head_committed_at'
     | 'retrigger_count'
     | 'review_count'
     | 'created_at'
@@ -1807,6 +1944,7 @@ export namespace Prisma {
     queueItems?: boolean | PullRequest$queueItemsArgs<ExtArgs>;
     events?: boolean | PullRequest$eventsArgs<ExtArgs>;
     comments?: boolean | PullRequest$commentsArgs<ExtArgs>;
+    shaHistory?: boolean | PullRequest$shaHistoryArgs<ExtArgs>;
     _count?: boolean | PullRequestCountOutputTypeDefaultArgs<ExtArgs>;
   };
   export type PullRequestIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {};
@@ -1818,6 +1956,7 @@ export namespace Prisma {
       queueItems: Prisma.$ReviewQueuePayload<ExtArgs>[];
       events: Prisma.$EventPayload<ExtArgs>[];
       comments: Prisma.$CoderabbitCommentPayload<ExtArgs>[];
+      shaHistory: Prisma.$PullRequestShaPayload<ExtArgs>[];
     };
     scalars: $Extensions.GetPayloadResult<
       {
@@ -1847,6 +1986,18 @@ export namespace Prisma {
         last_review_url: string | null;
         last_review_state: string | null;
         last_coderabbit_acknowledged_at: Date | null;
+        /**
+         * Max 40 (git sha). Head commit of the branch at the last scan.
+         */
+        head_sha: string | null;
+        /**
+         * Max 40 (git sha). Head commit at the time the last CodeRabbit review was recorded.
+         */
+        reviewed_head_sha: string | null;
+        /**
+         * Timestamp of the head commit; fetched only when head_sha changes.
+         */
+        head_committed_at: Date | null;
         retrigger_count: number;
         review_count: number;
         created_at: Date;
@@ -2286,6 +2437,9 @@ export namespace Prisma {
     comments<T extends PullRequest$commentsArgs<ExtArgs> = {}>(
       args?: Subset<T, PullRequest$commentsArgs<ExtArgs>>,
     ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$CoderabbitCommentPayload<ExtArgs>, T, 'findMany', GlobalOmitOptions> | Null>;
+    shaHistory<T extends PullRequest$shaHistoryArgs<ExtArgs> = {}>(
+      args?: Subset<T, PullRequest$shaHistoryArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'findMany', GlobalOmitOptions> | Null>;
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2332,6 +2486,9 @@ export namespace Prisma {
     readonly last_review_url: FieldRef<'PullRequest', 'String'>;
     readonly last_review_state: FieldRef<'PullRequest', 'String'>;
     readonly last_coderabbit_acknowledged_at: FieldRef<'PullRequest', 'DateTime'>;
+    readonly head_sha: FieldRef<'PullRequest', 'String'>;
+    readonly reviewed_head_sha: FieldRef<'PullRequest', 'String'>;
+    readonly head_committed_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly retrigger_count: FieldRef<'PullRequest', 'Int'>;
     readonly review_count: FieldRef<'PullRequest', 'Int'>;
     readonly created_at: FieldRef<'PullRequest', 'DateTime'>;
@@ -2798,6 +2955,30 @@ export namespace Prisma {
   };
 
   /**
+   * PullRequest.shaHistory
+   */
+  export type PullRequest$shaHistoryArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    where?: PullRequestShaWhereInput;
+    orderBy?: PullRequestShaOrderByWithRelationInput | PullRequestShaOrderByWithRelationInput[];
+    cursor?: PullRequestShaWhereUniqueInput;
+    take?: number;
+    skip?: number;
+    distinct?: PullRequestShaScalarFieldEnum | PullRequestShaScalarFieldEnum[];
+  };
+
+  /**
    * PullRequest without action
    */
   export type PullRequestDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -2813,6 +2994,1174 @@ export namespace Prisma {
      * Choose, which related nodes to fetch as well
      */
     include?: PullRequestInclude<ExtArgs> | null;
+  };
+
+  /**
+   * Model PullRequestSha
+   */
+
+  export type AggregatePullRequestSha = {
+    _count: PullRequestShaCountAggregateOutputType | null;
+    _avg: PullRequestShaAvgAggregateOutputType | null;
+    _sum: PullRequestShaSumAggregateOutputType | null;
+    _min: PullRequestShaMinAggregateOutputType | null;
+    _max: PullRequestShaMaxAggregateOutputType | null;
+  };
+
+  export type PullRequestShaAvgAggregateOutputType = {
+    id: number | null;
+    pull_request_id: number | null;
+  };
+
+  export type PullRequestShaSumAggregateOutputType = {
+    id: number | null;
+    pull_request_id: number | null;
+  };
+
+  export type PullRequestShaMinAggregateOutputType = {
+    id: number | null;
+    pull_request_id: number | null;
+    sha: string | null;
+    first_observed_at: Date | null;
+    last_observed_at: Date | null;
+  };
+
+  export type PullRequestShaMaxAggregateOutputType = {
+    id: number | null;
+    pull_request_id: number | null;
+    sha: string | null;
+    first_observed_at: Date | null;
+    last_observed_at: Date | null;
+  };
+
+  export type PullRequestShaCountAggregateOutputType = {
+    id: number;
+    pull_request_id: number;
+    sha: number;
+    first_observed_at: number;
+    last_observed_at: number;
+    _all: number;
+  };
+
+  export type PullRequestShaAvgAggregateInputType = {
+    id?: true;
+    pull_request_id?: true;
+  };
+
+  export type PullRequestShaSumAggregateInputType = {
+    id?: true;
+    pull_request_id?: true;
+  };
+
+  export type PullRequestShaMinAggregateInputType = {
+    id?: true;
+    pull_request_id?: true;
+    sha?: true;
+    first_observed_at?: true;
+    last_observed_at?: true;
+  };
+
+  export type PullRequestShaMaxAggregateInputType = {
+    id?: true;
+    pull_request_id?: true;
+    sha?: true;
+    first_observed_at?: true;
+    last_observed_at?: true;
+  };
+
+  export type PullRequestShaCountAggregateInputType = {
+    id?: true;
+    pull_request_id?: true;
+    sha?: true;
+    first_observed_at?: true;
+    last_observed_at?: true;
+    _all?: true;
+  };
+
+  export type PullRequestShaAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which PullRequestSha to aggregate.
+     */
+    where?: PullRequestShaWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of PullRequestShas to fetch.
+     */
+    orderBy?: PullRequestShaOrderByWithRelationInput | PullRequestShaOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the start position
+     */
+    cursor?: PullRequestShaWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` PullRequestShas from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` PullRequestShas.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Count returned PullRequestShas
+     **/
+    _count?: true | PullRequestShaCountAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to average
+     **/
+    _avg?: PullRequestShaAvgAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to sum
+     **/
+    _sum?: PullRequestShaSumAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to find the minimum value
+     **/
+    _min?: PullRequestShaMinAggregateInputType;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     *
+     * Select which fields to find the maximum value
+     **/
+    _max?: PullRequestShaMaxAggregateInputType;
+  };
+
+  export type GetPullRequestShaAggregateType<T extends PullRequestShaAggregateArgs> = {
+    [P in keyof T & keyof AggregatePullRequestSha]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregatePullRequestSha[P]>
+      : GetScalarType<T[P], AggregatePullRequestSha[P]>;
+  };
+
+  export type PullRequestShaGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: PullRequestShaWhereInput;
+    orderBy?: PullRequestShaOrderByWithAggregationInput | PullRequestShaOrderByWithAggregationInput[];
+    by: PullRequestShaScalarFieldEnum[] | PullRequestShaScalarFieldEnum;
+    having?: PullRequestShaScalarWhereWithAggregatesInput;
+    take?: number;
+    skip?: number;
+    _count?: PullRequestShaCountAggregateInputType | true;
+    _avg?: PullRequestShaAvgAggregateInputType;
+    _sum?: PullRequestShaSumAggregateInputType;
+    _min?: PullRequestShaMinAggregateInputType;
+    _max?: PullRequestShaMaxAggregateInputType;
+  };
+
+  export type PullRequestShaGroupByOutputType = {
+    id: number;
+    pull_request_id: number;
+    sha: string;
+    first_observed_at: Date;
+    last_observed_at: Date;
+    _count: PullRequestShaCountAggregateOutputType | null;
+    _avg: PullRequestShaAvgAggregateOutputType | null;
+    _sum: PullRequestShaSumAggregateOutputType | null;
+    _min: PullRequestShaMinAggregateOutputType | null;
+    _max: PullRequestShaMaxAggregateOutputType | null;
+  };
+
+  type GetPullRequestShaGroupByPayload<T extends PullRequestShaGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<PullRequestShaGroupByOutputType, T['by']> & {
+        [P in keyof T & keyof PullRequestShaGroupByOutputType]: P extends '_count'
+          ? T[P] extends boolean
+            ? number
+            : GetScalarType<T[P], PullRequestShaGroupByOutputType[P]>
+          : GetScalarType<T[P], PullRequestShaGroupByOutputType[P]>;
+      }
+    >
+  >;
+
+  export type PullRequestShaSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      pull_request_id?: boolean;
+      sha?: boolean;
+      first_observed_at?: boolean;
+      last_observed_at?: boolean;
+      pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+    },
+    ExtArgs['result']['pullRequestSha']
+  >;
+
+  export type PullRequestShaSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      pull_request_id?: boolean;
+      sha?: boolean;
+      first_observed_at?: boolean;
+      last_observed_at?: boolean;
+      pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+    },
+    ExtArgs['result']['pullRequestSha']
+  >;
+
+  export type PullRequestShaSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<
+    {
+      id?: boolean;
+      pull_request_id?: boolean;
+      sha?: boolean;
+      first_observed_at?: boolean;
+      last_observed_at?: boolean;
+      pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+    },
+    ExtArgs['result']['pullRequestSha']
+  >;
+
+  export type PullRequestShaSelectScalar = {
+    id?: boolean;
+    pull_request_id?: boolean;
+    sha?: boolean;
+    first_observed_at?: boolean;
+    last_observed_at?: boolean;
+  };
+
+  export type PullRequestShaOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<
+    'id' | 'pull_request_id' | 'sha' | 'first_observed_at' | 'last_observed_at',
+    ExtArgs['result']['pullRequestSha']
+  >;
+  export type PullRequestShaInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+  };
+  export type PullRequestShaIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+  };
+  export type PullRequestShaIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    pullRequest?: boolean | PullRequestDefaultArgs<ExtArgs>;
+  };
+
+  export type $PullRequestShaPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: 'PullRequestSha';
+    objects: {
+      pullRequest: Prisma.$PullRequestPayload<ExtArgs>;
+    };
+    scalars: $Extensions.GetPayloadResult<
+      {
+        id: number;
+        pull_request_id: number;
+        /**
+         * Max 40 (git sha).
+         */
+        sha: string;
+        first_observed_at: Date;
+        last_observed_at: Date;
+      },
+      ExtArgs['result']['pullRequestSha']
+    >;
+    composites: {};
+  };
+
+  type PullRequestShaGetPayload<S extends boolean | null | undefined | PullRequestShaDefaultArgs> = $Result.GetResult<Prisma.$PullRequestShaPayload, S>;
+
+  type PullRequestShaCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = Omit<
+    PullRequestShaFindManyArgs,
+    'select' | 'include' | 'distinct' | 'omit'
+  > & {
+    select?: PullRequestShaCountAggregateInputType | true;
+  };
+
+  export interface PullRequestShaDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['PullRequestSha']; meta: { name: 'PullRequestSha' } };
+    /**
+     * Find zero or one PullRequestSha that matches the filter.
+     * @param {PullRequestShaFindUniqueArgs} args - Arguments to find a PullRequestSha
+     * @example
+     * // Get one PullRequestSha
+     * const pullRequestSha = await prisma.pullRequestSha.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends PullRequestShaFindUniqueArgs>(
+      args: SelectSubset<T, PullRequestShaFindUniqueArgs<ExtArgs>>,
+    ): Prisma__PullRequestShaClient<
+      $Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'findUnique', GlobalOmitOptions> | null,
+      null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find one PullRequestSha that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {PullRequestShaFindUniqueOrThrowArgs} args - Arguments to find a PullRequestSha
+     * @example
+     * // Get one PullRequestSha
+     * const pullRequestSha = await prisma.pullRequestSha.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends PullRequestShaFindUniqueOrThrowArgs>(
+      args: SelectSubset<T, PullRequestShaFindUniqueOrThrowArgs<ExtArgs>>,
+    ): Prisma__PullRequestShaClient<
+      $Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'findUniqueOrThrow', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find the first PullRequestSha that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PullRequestShaFindFirstArgs} args - Arguments to find a PullRequestSha
+     * @example
+     * // Get one PullRequestSha
+     * const pullRequestSha = await prisma.pullRequestSha.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends PullRequestShaFindFirstArgs>(
+      args?: SelectSubset<T, PullRequestShaFindFirstArgs<ExtArgs>>,
+    ): Prisma__PullRequestShaClient<
+      $Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'findFirst', GlobalOmitOptions> | null,
+      null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find the first PullRequestSha that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PullRequestShaFindFirstOrThrowArgs} args - Arguments to find a PullRequestSha
+     * @example
+     * // Get one PullRequestSha
+     * const pullRequestSha = await prisma.pullRequestSha.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends PullRequestShaFindFirstOrThrowArgs>(
+      args?: SelectSubset<T, PullRequestShaFindFirstOrThrowArgs<ExtArgs>>,
+    ): Prisma__PullRequestShaClient<
+      $Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'findFirstOrThrow', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Find zero or more PullRequestShas that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PullRequestShaFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all PullRequestShas
+     * const pullRequestShas = await prisma.pullRequestSha.findMany()
+     *
+     * // Get first 10 PullRequestShas
+     * const pullRequestShas = await prisma.pullRequestSha.findMany({ take: 10 })
+     *
+     * // Only select the `id`
+     * const pullRequestShaWithIdOnly = await prisma.pullRequestSha.findMany({ select: { id: true } })
+     *
+     */
+    findMany<T extends PullRequestShaFindManyArgs>(
+      args?: SelectSubset<T, PullRequestShaFindManyArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'findMany', GlobalOmitOptions>>;
+
+    /**
+     * Create a PullRequestSha.
+     * @param {PullRequestShaCreateArgs} args - Arguments to create a PullRequestSha.
+     * @example
+     * // Create one PullRequestSha
+     * const PullRequestSha = await prisma.pullRequestSha.create({
+     *   data: {
+     *     // ... data to create a PullRequestSha
+     *   }
+     * })
+     *
+     */
+    create<T extends PullRequestShaCreateArgs>(
+      args: SelectSubset<T, PullRequestShaCreateArgs<ExtArgs>>,
+    ): Prisma__PullRequestShaClient<
+      $Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'create', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Create many PullRequestShas.
+     * @param {PullRequestShaCreateManyArgs} args - Arguments to create many PullRequestShas.
+     * @example
+     * // Create many PullRequestShas
+     * const pullRequestSha = await prisma.pullRequestSha.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     */
+    createMany<T extends PullRequestShaCreateManyArgs>(args?: SelectSubset<T, PullRequestShaCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Create many PullRequestShas and returns the data saved in the database.
+     * @param {PullRequestShaCreateManyAndReturnArgs} args - Arguments to create many PullRequestShas.
+     * @example
+     * // Create many PullRequestShas
+     * const pullRequestSha = await prisma.pullRequestSha.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     * // Create many PullRequestShas and only return the `id`
+     * const pullRequestShaWithIdOnly = await prisma.pullRequestSha.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     *
+     */
+    createManyAndReturn<T extends PullRequestShaCreateManyAndReturnArgs>(
+      args?: SelectSubset<T, PullRequestShaCreateManyAndReturnArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'createManyAndReturn', GlobalOmitOptions>>;
+
+    /**
+     * Delete a PullRequestSha.
+     * @param {PullRequestShaDeleteArgs} args - Arguments to delete one PullRequestSha.
+     * @example
+     * // Delete one PullRequestSha
+     * const PullRequestSha = await prisma.pullRequestSha.delete({
+     *   where: {
+     *     // ... filter to delete one PullRequestSha
+     *   }
+     * })
+     *
+     */
+    delete<T extends PullRequestShaDeleteArgs>(
+      args: SelectSubset<T, PullRequestShaDeleteArgs<ExtArgs>>,
+    ): Prisma__PullRequestShaClient<
+      $Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'delete', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Update one PullRequestSha.
+     * @param {PullRequestShaUpdateArgs} args - Arguments to update one PullRequestSha.
+     * @example
+     * // Update one PullRequestSha
+     * const pullRequestSha = await prisma.pullRequestSha.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     *
+     */
+    update<T extends PullRequestShaUpdateArgs>(
+      args: SelectSubset<T, PullRequestShaUpdateArgs<ExtArgs>>,
+    ): Prisma__PullRequestShaClient<
+      $Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'update', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Delete zero or more PullRequestShas.
+     * @param {PullRequestShaDeleteManyArgs} args - Arguments to filter PullRequestShas to delete.
+     * @example
+     * // Delete a few PullRequestShas
+     * const { count } = await prisma.pullRequestSha.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     *
+     */
+    deleteMany<T extends PullRequestShaDeleteManyArgs>(args?: SelectSubset<T, PullRequestShaDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Update zero or more PullRequestShas.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PullRequestShaUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many PullRequestShas
+     * const pullRequestSha = await prisma.pullRequestSha.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     *
+     */
+    updateMany<T extends PullRequestShaUpdateManyArgs>(args: SelectSubset<T, PullRequestShaUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>;
+
+    /**
+     * Update zero or more PullRequestShas and returns the data updated in the database.
+     * @param {PullRequestShaUpdateManyAndReturnArgs} args - Arguments to update many PullRequestShas.
+     * @example
+     * // Update many PullRequestShas
+     * const pullRequestSha = await prisma.pullRequestSha.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *
+     * // Update zero or more PullRequestShas and only return the `id`
+     * const pullRequestShaWithIdOnly = await prisma.pullRequestSha.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     *
+     */
+    updateManyAndReturn<T extends PullRequestShaUpdateManyAndReturnArgs>(
+      args: SelectSubset<T, PullRequestShaUpdateManyAndReturnArgs<ExtArgs>>,
+    ): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'updateManyAndReturn', GlobalOmitOptions>>;
+
+    /**
+     * Create or update one PullRequestSha.
+     * @param {PullRequestShaUpsertArgs} args - Arguments to update or create a PullRequestSha.
+     * @example
+     * // Update or create a PullRequestSha
+     * const pullRequestSha = await prisma.pullRequestSha.upsert({
+     *   create: {
+     *     // ... data to create a PullRequestSha
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the PullRequestSha we want to update
+     *   }
+     * })
+     */
+    upsert<T extends PullRequestShaUpsertArgs>(
+      args: SelectSubset<T, PullRequestShaUpsertArgs<ExtArgs>>,
+    ): Prisma__PullRequestShaClient<
+      $Result.GetResult<Prisma.$PullRequestShaPayload<ExtArgs>, T, 'upsert', GlobalOmitOptions>,
+      never,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+
+    /**
+     * Count the number of PullRequestShas.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PullRequestShaCountArgs} args - Arguments to filter PullRequestShas to count.
+     * @example
+     * // Count the number of PullRequestShas
+     * const count = await prisma.pullRequestSha.count({
+     *   where: {
+     *     // ... the filter for the PullRequestShas we want to count
+     *   }
+     * })
+     **/
+    count<T extends PullRequestShaCountArgs>(
+      args?: Subset<T, PullRequestShaCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any> ? (T['select'] extends true ? number : GetScalarType<T['select'], PullRequestShaCountAggregateOutputType>) : number
+    >;
+
+    /**
+     * Allows you to perform aggregations operations on a PullRequestSha.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PullRequestShaAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+     **/
+    aggregate<T extends PullRequestShaAggregateArgs>(args: Subset<T, PullRequestShaAggregateArgs>): Prisma.PrismaPromise<GetPullRequestShaAggregateType<T>>;
+
+    /**
+     * Group by PullRequestSha.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PullRequestShaGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     *
+     **/
+    groupBy<
+      T extends PullRequestShaGroupByArgs,
+      HasSelectOrTake extends Or<Extends<'skip', Keys<T>>, Extends<'take', Keys<T>>>,
+      OrderByArg extends (True extends HasSelectOrTake
+        ? { orderBy: PullRequestShaGroupByArgs['orderBy'] }
+        : { orderBy?: PullRequestShaGroupByArgs['orderBy'] }),
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends (T['by'] extends never[] ? True : False),
+      InputErrors extends (ByEmpty extends True
+        ? `Error: "by" must not be empty.`
+        : HavingValid extends False
+          ? {
+              [P in HavingFields]: P extends ByFields
+                ? never
+                : P extends string
+                  ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+                  : [Error, 'Field ', P, ` in "having" needs to be provided in "by"`];
+            }[HavingFields]
+          : 'take' extends Keys<T>
+            ? 'orderBy' extends Keys<T>
+              ? ByValid extends True
+                ? {}
+                : {
+                    [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                  }[OrderFields]
+              : 'Error: If you provide "take", you also need to provide "orderBy"'
+            : 'skip' extends Keys<T>
+              ? 'orderBy' extends Keys<T>
+                ? ByValid extends True
+                  ? {}
+                  : {
+                      [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                    }[OrderFields]
+                : 'Error: If you provide "skip", you also need to provide "orderBy"'
+              : ByValid extends True
+                ? {}
+                : {
+                    [P in OrderFields]: P extends ByFields ? never : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`;
+                  }[OrderFields]),
+    >(
+      args: SubsetIntersection<T, PullRequestShaGroupByArgs, OrderByArg> & InputErrors,
+    ): {} extends InputErrors ? GetPullRequestShaGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>;
+    /**
+     * Fields of the PullRequestSha model
+     */
+    readonly fields: PullRequestShaFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for PullRequestSha.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__PullRequestShaClient<
+    T,
+    Null = never,
+    ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs,
+    GlobalOmitOptions = {},
+  > extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: 'PrismaPromise';
+    pullRequest<T extends PullRequestDefaultArgs<ExtArgs> = {}>(
+      args?: Subset<T, PullRequestDefaultArgs<ExtArgs>>,
+    ): Prisma__PullRequestClient<
+      $Result.GetResult<Prisma.$PullRequestPayload<ExtArgs>, T, 'findUniqueOrThrow', GlobalOmitOptions> | Null,
+      Null,
+      ExtArgs,
+      GlobalOmitOptions
+    >;
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(
+      onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+      onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null,
+    ): $Utils.JsPromise<TResult1 | TResult2>;
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>;
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>;
+  }
+
+  /**
+   * Fields of the PullRequestSha model
+   */
+  interface PullRequestShaFieldRefs {
+    readonly id: FieldRef<'PullRequestSha', 'Int'>;
+    readonly pull_request_id: FieldRef<'PullRequestSha', 'Int'>;
+    readonly sha: FieldRef<'PullRequestSha', 'String'>;
+    readonly first_observed_at: FieldRef<'PullRequestSha', 'DateTime'>;
+    readonly last_observed_at: FieldRef<'PullRequestSha', 'DateTime'>;
+  }
+
+  // Custom InputTypes
+  /**
+   * PullRequestSha findUnique
+   */
+  export type PullRequestShaFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * Filter, which PullRequestSha to fetch.
+     */
+    where: PullRequestShaWhereUniqueInput;
+  };
+
+  /**
+   * PullRequestSha findUniqueOrThrow
+   */
+  export type PullRequestShaFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * Filter, which PullRequestSha to fetch.
+     */
+    where: PullRequestShaWhereUniqueInput;
+  };
+
+  /**
+   * PullRequestSha findFirst
+   */
+  export type PullRequestShaFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * Filter, which PullRequestSha to fetch.
+     */
+    where?: PullRequestShaWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of PullRequestShas to fetch.
+     */
+    orderBy?: PullRequestShaOrderByWithRelationInput | PullRequestShaOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for searching for PullRequestShas.
+     */
+    cursor?: PullRequestShaWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` PullRequestShas from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` PullRequestShas.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of PullRequestShas.
+     */
+    distinct?: PullRequestShaScalarFieldEnum | PullRequestShaScalarFieldEnum[];
+  };
+
+  /**
+   * PullRequestSha findFirstOrThrow
+   */
+  export type PullRequestShaFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * Filter, which PullRequestSha to fetch.
+     */
+    where?: PullRequestShaWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of PullRequestShas to fetch.
+     */
+    orderBy?: PullRequestShaOrderByWithRelationInput | PullRequestShaOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for searching for PullRequestShas.
+     */
+    cursor?: PullRequestShaWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` PullRequestShas from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` PullRequestShas.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of PullRequestShas.
+     */
+    distinct?: PullRequestShaScalarFieldEnum | PullRequestShaScalarFieldEnum[];
+  };
+
+  /**
+   * PullRequestSha findMany
+   */
+  export type PullRequestShaFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * Filter, which PullRequestShas to fetch.
+     */
+    where?: PullRequestShaWhereInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     *
+     * Determine the order of PullRequestShas to fetch.
+     */
+    orderBy?: PullRequestShaOrderByWithRelationInput | PullRequestShaOrderByWithRelationInput[];
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     *
+     * Sets the position for listing PullRequestShas.
+     */
+    cursor?: PullRequestShaWhereUniqueInput;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Take `±n` PullRequestShas from the position of the cursor.
+     */
+    take?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     *
+     * Skip the first `n` PullRequestShas.
+     */
+    skip?: number;
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     *
+     * Filter by unique combinations of PullRequestShas.
+     */
+    distinct?: PullRequestShaScalarFieldEnum | PullRequestShaScalarFieldEnum[];
+  };
+
+  /**
+   * PullRequestSha create
+   */
+  export type PullRequestShaCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * The data needed to create a PullRequestSha.
+     */
+    data: XOR<PullRequestShaCreateInput, PullRequestShaUncheckedCreateInput>;
+  };
+
+  /**
+   * PullRequestSha createMany
+   */
+  export type PullRequestShaCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many PullRequestShas.
+     */
+    data: PullRequestShaCreateManyInput | PullRequestShaCreateManyInput[];
+  };
+
+  /**
+   * PullRequestSha createManyAndReturn
+   */
+  export type PullRequestShaCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelectCreateManyAndReturn<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * The data used to create many PullRequestShas.
+     */
+    data: PullRequestShaCreateManyInput | PullRequestShaCreateManyInput[];
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaIncludeCreateManyAndReturn<ExtArgs> | null;
+  };
+
+  /**
+   * PullRequestSha update
+   */
+  export type PullRequestShaUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * The data needed to update a PullRequestSha.
+     */
+    data: XOR<PullRequestShaUpdateInput, PullRequestShaUncheckedUpdateInput>;
+    /**
+     * Choose, which PullRequestSha to update.
+     */
+    where: PullRequestShaWhereUniqueInput;
+  };
+
+  /**
+   * PullRequestSha updateMany
+   */
+  export type PullRequestShaUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update PullRequestShas.
+     */
+    data: XOR<PullRequestShaUpdateManyMutationInput, PullRequestShaUncheckedUpdateManyInput>;
+    /**
+     * Filter which PullRequestShas to update
+     */
+    where?: PullRequestShaWhereInput;
+    /**
+     * Limit how many PullRequestShas to update.
+     */
+    limit?: number;
+  };
+
+  /**
+   * PullRequestSha updateManyAndReturn
+   */
+  export type PullRequestShaUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelectUpdateManyAndReturn<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * The data used to update PullRequestShas.
+     */
+    data: XOR<PullRequestShaUpdateManyMutationInput, PullRequestShaUncheckedUpdateManyInput>;
+    /**
+     * Filter which PullRequestShas to update
+     */
+    where?: PullRequestShaWhereInput;
+    /**
+     * Limit how many PullRequestShas to update.
+     */
+    limit?: number;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaIncludeUpdateManyAndReturn<ExtArgs> | null;
+  };
+
+  /**
+   * PullRequestSha upsert
+   */
+  export type PullRequestShaUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * The filter to search for the PullRequestSha to update in case it exists.
+     */
+    where: PullRequestShaWhereUniqueInput;
+    /**
+     * In case the PullRequestSha found by the `where` argument doesn't exist, create a new PullRequestSha with this data.
+     */
+    create: XOR<PullRequestShaCreateInput, PullRequestShaUncheckedCreateInput>;
+    /**
+     * In case the PullRequestSha was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<PullRequestShaUpdateInput, PullRequestShaUncheckedUpdateInput>;
+  };
+
+  /**
+   * PullRequestSha delete
+   */
+  export type PullRequestShaDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
+    /**
+     * Filter which PullRequestSha to delete.
+     */
+    where: PullRequestShaWhereUniqueInput;
+  };
+
+  /**
+   * PullRequestSha deleteMany
+   */
+  export type PullRequestShaDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which PullRequestShas to delete
+     */
+    where?: PullRequestShaWhereInput;
+    /**
+     * Limit how many PullRequestShas to delete.
+     */
+    limit?: number;
+  };
+
+  /**
+   * PullRequestSha without action
+   */
+  export type PullRequestShaDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the PullRequestSha
+     */
+    select?: PullRequestShaSelect<ExtArgs> | null;
+    /**
+     * Omit specific fields from the PullRequestSha
+     */
+    omit?: PullRequestShaOmit<ExtArgs> | null;
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: PullRequestShaInclude<ExtArgs> | null;
   };
 
   /**
@@ -2861,6 +4210,7 @@ export namespace Prisma {
     retrigger_skip_count: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
+    source_comment_run_id: string | null;
     trigger_source: string | null;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
@@ -2888,6 +4238,7 @@ export namespace Prisma {
     retrigger_skip_count: number | null;
     source_comment_url: string | null;
     source_comment_id: number | null;
+    source_comment_run_id: string | null;
     trigger_source: string | null;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
@@ -2915,6 +4266,7 @@ export namespace Prisma {
     retrigger_skip_count: number;
     source_comment_url: number;
     source_comment_id: number;
+    source_comment_run_id: number;
     trigger_source: number;
     original_source_comment_url: number;
     retrigger_comment_url: number;
@@ -2961,6 +4313,7 @@ export namespace Prisma {
     retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
+    source_comment_run_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
@@ -2988,6 +4341,7 @@ export namespace Prisma {
     retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
+    source_comment_run_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
@@ -3015,6 +4369,7 @@ export namespace Prisma {
     retrigger_skip_count?: true;
     source_comment_url?: true;
     source_comment_id?: true;
+    source_comment_run_id?: true;
     trigger_source?: true;
     original_source_comment_url?: true;
     retrigger_comment_url?: true;
@@ -3126,6 +4481,7 @@ export namespace Prisma {
     retrigger_skip_count: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id: string | null;
     trigger_source: string;
     original_source_comment_url: string | null;
     retrigger_comment_url: string | null;
@@ -3171,6 +4527,7 @@ export namespace Prisma {
       retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
+      source_comment_run_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
@@ -3203,6 +4560,7 @@ export namespace Prisma {
       retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
+      source_comment_run_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
@@ -3234,6 +4592,7 @@ export namespace Prisma {
       retrigger_skip_count?: boolean;
       source_comment_url?: boolean;
       source_comment_id?: boolean;
+      source_comment_run_id?: boolean;
       trigger_source?: boolean;
       original_source_comment_url?: boolean;
       retrigger_comment_url?: boolean;
@@ -3264,6 +4623,7 @@ export namespace Prisma {
     retrigger_skip_count?: boolean;
     source_comment_url?: boolean;
     source_comment_id?: boolean;
+    source_comment_run_id?: boolean;
     trigger_source?: boolean;
     original_source_comment_url?: boolean;
     retrigger_comment_url?: boolean;
@@ -3291,6 +4651,7 @@ export namespace Prisma {
     | 'retrigger_skip_count'
     | 'source_comment_url'
     | 'source_comment_id'
+    | 'source_comment_run_id'
     | 'trigger_source'
     | 'original_source_comment_url'
     | 'retrigger_comment_url'
@@ -3366,6 +4727,10 @@ export namespace Prisma {
          * Numeric comment ID extracted from source_comment_url at enqueue time.
          */
         source_comment_id: number;
+        /**
+         * Max 75. CodeRabbit's per-comment Run ID adopted at enqueue/retrigger time, so review matching can reject reviews from earlier runs. CHECK in the 20260820 migration.
+         */
+        source_comment_run_id: string | null;
         /**
          * Max 25; one of 'dashboard_retrigger_now' | 'scheduler' (CHECK in the add_trigger_source_check migration).
          */
@@ -3873,6 +5238,7 @@ export namespace Prisma {
     readonly retrigger_skip_count: FieldRef<'ReviewQueue', 'Int'>;
     readonly source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly source_comment_id: FieldRef<'ReviewQueue', 'Int'>;
+    readonly source_comment_run_id: FieldRef<'ReviewQueue', 'String'>;
     readonly trigger_source: FieldRef<'ReviewQueue', 'String'>;
     readonly original_source_comment_url: FieldRef<'ReviewQueue', 'String'>;
     readonly retrigger_comment_url: FieldRef<'ReviewQueue', 'String'>;
@@ -6775,6 +8141,7 @@ export namespace Prisma {
     url: string | null;
     comment_type: string | null;
     last_body_preview: string | null;
+    coderabbit_run_id: string | null;
     gh_created_at: Date | null;
     gh_updated_at: Date | null;
     first_seen_at: Date | null;
@@ -6793,6 +8160,7 @@ export namespace Prisma {
     url: string | null;
     comment_type: string | null;
     last_body_preview: string | null;
+    coderabbit_run_id: string | null;
     gh_created_at: Date | null;
     gh_updated_at: Date | null;
     first_seen_at: Date | null;
@@ -6811,6 +8179,7 @@ export namespace Prisma {
     url: number;
     comment_type: number;
     last_body_preview: number;
+    coderabbit_run_id: number;
     gh_created_at: number;
     gh_updated_at: number;
     first_seen_at: number;
@@ -6842,6 +8211,7 @@ export namespace Prisma {
     url?: true;
     comment_type?: true;
     last_body_preview?: true;
+    coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
     first_seen_at?: true;
@@ -6860,6 +8230,7 @@ export namespace Prisma {
     url?: true;
     comment_type?: true;
     last_body_preview?: true;
+    coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
     first_seen_at?: true;
@@ -6878,6 +8249,7 @@ export namespace Prisma {
     url?: true;
     comment_type?: true;
     last_body_preview?: true;
+    coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
     first_seen_at?: true;
@@ -6980,6 +8352,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview: string | null;
+    coderabbit_run_id: string | null;
     gh_created_at: Date;
     gh_updated_at: Date;
     first_seen_at: Date;
@@ -7016,6 +8389,7 @@ export namespace Prisma {
       url?: boolean;
       comment_type?: boolean;
       last_body_preview?: boolean;
+      coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
       first_seen_at?: boolean;
@@ -7038,6 +8412,7 @@ export namespace Prisma {
       url?: boolean;
       comment_type?: boolean;
       last_body_preview?: boolean;
+      coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
       first_seen_at?: boolean;
@@ -7060,6 +8435,7 @@ export namespace Prisma {
       url?: boolean;
       comment_type?: boolean;
       last_body_preview?: boolean;
+      coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
       first_seen_at?: boolean;
@@ -7081,6 +8457,7 @@ export namespace Prisma {
     url?: boolean;
     comment_type?: boolean;
     last_body_preview?: boolean;
+    coderabbit_run_id?: boolean;
     gh_created_at?: boolean;
     gh_updated_at?: boolean;
     first_seen_at?: boolean;
@@ -7099,6 +8476,7 @@ export namespace Prisma {
     | 'url'
     | 'comment_type'
     | 'last_body_preview'
+    | 'coderabbit_run_id'
     | 'gh_created_at'
     | 'gh_updated_at'
     | 'first_seen_at'
@@ -7139,13 +8517,17 @@ export namespace Prisma {
          */
         url: string;
         /**
-         * One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' (CHECK in migration).
+         * One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
          */
         comment_type: string;
         /**
          * Max 1024. First N chars of the comment body, truncated by the repository on upsert.
          */
         last_body_preview: string | null;
+        /**
+         * Max 75. CodeRabbit's per-comment Run ID from the '**Run ID**: ' line in the body; distinct from our own runId (generateRunId in ReviewTrigger). CHECK in the 20260820 migration.
+         */
+        coderabbit_run_id: string | null;
         gh_created_at: Date;
         gh_updated_at: Date;
         first_seen_at: Date;
@@ -7655,6 +9037,7 @@ export namespace Prisma {
     readonly url: FieldRef<'CoderabbitComment', 'String'>;
     readonly comment_type: FieldRef<'CoderabbitComment', 'String'>;
     readonly last_body_preview: FieldRef<'CoderabbitComment', 'String'>;
+    readonly coderabbit_run_id: FieldRef<'CoderabbitComment', 'String'>;
     readonly gh_created_at: FieldRef<'CoderabbitComment', 'DateTime'>;
     readonly gh_updated_at: FieldRef<'CoderabbitComment', 'DateTime'>;
     readonly first_seen_at: FieldRef<'CoderabbitComment', 'DateTime'>;
@@ -9192,6 +10575,9 @@ export namespace Prisma {
     last_review_url: 'last_review_url';
     last_review_state: 'last_review_state';
     last_coderabbit_acknowledged_at: 'last_coderabbit_acknowledged_at';
+    head_sha: 'head_sha';
+    reviewed_head_sha: 'reviewed_head_sha';
+    head_committed_at: 'head_committed_at';
     retrigger_count: 'retrigger_count';
     review_count: 'review_count';
     created_at: 'created_at';
@@ -9199,6 +10585,16 @@ export namespace Prisma {
   };
 
   export type PullRequestScalarFieldEnum = (typeof PullRequestScalarFieldEnum)[keyof typeof PullRequestScalarFieldEnum];
+
+  export const PullRequestShaScalarFieldEnum: {
+    id: 'id';
+    pull_request_id: 'pull_request_id';
+    sha: 'sha';
+    first_observed_at: 'first_observed_at';
+    last_observed_at: 'last_observed_at';
+  };
+
+  export type PullRequestShaScalarFieldEnum = (typeof PullRequestShaScalarFieldEnum)[keyof typeof PullRequestShaScalarFieldEnum];
 
   export const ReviewQueueScalarFieldEnum: {
     id: 'id';
@@ -9216,6 +10612,7 @@ export namespace Prisma {
     retrigger_skip_count: 'retrigger_skip_count';
     source_comment_url: 'source_comment_url';
     source_comment_id: 'source_comment_id';
+    source_comment_run_id: 'source_comment_run_id';
     trigger_source: 'trigger_source';
     original_source_comment_url: 'original_source_comment_url';
     retrigger_comment_url: 'retrigger_comment_url';
@@ -9264,6 +10661,7 @@ export namespace Prisma {
     url: 'url';
     comment_type: 'comment_type';
     last_body_preview: 'last_body_preview';
+    coderabbit_run_id: 'coderabbit_run_id';
     gh_created_at: 'gh_created_at';
     gh_updated_at: 'gh_updated_at';
     first_seen_at: 'first_seen_at';
@@ -9355,6 +10753,9 @@ export namespace Prisma {
     last_review_url?: StringNullableFilter<'PullRequest'> | string | null;
     last_review_state?: StringNullableFilter<'PullRequest'> | string | null;
     last_coderabbit_acknowledged_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
+    head_sha?: StringNullableFilter<'PullRequest'> | string | null;
+    reviewed_head_sha?: StringNullableFilter<'PullRequest'> | string | null;
+    head_committed_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
     retrigger_count?: IntFilter<'PullRequest'> | number;
     review_count?: IntFilter<'PullRequest'> | number;
     created_at?: DateTimeFilter<'PullRequest'> | Date | string;
@@ -9362,6 +10763,7 @@ export namespace Prisma {
     queueItems?: ReviewQueueListRelationFilter;
     events?: EventListRelationFilter;
     comments?: CoderabbitCommentListRelationFilter;
+    shaHistory?: PullRequestShaListRelationFilter;
   };
 
   export type PullRequestOrderByWithRelationInput = {
@@ -9382,6 +10784,9 @@ export namespace Prisma {
     last_review_url?: SortOrderInput | SortOrder;
     last_review_state?: SortOrderInput | SortOrder;
     last_coderabbit_acknowledged_at?: SortOrderInput | SortOrder;
+    head_sha?: SortOrderInput | SortOrder;
+    reviewed_head_sha?: SortOrderInput | SortOrder;
+    head_committed_at?: SortOrderInput | SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
     created_at?: SortOrder;
@@ -9389,6 +10794,7 @@ export namespace Prisma {
     queueItems?: ReviewQueueOrderByRelationAggregateInput;
     events?: EventOrderByRelationAggregateInput;
     comments?: CoderabbitCommentOrderByRelationAggregateInput;
+    shaHistory?: PullRequestShaOrderByRelationAggregateInput;
   };
 
   export type PullRequestWhereUniqueInput = Prisma.AtLeast<
@@ -9414,6 +10820,9 @@ export namespace Prisma {
       last_review_url?: StringNullableFilter<'PullRequest'> | string | null;
       last_review_state?: StringNullableFilter<'PullRequest'> | string | null;
       last_coderabbit_acknowledged_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
+      head_sha?: StringNullableFilter<'PullRequest'> | string | null;
+      reviewed_head_sha?: StringNullableFilter<'PullRequest'> | string | null;
+      head_committed_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
       retrigger_count?: IntFilter<'PullRequest'> | number;
       review_count?: IntFilter<'PullRequest'> | number;
       created_at?: DateTimeFilter<'PullRequest'> | Date | string;
@@ -9421,6 +10830,7 @@ export namespace Prisma {
       queueItems?: ReviewQueueListRelationFilter;
       events?: EventListRelationFilter;
       comments?: CoderabbitCommentListRelationFilter;
+      shaHistory?: PullRequestShaListRelationFilter;
     },
     'id' | 'uuid' | 'repo_full_name_pr_number'
   >;
@@ -9443,6 +10853,9 @@ export namespace Prisma {
     last_review_url?: SortOrderInput | SortOrder;
     last_review_state?: SortOrderInput | SortOrder;
     last_coderabbit_acknowledged_at?: SortOrderInput | SortOrder;
+    head_sha?: SortOrderInput | SortOrder;
+    reviewed_head_sha?: SortOrderInput | SortOrder;
+    head_committed_at?: SortOrderInput | SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
     created_at?: SortOrder;
@@ -9475,10 +10888,74 @@ export namespace Prisma {
     last_review_url?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
     last_review_state?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
     last_coderabbit_acknowledged_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
+    head_sha?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
+    reviewed_head_sha?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
+    head_committed_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
     retrigger_count?: IntWithAggregatesFilter<'PullRequest'> | number;
     review_count?: IntWithAggregatesFilter<'PullRequest'> | number;
     created_at?: DateTimeWithAggregatesFilter<'PullRequest'> | Date | string;
     updated_at?: DateTimeWithAggregatesFilter<'PullRequest'> | Date | string;
+  };
+
+  export type PullRequestShaWhereInput = {
+    AND?: PullRequestShaWhereInput | PullRequestShaWhereInput[];
+    OR?: PullRequestShaWhereInput[];
+    NOT?: PullRequestShaWhereInput | PullRequestShaWhereInput[];
+    id?: IntFilter<'PullRequestSha'> | number;
+    pull_request_id?: IntFilter<'PullRequestSha'> | number;
+    sha?: StringFilter<'PullRequestSha'> | string;
+    first_observed_at?: DateTimeFilter<'PullRequestSha'> | Date | string;
+    last_observed_at?: DateTimeFilter<'PullRequestSha'> | Date | string;
+    pullRequest?: XOR<PullRequestScalarRelationFilter, PullRequestWhereInput>;
+  };
+
+  export type PullRequestShaOrderByWithRelationInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+    sha?: SortOrder;
+    first_observed_at?: SortOrder;
+    last_observed_at?: SortOrder;
+    pullRequest?: PullRequestOrderByWithRelationInput;
+  };
+
+  export type PullRequestShaWhereUniqueInput = Prisma.AtLeast<
+    {
+      id?: number;
+      pull_request_id_sha?: PullRequestShaPull_request_idShaCompoundUniqueInput;
+      AND?: PullRequestShaWhereInput | PullRequestShaWhereInput[];
+      OR?: PullRequestShaWhereInput[];
+      NOT?: PullRequestShaWhereInput | PullRequestShaWhereInput[];
+      pull_request_id?: IntFilter<'PullRequestSha'> | number;
+      sha?: StringFilter<'PullRequestSha'> | string;
+      first_observed_at?: DateTimeFilter<'PullRequestSha'> | Date | string;
+      last_observed_at?: DateTimeFilter<'PullRequestSha'> | Date | string;
+      pullRequest?: XOR<PullRequestScalarRelationFilter, PullRequestWhereInput>;
+    },
+    'id' | 'pull_request_id_sha'
+  >;
+
+  export type PullRequestShaOrderByWithAggregationInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+    sha?: SortOrder;
+    first_observed_at?: SortOrder;
+    last_observed_at?: SortOrder;
+    _count?: PullRequestShaCountOrderByAggregateInput;
+    _avg?: PullRequestShaAvgOrderByAggregateInput;
+    _max?: PullRequestShaMaxOrderByAggregateInput;
+    _min?: PullRequestShaMinOrderByAggregateInput;
+    _sum?: PullRequestShaSumOrderByAggregateInput;
+  };
+
+  export type PullRequestShaScalarWhereWithAggregatesInput = {
+    AND?: PullRequestShaScalarWhereWithAggregatesInput | PullRequestShaScalarWhereWithAggregatesInput[];
+    OR?: PullRequestShaScalarWhereWithAggregatesInput[];
+    NOT?: PullRequestShaScalarWhereWithAggregatesInput | PullRequestShaScalarWhereWithAggregatesInput[];
+    id?: IntWithAggregatesFilter<'PullRequestSha'> | number;
+    pull_request_id?: IntWithAggregatesFilter<'PullRequestSha'> | number;
+    sha?: StringWithAggregatesFilter<'PullRequestSha'> | string;
+    first_observed_at?: DateTimeWithAggregatesFilter<'PullRequestSha'> | Date | string;
+    last_observed_at?: DateTimeWithAggregatesFilter<'PullRequestSha'> | Date | string;
   };
 
   export type ReviewQueueWhereInput = {
@@ -9500,6 +10977,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
+    source_comment_run_id?: StringNullableFilter<'ReviewQueue'> | string | null;
     trigger_source?: StringFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
@@ -9529,6 +11007,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrderInput | SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrderInput | SortOrder;
     retrigger_comment_url?: SortOrderInput | SortOrder;
@@ -9546,6 +11025,7 @@ export namespace Prisma {
     {
       id?: number;
       uuid?: string;
+      source_comment_id?: number;
       AND?: ReviewQueueWhereInput | ReviewQueueWhereInput[];
       OR?: ReviewQueueWhereInput[];
       NOT?: ReviewQueueWhereInput | ReviewQueueWhereInput[];
@@ -9561,7 +11041,7 @@ export namespace Prisma {
       last_skip_reason?: StringNullableFilter<'ReviewQueue'> | string | null;
       retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
       source_comment_url?: StringFilter<'ReviewQueue'> | string;
-      source_comment_id?: IntFilter<'ReviewQueue'> | number;
+      source_comment_run_id?: StringNullableFilter<'ReviewQueue'> | string | null;
       trigger_source?: StringFilter<'ReviewQueue'> | string;
       original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
       retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
@@ -9574,7 +11054,7 @@ export namespace Prisma {
       queueOrder?: XOR<QueueOrderNullableScalarRelationFilter, QueueOrderWhereInput> | null;
       pullRequest?: XOR<PullRequestNullableScalarRelationFilter, PullRequestWhereInput> | null;
     },
-    'id' | 'uuid'
+    'id' | 'uuid' | 'source_comment_id'
   >;
 
   export type ReviewQueueOrderByWithAggregationInput = {
@@ -9593,6 +11073,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrderInput | SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrderInput | SortOrder;
     retrigger_comment_url?: SortOrderInput | SortOrder;
@@ -9628,6 +11109,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntWithAggregatesFilter<'ReviewQueue'> | number;
     source_comment_url?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     source_comment_id?: IntWithAggregatesFilter<'ReviewQueue'> | number;
+    source_comment_run_id?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
     trigger_source?: StringWithAggregatesFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableWithAggregatesFilter<'ReviewQueue'> | string | null;
@@ -9805,6 +11287,7 @@ export namespace Prisma {
     url?: StringFilter<'CoderabbitComment'> | string;
     comment_type?: StringFilter<'CoderabbitComment'> | string;
     last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -9824,6 +11307,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrderInput | SortOrder;
+    coderabbit_run_id?: SortOrderInput | SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -9848,6 +11332,7 @@ export namespace Prisma {
       url?: StringFilter<'CoderabbitComment'> | string;
       comment_type?: StringFilter<'CoderabbitComment'> | string;
       last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+      coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
       gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
       gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
       first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -9869,6 +11354,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrderInput | SortOrder;
+    coderabbit_run_id?: SortOrderInput | SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -9895,6 +11381,7 @@ export namespace Prisma {
     url?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
     comment_type?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
     last_body_preview?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
+    coderabbit_run_id?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
     first_seen_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
@@ -9984,6 +11471,9 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
@@ -9991,6 +11481,7 @@ export namespace Prisma {
     queueItems?: ReviewQueueCreateNestedManyWithoutPullRequestInput;
     events?: EventCreateNestedManyWithoutPullRequestInput;
     comments?: CoderabbitCommentCreateNestedManyWithoutPullRequestInput;
+    shaHistory?: PullRequestShaCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUncheckedCreateInput = {
@@ -10011,6 +11502,9 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
@@ -10018,6 +11512,7 @@ export namespace Prisma {
     queueItems?: ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput;
     events?: EventUncheckedCreateNestedManyWithoutPullRequestInput;
     comments?: CoderabbitCommentUncheckedCreateNestedManyWithoutPullRequestInput;
+    shaHistory?: PullRequestShaUncheckedCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUpdateInput = {
@@ -10037,6 +11532,9 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10044,6 +11542,7 @@ export namespace Prisma {
     queueItems?: ReviewQueueUpdateManyWithoutPullRequestNestedInput;
     events?: EventUpdateManyWithoutPullRequestNestedInput;
     comments?: CoderabbitCommentUpdateManyWithoutPullRequestNestedInput;
+    shaHistory?: PullRequestShaUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestUncheckedUpdateInput = {
@@ -10064,6 +11563,9 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10071,6 +11573,7 @@ export namespace Prisma {
     queueItems?: ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput;
     events?: EventUncheckedUpdateManyWithoutPullRequestNestedInput;
     comments?: CoderabbitCommentUncheckedUpdateManyWithoutPullRequestNestedInput;
+    shaHistory?: PullRequestShaUncheckedUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestCreateManyInput = {
@@ -10091,6 +11594,9 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
@@ -10114,6 +11620,9 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10138,10 +11647,65 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type PullRequestShaCreateInput = {
+    sha: string;
+    first_observed_at?: Date | string;
+    last_observed_at?: Date | string;
+    pullRequest: PullRequestCreateNestedOneWithoutShaHistoryInput;
+  };
+
+  export type PullRequestShaUncheckedCreateInput = {
+    id?: number;
+    pull_request_id: number;
+    sha: string;
+    first_observed_at?: Date | string;
+    last_observed_at?: Date | string;
+  };
+
+  export type PullRequestShaUpdateInput = {
+    sha?: StringFieldUpdateOperationsInput | string;
+    first_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    pullRequest?: PullRequestUpdateOneRequiredWithoutShaHistoryNestedInput;
+  };
+
+  export type PullRequestShaUncheckedUpdateInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    pull_request_id?: IntFieldUpdateOperationsInput | number;
+    sha?: StringFieldUpdateOperationsInput | string;
+    first_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type PullRequestShaCreateManyInput = {
+    id?: number;
+    pull_request_id: number;
+    sha: string;
+    first_observed_at?: Date | string;
+    last_observed_at?: Date | string;
+  };
+
+  export type PullRequestShaUpdateManyMutationInput = {
+    sha?: StringFieldUpdateOperationsInput | string;
+    first_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type PullRequestShaUncheckedUpdateManyInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    pull_request_id?: IntFieldUpdateOperationsInput | number;
+    sha?: StringFieldUpdateOperationsInput | string;
+    first_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
 
   export type ReviewQueueCreateInput = {
@@ -10158,6 +11722,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -10187,6 +11752,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -10213,6 +11779,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -10242,6 +11809,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -10270,6 +11838,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -10295,6 +11864,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -10322,6 +11892,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -10492,6 +12063,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -10511,6 +12083,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -10527,6 +12100,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10546,6 +12120,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10564,6 +12139,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -10580,6 +12156,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10598,6 +12175,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -10750,6 +12328,12 @@ export namespace Prisma {
     none?: CoderabbitCommentWhereInput;
   };
 
+  export type PullRequestShaListRelationFilter = {
+    every?: PullRequestShaWhereInput;
+    some?: PullRequestShaWhereInput;
+    none?: PullRequestShaWhereInput;
+  };
+
   export type SortOrderInput = {
     sort: SortOrder;
     nulls?: NullsOrder;
@@ -10764,6 +12348,10 @@ export namespace Prisma {
   };
 
   export type CoderabbitCommentOrderByRelationAggregateInput = {
+    _count?: SortOrder;
+  };
+
+  export type PullRequestShaOrderByRelationAggregateInput = {
     _count?: SortOrder;
   };
 
@@ -10790,6 +12378,9 @@ export namespace Prisma {
     last_review_url?: SortOrder;
     last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
+    head_sha?: SortOrder;
+    reviewed_head_sha?: SortOrder;
+    head_committed_at?: SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
     created_at?: SortOrder;
@@ -10821,6 +12412,9 @@ export namespace Prisma {
     last_review_url?: SortOrder;
     last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
+    head_sha?: SortOrder;
+    reviewed_head_sha?: SortOrder;
+    head_committed_at?: SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
     created_at?: SortOrder;
@@ -10845,6 +12439,9 @@ export namespace Prisma {
     last_review_url?: SortOrder;
     last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
+    head_sha?: SortOrder;
+    reviewed_head_sha?: SortOrder;
+    head_committed_at?: SortOrder;
     retrigger_count?: SortOrder;
     review_count?: SortOrder;
     created_at?: SortOrder;
@@ -10936,6 +12533,50 @@ export namespace Prisma {
     _max?: NestedStringNullableFilter<$PrismaModel>;
   };
 
+  export type PullRequestScalarRelationFilter = {
+    is?: PullRequestWhereInput;
+    isNot?: PullRequestWhereInput;
+  };
+
+  export type PullRequestShaPull_request_idShaCompoundUniqueInput = {
+    pull_request_id: number;
+    sha: string;
+  };
+
+  export type PullRequestShaCountOrderByAggregateInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+    sha?: SortOrder;
+    first_observed_at?: SortOrder;
+    last_observed_at?: SortOrder;
+  };
+
+  export type PullRequestShaAvgOrderByAggregateInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+  };
+
+  export type PullRequestShaMaxOrderByAggregateInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+    sha?: SortOrder;
+    first_observed_at?: SortOrder;
+    last_observed_at?: SortOrder;
+  };
+
+  export type PullRequestShaMinOrderByAggregateInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+    sha?: SortOrder;
+    first_observed_at?: SortOrder;
+    last_observed_at?: SortOrder;
+  };
+
+  export type PullRequestShaSumOrderByAggregateInput = {
+    id?: SortOrder;
+    pull_request_id?: SortOrder;
+  };
+
   export type IntNullableFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel> | null;
     in?: number[] | null;
@@ -10973,6 +12614,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
@@ -11009,6 +12651,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
@@ -11036,6 +12679,7 @@ export namespace Prisma {
     retrigger_skip_count?: SortOrder;
     source_comment_url?: SortOrder;
     source_comment_id?: SortOrder;
+    source_comment_run_id?: SortOrder;
     trigger_source?: SortOrder;
     original_source_comment_url?: SortOrder;
     retrigger_comment_url?: SortOrder;
@@ -11175,11 +12819,6 @@ export namespace Prisma {
     not?: NestedBoolNullableFilter<$PrismaModel> | boolean | null;
   };
 
-  export type PullRequestScalarRelationFilter = {
-    is?: PullRequestWhereInput;
-    isNot?: PullRequestWhereInput;
-  };
-
   export type CoderabbitCommentComment_idIs_not_deletedCompoundUniqueInput = {
     comment_id: number;
     is_not_deleted: boolean;
@@ -11193,6 +12832,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrder;
+    coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -11217,6 +12857,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrder;
+    coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -11235,6 +12876,7 @@ export namespace Prisma {
     url?: SortOrder;
     comment_type?: SortOrder;
     last_body_preview?: SortOrder;
+    coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
     first_seen_at?: SortOrder;
@@ -11353,6 +12995,16 @@ export namespace Prisma {
     connect?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
   };
 
+  export type PullRequestShaCreateNestedManyWithoutPullRequestInput = {
+    create?:
+      | XOR<PullRequestShaCreateWithoutPullRequestInput, PullRequestShaUncheckedCreateWithoutPullRequestInput>
+      | PullRequestShaCreateWithoutPullRequestInput[]
+      | PullRequestShaUncheckedCreateWithoutPullRequestInput[];
+    connectOrCreate?: PullRequestShaCreateOrConnectWithoutPullRequestInput | PullRequestShaCreateOrConnectWithoutPullRequestInput[];
+    createMany?: PullRequestShaCreateManyPullRequestInputEnvelope;
+    connect?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+  };
+
   export type ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput = {
     create?:
       | XOR<ReviewQueueCreateWithoutPullRequestInput, ReviewQueueUncheckedCreateWithoutPullRequestInput>
@@ -11381,6 +13033,16 @@ export namespace Prisma {
     connectOrCreate?: CoderabbitCommentCreateOrConnectWithoutPullRequestInput | CoderabbitCommentCreateOrConnectWithoutPullRequestInput[];
     createMany?: CoderabbitCommentCreateManyPullRequestInputEnvelope;
     connect?: CoderabbitCommentWhereUniqueInput | CoderabbitCommentWhereUniqueInput[];
+  };
+
+  export type PullRequestShaUncheckedCreateNestedManyWithoutPullRequestInput = {
+    create?:
+      | XOR<PullRequestShaCreateWithoutPullRequestInput, PullRequestShaUncheckedCreateWithoutPullRequestInput>
+      | PullRequestShaCreateWithoutPullRequestInput[]
+      | PullRequestShaUncheckedCreateWithoutPullRequestInput[];
+    connectOrCreate?: PullRequestShaCreateOrConnectWithoutPullRequestInput | PullRequestShaCreateOrConnectWithoutPullRequestInput[];
+    createMany?: PullRequestShaCreateManyPullRequestInputEnvelope;
+    connect?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
   };
 
   export type StringFieldUpdateOperationsInput = {
@@ -11458,6 +13120,23 @@ export namespace Prisma {
     deleteMany?: CoderabbitCommentScalarWhereInput | CoderabbitCommentScalarWhereInput[];
   };
 
+  export type PullRequestShaUpdateManyWithoutPullRequestNestedInput = {
+    create?:
+      | XOR<PullRequestShaCreateWithoutPullRequestInput, PullRequestShaUncheckedCreateWithoutPullRequestInput>
+      | PullRequestShaCreateWithoutPullRequestInput[]
+      | PullRequestShaUncheckedCreateWithoutPullRequestInput[];
+    connectOrCreate?: PullRequestShaCreateOrConnectWithoutPullRequestInput | PullRequestShaCreateOrConnectWithoutPullRequestInput[];
+    upsert?: PullRequestShaUpsertWithWhereUniqueWithoutPullRequestInput | PullRequestShaUpsertWithWhereUniqueWithoutPullRequestInput[];
+    createMany?: PullRequestShaCreateManyPullRequestInputEnvelope;
+    set?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+    disconnect?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+    delete?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+    connect?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+    update?: PullRequestShaUpdateWithWhereUniqueWithoutPullRequestInput | PullRequestShaUpdateWithWhereUniqueWithoutPullRequestInput[];
+    updateMany?: PullRequestShaUpdateManyWithWhereWithoutPullRequestInput | PullRequestShaUpdateManyWithWhereWithoutPullRequestInput[];
+    deleteMany?: PullRequestShaScalarWhereInput | PullRequestShaScalarWhereInput[];
+  };
+
   export type ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput = {
     create?:
       | XOR<ReviewQueueCreateWithoutPullRequestInput, ReviewQueueUncheckedCreateWithoutPullRequestInput>
@@ -11507,6 +13186,40 @@ export namespace Prisma {
     update?: CoderabbitCommentUpdateWithWhereUniqueWithoutPullRequestInput | CoderabbitCommentUpdateWithWhereUniqueWithoutPullRequestInput[];
     updateMany?: CoderabbitCommentUpdateManyWithWhereWithoutPullRequestInput | CoderabbitCommentUpdateManyWithWhereWithoutPullRequestInput[];
     deleteMany?: CoderabbitCommentScalarWhereInput | CoderabbitCommentScalarWhereInput[];
+  };
+
+  export type PullRequestShaUncheckedUpdateManyWithoutPullRequestNestedInput = {
+    create?:
+      | XOR<PullRequestShaCreateWithoutPullRequestInput, PullRequestShaUncheckedCreateWithoutPullRequestInput>
+      | PullRequestShaCreateWithoutPullRequestInput[]
+      | PullRequestShaUncheckedCreateWithoutPullRequestInput[];
+    connectOrCreate?: PullRequestShaCreateOrConnectWithoutPullRequestInput | PullRequestShaCreateOrConnectWithoutPullRequestInput[];
+    upsert?: PullRequestShaUpsertWithWhereUniqueWithoutPullRequestInput | PullRequestShaUpsertWithWhereUniqueWithoutPullRequestInput[];
+    createMany?: PullRequestShaCreateManyPullRequestInputEnvelope;
+    set?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+    disconnect?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+    delete?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+    connect?: PullRequestShaWhereUniqueInput | PullRequestShaWhereUniqueInput[];
+    update?: PullRequestShaUpdateWithWhereUniqueWithoutPullRequestInput | PullRequestShaUpdateWithWhereUniqueWithoutPullRequestInput[];
+    updateMany?: PullRequestShaUpdateManyWithWhereWithoutPullRequestInput | PullRequestShaUpdateManyWithWhereWithoutPullRequestInput[];
+    deleteMany?: PullRequestShaScalarWhereInput | PullRequestShaScalarWhereInput[];
+  };
+
+  export type PullRequestCreateNestedOneWithoutShaHistoryInput = {
+    create?: XOR<PullRequestCreateWithoutShaHistoryInput, PullRequestUncheckedCreateWithoutShaHistoryInput>;
+    connectOrCreate?: PullRequestCreateOrConnectWithoutShaHistoryInput;
+    connect?: PullRequestWhereUniqueInput;
+  };
+
+  export type PullRequestUpdateOneRequiredWithoutShaHistoryNestedInput = {
+    create?: XOR<PullRequestCreateWithoutShaHistoryInput, PullRequestUncheckedCreateWithoutShaHistoryInput>;
+    connectOrCreate?: PullRequestCreateOrConnectWithoutShaHistoryInput;
+    upsert?: PullRequestUpsertWithoutShaHistoryInput;
+    connect?: PullRequestWhereUniqueInput;
+    update?: XOR<
+      XOR<PullRequestUpdateToOneWithWhereWithoutShaHistoryInput, PullRequestUpdateWithoutShaHistoryInput>,
+      PullRequestUncheckedUpdateWithoutShaHistoryInput
+    >;
   };
 
   export type QueueOrderCreateNestedOneWithoutQueueItemInput = {
@@ -11867,6 +13580,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -11894,6 +13608,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -11957,6 +13672,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -11974,6 +13690,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -11991,6 +13708,28 @@ export namespace Prisma {
 
   export type CoderabbitCommentCreateManyPullRequestInputEnvelope = {
     data: CoderabbitCommentCreateManyPullRequestInput | CoderabbitCommentCreateManyPullRequestInput[];
+  };
+
+  export type PullRequestShaCreateWithoutPullRequestInput = {
+    sha: string;
+    first_observed_at?: Date | string;
+    last_observed_at?: Date | string;
+  };
+
+  export type PullRequestShaUncheckedCreateWithoutPullRequestInput = {
+    id?: number;
+    sha: string;
+    first_observed_at?: Date | string;
+    last_observed_at?: Date | string;
+  };
+
+  export type PullRequestShaCreateOrConnectWithoutPullRequestInput = {
+    where: PullRequestShaWhereUniqueInput;
+    create: XOR<PullRequestShaCreateWithoutPullRequestInput, PullRequestShaUncheckedCreateWithoutPullRequestInput>;
+  };
+
+  export type PullRequestShaCreateManyPullRequestInputEnvelope = {
+    data: PullRequestShaCreateManyPullRequestInput | PullRequestShaCreateManyPullRequestInput[];
   };
 
   export type ReviewQueueUpsertWithWhereUniqueWithoutPullRequestInput = {
@@ -12028,6 +13767,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFilter<'ReviewQueue'> | number;
     source_comment_url?: StringFilter<'ReviewQueue'> | string;
     source_comment_id?: IntFilter<'ReviewQueue'> | number;
+    source_comment_run_id?: StringNullableFilter<'ReviewQueue'> | string | null;
     trigger_source?: StringFilter<'ReviewQueue'> | string;
     original_source_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
     retrigger_comment_url?: StringNullableFilter<'ReviewQueue'> | string | null;
@@ -12100,6 +13840,7 @@ export namespace Prisma {
     url?: StringFilter<'CoderabbitComment'> | string;
     comment_type?: StringFilter<'CoderabbitComment'> | string;
     last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     first_seen_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -12108,6 +13849,167 @@ export namespace Prisma {
     deleted_at?: DateTimeNullableFilter<'CoderabbitComment'> | Date | string | null;
     created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
+  };
+
+  export type PullRequestShaUpsertWithWhereUniqueWithoutPullRequestInput = {
+    where: PullRequestShaWhereUniqueInput;
+    update: XOR<PullRequestShaUpdateWithoutPullRequestInput, PullRequestShaUncheckedUpdateWithoutPullRequestInput>;
+    create: XOR<PullRequestShaCreateWithoutPullRequestInput, PullRequestShaUncheckedCreateWithoutPullRequestInput>;
+  };
+
+  export type PullRequestShaUpdateWithWhereUniqueWithoutPullRequestInput = {
+    where: PullRequestShaWhereUniqueInput;
+    data: XOR<PullRequestShaUpdateWithoutPullRequestInput, PullRequestShaUncheckedUpdateWithoutPullRequestInput>;
+  };
+
+  export type PullRequestShaUpdateManyWithWhereWithoutPullRequestInput = {
+    where: PullRequestShaScalarWhereInput;
+    data: XOR<PullRequestShaUpdateManyMutationInput, PullRequestShaUncheckedUpdateManyWithoutPullRequestInput>;
+  };
+
+  export type PullRequestShaScalarWhereInput = {
+    AND?: PullRequestShaScalarWhereInput | PullRequestShaScalarWhereInput[];
+    OR?: PullRequestShaScalarWhereInput[];
+    NOT?: PullRequestShaScalarWhereInput | PullRequestShaScalarWhereInput[];
+    id?: IntFilter<'PullRequestSha'> | number;
+    pull_request_id?: IntFilter<'PullRequestSha'> | number;
+    sha?: StringFilter<'PullRequestSha'> | string;
+    first_observed_at?: DateTimeFilter<'PullRequestSha'> | Date | string;
+    last_observed_at?: DateTimeFilter<'PullRequestSha'> | Date | string;
+  };
+
+  export type PullRequestCreateWithoutShaHistoryInput = {
+    uuid?: string;
+    repo_full_name: string;
+    pr_number: number;
+    title: string;
+    author_login: string;
+    pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
+    first_seen_at: Date | string;
+    first_review_limit_at?: Date | string | null;
+    last_review_limit_at?: Date | string | null;
+    last_review_requested_at?: Date | string | null;
+    last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
+    last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
+    retrigger_count?: number;
+    review_count?: number;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+    queueItems?: ReviewQueueCreateNestedManyWithoutPullRequestInput;
+    events?: EventCreateNestedManyWithoutPullRequestInput;
+    comments?: CoderabbitCommentCreateNestedManyWithoutPullRequestInput;
+  };
+
+  export type PullRequestUncheckedCreateWithoutShaHistoryInput = {
+    id?: number;
+    uuid?: string;
+    repo_full_name: string;
+    pr_number: number;
+    title: string;
+    author_login: string;
+    pr_state?: string;
+    merged_at?: Date | string | null;
+    closed_at?: Date | string | null;
+    first_seen_at: Date | string;
+    first_review_limit_at?: Date | string | null;
+    last_review_limit_at?: Date | string | null;
+    last_review_requested_at?: Date | string | null;
+    last_coderabbit_review_at?: Date | string | null;
+    last_review_url?: string | null;
+    last_review_state?: string | null;
+    last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
+    retrigger_count?: number;
+    review_count?: number;
+    created_at?: Date | string;
+    updated_at?: Date | string;
+    queueItems?: ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput;
+    events?: EventUncheckedCreateNestedManyWithoutPullRequestInput;
+    comments?: CoderabbitCommentUncheckedCreateNestedManyWithoutPullRequestInput;
+  };
+
+  export type PullRequestCreateOrConnectWithoutShaHistoryInput = {
+    where: PullRequestWhereUniqueInput;
+    create: XOR<PullRequestCreateWithoutShaHistoryInput, PullRequestUncheckedCreateWithoutShaHistoryInput>;
+  };
+
+  export type PullRequestUpsertWithoutShaHistoryInput = {
+    update: XOR<PullRequestUpdateWithoutShaHistoryInput, PullRequestUncheckedUpdateWithoutShaHistoryInput>;
+    create: XOR<PullRequestCreateWithoutShaHistoryInput, PullRequestUncheckedCreateWithoutShaHistoryInput>;
+    where?: PullRequestWhereInput;
+  };
+
+  export type PullRequestUpdateToOneWithWhereWithoutShaHistoryInput = {
+    where?: PullRequestWhereInput;
+    data: XOR<PullRequestUpdateWithoutShaHistoryInput, PullRequestUncheckedUpdateWithoutShaHistoryInput>;
+  };
+
+  export type PullRequestUpdateWithoutShaHistoryInput = {
+    uuid?: StringFieldUpdateOperationsInput | string;
+    repo_full_name?: StringFieldUpdateOperationsInput | string;
+    pr_number?: IntFieldUpdateOperationsInput | number;
+    title?: StringFieldUpdateOperationsInput | string;
+    author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    retrigger_count?: IntFieldUpdateOperationsInput | number;
+    review_count?: IntFieldUpdateOperationsInput | number;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    queueItems?: ReviewQueueUpdateManyWithoutPullRequestNestedInput;
+    events?: EventUpdateManyWithoutPullRequestNestedInput;
+    comments?: CoderabbitCommentUpdateManyWithoutPullRequestNestedInput;
+  };
+
+  export type PullRequestUncheckedUpdateWithoutShaHistoryInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    uuid?: StringFieldUpdateOperationsInput | string;
+    repo_full_name?: StringFieldUpdateOperationsInput | string;
+    pr_number?: IntFieldUpdateOperationsInput | number;
+    title?: StringFieldUpdateOperationsInput | string;
+    author_login?: StringFieldUpdateOperationsInput | string;
+    pr_state?: StringFieldUpdateOperationsInput | string;
+    merged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    closed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    first_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_limit_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_requested_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_coderabbit_review_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    retrigger_count?: IntFieldUpdateOperationsInput | number;
+    review_count?: IntFieldUpdateOperationsInput | number;
+    created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    queueItems?: ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput;
+    events?: EventUncheckedUpdateManyWithoutPullRequestNestedInput;
+    comments?: CoderabbitCommentUncheckedUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type QueueOrderCreateWithoutQueueItemInput = {
@@ -12145,12 +14047,16 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
     updated_at?: Date | string;
     events?: EventCreateNestedManyWithoutPullRequestInput;
     comments?: CoderabbitCommentCreateNestedManyWithoutPullRequestInput;
+    shaHistory?: PullRequestShaCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUncheckedCreateWithoutQueueItemsInput = {
@@ -12171,12 +14077,16 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
     updated_at?: Date | string;
     events?: EventUncheckedCreateNestedManyWithoutPullRequestInput;
     comments?: CoderabbitCommentUncheckedCreateNestedManyWithoutPullRequestInput;
+    shaHistory?: PullRequestShaUncheckedCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestCreateOrConnectWithoutQueueItemsInput = {
@@ -12236,12 +14146,16 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     events?: EventUpdateManyWithoutPullRequestNestedInput;
     comments?: CoderabbitCommentUpdateManyWithoutPullRequestNestedInput;
+    shaHistory?: PullRequestShaUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestUncheckedUpdateWithoutQueueItemsInput = {
@@ -12262,12 +14176,16 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     events?: EventUncheckedUpdateManyWithoutPullRequestNestedInput;
     comments?: CoderabbitCommentUncheckedUpdateManyWithoutPullRequestNestedInput;
+    shaHistory?: PullRequestShaUncheckedUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestCreateWithoutEventsInput = {
@@ -12287,12 +14205,16 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
     updated_at?: Date | string;
     queueItems?: ReviewQueueCreateNestedManyWithoutPullRequestInput;
     comments?: CoderabbitCommentCreateNestedManyWithoutPullRequestInput;
+    shaHistory?: PullRequestShaCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUncheckedCreateWithoutEventsInput = {
@@ -12313,12 +14235,16 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
     updated_at?: Date | string;
     queueItems?: ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput;
     comments?: CoderabbitCommentUncheckedCreateNestedManyWithoutPullRequestInput;
+    shaHistory?: PullRequestShaUncheckedCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestCreateOrConnectWithoutEventsInput = {
@@ -12354,12 +14280,16 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     queueItems?: ReviewQueueUpdateManyWithoutPullRequestNestedInput;
     comments?: CoderabbitCommentUpdateManyWithoutPullRequestNestedInput;
+    shaHistory?: PullRequestShaUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestUncheckedUpdateWithoutEventsInput = {
@@ -12380,12 +14310,16 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     queueItems?: ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput;
     comments?: CoderabbitCommentUncheckedUpdateManyWithoutPullRequestNestedInput;
+    shaHistory?: PullRequestShaUncheckedUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type ReviewQueueCreateWithoutQueueOrderInput = {
@@ -12402,6 +14336,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -12430,6 +14365,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -12471,6 +14407,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -12499,6 +14436,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -12527,12 +14465,16 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
     updated_at?: Date | string;
     queueItems?: ReviewQueueCreateNestedManyWithoutPullRequestInput;
     events?: EventCreateNestedManyWithoutPullRequestInput;
+    shaHistory?: PullRequestShaCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestUncheckedCreateWithoutCommentsInput = {
@@ -12553,12 +14495,16 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    head_sha?: string | null;
+    reviewed_head_sha?: string | null;
+    head_committed_at?: Date | string | null;
     retrigger_count?: number;
     review_count?: number;
     created_at?: Date | string;
     updated_at?: Date | string;
     queueItems?: ReviewQueueUncheckedCreateNestedManyWithoutPullRequestInput;
     events?: EventUncheckedCreateNestedManyWithoutPullRequestInput;
+    shaHistory?: PullRequestShaUncheckedCreateNestedManyWithoutPullRequestInput;
   };
 
   export type PullRequestCreateOrConnectWithoutCommentsInput = {
@@ -12594,12 +14540,16 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     queueItems?: ReviewQueueUpdateManyWithoutPullRequestNestedInput;
     events?: EventUpdateManyWithoutPullRequestNestedInput;
+    shaHistory?: PullRequestShaUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type PullRequestUncheckedUpdateWithoutCommentsInput = {
@@ -12620,12 +14570,16 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
+    head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     retrigger_count?: IntFieldUpdateOperationsInput | number;
     review_count?: IntFieldUpdateOperationsInput | number;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     queueItems?: ReviewQueueUncheckedUpdateManyWithoutPullRequestNestedInput;
     events?: EventUncheckedUpdateManyWithoutPullRequestNestedInput;
+    shaHistory?: PullRequestShaUncheckedUpdateManyWithoutPullRequestNestedInput;
   };
 
   export type ReviewQueueCreateManyPullRequestInput = {
@@ -12643,6 +14597,7 @@ export namespace Prisma {
     retrigger_skip_count?: number;
     source_comment_url: string;
     source_comment_id: number;
+    source_comment_run_id?: string | null;
     trigger_source?: string;
     original_source_comment_url?: string | null;
     retrigger_comment_url?: string | null;
@@ -12675,6 +14630,7 @@ export namespace Prisma {
     url: string;
     comment_type: string;
     last_body_preview?: string | null;
+    coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
     first_seen_at: Date | string;
@@ -12683,6 +14639,13 @@ export namespace Prisma {
     deleted_at?: Date | string | null;
     created_at?: Date | string;
     updated_at?: Date | string;
+  };
+
+  export type PullRequestShaCreateManyPullRequestInput = {
+    id?: number;
+    sha: string;
+    first_observed_at?: Date | string;
+    last_observed_at?: Date | string;
   };
 
   export type ReviewQueueUpdateWithoutPullRequestInput = {
@@ -12699,6 +14662,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -12726,6 +14690,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -12753,6 +14718,7 @@ export namespace Prisma {
     retrigger_skip_count?: IntFieldUpdateOperationsInput | number;
     source_comment_url?: StringFieldUpdateOperationsInput | string;
     source_comment_id?: IntFieldUpdateOperationsInput | number;
+    source_comment_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     trigger_source?: StringFieldUpdateOperationsInput | string;
     original_source_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
     retrigger_comment_url?: NullableStringFieldUpdateOperationsInput | string | null;
@@ -12811,6 +14777,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12828,6 +14795,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12845,6 +14813,7 @@ export namespace Prisma {
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
     last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     first_seen_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12853,6 +14822,26 @@ export namespace Prisma {
     deleted_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type PullRequestShaUpdateWithoutPullRequestInput = {
+    sha?: StringFieldUpdateOperationsInput | string;
+    first_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type PullRequestShaUncheckedUpdateWithoutPullRequestInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    sha?: StringFieldUpdateOperationsInput | string;
+    first_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+  };
+
+  export type PullRequestShaUncheckedUpdateManyWithoutPullRequestInput = {
+    id?: IntFieldUpdateOperationsInput | number;
+    sha?: StringFieldUpdateOperationsInput | string;
+    first_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
+    last_observed_at?: DateTimeFieldUpdateOperationsInput | Date | string;
   };
 
   /**

@@ -21,13 +21,66 @@ describe('EnqueueProbe', () => {
   const createProbe = (tx: ReturnType<typeof createMockTx>) => new EnqueueProbe(events, observation, tx, logger);
 
   describe('recentlyRetriggered', () => {
-    it('logs info when PR was recently retriggered', () => {
+    it('logs info with comment ID and run ID when PR was recently retriggered', () => {
+      const ref = generateReviewRef();
+      const runId = getUniqueString({ prefix: 'run-' });
+      const probe = createProbe(createMockTx());
+      probe.recentlyRetriggered(ref.repoFullName, ref.prNumber, ref.commentId, runId);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'EnqueueProbe.recentlyRetriggered', repo: ref.repoFullName, pr: ref.prNumber, commentId: ref.commentId, coderabbit_run_id: runId },
+        'PR was recently retriggered; skipping',
+      );
+    });
+
+    it('omits the run ID attribute when none is known', () => {
       const ref = generateReviewRef();
       const probe = createProbe(createMockTx());
-      probe.recentlyRetriggered(ref.repoFullName, ref.prNumber);
+      probe.recentlyRetriggered(ref.repoFullName, ref.prNumber, ref.commentId, undefined);
       expect(logger.info).toHaveBeenCalledWith(
-        { fn: 'EnqueueProbe.recentlyRetriggered', repo: ref.repoFullName, pr: ref.prNumber },
+        { fn: 'EnqueueProbe.recentlyRetriggered', repo: ref.repoFullName, pr: ref.prNumber, commentId: ref.commentId },
         'PR was recently retriggered; skipping',
+      );
+    });
+  });
+
+  describe('retriggeredRunAdopted', () => {
+    it('logs info with queue item, comment, previous run, and new run', () => {
+      const ref = generateReviewRef();
+      const queueItemId = getUniqueInt();
+      const previousRunId = getUniqueString({ prefix: 'run-' });
+      const runId = getUniqueString({ prefix: 'run-' });
+      const probe = createProbe(createMockTx());
+      probe.retriggeredRunAdopted(ref.repoFullName, ref.prNumber, queueItemId, ref.commentId, previousRunId, runId);
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          fn: 'EnqueueProbe.retriggeredRunAdopted',
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          queueItemId,
+          commentId: ref.commentId,
+          previousCoderabbitRunId: previousRunId,
+          coderabbit_run_id: runId,
+        },
+        'Same-comment retriggered item adopted the new CodeRabbit run in place',
+      );
+    });
+
+    it('omits the previous run attribute when the item had none', () => {
+      const ref = generateReviewRef();
+      const queueItemId = getUniqueInt();
+      const runId = getUniqueString({ prefix: 'run-' });
+      const probe = createProbe(createMockTx());
+      probe.retriggeredRunAdopted(ref.repoFullName, ref.prNumber, queueItemId, ref.commentId, undefined, runId);
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          fn: 'EnqueueProbe.retriggeredRunAdopted',
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          queueItemId,
+          commentId: ref.commentId,
+          coderabbit_run_id: runId,
+        },
+        'Same-comment retriggered item adopted the new CodeRabbit run in place',
       );
     });
   });

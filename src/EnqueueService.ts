@@ -1,9 +1,9 @@
-import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository } from './db/index.js';
+import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository, UpsertCommentData } from './db/index.js';
 import { classifyCoderabbitComment, parseWaitSeconds } from './github/index.js';
 import type { ObservationContextProvider } from './observability/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
-import { isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
+import { extractCoderabbitRunId, isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
 import { TYPES } from './domain.js';
 
@@ -31,6 +31,7 @@ export class EnqueueService {
 
   readonly handle: OnDetectedCallback = async (comment, pullRequestId) => {
     const obs = this.observation.current();
+    const coderabbitRunId = extractCoderabbitRunId(comment.body);
 
     const probe = this.probes.createDetectedProbe(
       {
@@ -38,57 +39,68 @@ export class EnqueueService {
         pr_number: comment.prNumber,
         source_ts: new Date(comment.createdAt),
         source_comment_url: comment.url,
+        coderabbit_run_id: coderabbitRunId,
       },
       obs,
     );
     await probe.detected();
 
+    const { classification } = classifyCoderabbitComment(comment.body);
+    const commentData: UpsertCommentData = {
+      comment_id: comment.commentId,
+      pull_request_id: pullRequestId,
+      url: comment.url,
+      comment_type: classification,
+      body: comment.body,
+      gh_created_at: new Date(comment.createdAt),
+      gh_updated_at: new Date(comment.updatedAt),
+      coderabbit_run_id: coderabbitRunId ?? null,
+    };
+
+    // A completed review only dismisses comments from runs it already saw. CodeRabbit
+    // edits its comment in place per push, so an edit newer than the recorded verdict
+    // is a new run and must flow through the normal branches.
     const existingReview = await this.coderabbitComments.findCompletedReview(pullRequestId);
-    if (existingReview) {
+    if (existingReview && new Date(comment.updatedAt) <= existingReview.gh_updated_at) {
+      await this.prisma.$transaction(async (tx) => {
+        // Latch last_seen_at even when dismissing, or the DirectCommentChecker
+        // freshness gate re-detects this comment on every scan.
+        await this.coderabbitComments.upsert(commentData, tx);
+      });
       probe.alreadyReviewed(existingReview);
       return;
     }
 
     await this.prisma.$transaction(async (tx) => {
       await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
-
-      const { classification } = classifyCoderabbitComment(comment.body);
-
-      await this.coderabbitComments.upsert(
-        {
-          comment_id: comment.commentId,
-          pull_request_id: pullRequestId,
-          url: comment.url,
-          comment_type: classification,
-          body: comment.body,
-          gh_created_at: new Date(comment.createdAt),
-          gh_updated_at: new Date(comment.updatedAt),
-        },
-        tx,
-      );
+      await this.coderabbitComments.upsert(commentData, tx);
 
       if (classification === 'review_skipped') {
-        const { item, created } = await this.queue.createSkipped(
+        const { created } = await this.queue.enqueue(
           {
             repo: comment.repoFullName,
             pr: comment.prNumber,
             prTitle: comment.prTitle,
             sourceCommentUrl: comment.url,
             sourceCommentId: comment.commentId,
+            coderabbitRunId,
+            commentUpdatedAt: new Date(comment.updatedAt),
+            cooldownUntil: undefined,
             pullRequestId,
           },
           tx,
         );
         if (created) {
-          await probe.skipped(tx);
+          await probe.enqueued(tx);
         } else {
-          probe.alreadySkipped(item.status);
+          probe.alreadyQueued();
         }
+        await probe.skipped(tx);
         return;
       }
 
       if (isReviewVerdictState(classification)) {
-        await this.pullRequests.recordReview(pullRequestId, comment.url, classification, tx);
+        await this.pullRequests.recordReview(pullRequestId, comment.url, classification, undefined, tx);
         await probe.verdictResolved(tx, classification);
         return;
       }
@@ -104,6 +116,7 @@ export class EnqueueService {
           prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
           sourceCommentId: comment.commentId,
+          coderabbitRunId,
           commentUpdatedAt: new Date(comment.updatedAt),
           cooldownUntil,
           pullRequestId,

@@ -16,7 +16,7 @@ import {
   type MockPrScannerProbe,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -50,26 +50,110 @@ describe('PrScannerImpl', () => {
 
   const createScanner = () => new PrScannerImpl(github, pullRequests, probeFactory, systemState, config, log);
 
-  it('discovers PRs and calls upsert with prState:open for each', async () => {
+  it('discovers PRs and calls upsert with prState:open and head data for each', async () => {
     const ref1 = generateReviewRef();
     const ref2 = generateReviewRef();
     const { prTitle1, authorLogin1, prTitle2, authorLogin2 } = getUniqueStringsNamed(['prTitle1', 'authorLogin1', 'prTitle2', 'authorLogin2']);
+    const headSha = getUniqueString({ prefix: 'head-' });
+    const committedAt = getUniqueDate();
 
     const pr1: DiscoveredPR = { repoFullName: ref1.repoFullName, prNumber: ref1.prNumber, prTitle: prTitle1, authorLogin: authorLogin1 };
     const pr2: DiscoveredPR = { repoFullName: ref2.repoFullName, prNumber: ref2.prNumber, prTitle: prTitle2, authorLogin: authorLogin2 };
 
     github.listOpenPRs.mockResolvedValue([pr1, pr2]);
+    github.getPRHeadSha.mockResolvedValue(headSha);
+    github.getCommitCommittedAt.mockResolvedValue(committedAt.toISOString());
     pullRequests.upsert.mockResolvedValueOnce({ id: 1, created: true }).mockResolvedValueOnce({ id: 2, created: false });
     pullRequests.findByPrState.mockResolvedValue([]);
 
     const scanner = createScanner();
     await scanner.scan();
 
-    expect(pullRequests.upsert).toHaveBeenCalledWith(ref1.repoFullName, ref1.prNumber, { prTitle: prTitle1, prState: 'open', authorLogin: authorLogin1 });
-    expect(pullRequests.upsert).toHaveBeenCalledWith(ref2.repoFullName, ref2.prNumber, { prTitle: prTitle2, prState: 'open', authorLogin: authorLogin2 });
-    expect(prScannerProbe.scanStarted).toHaveBeenCalled();
+    expect(pullRequests.upsert).toHaveBeenCalledWith(ref1.repoFullName, ref1.prNumber, {
+      prTitle: prTitle1,
+      prState: 'open',
+      authorLogin: authorLogin1,
+      headSha,
+      headCommittedAt: committedAt,
+    });
+    expect(pullRequests.upsert).toHaveBeenCalledWith(ref2.repoFullName, ref2.prNumber, {
+      prTitle: prTitle2,
+      prState: 'open',
+      authorLogin: authorLogin2,
+      headSha,
+      headCommittedAt: committedAt,
+    });
+    expect(prScannerProbe.scanStarted).toHaveBeenCalledWith();
     expect(prScannerProbe.discovered).toHaveBeenCalledWith(1, 1);
     expect(prScannerProbe.completed).toHaveBeenCalledWith(1, 1, 0);
+  });
+
+  it('skips the commit timestamp fetch when the head sha is unchanged', async () => {
+    const ref = generateReviewRef();
+    const { prTitle, authorLogin } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
+    const headSha = getUniqueString({ prefix: 'head-' });
+    const pr: DiscoveredPR = { repoFullName: ref.repoFullName, prNumber: ref.prNumber, prTitle, authorLogin };
+
+    github.listOpenPRs.mockResolvedValue([pr]);
+    github.getPRHeadSha.mockResolvedValue(headSha);
+    pullRequests.findByRepoAndPr.mockResolvedValue({ id: getUniqueInt(), head_sha: headSha });
+    pullRequests.findByPrState.mockResolvedValue([]);
+
+    const scanner = createScanner();
+    await scanner.scan();
+
+    expect(github.getCommitCommittedAt).not.toHaveBeenCalled();
+    expect(pullRequests.upsert).toHaveBeenCalledWith(ref.repoFullName, ref.prNumber, {
+      prTitle,
+      prState: 'open',
+      authorLogin,
+      headSha,
+      headCommittedAt: undefined,
+    });
+  });
+
+  it('fetches the commit timestamp when the head sha changed', async () => {
+    const ref = generateReviewRef();
+    const { prTitle, authorLogin } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
+    const previousSha = getUniqueString({ prefix: 'prev-' });
+    const headSha = getUniqueString({ prefix: 'head-' });
+    const committedAt = getUniqueDate();
+    const pr: DiscoveredPR = { repoFullName: ref.repoFullName, prNumber: ref.prNumber, prTitle, authorLogin };
+
+    github.listOpenPRs.mockResolvedValue([pr]);
+    github.getPRHeadSha.mockResolvedValue(headSha);
+    github.getCommitCommittedAt.mockResolvedValue(committedAt.toISOString());
+    pullRequests.findByRepoAndPr.mockResolvedValue({ id: getUniqueInt(), head_sha: previousSha });
+    pullRequests.findByPrState.mockResolvedValue([]);
+
+    const scanner = createScanner();
+    await scanner.scan();
+
+    expect(github.getCommitCommittedAt).toHaveBeenCalledWith(ref.owner, ref.repo, headSha);
+    expect(pullRequests.upsert).toHaveBeenCalledWith(ref.repoFullName, ref.prNumber, {
+      prTitle,
+      prState: 'open',
+      authorLogin,
+      headSha,
+      headCommittedAt: committedAt,
+    });
+  });
+
+  it('records a caught error when the head sha fetch fails for one PR', async () => {
+    const ref = generateReviewRef();
+    const { prTitle, authorLogin } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
+    const pr: DiscoveredPR = { repoFullName: ref.repoFullName, prNumber: ref.prNumber, prTitle, authorLogin };
+    const apiError = new Error('GitHub API error');
+
+    github.listOpenPRs.mockResolvedValue([pr]);
+    github.getPRHeadSha.mockRejectedValue(apiError);
+    pullRequests.findByPrState.mockResolvedValue([]);
+
+    const scanner = createScanner();
+    await scanner.scan();
+
+    expect(pullRequests.upsert).not.toHaveBeenCalled();
+    expect(prScannerProbe.caughtError).toHaveBeenCalledWith(ref.repoFullName, ref.prNumber, apiError);
   });
 
   it('detects closures: updates DB PRs not in GitHub open list with correct prState and timestamps', async () => {

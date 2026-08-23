@@ -2,7 +2,7 @@ import pkg from '../../package.json' with { type: 'json' };
 import { CodeRabbitCommentType, MatchedMarker, TriggerSource, TYPES } from '../../src/domain.js';
 import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl } from '../../src/github/index.js';
 import type { RepoFilter } from '../../src/types/index.js';
-import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockSearchRest } from '../helpers/index.js';
+import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockReposRest, type MockSearchRest } from '../helpers/index.js';
 
 import { getRandomString, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -19,11 +19,13 @@ const WAIT_SECONDS = 1800;
 const SEARCH_PER_PAGE = 100;
 const SEARCH_START_PAGE = 1;
 const REVIEWS_PER_PAGE = 100;
+const BASE_QUERY = '("review limit" OR "rate limit" OR "review available") type:pr state:open';
 
 describe('client', () => {
   let octokit: Octokit;
   let issues: MockIssuesRest;
   let pulls: MockPullsRest;
+  let repos: MockReposRest;
   let search: MockSearchRest;
   let logger: ReturnType<typeof createMockLogger>;
 
@@ -44,7 +46,7 @@ describe('client', () => {
     jest.setSystemTime(frozenDate);
     ({
       octokit,
-      rest: { issues, pulls, search },
+      rest: { issues, pulls, search, repos },
     } = createMockOctokit());
     logger = createMockLogger();
   });
@@ -473,7 +475,7 @@ describe('client', () => {
       await client.searchReviewLimitComments([USER_FILTER, REPO_FILTER]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `("review limit" OR "rate limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
+        q: `${BASE_QUERY} (user:couimet OR repo:other-org/specific-repo)`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -483,7 +485,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
+          query: `${BASE_QUERY} (user:couimet OR repo:other-org/specific-repo)`,
         },
         'Searching for rate-limit comments',
       );
@@ -499,7 +501,7 @@ describe('client', () => {
       await client.searchReviewLimitComments([]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `("review limit" OR "rate limit") type:pr state:open`,
+        q: `${BASE_QUERY}`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -509,7 +511,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open`,
+          query: `${BASE_QUERY}`,
         },
         'Searching for rate-limit comments',
       );
@@ -568,7 +570,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open user:couimet`,
+          query: `${BASE_QUERY} user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -609,7 +611,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open user:couimet`,
+          query: `${BASE_QUERY} user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -629,7 +631,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit") type:pr state:open user:couimet`,
+          query: `${BASE_QUERY} user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -813,6 +815,37 @@ describe('client', () => {
     });
   });
 
+  describe('getPRHeadSha', () => {
+    it('calls pulls.get and returns the head sha', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const headSha = getUniqueString({ prefix: 'head-' });
+      pulls.get.mockResolvedValue({ data: { head: { sha: headSha } } });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.getPRHeadSha(owner, repo, prNumber);
+
+      expect(pulls.get).toHaveBeenCalledWith({ owner, repo, pull_number: prNumber });
+      expect(result).toBe(headSha);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'getPRHeadSha', owner, repo, prNumber }, 'Fetching PR head sha');
+    });
+  });
+
+  describe('getCommitCommittedAt', () => {
+    it('calls repos.getCommit and returns the committer date', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const headSha = getUniqueString({ prefix: 'head-' });
+      const committedAt = getUniqueDate().toISOString();
+      repos.getCommit.mockResolvedValue({ data: { commit: { committer: { date: committedAt } } } });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.getCommitCommittedAt(owner, repo, headSha);
+
+      expect(repos.getCommit).toHaveBeenCalledWith({ owner, repo, ref: headSha });
+      expect(result).toBe(committedAt);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'getCommitCommittedAt', owner, repo, sha: headSha }, 'Fetching commit timestamp');
+    });
+  });
+
   describe('findCompletedReview', () => {
     it('returns the review URL and ID when a completed CodeRabbit review with the actionable marker exists', async () => {
       const { owner, repo } = getUniqueGitHubRepoRef();
@@ -834,7 +867,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(pulls.listReviews).toHaveBeenCalledWith({
         owner,
@@ -843,7 +876,7 @@ describe('client', () => {
         per_page: 100,
         page: 1,
       });
-      expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false });
+      expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false, commitId: undefined });
       expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
     });
 
@@ -867,9 +900,9 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
-      expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: true });
+      expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: true, commitId: undefined });
     });
 
     it('excludes reviews submitted before the since date', async () => {
@@ -889,7 +922,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toBeUndefined();
     });
@@ -911,7 +944,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toBeUndefined();
     });
@@ -933,7 +966,7 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toBeUndefined();
     });
@@ -968,7 +1001,7 @@ describe('client', () => {
         });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(pulls.listReviews).toHaveBeenCalledWith({
         owner,
@@ -984,7 +1017,7 @@ describe('client', () => {
         per_page: REVIEWS_PER_PAGE,
         page: 2,
       });
-      expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false });
+      expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false, commitId: undefined });
       expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
     });
 
@@ -1003,10 +1036,194 @@ describe('client', () => {
       });
 
       const client = new CoderabbitGitHubClientImpl(octokit, logger);
-      const result = await client.findCompletedReview(owner, repo, prNumber, since);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toBeUndefined();
       expect(pulls.listReviews).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the newest accepted review across pages', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const olderReviewId = getUniqueInt();
+      const newerReviewId = getUniqueInt();
+      const newerHtmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${newerReviewId}`;
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+
+      pulls.listReviews
+        .mockResolvedValueOnce({
+          data: [
+            ...Array.from({ length: REVIEWS_PER_PAGE - 1 }, () => ({
+              id: getUniqueInt(),
+              html_url: 'https://example.com/non-matching',
+              submitted_at: new Date(since.getTime() + MS_PER_HOUR).toISOString(),
+              body: 'Not a code review',
+              user: { login: 'some-other-bot' },
+            })),
+            {
+              id: olderReviewId,
+              html_url: 'https://example.com/older-match',
+              submitted_at: submittedAt,
+              body: '**Actionable comments posted: 1**',
+              user: { login: 'coderabbitai[bot]' },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          data: [
+            {
+              id: newerReviewId,
+              html_url: newerHtmlUrl,
+              submitted_at: submittedAt,
+              body: '**Actionable comments posted: 1**',
+              user: { login: 'coderabbitai[bot]' },
+            },
+          ],
+        });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
+
+      expect(result).toStrictEqual({ htmlUrl: newerHtmlUrl, reviewId: newerReviewId, isApproval: false, commitId: undefined });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId: newerReviewId, htmlUrl: newerHtmlUrl },
+        'Found completed review',
+      );
+    });
+
+    it('still requests the next page when page 1 is full and already contains a match', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const reviewId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+
+      pulls.listReviews
+        .mockResolvedValueOnce({
+          data: [
+            ...Array.from({ length: REVIEWS_PER_PAGE - 1 }, () => ({
+              id: getUniqueInt(),
+              html_url: 'https://example.com/non-matching',
+              submitted_at: new Date(since.getTime() + MS_PER_HOUR).toISOString(),
+              body: 'Not a code review',
+              user: { login: 'some-other-bot' },
+            })),
+            {
+              id: reviewId,
+              html_url: htmlUrl,
+              submitted_at: submittedAt,
+              body: '**Actionable comments posted: 1**',
+              user: { login: 'coderabbitai[bot]' },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ data: [] });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
+
+      expect(pulls.listReviews).toHaveBeenCalledWith({
+        owner,
+        repo,
+        pull_number: prNumber,
+        per_page: REVIEWS_PER_PAGE,
+        page: 2,
+      });
+      expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false, commitId: undefined });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
+    });
+
+    it('accepts a review only when its body Run ID equals the expected run', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const matchingReviewId = getUniqueInt();
+      const matchingHtmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${matchingReviewId}`;
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+      const expectedRunId = getUniqueString({ prefix: 'run-' });
+
+      pulls.listReviews.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/wrong-run',
+            submitted_at: submittedAt,
+            body: `**Run ID**: \`${getUniqueString({ prefix: 'run-' })}\`\n\n**Actionable comments posted: 1**`,
+            user: { login: 'coderabbitai[bot]' },
+          },
+          {
+            id: matchingReviewId,
+            html_url: matchingHtmlUrl,
+            submitted_at: submittedAt,
+            body: `**Run ID**: \`${expectedRunId}\`\n\n**Actionable comments posted: 1**`,
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, expectedRunId, undefined);
+
+      expect(result).toStrictEqual({ htmlUrl: matchingHtmlUrl, reviewId: matchingReviewId, isApproval: false, commitId: undefined });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId: matchingReviewId, htmlUrl: matchingHtmlUrl },
+        'Found completed review',
+      );
+    });
+
+    it('rejects every review when none matches the expected run', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+
+      pulls.listReviews.mockResolvedValue({
+        data: [
+          {
+            id: getUniqueInt(),
+            html_url: 'https://example.com/wrong-run',
+            submitted_at: submittedAt,
+            body: `**Run ID**: \`${getUniqueString({ prefix: 'run-' })}\`\n\n**Actionable comments posted: 1**`,
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, getUniqueString({ prefix: 'run-' }), undefined);
+
+      expect(result).toBeUndefined();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+    });
+
+    it('surfaces the review commit ID in the result', async () => {
+      const { owner, repo } = getUniqueGitHubRepoRef();
+      const since = getUniqueDate();
+      const reviewId = getUniqueInt();
+      const htmlUrl = `https://github.com/${owner}/${repo}/pull/${prNumber}#pullrequestreview-${reviewId}`;
+      const commitId = getUniqueString({ prefix: 'sha-' });
+      const submittedAt = new Date(since.getTime() + MS_PER_HOUR * 24).toISOString();
+
+      pulls.listReviews.mockResolvedValue({
+        data: [
+          {
+            id: reviewId,
+            html_url: htmlUrl,
+            submitted_at: submittedAt,
+            body: '**Actionable comments posted: 1**',
+            commit_id: commitId,
+            user: { login: 'coderabbitai[bot]' },
+          },
+        ],
+      });
+
+      const client = new CoderabbitGitHubClientImpl(octokit, logger);
+      const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
+
+      expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false, commitId });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber }, 'Searching for completed review');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'findCompletedReview', owner, repo, pr: prNumber, reviewId, htmlUrl }, 'Found completed review');
     });
   });
 

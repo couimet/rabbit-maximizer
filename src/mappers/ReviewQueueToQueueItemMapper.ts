@@ -22,6 +22,7 @@ export class ReviewQueueToQueueItemMapper {
       attempts: row.attempts,
       source_comment_url: row.source_comment_url,
       source_comment_id: row.source_comment_id,
+      source_comment_run_id: nullToUndefined(row.source_comment_run_id),
       original_source_comment_url: nullToUndefined(row.original_source_comment_url),
       trigger_source: row.trigger_source as TriggerSource,
       retrigger_comment_url: nullToUndefined(row.retrigger_comment_url),
@@ -34,7 +35,7 @@ export class ReviewQueueToQueueItemMapper {
       reviewed_at: sqlDateToDate(row.reviewed_at),
       resolved_at: sqlDateToDate(row.resolved_at),
       resolution: nullToUndefined(row.resolution as Resolution),
-      // TODO[2026-08-22]: #79 - remove ! once pull_request_id backfill is complete
+      // TODO[2026-08-29]: #79 - remove ! once pull_request_id backfill is complete
       pull_request_id: row.pull_request_id!,
       created_at: row.created_at,
       updated_at: row.updated_at,
