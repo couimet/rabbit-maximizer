@@ -145,8 +145,8 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           await db.queueOrder.create({ data: { queue_item_id: conflictingResolved.id } });
         }
 
-        await db.reviewQueue.update({
-          where: { id: recentRetriggered.id },
+        await db.reviewQueue.updateMany({
+          where: { id: recentRetriggered.id, status: QueueStatus.retriggered },
           data: { status: QueueStatus.resolved, resolution: Resolution.Skipped, resolved_at: new Date() },
         });
 

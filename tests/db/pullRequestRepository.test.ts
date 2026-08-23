@@ -566,6 +566,32 @@ describe('PullRequestRepositoryImpl', () => {
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
     });
 
+    it('prefers the supplied reviewed head sha over the findUnique head_sha fallback', async () => {
+      const id = getUniqueInt();
+      const reviewUrl = generateReviewRef().commentUrl;
+      const suppliedSha = getUniqueString({ prefix: 'supplied-' });
+      const currentHeadSha = getUniqueString({ prefix: 'head-' });
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock({ id, head_sha: currentHeadSha }) },
+      });
+      const sut = new PullRequestRepositoryImpl(prisma, logger);
+
+      await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_approved, suppliedSha, prisma);
+
+      expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id }, select: { head_sha: true } });
+      expect(pullRequest.update).toHaveBeenCalledWith({
+        where: { id },
+        data: {
+          review_count: { increment: 1 },
+          last_coderabbit_review_at: frozenNow,
+          last_review_url: reviewUrl,
+          last_review_state: 'review_approved',
+          reviewed_head_sha: suppliedSha,
+        },
+      });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+    });
+
     it('stores review_changes_suggested verdict state', async () => {
       const id = getUniqueInt();
       const reviewUrl = generateReviewRef().commentUrl;

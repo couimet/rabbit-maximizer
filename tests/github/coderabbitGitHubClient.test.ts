@@ -19,6 +19,7 @@ const WAIT_SECONDS = 1800;
 const SEARCH_PER_PAGE = 100;
 const SEARCH_START_PAGE = 1;
 const REVIEWS_PER_PAGE = 100;
+const BASE_QUERY = '("review limit" OR "rate limit" OR "review available") type:pr state:open';
 
 describe('client', () => {
   let octokit: Octokit;
@@ -474,7 +475,7 @@ describe('client', () => {
       await client.searchReviewLimitComments([USER_FILTER, REPO_FILTER]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `("review limit" OR "rate limit" OR "review available") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
+        q: `${BASE_QUERY} (user:couimet OR repo:other-org/specific-repo)`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -484,7 +485,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open (user:couimet OR repo:other-org/specific-repo)`,
+          query: `${BASE_QUERY} (user:couimet OR repo:other-org/specific-repo)`,
         },
         'Searching for rate-limit comments',
       );
@@ -500,7 +501,7 @@ describe('client', () => {
       await client.searchReviewLimitComments([]);
 
       expect(search.issuesAndPullRequests).toHaveBeenCalledWith({
-        q: `("review limit" OR "rate limit" OR "review available") type:pr state:open`,
+        q: `${BASE_QUERY}`,
         sort: 'created',
         order: 'desc',
         per_page: SEARCH_PER_PAGE,
@@ -510,7 +511,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open`,
+          query: `${BASE_QUERY}`,
         },
         'Searching for rate-limit comments',
       );
@@ -569,7 +570,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet`,
+          query: `${BASE_QUERY} user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -610,7 +611,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet`,
+          query: `${BASE_QUERY} user:couimet`,
         },
         'Searching for rate-limit comments',
       );
@@ -630,7 +631,7 @@ describe('client', () => {
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'searchReviewLimitComments',
-          query: `("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet`,
+          query: `${BASE_QUERY} user:couimet`,
         },
         'Searching for rate-limit comments',
       );

@@ -246,7 +246,6 @@ describe('QueueRepositoryImpl', () => {
           repo: ref.repoFullName,
           pr: ref.prNumber,
           commentId: ref.commentId,
-          coderabbit_run_id: undefined,
         },
         'PR was recently retriggered; skipping',
       );
@@ -508,7 +507,6 @@ describe('QueueRepositoryImpl', () => {
           repo: ref.repoFullName,
           pr: ref.prNumber,
           commentId: newCommentId,
-          coderabbit_run_id: undefined,
         },
         'PR was recently retriggered; skipping',
       );
@@ -543,10 +541,8 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: {
           findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered).mockResolvedValueOnce(conflictingResolved),
-          update: jest
-            .fn<any>()
-            .mockResolvedValueOnce(reopened)
-            .mockResolvedValueOnce({ ...oldRetriggered, status: QueueStatus.resolved, resolution: Resolution.Skipped, resolved_at: new Date() }),
+          update: createResolvedMock(reopened),
+          updateMany: createResolvedMock({ count: 1 }),
         },
         queueOrder: { findUnique: createResolvedMock({ queue_item_id: conflictingResolved.id }) },
       });
@@ -582,11 +578,10 @@ describe('QueueRepositoryImpl', () => {
           retrigger_skip_count: 0,
         },
       });
-      expect(reviewQueue.update).toHaveBeenNthCalledWith(2, {
-        where: { id: oldRetriggered.id },
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id: oldRetriggered.id, status: 'retriggered' },
         data: { status: 'resolved', resolution: 'skipped', resolved_at: expect.any(Date) as Date },
       });
-      expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(true);
       expect(result).toStrictEqual(mapper.fromReviewQueue(reopened));
@@ -663,7 +658,6 @@ describe('QueueRepositoryImpl', () => {
           repo: ref.repoFullName,
           pr: ref.prNumber,
           commentId: newCommentId,
-          coderabbit_run_id: undefined,
         },
         'PR was recently retriggered; skipping',
       );

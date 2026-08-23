@@ -108,6 +108,10 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
           const commentUrl = buildCommentUrl(pr.repoFullName, pr.prNumber, c.id);
 
           const row = await this.coderabbitComments.findByCommentId(pr.pullRequestId, c.id);
+          if (row && c.updatedAt <= row.last_seen_at) {
+            probe.skippedAlreadySeen();
+            continue;
+          }
           if (row) {
             const storedRunId = row.coderabbit_run_id;
             const freshRunId = extractCoderabbitRunId(c.body);
@@ -116,10 +120,6 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
             } else if (freshRunId !== undefined && freshRunId !== storedRunId) {
               await (storedRunId === null ? probe.runIdFirstSeen(commentUrl, freshRunId) : probe.runIdChanged(commentUrl, storedRunId, freshRunId));
             }
-          }
-          if (row && c.updatedAt <= row.last_seen_at) {
-            probe.skippedAlreadySeen();
-            continue;
           }
 
           if (classification === CodeRabbitCommentType.review_limited) {

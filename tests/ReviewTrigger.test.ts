@@ -122,35 +122,32 @@ describe('ReviewTrigger', () => {
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
     const createdAt = getUniqueDate().toISOString();
     const updatedAt = getUniqueDate().toISOString();
+    let capturedRunId: string | undefined;
     github.fetchComment.mockResolvedValue({ body: 'rate limited by coderabbit.ai', createdAt, updatedAt });
-    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    github.postRetrigger.mockImplementation((_repo, _pr, _sourceCommentUrl, generatedRunId) => {
+      capturedRunId = generatedRunId;
+      return Promise.resolve({ htmlUrl: commentUrl });
+    });
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
     expect(result.success).toBe(true);
-    expect(github.postRetrigger).toHaveBeenCalledWith(
-      item.repo_full_name,
-      item.pr_number,
-      item.source_comment_url,
-      expect.any(String) as unknown as string,
-      'scheduler',
-      {
-        sourceComment: {
-          url: item.source_comment_url,
-          createdAt,
-          updatedAt,
-          classification: 'review_limited',
-          matchedMarker: 'rate limited by coderabbit.ai',
-        },
-        waitSeconds: undefined,
-        decision: 'source',
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, capturedRunId!, 'scheduler', {
+      sourceComment: {
+        url: item.source_comment_url,
+        createdAt,
+        updatedAt,
+        classification: 'review_limited',
+        matchedMarker: 'rate limited by coderabbit.ai',
       },
-    );
+      waitSeconds: undefined,
+      decision: 'source',
+    });
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: capturedRunId! },
       'Posting retrigger',
     );
   });
@@ -161,8 +158,12 @@ describe('ReviewTrigger', () => {
     const createdAt = getUniqueDate().toISOString();
     const updatedAt = getUniqueDate().toISOString();
     const runId = getUniqueString({ prefix: 'run-' });
+    let capturedRunId: string | undefined;
     github.fetchComment.mockResolvedValue({ body: `${SKIP_COMMENT_BODY}\n\n**Run ID**: \`${runId}\``, createdAt, updatedAt });
-    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    github.postRetrigger.mockImplementation((_repo, _pr, _sourceCommentUrl, generatedRunId) => {
+      capturedRunId = generatedRunId;
+      return Promise.resolve({ htmlUrl: commentUrl });
+    });
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
 
@@ -170,27 +171,20 @@ describe('ReviewTrigger', () => {
 
     expect(result.success).toBe(true);
     expect(github.findLatestReviewLimitComment).not.toHaveBeenCalled();
-    expect(github.postRetrigger).toHaveBeenCalledWith(
-      item.repo_full_name,
-      item.pr_number,
-      item.source_comment_url,
-      expect.any(String) as unknown as string,
-      'scheduler',
-      {
-        sourceComment: {
-          url: item.source_comment_url,
-          createdAt,
-          updatedAt,
-          classification: 'review_skipped',
-          matchedMarker: 'skip review by coderabbit.ai',
-        },
-        waitSeconds: undefined,
-        decision: 'source',
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, capturedRunId!, 'scheduler', {
+      sourceComment: {
+        url: item.source_comment_url,
+        createdAt,
+        updatedAt,
+        classification: 'review_skipped',
+        matchedMarker: 'skip review by coderabbit.ai',
       },
-    );
+      waitSeconds: undefined,
+      decision: 'source',
+    });
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: capturedRunId! },
       'Posting retrigger',
     );
   });
@@ -198,8 +192,12 @@ describe('ReviewTrigger', () => {
   it('posts retrigger with skip comment as reply target and without diagnosis (dashboard)', async () => {
     const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
     const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    let capturedRunId: string | undefined;
     github.fetchComment.mockResolvedValue(makeFetchResult(SKIP_COMMENT_BODY));
-    github.postRetrigger.mockResolvedValue({ htmlUrl: commentUrl });
+    github.postRetrigger.mockImplementation((_repo, _pr, _sourceCommentUrl, generatedRunId) => {
+      capturedRunId = generatedRunId;
+      return Promise.resolve({ htmlUrl: commentUrl });
+    });
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
 
@@ -211,13 +209,13 @@ describe('ReviewTrigger', () => {
       item.repo_full_name,
       item.pr_number,
       item.source_comment_url,
-      expect.any(String) as unknown as string,
+      capturedRunId!,
       'dashboard_retrigger_now',
       undefined,
     );
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: capturedRunId! },
       'Posting retrigger',
     );
   });

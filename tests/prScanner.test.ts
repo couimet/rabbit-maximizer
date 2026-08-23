@@ -83,7 +83,7 @@ describe('PrScannerImpl', () => {
       headSha,
       headCommittedAt: committedAt,
     });
-    expect(prScannerProbe.scanStarted).toHaveBeenCalled();
+    expect(prScannerProbe.scanStarted).toHaveBeenCalledWith();
     expect(prScannerProbe.discovered).toHaveBeenCalledWith(1, 1);
     expect(prScannerProbe.completed).toHaveBeenCalledWith(1, 1, 0);
   });
