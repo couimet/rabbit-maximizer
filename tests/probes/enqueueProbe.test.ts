@@ -1,7 +1,7 @@
-import { ObservationContext } from '../../src/observability/index.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { EnqueueProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
-import { createMockEventRepo, generateObservationContextHydrationData, generateReviewRef } from '../helpers/index.js';
+import { createMockEventRepo, generateEventTraceContext, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -9,16 +9,19 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('EnqueueProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
   let logger: ReturnType<typeof createMockLogger>;
-  let observation: ObservationContext;
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
+    eventTrace = generateEventTraceContext();
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = generateObservationContextHydrationData();
   });
 
-  const createProbe = (tx: ReturnType<typeof createMockTx>) => new EnqueueProbe(events, observation, tx, logger);
+  const createProbe = (tx: ReturnType<typeof createMockTx>) => new EnqueueProbe(events, tx, logger);
 
   describe('recentlyRetriggered', () => {
     it('logs info with comment ID and run ID when PR was recently retriggered', () => {
@@ -113,15 +116,15 @@ describe('EnqueueProbe', () => {
       const tx = createMockTx();
       const probe = createProbe(tx);
       (events.record as jest.Mock<any>).mockResolvedValue({ uuid: eventUuid });
-      await probe.enqueued({ repo: ref.repoFullName, pr: ref.prNumber });
+      await runInContext(() => probe.enqueued({ repo: ref.repoFullName, pr: ref.prNumber }));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'enqueued',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: {},
         },
         tx,

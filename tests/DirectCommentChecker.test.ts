@@ -1,5 +1,5 @@
+import { ExecutionContext } from '../src/external-deps/couimet/execution-context/src/index.js';
 import { buildCommentUrl } from '../src/github/buildCommentUrl.js';
-import { REVIEW_STACK_MARKER } from '../src/github/index.js';
 import { DirectCommentCheckProbe } from '../src/probes/index.js';
 import { DirectCommentCheckerImpl } from '../src/services.js';
 import type { EventLogEntry, OnDetectedCallback } from '../src/types/index.js';
@@ -13,7 +13,7 @@ import {
   createMockPullRequestRepo,
   createMockQueueRepo,
   generateCoderabbitCommentHydrationData,
-  generateObservationContextHydrationData,
+  generateEventTraceContext,
   generateReviewRef,
 } from './helpers/index.js';
 
@@ -27,29 +27,32 @@ const APPROVED_COMMENT_BODY =
 const REVIEW_LIMITED_BODY = 'rate limited by coderabbit.ai';
 const REVIEW_LIMITED_WITH_WAIT = 'rate limited by coderabbit.ai\n\n**Next review available in:** **34 minutes**';
 const ONE_MINUTE_MS = 60_000;
-const WALKTHROUGH_BODY = `${REVIEW_STACK_MARKER}\n\nwalkthrough summary`;
+const WALKTHROUGH_BODY = 'review_stack_entry_start';
 
 describe('DirectCommentCheckerImpl', () => {
   let github: ReturnType<typeof createMockCoderabbitGitHubClient>;
   let onDetected: jest.Mocked<OnDetectedCallback>;
   let coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
   let events: ReturnType<typeof createMockEventRepo>;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
   let queue: ReturnType<typeof createMockQueueRepo>;
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
-  let observation: ReturnType<typeof generateObservationContextHydrationData>;
   let probeFactory: ReturnType<typeof createMockProbeFactory>;
   let logger: ReturnType<typeof createMockLogger>;
   let checker: DirectCommentCheckerImpl;
 
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
+
   beforeEach(() => {
+    eventTrace = generateEventTraceContext();
     github = createMockCoderabbitGitHubClient();
     onDetected = createMockOnDetectedCallback();
     coderabbitComments = createMockCoderabbitCommentRepo();
     coderabbitComments.findByCommentId.mockResolvedValue(undefined);
     events = createMockEventRepo();
-    observation = generateObservationContextHydrationData();
     logger = createMockLogger();
-    const probe = new DirectCommentCheckProbe(events, observation, logger);
+    const probe = new DirectCommentCheckProbe(events, logger);
     probeFactory = createMockProbeFactory({ createDirectCommentCheckProbe: jest.fn().mockReturnValue(probe) });
     queue = createMockQueueRepo();
     pullRequests = createMockPullRequestRepo();
@@ -116,7 +119,7 @@ describe('DirectCommentCheckerImpl', () => {
       { user: 'coderabbitai[bot]', body: WALKTHROUGH_BODY, id: commentId, createdAt: commentUpdatedAt, updatedAt: commentUpdatedAt },
     ]);
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(queue.existsByPullRequestId).toHaveBeenCalledWith(pullRequestId);
     expect(coderabbitComments.findByCommentId).toHaveBeenCalledWith(pullRequestId, commentId);
@@ -178,7 +181,7 @@ describe('DirectCommentCheckerImpl', () => {
       { user: 'coderabbitai[bot]', body: WALKTHROUGH_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentCreatedAt },
     ]);
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(pullRequests.recordWalkthroughReview).not.toHaveBeenCalled();
     expect(logger.debug).toHaveBeenCalledWith(
@@ -198,7 +201,7 @@ describe('DirectCommentCheckerImpl', () => {
       { user: 'coderabbitai[bot]', body: SKIPPED_COMMENT_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentUpdatedAt },
     ]);
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     const [owner, repo] = ref.repoFullName.split('/');
     expect(github.listComments).toHaveBeenCalledWith(owner, repo, ref.prNumber);
@@ -248,40 +251,6 @@ describe('DirectCommentCheckerImpl', () => {
     );
   });
 
-  it('does not record a run id event for an unchanged comment with a null stored run id', async () => {
-    const ref = generateReviewRef();
-    const pullRequestId = getUniqueInt();
-    const commentUpdatedAt = getUniqueDate();
-    const freshRunId = getUuid();
-    const commentId = getUniqueInt();
-    github.listComments.mockResolvedValue([
-      {
-        user: 'coderabbitai[bot]',
-        body: `${SKIPPED_COMMENT_BODY}\n\n**Run ID**: \`${freshRunId}\``,
-        id: commentId,
-        createdAt: commentUpdatedAt,
-        updatedAt: commentUpdatedAt,
-      },
-    ]);
-    coderabbitComments.findByCommentId.mockResolvedValue(
-      generateCoderabbitCommentHydrationData({
-        comment_id: commentId,
-        last_seen_at: commentUpdatedAt,
-        coderabbit_run_id: null,
-      }),
-    );
-
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
-
-    expect(events.record).not.toHaveBeenCalled();
-    expect(onDetected).not.toHaveBeenCalled();
-    expect(logger.info).not.toHaveBeenCalled();
-    expect(logger.debug).toHaveBeenCalledWith(
-      { fn: 'DirectCommentCheckProbe.skippedAlreadySeen', repo: ref.repoFullName, pr: ref.prNumber, commentId },
-      'Skipping comment already processed and not edited since',
-    );
-  });
-
   it('calls onDetected for edited comments with updatedAt newer than last_seen_at', async () => {
     const ref = generateReviewRef();
     const pullRequestId = getUniqueInt();
@@ -300,7 +269,7 @@ describe('DirectCommentCheckerImpl', () => {
       }),
     );
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(onDetected).toHaveBeenCalledWith(
       {
@@ -345,16 +314,16 @@ describe('DirectCommentCheckerImpl', () => {
       }),
     );
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(events.record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_run_id_changed',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: {
           comment_id: commentId,
           comment_url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
@@ -404,16 +373,16 @@ describe('DirectCommentCheckerImpl', () => {
       }),
     );
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(events.record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_run_id_first_seen',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: {
           comment_id: commentId,
           comment_url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
@@ -454,16 +423,16 @@ describe('DirectCommentCheckerImpl', () => {
       }),
     );
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(events.record).toHaveBeenCalledWith(
       {
         type: 'coderabbit_run_id_cleared',
         repo_full_name: ref.repoFullName,
         pr_number: ref.prNumber,
-        correlation_id: observation.correlationId,
-        request_id: observation.requestId,
-        version: observation.version,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
         payload: {
           comment_id: commentId,
           comment_url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
@@ -502,7 +471,7 @@ describe('DirectCommentCheckerImpl', () => {
       }),
     );
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(events.record).not.toHaveBeenCalled();
     expect(onDetected).toHaveBeenCalled();
@@ -518,7 +487,7 @@ describe('DirectCommentCheckerImpl', () => {
       { user: 'coderabbitai[bot]', body: REVIEW_LIMITED_BODY, id: commentId, createdAt: commentCreatedAt, updatedAt: commentUpdatedAt },
     ]);
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(coderabbitComments.findByCommentId).toHaveBeenCalledWith(pullRequestId, commentId);
     expect(onDetected).toHaveBeenCalledWith(
@@ -578,7 +547,7 @@ describe('DirectCommentCheckerImpl', () => {
       },
     ]);
 
-    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+    await runInContext(() => checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]));
 
     expect(onDetected).toHaveBeenCalledWith(
       {
@@ -693,6 +662,40 @@ describe('DirectCommentCheckerImpl', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       { fn: 'DirectCommentCheckProbe.truncated', prCount: 130, maxDirectCheckPRs: 125 },
       'PR count exceeds direct-check limit; truncating to prevent API rate-limit exhaustion',
+    );
+  });
+
+  it('does not record a run id event for an unchanged comment with a null stored run id', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentUpdatedAt = getUniqueDate();
+    const freshRunId = getUuid();
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      {
+        user: 'coderabbitai[bot]',
+        body: `${SKIPPED_COMMENT_BODY}\n\n**Run ID**: \`${freshRunId}\``,
+        id: commentId,
+        createdAt: commentUpdatedAt,
+        updatedAt: commentUpdatedAt,
+      },
+    ]);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: commentUpdatedAt,
+        coderabbit_run_id: null,
+      }),
+    );
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(events.record).not.toHaveBeenCalled();
+    expect(onDetected).not.toHaveBeenCalled();
+    expect(logger.info).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.skippedAlreadySeen', repo: ref.repoFullName, pr: ref.prNumber, commentId },
+      'Skipping comment already processed and not edited since',
     );
   });
 });

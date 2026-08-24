@@ -33,6 +33,8 @@ export default {
     '!src/**/*.d.ts',
     '!src/**/index.ts',
     '!src/**/types/**',
+    '!src/external-deps/couimet/logger-enricher-contract/src/LoggerEnricher.ts',
+    '!src/external-deps/couimet/express-tools/labeledMiddleware.ts',
     '!dashboard/src/**/index.ts',
   ],
   coverageDirectory: 'coverage',

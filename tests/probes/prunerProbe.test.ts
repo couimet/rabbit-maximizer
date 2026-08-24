@@ -1,23 +1,26 @@
-import { ObservationContext } from '../../src/observability/index.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { PrunerProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
-import { createMockEventRepo, generateObservationContextHydrationData, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
+import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('PrunerProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
   let logger: ReturnType<typeof createMockLogger>;
-  let observation: ObservationContext;
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
+    eventTrace = generateEventTraceContext();
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = generateObservationContextHydrationData();
   });
 
-  const createProbe = () => new PrunerProbe(events, observation, logger);
+  const createProbe = () => new PrunerProbe(events, logger);
 
   describe('noItemsToPrune', () => {
     it('logs info when no items to prune', () => {
@@ -34,15 +37,15 @@ describe('PrunerProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.prMerged(tx);
+      await runInContext(() => probe.prMerged(tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'dismissed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { reason: 'prMerged' },
         },
         tx,
@@ -61,15 +64,15 @@ describe('PrunerProbe', () => {
       const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.prClosedWithoutMerge(tx);
+      await runInContext(() => probe.prClosedWithoutMerge(tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'dismissed',
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
           payload: { reason: 'prClosedWithoutMerge' },
         },
         tx,

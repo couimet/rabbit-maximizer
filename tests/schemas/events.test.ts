@@ -343,6 +343,19 @@ describe('payload length limits', () => {
     });
     expect(() => parseEventRow(row)).toThrow(z.ZodError);
   });
+
+  it('rejects a coderabbit_review_skipped event whose coderabbit_run_id exceeds the max', () => {
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_skipped',
+      payload: JSON.stringify({
+        source_ts: getUniqueDate().toISOString(),
+        comment_url: getUniqueString(),
+        skip_reason: getUniqueString(),
+        coderabbit_run_id: 'a'.repeat(CODERABBIT_RUN_ID_MAX_LENGTH + EXCEEDS_MAX_BY),
+      }),
+    });
+    expect(() => parseEventRow(row)).toThrow();
+  });
 });
 
 describe('EventType discriminator', () => {

@@ -1,0 +1,12 @@
+{
+  "name": "@couimet/logger-enricher-execution-context",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.js",
+  "peerDependencies": {
+    "@couimet/execution-context": ">=0.1.0",
+    "@couimet/logger-contract": ">=1.0.0",
+    "@couimet/logger-enricher-contract": ">=0.1.0"
+  }
+}

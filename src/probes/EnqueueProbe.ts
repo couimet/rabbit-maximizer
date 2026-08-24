@@ -1,6 +1,7 @@
 import type { EventRepository } from '../db/index.js';
 import { EventType } from '../domain.js';
-import type { ObservationContext } from '../observability/index.js';
+
+import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -8,7 +9,6 @@ import type { Prisma } from '@prisma/client';
 export class EnqueueProbe {
   constructor(
     private readonly events: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly tx: Prisma.TransactionClient,
     private readonly log: Logger,
   ) {}
@@ -41,9 +41,7 @@ export class EnqueueProbe {
         type: EventType.enqueued,
         repo_full_name: params.repo,
         pr_number: params.pr,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {},
       },
       this.tx,

@@ -40,7 +40,7 @@ export class PollDetector extends IntervalService {
     private readonly systemStateRepo: SystemStateRepository,
     @inject(TYPES.Logger) log: Logger,
   ) {
-    super(log, POLL_INTERVAL_MS);
+    super('poll-detector', POLL_INTERVAL_MS, log);
   }
   /* c8 ignore stop */
 

@@ -2,6 +2,7 @@ export type { DetectedProbeContext } from './DetectedProbe.js';
 export { DetectedProbe } from './DetectedProbe.js';
 export { DirectCommentCheckProbe } from './DirectCommentCheckProbe.js';
 export { EnqueueProbe } from './EnqueueProbe.js';
+export { getEventTraceAttributes } from './getEventTraceAttributes.js';
 export { MarkQueueItemReviewedProbe } from './MarkQueueItemReviewedProbe.js';
 export { ProbeFactory } from './ProbeFactory.js';
 export { PrScannerProbe } from './PrScannerProbe.js';

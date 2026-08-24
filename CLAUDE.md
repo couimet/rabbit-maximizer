@@ -136,13 +136,12 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Create exactly one probe per business process, at the top, via `ProbeFactory`</do>
   <do>Name probe methods as past-tense domain verbs describing what happened: `retriggered()`, `failed()`, `backedOff()`, `queueItemNotFound()`</do>
   <do>Put all event recording AND business-outcome logging inside the probe — even on branches that do not record an event</do>
-  <do>Pass a domain object (`QueueItem`, `uuid`) to the factory method, never an `ObservationContext`</do>
+  <do>Pass a domain object (`QueueItem`, `uuid`) to the factory method, never an observation context</do>
   <do>Keep all entity mutations in the caller — the probe never touches the entity it observes. The caller updates state, then tells the probe what happened (see `MarkQueueItemReviewedProbe`)</do>
   <never>Create two probes for the same business process — merge them</never>
   <never>Prefix probe method names with `record` — the caller describes the outcome, not the mechanism</never>
   <never>Duplicate a business-outcome log in both the caller and the probe</never>
-  <never>Pass `ObservationContext` into a factory method — the factory calls `this.observation.current()` internally</never>
-  <exception>When the SAME observation context instance must be shared between a probe and other code in the same flow (e.g. both the probe and `createDetectedProbe()` receive `obs`), extract it once in the caller and pass to both. This is the only valid reason for a factory method to accept `ObservationContext`. See `EnqueueService.handle`: `obs` is shared with `createDetectedProbe(context, obs)` and the detection probe.</exception>
+  <never>Pass an observation context into a factory method — record sites read the ambient `ExecutionContext` themselves (`correlationId`, `requestId`, `getAttribute('version')`)</never>
   <rationale>A probe represents one business process end-to-end. It owns every observable trace — events AND logs — so callers stay focused on control flow and their own entity. See `src/probes/README.md` for the full decision framework.</rationale>
   <see>src/probes/README.md</see>
 </rule>

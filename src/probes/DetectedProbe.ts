@@ -1,9 +1,9 @@
 import type { EventRepository } from '../db/index.js';
 import { DismissalReason, EventType } from '../domain.js';
-import type { ObservationContext } from '../observability/index.js';
 import type { AlreadyReviewedComment, CoderabbitReviewVerdictState, EventLogEntry } from '../types/index.js';
 import { toReviewEventType } from '../utils/index.js';
 
+import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 import { recordDismissalEvent } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -23,7 +23,6 @@ export class DetectedProbe {
   constructor(
     private readonly context: DetectedProbeContext,
     private readonly eventRepository: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly log: Logger,
   ) {
     this.loggingCtx = {
@@ -39,7 +38,6 @@ export class DetectedProbe {
       events: this.eventRepository,
       tx,
       reason,
-      observation: this.observation,
       repo_full_name: this.context.repo_full_name,
       pr_number: this.context.pr_number,
     });
@@ -58,9 +56,7 @@ export class DetectedProbe {
         type: EventType.detected,
         repo_full_name: this.context.repo_full_name,
         pr_number: this.context.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {
           source_ts: this.context.source_ts,
           source_comment_url: this.context.source_comment_url,
@@ -96,9 +92,7 @@ export class DetectedProbe {
         type: EventType.coderabbit_review_skipped,
         repo_full_name: this.context.repo_full_name,
         pr_number: this.context.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {
           source_ts: this.context.source_ts,
           comment_url: this.context.source_comment_url,
@@ -118,9 +112,7 @@ export class DetectedProbe {
         type: toReviewEventType(verdictState),
         repo_full_name: this.context.repo_full_name,
         pr_number: this.context.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {
           coderabbit_comment_url: this.context.source_comment_url,
           source_ts: this.context.source_ts,

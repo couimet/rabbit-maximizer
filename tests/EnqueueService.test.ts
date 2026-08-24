@@ -1,6 +1,5 @@
 import { config } from '../src/config.js';
 import { CodeRabbitCommentType } from '../src/domain.js';
-import type { ObservationContextProvider } from '../src/observability/index.js';
 import type { DetectedProbe, ProbeFactory } from '../src/probes/index.js';
 import { EnqueueService } from '../src/services.js';
 import { MS_PER_SECOND } from '../src/utils/index.js';
@@ -26,7 +25,6 @@ describe('EnqueueService', () => {
   let queue: ReturnType<typeof createMockQueueRepo>;
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let probes: ProbeFactory;
-  let observation: ObservationContextProvider;
   let coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
@@ -49,13 +47,9 @@ describe('EnqueueService', () => {
     probes = createMockProbeFactory({ createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) });
 
     coderabbitComments = createMockCoderabbitCommentRepo();
-
-    observation = {
-      current: jest.fn().mockReturnValue({ correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' }),
-    } as unknown as ObservationContextProvider;
   });
 
-  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, coderabbitComments, observation);
+  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, coderabbitComments);
 
   describe('handle', () => {
     it('creates probe, enqueues, and completes probe in a transaction with pullRequestId', async () => {
@@ -66,16 +60,13 @@ describe('EnqueueService', () => {
 
       await svc.handle(comment, pullRequestId);
 
-      expect(probes.createDetectedProbe).toHaveBeenCalledWith(
-        {
-          repo_full_name: comment.repoFullName,
-          pr_number: comment.prNumber,
-          source_ts: new Date(comment.createdAt),
-          source_comment_url: comment.url,
-          coderabbit_run_id: undefined,
-        },
-        observation.current(),
-      );
+      expect(probes.createDetectedProbe).toHaveBeenCalledWith({
+        repo_full_name: comment.repoFullName,
+        pr_number: comment.prNumber,
+        source_ts: new Date(comment.createdAt),
+        source_comment_url: comment.url,
+        coderabbit_run_id: undefined,
+      });
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
