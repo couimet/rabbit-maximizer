@@ -5,12 +5,7 @@ import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/co
 import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
-import {
-  createMockPrismaClient,
-  createResolvedMock,
-  generateReviewQueueHydrationData,
-  generateReviewRef,
-} from '../helpers/index.js';
+import { createMockPrismaClient, createResolvedMock, generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
