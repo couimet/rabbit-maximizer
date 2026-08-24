@@ -293,7 +293,7 @@ describe('ReviewTrigger', () => {
 
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
-    expect(probe.staleCommentSkipped).toHaveBeenCalled();
+    expect(probe.staleCommentSkipped).toHaveBeenCalledWith();
     expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_SKIP', {
       message: 'No replacement rate-limit comment found',
       functionName: 'ReviewTrigger.trigger',
@@ -311,7 +311,7 @@ describe('ReviewTrigger', () => {
     const result = await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
     expect(github.postRetrigger).not.toHaveBeenCalled();
-    expect(probe.staleCommentSkipped).toHaveBeenCalled();
+    expect(probe.staleCommentSkipped).toHaveBeenCalledWith();
     expect(result).toHaveDetailedError('RETRIGGER_STALE_COMMENT_SKIP', {
       message: 'No replacement rate-limit comment found',
       functionName: 'ReviewTrigger.trigger',

@@ -149,7 +149,7 @@ describe('Scheduler', () => {
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
       expect(deps.queue.incrementAttempts).toHaveBeenCalledWith(item.id, 1, deps.tx);
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(frozenNow, undefined);
 
       await stop();
     });
@@ -383,7 +383,7 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.schedulerPaused).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(frozenNow, undefined);
 
       await stop();
     });
@@ -400,7 +400,7 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.tickSkippedCooldown).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
-      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(expect.any(Date), undefined);
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(frozenNow, undefined);
 
       await stop();
     });

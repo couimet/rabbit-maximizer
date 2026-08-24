@@ -447,14 +447,14 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
         where: { id: oldRetriggered.id, status: 'retriggered' },
-        data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId, source_comment_run_id: null, retriggered_at: expect.any(Date) as Date },
+        data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId, source_comment_run_id: null, retriggered_at: frozenNow },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(queueOrder.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
       expect(result.source_comment_url).toBe(newCommentUrl);
       expect(result.source_comment_id).toBe(newCommentId);
-      expect(result.retriggered_at).toStrictEqual(expect.any(Date));
+      expect(result.retriggered_at).toStrictEqual(frozenNow);
       expect(result.id).toBe(oldRetriggered.id);
       expect(result.repo_full_name).toBe(oldRetriggered.repo_full_name);
       expect(result.pr_number).toBe(oldRetriggered.pr_number);
@@ -508,7 +508,7 @@ describe('QueueRepositoryImpl', () => {
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
         where: { id: oldRetriggered.id, status: 'retriggered' },
-        data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId, source_comment_run_id: null, retriggered_at: expect.any(Date) as Date },
+        data: { source_comment_url: newCommentUrl, source_comment_id: newCommentId, source_comment_run_id: null, retriggered_at: frozenNow },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(queueOrder.create).not.toHaveBeenCalled();
@@ -595,7 +595,7 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
         where: { id: oldRetriggered.id, status: 'retriggered' },
-        data: { status: 'resolved', resolution: 'skipped', resolved_at: expect.any(Date) as Date },
+        data: { status: 'resolved', resolution: 'skipped', resolved_at: frozenNow },
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(true);
@@ -689,7 +689,7 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
         where: { id: oldRetriggered.id, status: 'retriggered' },
-        data: { status: 'resolved', resolution: 'skipped', resolved_at: expect.any(Date) as Date },
+        data: { status: 'resolved', resolution: 'skipped', resolved_at: frozenNow },
       });
       expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: conflictingResolved.id } });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: conflictingResolved.id } });
@@ -1906,7 +1906,7 @@ describe('QueueRepositoryImpl', () => {
       const result = await sut.resolveStaleRetriggered(maxAgeMs, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
-        where: { status: 'retriggered', retriggered_at: { lt: expect.any(Date) as Date } },
+        where: { status: 'retriggered', retriggered_at: { lt: new Date(frozenNow.getTime() - maxAgeMs) } },
         data: { status: 'resolved', resolution: 'failed', resolved_at: frozenNow },
       });
       expect(result).toBe(2);

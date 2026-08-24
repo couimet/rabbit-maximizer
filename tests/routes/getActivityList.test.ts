@@ -78,7 +78,7 @@ describe('getActivityList', () => {
     const getActivityList = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
     startServer({ getActivityList });
     await getJson(port, `/api/activity-list?since=${encodeURIComponent(since)}&page=3&pageSize=10`);
-    expect(getActivityList).toHaveBeenCalledWith(expect.any(Date), 20, 10);
+    expect(getActivityList).toHaveBeenCalledWith(new Date(since), 20, 10);
   });
 
   it('returns 500 and logs error on repository failure', async () => {
