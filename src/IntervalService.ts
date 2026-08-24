@@ -13,10 +13,9 @@ export abstract class IntervalService {
   protected stopped = false;
 
   constructor(
-    /** Stable per job: every tick of this service shares the same correlation id. */
     private readonly correlationId: string,
-    protected readonly log: Logger,
     protected readonly intervalMs: number,
+    protected readonly log: Logger,
   ) {}
 
   protected abstract executeTick(): Promise<void>;
@@ -58,7 +57,7 @@ export abstract class IntervalService {
       {
         correlationId: this.correlationId,
         requestId: RequestId.create().toString(),
-        attributes: ExecutionContext.getAttributes(),
+        attributes: { ...ExecutionContext.getAttributes() },
       },
       () => this.executeTick(),
     );

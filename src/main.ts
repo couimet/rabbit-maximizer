@@ -24,7 +24,7 @@ import { getLogger, type Logger } from '@couimet/logger-contract';
 import type { Octokit } from '@octokit/rest';
 import type { PrismaClient } from '@prisma/client';
 
-ExecutionContext.run({ correlationId: 'rabbit-maximizer-init', requestId: 'init' }, async () => {
+await ExecutionContext.run({ correlationId: 'rabbit-maximizer-init', requestId: 'init' }, async () => {
   ExecutionContext.addAttributes({ version: pkg.version });
 
   initLogger();

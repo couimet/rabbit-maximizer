@@ -25,6 +25,16 @@ describe('getEventTraceAttributes', () => {
     });
   });
 
+  it('throws when the active context has no version attribute', () => {
+    ExecutionContext.run({ correlationId, requestId, attributes: {} }, () => {
+      expect(() => getEventTraceAttributes()).toThrowDetailedError('MISSING_VERSION_ATTRIBUTE', {
+        message: 'Active execution context is missing the "version" attribute',
+        functionName: 'getEventTraceAttributes',
+        details: { version: undefined },
+      });
+    });
+  });
+
   it('throws outside any run', () => {
     expect(() => getEventTraceAttributes()).toThrowDetailedError('NO_ACTIVE_CONTEXT', {
       message: 'execution context is not active',

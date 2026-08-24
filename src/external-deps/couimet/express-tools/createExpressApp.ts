@@ -1,5 +1,6 @@
 import { inboundRequestLogger } from './middlewares/inboundRequestLogger.js';
-import { createMorganMiddleware, MiddlewareIdentifier } from './index.js';
+import { createMorganMiddleware, MORGAN_DEFAULT_FORMAT } from './createMorganMiddleware.js';
+import { MiddlewareIdentifier } from './index.js';
 import type { LabeledMiddleware } from './labeledMiddleware.js';
 
 import { getLogger, type Logger } from '@couimet/logger-contract';
@@ -22,17 +23,25 @@ export interface CreateExpressOptions {
   beforeMiddlewares: MiddlewareEntry[];
   /**
    * Middleware entries applied after helmet, before the app is returned to the
-   * caller. Defaults are built from {@link buildDefaultMiddlewares} using the
-   * resolved logger. When provided, it replaces the defaults entirely: no merge
-   * and no per-entry override, so pass an empty array to register none.
-   * Registration order is the array order; labeled entries log their label,
-   * unlabeled entries log without a name.
+   * caller. An `undefined` value (including an omitted option) falls back to
+   * the defaults built from {@link buildDefaultMiddlewares}. A provided array
+   * replaces the defaults entirely: no merge and no per-entry override, so
+   * pass an empty array to register none. Registration order is the array
+   * order; labeled entries log their label, unlabeled entries log without a
+   * name.
    */
   middlewares: MiddlewareEntry[];
+  /**
+   * Morgan log format used by the default morgan middleware built from
+   * {@link buildDefaultMiddlewares}. Ignored when a custom `middlewares`
+   * array replaces the defaults. Defaults to {@link MORGAN_DEFAULT_FORMAT}.
+   */
+  morganFormat: string;
 }
 
 export interface BuildDefaultMiddlewaresOptions {
   logger: Logger;
+  format: string;
 }
 
 /**
@@ -42,7 +51,7 @@ export interface BuildDefaultMiddlewaresOptions {
  */
 export const buildDefaultMiddlewares = (options: BuildDefaultMiddlewaresOptions): MiddlewareEntry[] => [
   { label: MiddlewareIdentifier.InboundRequestLogger, handler: inboundRequestLogger(options.logger) },
-  { label: MiddlewareIdentifier.Morgan, handler: createMorganMiddleware({ logger: options.logger }) },
+  { label: MiddlewareIdentifier.Morgan, handler: createMorganMiddleware({ format: options.format, logger: options.logger }) },
 ];
 
 const isLabeledMiddleware = (entry: MiddlewareEntry): entry is LabeledMiddleware => 'label' in entry;
@@ -61,6 +70,7 @@ const BASE_DEFAULTS: Omit<CreateExpressOptions, 'middlewares'> = {
   helmet: true,
   logger: getLogger(),
   beforeMiddlewares: [],
+  morganFormat: MORGAN_DEFAULT_FORMAT,
 };
 
 /**
@@ -77,11 +87,9 @@ export const createExpressApp = (options?: Partial<CreateExpressOptions>): Appli
     ...Object.fromEntries(Object.entries(options ?? {}).filter(([, v]) => v !== undefined)),
   };
 
-  const middlewaresProvided = options !== undefined && 'middlewares' in options;
-
   const opts: CreateExpressOptions = {
     ...baseOpts,
-    middlewares: middlewaresProvided ? (options.middlewares ?? []) : buildDefaultMiddlewares({ logger: baseOpts.logger }),
+    middlewares: options?.middlewares ?? buildDefaultMiddlewares({ logger: baseOpts.logger, format: baseOpts.morganFormat }),
   };
 
   const app = express();

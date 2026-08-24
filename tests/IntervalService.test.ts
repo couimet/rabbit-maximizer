@@ -16,7 +16,7 @@ class StubService extends IntervalService {
   executeTickCalls = 0;
 
   constructor(log: Logger) {
-    super(JOB_CORRELATION_ID, log, TICK_MS);
+    super(JOB_CORRELATION_ID, TICK_MS, log);
   }
 
   protected executeTick(): Promise<void> {
@@ -31,7 +31,7 @@ class CapturingService extends IntervalService {
   capturedVersion: unknown;
 
   constructor(log: Logger) {
-    super(JOB_CORRELATION_ID, log, TICK_MS);
+    super(JOB_CORRELATION_ID, TICK_MS, log);
   }
 
   protected executeTick(): Promise<void> {
@@ -44,7 +44,7 @@ class CapturingService extends IntervalService {
 
 class FailingService extends IntervalService {
   constructor(log: Logger) {
-    super(JOB_CORRELATION_ID, log, TICK_MS);
+    super(JOB_CORRELATION_ID, TICK_MS, log);
   }
 
   protected executeTick(): Promise<void> {
@@ -57,7 +57,7 @@ class GatedService extends IntervalService {
   private release: (() => void) | null = null;
 
   constructor(log: Logger) {
-    super(JOB_CORRELATION_ID, log, TICK_MS);
+    super(JOB_CORRELATION_ID, TICK_MS, log);
     this.gate = new Promise<void>((resolve) => {
       this.release = resolve;
     });

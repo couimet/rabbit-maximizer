@@ -1,4 +1,5 @@
-import type { Logger } from '@couimet/logger-contract';
+import { MORGAN_DEFAULT_FORMAT } from '../../src/external-deps/couimet/express-tools/createMorganMiddleware.js';
+
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { RequestHandler } from 'express';
 import type { Server } from 'node:http';
@@ -40,14 +41,6 @@ const getHeaders = (server: Server, path: string): Promise<Headers> =>
       .then((res) => resolve(res.headers))
       .catch(reject);
   });
-
-const assertNoMiddlewareApplied = (logger: Logger) => {
-  const middlewareApplyCalls = (logger.info as ReturnType<typeof jest.fn>).mock.calls.filter((call: unknown[]) => {
-    const attrs = call[0] as Record<string, unknown>;
-    return attrs?.middleware !== undefined || attrs?.middlewareIndex !== undefined;
-  });
-  expect(middlewareApplyCalls).toHaveLength(0);
-};
 
 const closeServer = (s: Server): Promise<void> => new Promise<void>((resolve) => s.close(() => resolve()));
 
@@ -109,7 +102,7 @@ describe('createExpressApp', () => {
   });
 
   it('applies default middlewares when no middlewares option is provided', async () => {
-    const app = createExpressApp({ logger: mockLogger, helmet: false });
+    const app = createExpressApp({ logger: mockLogger, helmet: false, morganFormat: ':method :url :status' });
     app.get('/smoke', (_req, res) => res.send('ok'));
 
     server = app.listen(0);
@@ -119,7 +112,7 @@ describe('createExpressApp', () => {
       { fn: 'inboundRequestLogger', method: 'GET', originalUrl: '/smoke', url: '/smoke' },
       'Request started: GET /smoke',
     );
-    expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'http.request' }, expect.stringMatching(/^GET \/smoke 200 \d+\.\d+ ms$/));
+    expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'http.request' }, 'GET /smoke 200');
   });
 
   it('replaces default middlewares entirely when a custom middlewares array is provided', async () => {
@@ -145,18 +138,23 @@ describe('createExpressApp', () => {
     expect(morganApplyCalls).toHaveLength(0);
   });
 
-  it('applies no middleware when middlewares is explicitly undefined', async () => {
+  it('applies the default middlewares when middlewares is explicitly undefined', async () => {
     const app = createExpressApp({
       logger: mockLogger,
       helmet: false,
       middlewares: undefined,
+      morganFormat: ':method :url :status',
     });
     app.get('/smoke', (_req, res) => res.send('ok'));
 
     server = app.listen(0);
     const body = await getBody(server, '/smoke');
     expect(body).toBe('ok');
-    assertNoMiddlewareApplied(mockLogger);
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      { fn: 'inboundRequestLogger', method: 'GET', originalUrl: '/smoke', url: '/smoke' },
+      'Request started: GET /smoke',
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'http.request' }, 'GET /smoke 200');
   });
 
   it('applies middleware before routes so middleware runs on every request', async () => {
@@ -209,7 +207,7 @@ describe('createExpressApp', () => {
   });
 
   it('buildDefaultMiddlewares returns labeled entries for the inbound logger and morgan', () => {
-    const middlewares = buildDefaultMiddlewares({ logger: mockLogger });
+    const middlewares = buildDefaultMiddlewares({ logger: mockLogger, format: MORGAN_DEFAULT_FORMAT });
     expect(middlewares.map((m) => ('label' in m ? m.label : undefined))).toStrictEqual(['inbound-request-logger', 'morgan']);
     expect(middlewares.every((m) => 'label' in m && typeof m.handler === 'function')).toBe(true);
   });

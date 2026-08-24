@@ -1,13 +1,11 @@
 import { ExecutionContext } from '../../execution-context/src/index.js';
 import { createExpressAppWithExecutionContext } from '../src/index.js';
 
-import { getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import type { RequestHandler } from 'express';
 import type { Server } from 'node:http';
-
-const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const mockLogger = createMockLogger();
 
@@ -45,6 +43,19 @@ const getHeadersWith = (server: Server, path: string, requestHeaders: Record<str
     }
     fetch(`http://[::1]:${addr.port}${path}`, { headers: requestHeaders })
       .then((res) => resolve(res.headers))
+      .catch(reject);
+  });
+
+const getBodyWith = (server: Server, path: string, requestHeaders: Record<string, string>): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const addr = server.address();
+    if (!addr || typeof addr === 'string') {
+      reject(new Error('Server not listening'));
+      return;
+    }
+    fetch(`http://[::1]:${addr.port}${path}`, { headers: requestHeaders })
+      .then((res) => res.text())
+      .then(resolve)
       .catch(reject);
   });
 
@@ -126,6 +137,7 @@ describe('createExpressAppWithExecutionContext', () => {
       order.push('array');
       next();
     };
+    const incomingCorrelationId = getUuid();
 
     const app = createExpressAppWithExecutionContext({
       logger: mockLogger,
@@ -139,9 +151,9 @@ describe('createExpressAppWithExecutionContext', () => {
     });
 
     server = app.listen(0);
-    await getBody(server, '/smoke');
+    await getBodyWith(server, '/smoke', { 'x-correlation-id': incomingCorrelationId });
     expect(order).toStrictEqual(['before', 'array', 'route']);
-    expect(capturedCorrelationId).toMatch(UUID_V4_PATTERN);
+    expect(capturedCorrelationId).toBe(incomingCorrelationId);
     expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'createExpressApp', middleware: 'execution-context', middlewareIndex: 0 }, 'Applying middleware');
     expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'createExpressApp', middlewareIndex: 1 }, 'Applying middleware without a name (index 1)');
     expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'createExpressApp', middlewareIndex: 0 }, 'Applying middleware without a name (index 0)');

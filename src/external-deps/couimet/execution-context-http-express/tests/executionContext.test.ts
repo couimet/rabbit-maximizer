@@ -115,6 +115,23 @@ describe('executionContext middleware', () => {
     expect(nextSpy).toHaveBeenCalled();
   });
 
+  it('does not leak attribute mutations made inside the request into the outer context', () => {
+    const { headerSpy, nextSpy, req, res, next } = createReqResNext();
+    const mutatedVersion = getUniqueString({ prefix: 'mutated-version' });
+    headerSpy.mockImplementation((name: string) => (name === HttpHeaders.CorrelationId ? incomingCorrelationId : incomingRequestId));
+    nextSpy.mockImplementation(() => {
+      ExecutionContext.getAttributes()['version'] = mutatedVersion;
+    });
+
+    let outerVersionAfter: unknown;
+    ExecutionContext.run({ correlationId: outerCorrelationId, requestId: outerRequestId, attributes: { version: outerVersion } }, () => {
+      executionContext()(req, res, next);
+      outerVersionAfter = ExecutionContext.getAttribute('version');
+    });
+
+    expect(outerVersionAfter).toBe(outerVersion);
+  });
+
   it('useExecutionContext registers the middleware on the app', () => {
     const useSpy = jest.fn<(handler: RequestHandler) => void>();
     const app = { use: useSpy } as unknown as Application;

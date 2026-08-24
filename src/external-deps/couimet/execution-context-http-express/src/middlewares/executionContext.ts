@@ -17,7 +17,7 @@ export const executionContext = (): RequestHandler => {
     const correlationId = CorrelationId.fromStringOrCreate(req.header(HttpHeaders.CorrelationId)).toString();
     const requestId = RequestId.fromStringOrCreate(req.header(HttpHeaders.RequestId)).toString();
 
-    ExecutionContext.run({ correlationId, requestId, attributes: ExecutionContext.getAttributes() }, () => {
+    ExecutionContext.run({ correlationId, requestId, attributes: { ...ExecutionContext.getAttributes() } }, () => {
       res.setHeader(HttpHeaders.CorrelationId, correlationId);
       res.setHeader(HttpHeaders.RequestId, requestId);
 
