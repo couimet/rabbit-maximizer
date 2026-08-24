@@ -664,4 +664,38 @@ describe('DirectCommentCheckerImpl', () => {
       'PR count exceeds direct-check limit; truncating to prevent API rate-limit exhaustion',
     );
   });
+
+  it('does not record a run id event for an unchanged comment with a null stored run id', async () => {
+    const ref = generateReviewRef();
+    const pullRequestId = getUniqueInt();
+    const commentUpdatedAt = getUniqueDate();
+    const freshRunId = getUuid();
+    const commentId = getUniqueInt();
+    github.listComments.mockResolvedValue([
+      {
+        user: 'coderabbitai[bot]',
+        body: `${SKIPPED_COMMENT_BODY}\n\n**Run ID**: \`${freshRunId}\``,
+        id: commentId,
+        createdAt: commentUpdatedAt,
+        updatedAt: commentUpdatedAt,
+      },
+    ]);
+    coderabbitComments.findByCommentId.mockResolvedValue(
+      generateCoderabbitCommentHydrationData({
+        comment_id: commentId,
+        last_seen_at: commentUpdatedAt,
+        coderabbit_run_id: null,
+      }),
+    );
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId, prTitle: ref.prTitle }]);
+
+    expect(events.record).not.toHaveBeenCalled();
+    expect(onDetected).not.toHaveBeenCalled();
+    expect(logger.info).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.skippedAlreadySeen', repo: ref.repoFullName, pr: ref.prNumber, commentId },
+      'Skipping comment already processed and not edited since',
+    );
+  });
 });

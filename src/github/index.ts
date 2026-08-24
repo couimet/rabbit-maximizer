@@ -24,6 +24,7 @@ export { CoderabbitGitHubClientImpl } from './coderabbitGitHubClient.js';
 export { extractRepoFullName } from './extractRepoFullName.js';
 export { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
 export { hasRateLimitMarker } from './hasRateLimitMarker.js';
+export { hasRateLimitOrSkipMarker } from './hasRateLimitOrSkipMarker.js';
 export { isAcknowledgementComment } from './isAcknowledgementComment.js';
 export { isApprovalReviewSignal } from './isApprovalReviewSignal.js';
 export { isCompletedReview } from './isCompletedReview.js';

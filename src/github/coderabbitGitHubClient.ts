@@ -11,6 +11,7 @@ import {
   extractRepoFullName,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,
+  hasRateLimitOrSkipMarker,
   isAcknowledgementComment,
   isApprovalReviewSignal,
   isMatchingCompletedReview,
@@ -111,7 +112,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
           per_page: COMMENTS_FETCH_PER_PAGE,
         });
 
-        const rateLimitComment = comments.data.find((c) => c.body && hasRateLimitMarker(c.body));
+        const rateLimitComment = comments.data.find((c) => hasRateLimitOrSkipMarker(c.body));
 
         if (rateLimitComment && rateLimitComment.body) {
           results.push({

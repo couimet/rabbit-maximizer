@@ -769,7 +769,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince, runId, undefined);
-      expect(deps.probe.noCompletedReviewFound).toHaveBeenCalled();
+      expect(deps.probe.noCompletedReviewFound).toHaveBeenCalledWith();
       expect(deps.probe.reviewedViaFallback).not.toHaveBeenCalled();
       expect(deps.queue.markResolvedIfStillRetriggered).not.toHaveBeenCalled();
     });

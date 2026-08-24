@@ -97,7 +97,11 @@ export class ReviewTrigger {
       return this.postAndRecord(item, probe, triggerSource, item.source_comment_url, diagnosis, sourceRunId);
     }
 
-    if (storedBody !== '' && classifyCoderabbitComment(storedBody).classification === CodeRabbitCommentType.review_skipped) {
+    if (
+      storedBody !== '' &&
+      classifyCoderabbitComment(storedBody).classification === CodeRabbitCommentType.review_skipped &&
+      !hasOwnRetriggerMarker(storedBody)
+    ) {
       const diagnosis = includeDiagnosis ? this.buildDiagnosis(item.source_comment_url, sourceCreatedAt, sourceUpdatedAt, storedBody, 'source') : undefined;
       return this.postAndRecord(item, probe, triggerSource, item.source_comment_url, diagnosis, sourceRunId);
     }
