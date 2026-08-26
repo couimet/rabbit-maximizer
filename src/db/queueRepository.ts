@@ -26,6 +26,7 @@ export interface QueueRepository {
   markRetriggerSkipped(id: number, reason: SkipReason, tx: Prisma.TransactionClient): Promise<boolean>;
   markResolved(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markResolvedIfStillRetriggered(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<boolean>;
+  adoptRunIfStillRetriggered(id: number, runId: string, tx: Prisma.TransactionClient): Promise<boolean>;
   markResolvedByUuid(uuid: string, resolution: Resolution, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -383,6 +384,16 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     });
     const changed = result.count === 1;
     this.log.debug({ fn: 'QueueRepositoryImpl.markResolvedIfStillRetriggered', id, resolution, changed }, 'Marked review resolved if still retriggered');
+    return changed;
+  }
+
+  async adoptRunIfStillRetriggered(id: number, runId: string, tx: Prisma.TransactionClient): Promise<boolean> {
+    const result = await this.client(tx).reviewQueue.updateMany({
+      where: { id, status: QueueStatus.retriggered },
+      data: { source_comment_run_id: runId, retriggered_at: new Date() },
+    });
+    const changed = result.count === 1;
+    this.log.debug({ fn: 'QueueRepositoryImpl.adoptRunIfStillRetriggered', id, runId, changed }, 'Adopted run on retriggered item');
     return changed;
   }
 

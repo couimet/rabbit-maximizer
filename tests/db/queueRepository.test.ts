@@ -1553,6 +1553,50 @@ describe('QueueRepositoryImpl', () => {
     });
   });
 
+  describe('adoptRunIfStillRetriggered', () => {
+    it('adopts the run in place and restarts the clock when the row is still retriggered', async () => {
+      const id = getUniqueInt();
+      const runId = getUuid();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 1 }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.adoptRunIfStillRetriggered(id, runId, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id, status: 'retriggered' },
+        data: { source_comment_run_id: runId, retriggered_at: frozenNow },
+      });
+      expect(result).toBe(true);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.adoptRunIfStillRetriggered', id, runId, changed: true },
+        'Adopted run on retriggered item',
+      );
+    });
+
+    it('returns false when the row is no longer retriggered (lost the race)', async () => {
+      const id = getUniqueInt();
+      const runId = getUuid();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 0 }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.adoptRunIfStillRetriggered(id, runId, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id, status: 'retriggered' },
+        data: { source_comment_run_id: runId, retriggered_at: frozenNow },
+      });
+      expect(result).toBe(false);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.adoptRunIfStillRetriggered', id, runId, changed: false },
+        'Adopted run on retriggered item',
+      );
+    });
+  });
+
   describe('markResolvedByUuid', () => {
     it('finds by UUID, marks the row resolved, and logs the event', async () => {
       const commentUrl = 'https://gh/c/retriggered-123';

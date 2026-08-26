@@ -4,6 +4,7 @@ import { type DirectCommentChecker, PollDetector } from '../src/services.js';
 import type { DetectedComment, OnDetectedCallback } from '../src/types/index.js';
 
 import {
+  createMockCoderabbitCommentRepo,
   createMockCoderabbitGitHubClient,
   createMockDirectCommentChecker,
   createMockOnDetectedCallback,
@@ -35,6 +36,7 @@ interface MockDetectorDeps {
   pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   stalePrRecoverer: ReturnType<typeof createMockStalePrRecoverer>;
   systemStateRepo: ReturnType<typeof createMockSystemStateRepository>;
+  coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
   logger: Logger;
 }
 
@@ -47,9 +49,10 @@ const setup = (): MockDetectorDeps => {
   const pullRequests = createMockPullRequestRepo();
   const stalePrRecoverer = createMockStalePrRecoverer();
   const systemStateRepo = createMockSystemStateRepository();
+  const coderabbitComments = createMockCoderabbitCommentRepo();
   const logger = createMockLogger();
 
-  return { directCommentChecker, github, onDetected, prScanner, pullRequests, stalePrRecoverer, systemStateRepo, logger };
+  return { directCommentChecker, github, onDetected, prScanner, pullRequests, stalePrRecoverer, systemStateRepo, coderabbitComments, logger };
 };
 
 describe('PollDetector', () => {
@@ -74,6 +77,7 @@ describe('PollDetector', () => {
       deps.onDetected,
       deps.pullRequests,
       deps.systemStateRepo,
+      deps.coderabbitComments,
       deps.logger,
     );
 
@@ -249,6 +253,45 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
       deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.onDetected).toHaveBeenCalledWith({ ...comment, body: bodyText, commentType: 'review_skipped' }, pullRequestId);
+    });
+  });
+
+  describe('search path freshness gate', () => {
+    it('skips an already-seen comment when updatedAt is not newer than last_seen_at', async () => {
+      const comment = generateDetectedCommentHydrationData();
+      const bodyText = 'skip review by coderabbit.ai some additional context';
+      const lastSeenAt = new Date(new Date(comment.updatedAt).getTime() + 1000);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
+      deps.coderabbitComments.findByCommentId.mockResolvedValue({ last_seen_at: lastSeenAt } as any);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.coderabbitComments.findByCommentId).toHaveBeenCalledWith(pullRequestId, comment.commentId);
+      expect(deps.onDetected).not.toHaveBeenCalled();
+      const [owner, repo] = comment.repoFullName.split('/');
+      expect(deps.logger.debug).toHaveBeenCalledWith({ fn: 'PollDetector.tick', owner, repo, commentId: comment.commentId }, 'Skipping comment already seen');
+    });
+
+    it('fires onDetected when the comment is newer than the stored last_seen_at', async () => {
+      const comment = generateDetectedCommentHydrationData();
+      const bodyText = 'skip review by coderabbit.ai some additional context';
+      const lastSeenAt = new Date(new Date(comment.updatedAt).getTime() - 1000);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
+      deps.coderabbitComments.findByCommentId.mockResolvedValue({ last_seen_at: lastSeenAt } as any);
 
       const detector = createDetector();
       await detector.start();
