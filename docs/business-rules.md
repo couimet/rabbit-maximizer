@@ -4,20 +4,22 @@ Rabbit Maximizer finds PRs where CodeRabbit's review was rate-limited or skipped
 
 ## Table of Contents
 
-1. [Queue lifecycle](#1-queue-lifecycle-br-1)
+1. [Queue lifecycle](#br-1)
 2. [Detection](#2-detection)
 3. [Enqueue](#3-enqueue)
 4. [Scheduler selection and skip reasons](#4-scheduler-selection-and-skip-reasons)
 5. [Trigger paths](#5-trigger-paths)
 6. [Review detector and edit detection](#6-review-detector-and-edit-detection)
 7. [Queue order and dashboard retrigger](#7-queue-order-and-dashboard-retrigger)
-8. [Pruning](#8-pruning-br-8)
+8. [Pruning](#br-8)
 9. [System state, pause, and account guard](#9-system-state-pause-and-account-guard)
 10. [Fewer-than-10-stars behavior](#10-fewer-than-10-stars-behavior)
-11. [Configuration reference](#11-configuration-reference-br-11)
-12. [Invariants](#12-invariants-br-12)
+11. [Configuration reference](#br-11)
+12. [Invariants](#br-12)
 
-## 1. Queue lifecycle <BR-1>
+<a id="br-1"></a>
+
+## 1. Queue lifecycle
 
 Source: [`QueueStatus`](../src/QueueStatus.ts), [`Resolution`](../src/Resolution.ts), [`queueRepository`](../src/db/queueRepository.ts).
 
@@ -31,21 +33,27 @@ Sources: [`detectorPoll`](../src/detectorPoll.ts), [`prScanner`](../src/prScanne
 
 Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: PR scan, stale-PR recovery, direct comment check, comment search, acknowledgement polling, then records the earliest next review availability.
 
-### PR tracking <BR-2-1>
+<a id="br-2-1"></a>
+
+### PR tracking
 
 - The scanner runs at most once per `PR_SCANNER_INTERVAL_SEC` since the last completed scan.
 - It searches GitHub for open PRs matching `REPO_FILTER` (`owner/*` resolves to every accessible repo of the owner; `owner/repo` to a single repo) and registers each PR with its title, author, and head sha.
 - The head commit time is fetched only when the head sha changed since the last scan — one commit fetch per push.
 - PRs previously registered as open that no longer appear in the search are re-checked individually and marked merged or closed.
 
-### Comment discovery <BR-2-2>
+<a id="br-2-2"></a>
+
+### Comment discovery
 
 Two complementary paths feed the same detection handler:
 
 - **Search path** — GitHub search over the monitored repos for open PRs whose comments mention the rate-limit phrases CodeRabbit uses in its comments ("review limit" or "rate limit") or the on-request skip phrase ("review available"). The full body of every hit is fetched before classification, because the search index returns truncated bodies. The freshness latch (below) suppresses already-seen comments before they reach the detection handler.
 - **Direct check path** — for every PR known to the scanner plus recovered PRs, list the PR's comments directly and consider only comments authored by the CodeRabbit bot. This bypasses search-index delay. The number of directly checked PRs per tick is capped (125); beyond the cap, coverage falls back to the search path.
 
-### Comment classification <BR-2-3>
+<a id="br-2-3"></a>
+
+### Comment classification
 
 CodeRabbit's comment bodies carry hidden markers that drive classification, in this precedence order:
 
@@ -64,15 +72,21 @@ Classification outcome at detection:
 | `review_approved` / `review_changes_suggested`   | Forwarded (handled as a verdict at enqueue)                    |
 | `unknown`                                        | Skipped — never acted on                                       |
 
-### Freshness latch <BR-2-4>
+<a id="br-2-4"></a>
+
+### Freshness latch
 
 Every comment the maximizer processes — detection, dismissal, and edit detection alike — latches a last-seen marker. A comment whose update time is no newer than the last-seen marker is treated as already seen and is not processed again. The latch is what stops both the direct check and the search path from re-detecting a comment on every tick.
 
-### Run ID observation <BR-2-5>
+<a id="br-2-5"></a>
+
+### Run ID observation
 
 CodeRabbit stamps each comment with a Run ID that changes on every run. The maximizer records the Run ID with each detection and observes first-seen, changed, and cleared transitions as evidence. Run ID observation is diagnosis only — it never overrides the update-time freshness decision.
 
-### Additional poll duties <BR-2-6>
+<a id="br-2-6"></a>
+
+### Additional poll duties
 
 - Comments on PRs the scanner has not yet registered are ignored until the scanner registers the PR.
 - After the maximizer posts a request, the poll loop watches for CodeRabbit's acknowledgement reply and records it when found.
@@ -85,11 +99,15 @@ Sources: [`EnqueueService`](../src/EnqueueService.ts), [`queueRepository`](../sr
 
 Every detected comment flows through one handler that decides, in order: dismissal, classification branch, then enqueue.
 
-### Already-reviewed dismissal <BR-3-1>
+<a id="br-3-1"></a>
+
+### Already-reviewed dismissal
 
 A completed review only dismisses comments from runs it already saw. CodeRabbit edits its comment in place per push, so an edit newer than the recorded verdict is a new run and must flow through the normal branches. When a completed review is already recorded for the PR and the comment's update time is not newer than that recorded review's update time, the comment is dismissed as already reviewed. The dismissal still advances the freshness latch, or the direct check would re-detect the comment on every scan.
 
-### Classification branches <BR-3-2>
+<a id="br-3-2"></a>
+
+### Classification branches
 
 | Comment classification                         | Enqueue behavior                                                                                                                        |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,7 +116,9 @@ A completed review only dismisses comments from runs it already saw. CodeRabbit 
 | `review_approved` / `review_changes_suggested` | Never enqueue — record the completed review (verdict, comment, and head sha at review time)                                             |
 | `unknown`                                      | Never reaches this point (filtered at detection)                                                                                        |
 
-### Deduplication <BR-3-3>
+<a id="br-3-3"></a>
+
+### Deduplication
 
 The enqueue decision depends on the existing item for the same PR and source comment:
 
@@ -130,7 +150,9 @@ The scheduler runs on `SCHEDULER_TICK_INTERVAL_SEC` and triggers at most one ite
 5. Account cooldown — while the recorded next-review-available time is in the future, the tick stops.
 6. Select and trigger one item.
 
-### Per-candidate selection <BR-4-1>
+<a id="br-4-1"></a>
+
+### Per-candidate selection
 
 Candidates come from the effective order (pending and retriggered), restricted to `pending`, in queue order. For each candidate in order:
 
@@ -144,7 +166,9 @@ Candidates come from the effective order (pending and retriggered), restricted t
 
 A skip is only recorded if the item is still `pending` — a concurrently resolved item is not re-skipped.
 
-### Attempts and backoff <BR-4-2>
+<a id="br-4-2"></a>
+
+### Attempts and backoff
 
 - Attempts increment on every trigger outcome, success and failure alike, so the item always reaches the cap.
 - When attempts reach `MAX_RETRIGGER_ATTEMPTS` the item resolves as `failed` — including when every trigger succeeded, capping total retriggers to prevent indefinite loops.
@@ -159,11 +183,15 @@ Sources: [`ReviewTrigger`](../src/ReviewTrigger.ts), [`StalePrRecoverer`](../src
 
 Only `pending` items can be triggered. Both the scheduler and the dashboard call the same trigger; they differ only in the trigger source recorded on the posted comment (scheduler triggers include a diagnosis line; dashboard triggers do not).
 
-### The posted request <BR-5-1>
+<a id="br-5-1"></a>
+
+### The posted request
 
 The trigger posts one comment containing the full-review command (`@coderabbitai full review`) plus metadata: a generated run id, the trigger source, and — for scheduler triggers — the diagnosis (source comment state, stated wait). It is posted as a reply to the source comment when one exists and is still actionable, or with no reply target when the source comment is gone.
 
-### Source comment decision <BR-5-2>
+<a id="br-5-2"></a>
+
+### Source comment decision
 
 The trigger first refetches the source comment that caused the enqueue:
 
@@ -177,15 +205,21 @@ The trigger first refetches the source comment that caused the enqueue:
 | No longer a rate-limit comment and no newer rate-limit comment exists | Resolve `stale_comment` — nothing left to request against              |
 | Replacement comment deleted between listing and fetch                 | Backoff and retry later                                                |
 
-### Cooldown after posting <BR-5-3>
+<a id="br-5-3"></a>
+
+### Cooldown after posting
 
 Every posted request starts an account cooldown of `CODERABBIT_ACCOUNT_COOLDOWN_SEC`: the next-review-available time is set to the later of its current value and now plus the cooldown. The PR's request count and last-request time are updated.
 
-### Rescheduling onto a replacement comment <BR-5-4>
+<a id="br-5-4"></a>
+
+### Rescheduling onto a replacement comment
 
 When the source comment was replaced, the item adopts the replacement's comment id and URL, its attempt count increments, and the next-review-available time extends to the replacement's update time plus its stated wait (`REVIEW_LIMIT_FALLBACK_WAIT_SEC` when none) plus `REVIEW_LIMIT_BUFFER_SEC`.
 
-### Recovery from a deleted comment <BR-5-5>
+<a id="br-5-5"></a>
+
+### Recovery from a deleted comment
 
 PRs that had a request posted but never received a review or acknowledgement, have no active item, and were not resolved in the last 5 minutes are recovered: a synthetic rate-limit comment is fed through detection, so the PR re-enters the queue and receives a retrigger with no reply target. This restores PRs whose rate-limit comment was deleted.
 
@@ -195,7 +229,9 @@ Sources: [`ReviewDetector`](../src/ReviewDetector.ts), [`EditDetector`](../src/E
 
 The review detector watches `retriggered` items on `POLL_INTERVAL_SEC` and resolves them when CodeRabbit completes its review. An item whose PR is already merged or closed resolves immediately.
 
-### Edit detection <BR-6-1>
+<a id="br-6-1"></a>
+
+### Edit detection
 
 CodeRabbit edits its comment in place per run. The detector refetches the source comment and acts only when the fresh update time is newer than the last sighting:
 
@@ -206,7 +242,9 @@ CodeRabbit edits its comment in place per run. The detector refetches the source
 | `review_skipped` with a new run                                   | Adopt the run in place (update `source_comment_run_id`, restart the retrigger clock); stay `retriggered` |
 | Still a rate-limit comment, or not edited since the last sighting | No resolution — fall through to the reviews-API fallback                                                 |
 
-### Reviews-API fallback <BR-6-2>
+<a id="br-6-2"></a>
+
+### Reviews-API fallback
 
 When edit detection cannot resolve the item, the detector looks back `REVIEW_DETECTION_LOOKBACK_SEC` from the retrigger time and consults the GitHub reviews API for a completed review by the CodeRabbit bot. The API returns reviews oldest-first, so the detector scans every page and keeps the newest accepted review. A review is accepted in tier order:
 
@@ -216,7 +254,9 @@ When edit detection cannot resolve the item, the detector looks back `REVIEW_DET
 
 Tier 1 is exclusive: when a run is known, a review from any other run is rejected even if its commit matches — an earlier run's review was generated against an older push. The `last_coderabbit_review_at` fallback (a recorded review inside the same window also resolves the item as `review_completed`) applies only when no run is known; a known run that produced nothing must stay `retriggered` so the stale-retriggered sweep can fail it after `SCHEDULER_MAX_RETRIGGER_AGE_SEC`. If nothing matches, the item stays `retriggered` and is checked again on a later tick.
 
-### Startup and recovery after downtime <BR-6-3>
+<a id="br-6-3"></a>
+
+### Startup and recovery after downtime
 
 The app survives downtime of minutes to days by converging through the existing sequential boot (detection and review-limit polling → review evaluation → scheduler sweep, each awaited with an immediate first tick; see `main.ts`):
 
@@ -230,17 +270,23 @@ No dedicated reconciliation process exists by design. The same decision logic co
 
 Sources: [`queueOrderRepository`](../src/db/queueOrderRepository.ts), [`queueOrderRoutes`](../src/routes/queueOrderRoutes.ts).
 
-### Effective order <BR-7-1>
+<a id="br-7-1"></a>
+
+### Effective order
 
 The effective order contains exactly the `pending` and `retriggered` items, sorted by position and then by creation order. Resolved items never appear. New items append at the end. Positions are renumbered on every move.
 
-### Moving items <BR-7-2>
+<a id="br-7-2"></a>
+
+### Moving items
 
 - Items move by UUID, one position per call, toward the requested boundary (`up` or `down`); multiple items may move together, preserving their relative order; items at the edge do not move.
 - Any non-resolved item (pending or retriggered) can be moved to the top; resolved items are rejected.
 - Reordering never affects cooldowns — cooldowns are enforced at trigger time by the scheduler, not by position.
 
-### Retrigger now <BR-7-3>
+<a id="br-7-3"></a>
+
+### Retrigger now
 
 The dashboard can trigger a `pending` item immediately, outside the scheduler's selection:
 
@@ -253,11 +299,15 @@ The dashboard can trigger a `pending` item immediately, outside the scheduler's 
 
 Retrigger-now bypasses the scheduler gates (spacing, acknowledgement hold, account cooldown) — it is a manual act — but the posted request sets the same account-cooldown gate as a scheduler trigger.
 
-### Mark reviewed <BR-7-4>
+<a id="br-7-4"></a>
+
+### Mark reviewed
 
 The dashboard can resolve any item as `manual_review` — a human attests the review is complete.
 
-## 8. Pruning <BR-8>
+<a id="br-8"></a>
+
+## 8. Pruning
 
 Sources: [`Pruner`](../src/Pruner.ts), [`PruneEvaluator`](../src/PruneEvaluator.ts).
 
@@ -275,27 +325,39 @@ Terminal resolutions remove the item from the effective order. Unfetchable state
 
 Sources: [`systemStateRepository`](../src/db/systemStateRepository.ts), [`setPaused`](../src/routes/setPaused.ts), [`validateGitHubToken`](../src/validateGitHubToken.ts), [`parseGitHubRateLimitError`](../src/github/parseGitHubRateLimitError.ts), [`getDashboardState`](../src/routes/getDashboardState.ts).
 
-### Pause <BR-9-1>
+<a id="br-9-1"></a>
+
+### Pause
 
 The scheduler can be paused and resumed via the API. While paused, the scheduler stops before any selection or trigger; the only posting that remains possible is the dashboard retrigger with an explicit pause override.
 
-### Global availability gate <BR-9-2>
+<a id="br-9-2"></a>
+
+### Global availability gate
 
 A single next-review-available time gates every scheduler tick. It is set by detection (only ever later) and by every posted request (now plus the account cooldown), and it naturally expires as time passes. The dashboard displays it only while it is in the future.
 
-### Scheduler staleness <BR-9-3>
+<a id="br-9-3"></a>
+
+### Scheduler staleness
 
 The last scheduler tick time is recorded after every tick. The dashboard flags the scheduler as stale when the heartbeat is older than `SCHEDULER_STALE_TICK_MULTIPLIER` times the tick interval. This is a display signal, not a control rule.
 
-### Startup token validation <BR-9-4>
+<a id="br-9-4"></a>
+
+### Startup token validation
 
 On startup the maximizer verifies the GitHub token authenticates and that the repo filter resolves to at least one accessible repository. Validation failure is advisory — the app still starts, and posting may fail until the token is fixed.
 
-### Account guard (GitHub API quota) <BR-9-5>
+<a id="br-9-5"></a>
+
+### Account guard (GitHub API quota)
 
 When GitHub responds with a quota-exhausted status (403 or 429 with zero quota remaining), the poll loop stops all GitHub work until the quota reset time. This is the account guard that stops detection — and therefore posting — while the token is rate-limited.
 
-### Dashboard surfaces <BR-9-6>
+<a id="br-9-6"></a>
+
+### Dashboard surfaces
 
 - Tracked PRs: open PRs never acknowledged by CodeRabbit and with no active item — the "awaiting acknowledgement" view. PRs CodeRabbit never touched appear too, sorted by last review time. When a walkthrough-summary comment (`review_stack_entry_start`) appears on such a PR, its comment time is recorded as `last_coderabbit_review_at` — evidence of the walkthrough without classifying it as a verdict.
 - Skipped items: the most recent items the scheduler skipped for cooldown or settling.
@@ -308,20 +370,28 @@ On repos with fewer than 10 stars, CodeRabbit posts a "Review available on reque
 
 Rabbit Maximizer never proactively requests a review on an observed push. It lets CodeRabbit detect the push, waits out CodeRabbit's processing, and acts only on the comment CodeRabbit adds or updates for the new head. It must never post a request while CodeRabbit is still processing a new push.
 
-### The two holds <BR-10-1>
+<a id="br-10-1"></a>
+
+### The two holds
 
 - **Acknowledgement hold** — after the maximizer's own request, CodeRabbit replies with an auto-generated acknowledgement ("auto-generated reply by CodeRabbit"). The poll loop watches for that reply and records it; until it is seen, the scheduler holds new requests until the request is older than `SCHEDULER_RETRIGGER_SPACING_SEC`. This covers the maximizer's own requests.
 - **Push-processing hold (sha-based inference)** — a push produces no acknowledgement: CodeRabbit silently processes it, then adds or updates a comment. Push processing is therefore inferred from the head sha. The maximizer tracks the head sha, the head commit's time, and the sha at the last recorded review (`head_sha`, `head_committed_at`, `reviewed_head_sha`), and keeps an append-only history of every observed sha. A push is a head sha change; a push after a recorded review is `head_sha != reviewed_head_sha`. These signals are the evidence trail — the enforcement is the rule above: the maximizer never acts on a push, only on the comment CodeRabbit adds or updates for the new head.
 
-### Act only on the comment <BR-10-2>
+<a id="br-10-2"></a>
+
+### Act only on the comment
 
 Every action in the system starts from a CodeRabbit comment for the current head. Comment bodies are the input contract: classification markers (rate limit, skip, completion signals) and the stated wait time are all read from the comment.
 
-### The Run ID as the per-run evidence key <BR-10-3>
+<a id="br-10-3"></a>
+
+### The Run ID as the per-run evidence key
 
 CodeRabbit stamps each comment with a Run ID that changes on every run. The maximizer records the Run ID with every detection and observes transitions (first seen, changed, cleared) as evidence of CodeRabbit runs. Run IDs are capped at 75 characters. The Run ID never drives the freshness decision — a run also bumps the comment's update time, and the update-time comparison is the decision input.
 
-### Decision table: comment classification by run freshness <BR-10-4>
+<a id="br-10-4"></a>
+
+### Decision table: comment classification by run freshness
 
 A comment is fresh when the maximizer has not seen it at or after its current update time, and when it is newer than the recorded review (if any). A comment is stale when the maximizer already processed it at or after its current update time.
 
@@ -335,7 +405,9 @@ A comment is fresh when the maximizer has not seen it at or after its current up
 
 A comment whose update time is not newer than the recorded review is dismissed as already reviewed — an older run's comment must not re-open work that a newer run already completed.
 
-## 11. Configuration reference <BR-11>
+<a id="br-11"></a>
+
+## 11. Configuration reference
 
 All keys are environment variables. Defaults are stated; validation invariants follow.
 
@@ -365,7 +437,9 @@ All keys are environment variables. Defaults are stated; validation invariants f
 
 Validation invariants: backoff max must be at least backoff base; retrigger spacing must be at least the poll interval and strictly less than the account cooldown; the review-detection lookback must be at most twice the account cooldown; webhook mode requires both the webhook secret and the tunnel URL.
 
-## 12. Invariants <BR-12>
+<a id="br-12"></a>
+
+## 12. Invariants
 
 These rules must never be violated. Every change to the product must preserve them.
 

@@ -13,3 +13,12 @@ overrides:
     config:
       MD033: false
     combine: merge
+  # docs/ may use <a> anchors to carry stable rule IDs (business-rules.md
+  # BR-* headings link from the TOC to #br-*).
+  - filter:
+      - 'docs/**'
+    config:
+      MD033:
+        allowed_elements:
+          - a
+    combine: merge

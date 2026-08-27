@@ -702,7 +702,7 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
-      expect(deps.queue.adoptRunIfStillRetriggered).toHaveBeenCalledWith(item.id, runId, {});
+      expect(deps.queue.adoptRunIfStillRetriggered).toHaveBeenCalledWith(item.id, item.source_comment_run_id, runId, {});
       expect(deps.probe.runAdopted).toHaveBeenCalledWith(runId);
       expect(deps.queue.markResolvedIfStillRetriggered).not.toHaveBeenCalled();
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
@@ -954,7 +954,7 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.queue.adoptRunIfStillRetriggered).toHaveBeenCalledWith(item.id, runId, {});
+      expect(deps.queue.adoptRunIfStillRetriggered).toHaveBeenCalledWith(item.id, item.source_comment_run_id, runId, {});
       expect(deps.probe.runAdoptionLostRace).toHaveBeenCalledWith(runId);
       expect(deps.probe.runAdopted).not.toHaveBeenCalled();
     });
