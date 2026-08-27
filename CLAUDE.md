@@ -23,7 +23,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 
 <rule id="C002" priority="critical">
   <title>couimet/* GitHub Actions always use @main</title>
-  <never>Pin a `couimet/*` GitHub Action to a commit SHA in CI workflows</never>
+  <never>Pin a `couimet/*` GitHub Action to a commit SHA in workflows or composite action definitions</never>
   <do>Always reference `couimet/*` actions with `@main` to get the latest version</do>
   <rationale>The author wants these actions to auto-update across all repos</rationale>
 </rule>
