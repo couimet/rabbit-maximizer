@@ -192,7 +192,7 @@ describe('ReviewDetectorProbe', () => {
       probe.runAdoptionLostRace(runId);
       expect(logger.warn).toHaveBeenCalledWith(
         { fn: 'ReviewDetectorProbe.runAdoptionLostRace', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, runId },
-        'Item was no longer retriggered; another writer resolved it first — skipping run adoption',
+        'Run adoption lost the race; the item was resolved or its run changed',
       );
     });
   });

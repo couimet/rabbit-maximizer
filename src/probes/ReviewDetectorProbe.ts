@@ -54,7 +54,7 @@ export class ReviewDetectorProbe {
   runAdoptionLostRace(runId: string): void {
     this.log.warn(
       { fn: 'ReviewDetectorProbe.runAdoptionLostRace', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, runId },
-      'Item was no longer retriggered; another writer resolved it first — skipping run adoption',
+      'Run adoption lost the race; the item was resolved or its run changed',
     );
   }
 

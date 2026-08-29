@@ -267,7 +267,7 @@ describe('PollDetector', () => {
     it('skips an already-seen comment when updatedAt is not newer than last_seen_at', async () => {
       const comment = generateDetectedCommentHydrationData();
       const bodyText = 'skip review by coderabbit.ai some additional context';
-      const lastSeenAt = new Date(new Date(comment.updatedAt).getTime() + 1000);
+      const lastSeenAt = new Date(new Date(comment.updatedAt).getTime() + MS_PER_SECOND);
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
       deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
@@ -287,7 +287,7 @@ describe('PollDetector', () => {
     it('fires onDetected when the comment is newer than the stored last_seen_at', async () => {
       const comment = generateDetectedCommentHydrationData();
       const bodyText = 'skip review by coderabbit.ai some additional context';
-      const lastSeenAt = new Date(new Date(comment.updatedAt).getTime() - 1000);
+      const lastSeenAt = new Date(new Date(comment.updatedAt).getTime() - MS_PER_SECOND);
       deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
       deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
       deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
