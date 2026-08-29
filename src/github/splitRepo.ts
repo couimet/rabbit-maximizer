@@ -1,5 +1,4 @@
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 
 export const splitRepo = (fullName: string): { owner: string; repo: string } => {
   const parts = fullName.split('/');

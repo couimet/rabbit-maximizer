@@ -1,5 +1,4 @@
-import type { PruneOutcome } from './PruneOutcome.js';
-import type { QueueItem } from './QueueItem.js';
+import type { PruneOutcome, QueueItem } from './index.js';
 
 export interface EnrichedItem {
   readonly item: QueueItem;

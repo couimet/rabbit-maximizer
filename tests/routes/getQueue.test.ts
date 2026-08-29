@@ -1,27 +1,27 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
-import { createGetQueueHandler } from '../../src/routes/getQueue.js';
-import { fetchResponse } from '../helpers/fetchResponse.js';
-import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockQueueRepo, makeQueueItem } from '../helpers/index.js';
+import { createGetQueueHandler } from '../../src/routes/index.js';
+import { apiJson, createMockQueueItemMapper, createMockQueueRepo, fetchResponse, generateQueueItemHydrationData, getJson } from '../helpers/index.js';
 
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { StatusCodes } from 'http-status-codes';
+import type { Server } from 'node:http';
 
 describe('getQueue', () => {
   let server: Server;
   let port: number;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
+  let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
+
+  beforeEach(() => {
+    queueItemMapper = createMockQueueItemMapper();
+  });
 
   afterEach(async () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  const queueItemMapper = new QueueItemMapper();
-
+  /** @testFixture */
   const startServer = (over = {}) => {
     logger = createMockLogger();
     const result = startTestServer(logger, (app) => {
@@ -32,11 +32,11 @@ describe('getQueue', () => {
   };
 
   it('returns 200 with paginated queue items', async () => {
-    const queueItems = [makeQueueItem(), makeQueueItem()];
+    const queueItems = [generateQueueItemHydrationData(), generateQueueItemHydrationData()];
     startServer({ getAll: jest.fn<any>().mockResolvedValue({ items: queueItems, total: 2 }) });
 
     const json = await getJson(port, '/api/queue');
-    expect(json).toStrictEqual(apiJson({ data: queueItemMapper.mapToQueueItemResponseList(queueItems), total: 2, page: 1, pageSize: 20 }));
+    expect(json).toStrictEqual(apiJson({ data: await queueItemMapper.mapToQueueItemResponseList(queueItems), total: 2, page: 1, pageSize: 20 }));
   });
 
   it('returns empty data when no items exist', async () => {
@@ -65,6 +65,6 @@ describe('getQueue', () => {
     const res = await fetchResponse(port, '/api/queue');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get queue' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getQueue', error: repoError }, 'Failed to get queue');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.getQueue', error: repoError }, 'Failed to get queue');
   });
 });

@@ -1,16 +1,15 @@
 import type { Config } from '../src/config.js';
-import type { QueueOrderRepository } from '../src/db/queueOrderRepository.js';
-import type { QueueRepository } from '../src/db/queueRepository.js';
-import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
-import type { Pruner } from '../src/Pruner.js';
-import { ReviewTrigger } from '../src/ReviewTrigger.js';
-import { Scheduler } from '../src/scheduler.js';
-import { TriggerSource } from '../src/types/index.js';
-import { QueueStatus } from '../src/types/QueueStatus.js';
-import { RabbitResult } from '../src/types/RabbitResult.js';
+import type { QueueOrderRepository, QueueRepository } from '../src/db/index.js';
+import { CodeRabbitCommentType, QueueStatus, RabbitResult } from '../src/domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from '../src/errors/index.js';
+import type { ProbeFactory } from '../src/probes/index.js';
+import { type Pruner, ReviewTrigger, Scheduler } from '../src/services.js';
+import type { PRState, QueueItem } from '../src/types/index.js';
+import { MS_PER_SECOND } from '../src/utils/index.js';
 
 import {
   createMockProbeFactory,
+  createMockPRStateFetcher,
   createMockPruner,
   createMockPullRequestRepo,
   createMockQueueOrderRepo,
@@ -18,34 +17,32 @@ import {
   createMockSchedulerProbe,
   createMockSystemStateRepository,
   drainMicrotasks,
+  generateConfigData,
+  generateQueueItemHydrationData,
+  generateReviewRef,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
+const pendingItem = (overrides?: Parameters<typeof generateQueueItemHydrationData>[0]) =>
+  generateQueueItemHydrationData({
+    status: QueueStatus.pending,
+    created_at: new Date(Date.now() - SETTLING_WINDOW_MS * SETTLING_AGE_MULTIPLIER),
+    ...overrides,
+  });
+
+const SETTLING_WINDOW_MS = 180_000;
 const TICK_INTERVAL_MS = 10_000;
 const SHORT_DRAIN = 5;
 const BASE_BACKOFF_MS = 60_000;
-
-interface QueueItemStub {
-  id: number;
-  uuid: string;
-  repo_full_name: string;
-  pr_number: number;
-  pr_title: string;
-  status: QueueStatus;
-  not_before: Date;
-  attempts: number;
-  source_comment_url: string;
-  source_comment_id: number;
-  trigger_source: TriggerSource;
-  pull_request_id: number;
-  created_at: Date;
-  updated_at: Date;
-}
+const SETTLING_AGE_MULTIPLIER = 2;
+const OLDER_THAN_SETTLING_MULTIPLIER = 3;
+const FUTURE_COOLDOWN_MS = 60_000;
+const ONE_SECOND_MS = 1_000;
 
 interface MockSchedulerDeps {
   config: Config;
@@ -60,34 +57,15 @@ interface MockSchedulerDeps {
   reviewTrigger: jest.Mocked<ReviewTrigger>;
   systemState: ReturnType<typeof createMockSystemStateRepository>;
   pullRequests: ReturnType<typeof createMockPullRequestRepo>;
+  prStateFetcher: ReturnType<typeof createMockPRStateFetcher>;
 }
-
-const makeItem = (over: Partial<QueueItemStub> = {}): QueueItemStub => {
-  const commentId = getUniqueInt();
-  return {
-    id: over.id ?? getUniqueInt(),
-    uuid: over.uuid ?? getUuid(),
-    repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
-    pr_number: over.pr_number ?? getUniqueInt(),
-    pr_title: over.pr_title ?? getUniqueString({ prefix: 'pr-title-' }),
-    status: over.status ?? QueueStatus.pending,
-    not_before: over.not_before ?? new Date(Date.now() - 60_000),
-    attempts: over.attempts ?? 0,
-    source_comment_url: over.source_comment_url ?? `https://github.com/test-owner/test-repo/pull/${getUniqueInt()}#issuecomment-${commentId}`,
-    source_comment_id: over.source_comment_id ?? commentId,
-    trigger_source: over.trigger_source ?? TriggerSource.scheduler,
-    pull_request_id: over.pull_request_id ?? getUniqueInt(),
-    created_at: over.created_at ?? getUniqueDate(),
-    updated_at: over.updated_at ?? getUniqueDate(),
-  };
-};
 
 const setup = (): MockSchedulerDeps => {
   const queueOrder = createMockQueueOrderRepo();
   const queue = createMockQueueRepo();
   const reviewTrigger = { trigger: jest.fn() } as unknown as jest.Mocked<ReviewTrigger>;
 
-  const tx = {} as Prisma.TransactionClient;
+  const tx = { reviewQueue: { update: jest.fn() } } as unknown as Prisma.TransactionClient;
 
   const prisma = {
     $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)),
@@ -104,26 +82,11 @@ const setup = (): MockSchedulerDeps => {
 
   const pullRequests = createMockPullRequestRepo();
 
-  const config: Config = {
-    DETECTION_MODE: 'poll',
-    GITHUB_API_TIMEOUT_SEC: 10,
-    GITHUB_PAT: 'test-pat',
-    PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: 1800,
-    PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: 900,
-    POLL_INTERVAL_SEC: 90,
-    REPO_FILTER: [{ pattern: 'test-owner/*', scope: 'user' }],
-    DATABASE_URL: 'file:./data/test.db',
-    WEB_PORT: 3000,
-    SCHEDULER_POST_COOLDOWN_SEC: 3600,
-    SCHEDULER_RETRIGGER_SPACING_SEC: 180,
-    SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
-    SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
-    REVIEW_LIMIT_BUFFER_SEC: 60,
-    REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
-    SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / 1000,
-  };
+  const prStateFetcher = createMockPRStateFetcher();
 
-  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState, pullRequests };
+  const config = generateConfigData({ SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / MS_PER_SECOND });
+
+  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState, pullRequests, prStateFetcher };
 };
 
 describe('Scheduler', () => {
@@ -148,58 +111,111 @@ describe('Scheduler', () => {
       deps.probeFactory,
       deps.pullRequests,
       deps.systemState,
+      deps.prStateFetcher,
       deps.logger,
     );
 
   const awaitTick = (scheduler: Scheduler) => scheduler['tickPromise'];
 
   describe('tick', () => {
-    const TRIGGER_OK = RabbitResult.ok({ retriggeredCommentUrl: 'https://gh/c/retriggered' });
+    const makeTriggerOk = () => RabbitResult.ok({ retriggeredCommentUrl: getUniqueString() });
 
-    it('delegates to ReviewTrigger on success', async () => {
-      const item = makeItem();
+    const makeStaleRescheduleError = (item: QueueItem, rescheduleEarliest: Date) => {
+      const newComment = { commentId: getUniqueInt(), commentUrl: getUniqueString() };
+      const err = new StaleCommentRescheduledError(
+        newComment,
+        {
+          url: item.source_comment_url,
+          createdAt: getUniqueDate().toISOString(),
+          updatedAt: getUniqueDate().toISOString(),
+          classification: CodeRabbitCommentType.unknown,
+          matchedMarker: undefined,
+        },
+        rescheduleEarliest,
+        'test',
+      );
+      return { err, newComment };
+    };
+
+    it('delegates to ReviewTrigger on success and increments attempts', async () => {
+      const item = pendingItem();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      deps.reviewTrigger.trigger.mockResolvedValue(TRIGGER_OK);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+      expect(deps.queue.incrementAttempts).toHaveBeenCalledWith(item.id, 1, deps.tx);
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(frozenNow, undefined);
 
       await stop();
     });
 
-    it('reschedules when ReviewTrigger returns stale reschedule', async () => {
-      const item = makeItem();
-      const notBefore = new Date(Date.now() + 60_000);
-      const newComment = { commentId: 999, commentUrl: 'https://gh/c/new' };
-      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-        code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
-        message: 'stale',
-        functionName: 'test',
-        details: { notBefore: notBefore.toISOString(), sourceComment: newComment },
-      });
+    it('resolves item when successful retriggers reach MAX_RETRIGGER_ATTEMPTS', async () => {
+      const item = pendingItem({ attempts: 9 });
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', expect.any(Object));
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(10, expect.any(Object));
+      expect(deps.tx.reviewQueue.update).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('reschedules when ReviewTrigger returns stale reschedule and sets the global cooldown', async () => {
+      const item = pendingItem();
+      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000);
+      const { err: staleErr, newComment } = makeStaleRescheduleError(item, rescheduleEarliest);
       const triggerResult = RabbitResult.err(staleErr);
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, notBefore, newComment, deps.tx);
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, item.source_comment_url, deps.tx);
+      expect(deps.systemState.getNextReviewAvailableAt).toHaveBeenCalledWith(deps.tx);
+      expect(deps.systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(rescheduleEarliest, deps.tx);
 
       await stop();
     });
 
-    it('backs off when ReviewTrigger returns stale skip', async () => {
-      const item = makeItem();
-      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-        code: 'RETRIGGER_STALE_COMMENT_SKIP' as any,
+    it('preserves an existing later cooldown when rescheduling a stale comment', async () => {
+      const item = pendingItem();
+      const rescheduleEarliest = new Date(frozenNow.getTime() + 60_000);
+      const existingCooldown = new Date(frozenNow.getTime() + 120_000);
+      const { err: staleErr, newComment } = makeStaleRescheduleError(item, rescheduleEarliest);
+      deps.systemState.getNextReviewAvailableAt.mockResolvedValueOnce(undefined).mockResolvedValueOnce(existingCooldown);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(staleErr));
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.reschedule).toHaveBeenCalledWith(item.id, newComment, item.source_comment_url, deps.tx);
+      expect(deps.systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(existingCooldown, deps.tx);
+
+      await stop();
+    });
+
+    it('resolves as stale comment when ReviewTrigger returns stale skip', async () => {
+      const item = pendingItem();
+      const staleErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP,
         message: 'gone',
         functionName: 'test',
       });
@@ -208,21 +224,21 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'stale_comment', deps.tx);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
 
       await stop();
     });
 
     it('backs off when ReviewTrigger returns stale replacement deleted', async () => {
-      const item = makeItem();
-      const staleErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-        code: 'RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED' as any,
+      const item = pendingItem();
+      const staleErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED,
         message: 'gone',
         functionName: 'test',
       });
@@ -231,20 +247,47 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
+
+      await stop();
+    });
+
+    it('logs warning and skips when ReviewTrigger returns RETRIGGER_ITEM_NOT_PENDING', async () => {
+      const item = pendingItem();
+      const notPendingErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_ITEM_NOT_PENDING,
+        message: 'Item is not in pending status',
+        functionName: 'ReviewTrigger.trigger',
+        details: { status: 'retriggered' },
+      });
+      const triggerResult = RabbitResult.err(notPendingErr);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'Scheduler.executeTick', queueId: item.id, error: notPendingErr },
+        'Item not pending at trigger time; skipping',
+      );
+      expect(deps.queue.markResolved).not.toHaveBeenCalled();
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+      expect(deps.mockProbe.triggerFailed).not.toHaveBeenCalled();
 
       await stop();
     });
 
     it('backs off on unexpected error code from ReviewTrigger', async () => {
-      const item = makeItem();
-      const unexpectedErr = new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
+      const item = pendingItem();
+      const unexpectedErr = new RabbitMaximizerError({
         code: 'UNKNOWN_CODE' as any,
         message: 'unexpected',
         functionName: 'test',
@@ -254,63 +297,62 @@ describe('Scheduler', () => {
       deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
-      const expectedBackoffDate = new Date(frozenNow.getTime() + BASE_BACKOFF_MS);
-      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, expectedBackoffDate, deps.tx);
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
 
       await stop();
     });
 
     it('marks failed and records failed event on HTTP 404 from trigger', async () => {
-      const item = makeItem();
+      const item = pendingItem();
       const notFoundError = { status: 404 };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(notFoundError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(404, deps.tx);
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.mockProbe.prDeleted).toHaveBeenCalledWith(404, deps.tx);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
 
       await stop();
     });
 
     it('marks failed on HTTP 410 from trigger', async () => {
-      const item = makeItem();
+      const item = pendingItem();
       const goneError = { status: 410 };
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(goneError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.mockProbe.prClosedOrMerged).toHaveBeenCalledWith(410, deps.tx);
-      expect(deps.queue.markFailed).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.mockProbe.prDeleted).toHaveBeenCalledWith(410, deps.tx);
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
 
       await stop();
     });
 
     it('backs off on unknown error from trigger', async () => {
-      const item = makeItem();
+      const item = pendingItem();
       const networkError = new Error('Network timeout');
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.reviewTrigger.trigger.mockRejectedValue(networkError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
-      expect(deps.mockProbe.prClosedOrMerged).not.toHaveBeenCalled();
+      expect(deps.mockProbe.prDeleted).not.toHaveBeenCalled();
       expect(deps.mockProbe.backedOff).toHaveBeenCalledWith(BASE_BACKOFF_MS, 0, networkError, deps.tx);
 
       await stop();
@@ -320,7 +362,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([]);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await drainMicrotasks(SHORT_DRAIN);
 
@@ -330,17 +372,35 @@ describe('Scheduler', () => {
     });
 
     it('skips processing when scheduler is paused', async () => {
-      const item = makeItem();
+      const item = generateQueueItemHydrationData();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.systemState.isSchedulerPaused.mockResolvedValue(true);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.mockProbe.schedulerPaused).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(frozenNow, undefined);
+
+      await stop();
+    });
+
+    it('skips processing when next_review_available_at is in the future', async () => {
+      const item = generateQueueItemHydrationData();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.systemState.getNextReviewAvailableAt.mockResolvedValue(new Date(Date.now() + TICK_INTERVAL_MS));
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.mockProbe.tickSkippedCooldown).toHaveBeenCalled();
+      expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(frozenNow, undefined);
 
       await stop();
     });
@@ -349,24 +409,43 @@ describe('Scheduler', () => {
       deps.systemState.isSchedulerPaused.mockResolvedValue(true);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.pruner.prune).toHaveBeenCalled();
-      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalled();
+      expect(deps.systemState.isSchedulerPaused).toHaveBeenCalledWith(undefined);
+
+      await stop();
+    });
+
+    it('resolves stale retriggered items and notifies probe', async () => {
+      deps.systemState.isSchedulerPaused.mockResolvedValue(true);
+      deps.queue.resolveStaleRetriggered.mockResolvedValue(3);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.resolveStaleRetriggered).toHaveBeenCalledWith(deps.config.SCHEDULER_MAX_RETRIGGER_AGE_SEC * 1000, deps.tx);
+      expect(deps.mockProbe.staleRetriggeredResolved).toHaveBeenCalledWith(3);
 
       await stop();
     });
 
     it('skips the tick when a PR is awaiting acknowledgement within the spacing window', async () => {
+      const ackRef = generateReviewRef();
       const ackId = getUniqueInt();
-      const ackRepo = getUniqueGitHubRepoRef().fullName;
-      const ackPr = getUniqueInt();
-      const pendingAck = { id: ackId, repo_full_name: ackRepo, pr_number: ackPr, last_review_requested_at: new Date(frozenNow.getTime() - 30_000) };
+      const pendingAck = {
+        id: ackId,
+        repo_full_name: ackRef.repoFullName,
+        pr_number: ackRef.prNumber,
+        last_review_requested_at: new Date(frozenNow.getTime() - 30_000),
+      };
       deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
       await awaitTick(scheduler);
       expect(deps.mockProbe.tickSkippedAwaitingAcknowledgement).toHaveBeenCalled();
       expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
@@ -374,17 +453,34 @@ describe('Scheduler', () => {
     });
 
     it('proceeds normally when schedulerStatus is running', async () => {
-      const item = makeItem();
+      const item = pendingItem();
       deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
       deps.systemState.isSchedulerPaused.mockResolvedValue(false);
-      deps.reviewTrigger.trigger.mockResolvedValue(TRIGGER_OK);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('logs error when heartbeat persistence fails', async () => {
+      const item = pendingItem();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+      const heartbeatError = new Error('DB write failed');
+      deps.systemState.setLastSchedulerTickAt.mockRejectedValue(heartbeatError);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.logger.error).toHaveBeenCalledWith({ fn: 'Scheduler.executeTick', error: heartbeatError }, 'Failed to persist scheduler heartbeat');
 
       await stop();
     });
@@ -394,7 +490,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockRejectedValue(dbError);
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -407,7 +503,7 @@ describe('Scheduler', () => {
       deps.queueOrder.getEffectiveOrder.mockRejectedValue('raw string failure');
 
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await awaitTick(scheduler);
 
@@ -416,34 +512,9 @@ describe('Scheduler', () => {
       await stop();
     });
 
-    it('updates not_before on reschedule when item needs backoff', async () => {
-      const item = makeItem();
-      const rescheduleNotBefore = new Date(Date.now() + 120_000);
-      const newComment = { commentId: 888, commentUrl: 'https://gh/c/newer' };
-      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
-      const staleErr = RabbitResult.err(
-        new (await import('../src/errors/RabbitMaximizerError.js')).RabbitMaximizerError({
-          code: 'RETRIGGER_STALE_COMMENT_RESCHEDULE' as any,
-          message: 'stale',
-          functionName: 'test',
-          details: { notBefore: rescheduleNotBefore.toISOString(), sourceComment: newComment },
-        }),
-      );
-      deps.reviewTrigger.trigger.mockResolvedValue(staleErr);
-
-      const scheduler = createScheduler();
-      const { stop } = scheduler.start();
-
-      await awaitTick(scheduler);
-
-      expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(staleErr.error, deps.tx);
-
-      await stop();
-    });
-
     it('logs start and stop messages', async () => {
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.start', tickIntervalMs: TICK_INTERVAL_MS }, 'Starting scheduler');
 
@@ -453,12 +524,293 @@ describe('Scheduler', () => {
 
     it('does not throw when stop is called multiple times', async () => {
       const scheduler = createScheduler();
-      const { stop } = scheduler.start();
+      const { stop } = await scheduler.start();
 
       await stop();
       await stop();
 
       expect(deps.logger.info).toHaveBeenCalledWith({ fn: 'Scheduler.stop' }, 'Scheduler stopped');
+    });
+
+    it('marks failed when attempts >= MAX_RETRIGGER_ATTEMPTS on trigger failure', async () => {
+      const item = pendingItem({ attempts: 10 });
+      const otherErr = new RabbitMaximizerError({
+        code: 'SOME_OTHER_ERROR' as any,
+        message: 'gone',
+        functionName: 'test',
+      });
+      const triggerResult = RabbitResult.err(otherErr);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(item.attempts, deps.tx);
+      expect(deps.mockProbe.triggerFailed).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('marks failed when attempts >= MAX_RETRIGGER_ATTEMPTS on unexpected exception', async () => {
+      const item = pendingItem({ attempts: 10 });
+      const networkError = new Error('Network timeout');
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockRejectedValue(networkError);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'failed', deps.tx);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+      expect(deps.mockProbe.maxRetriggersExceeded).toHaveBeenCalledWith(item.attempts, deps.tx);
+      expect(deps.mockProbe.backedOff).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('backs off normally when attempts is under the ceiling', async () => {
+      const item = pendingItem({ attempts: 2 });
+      const otherErr = new RabbitMaximizerError({
+        code: 'SOME_OTHER_ERROR' as any,
+        message: 'gone',
+        functionName: 'test',
+      });
+      const triggerResult = RabbitResult.err(otherErr);
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(triggerResult);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.backoff).toHaveBeenCalledWith(item.id, deps.tx);
+      expect(deps.queue.markResolved).not.toHaveBeenCalled();
+      expect(deps.mockProbe.maxRetriggersExceeded).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    describe('PR state scan loop', () => {
+      it('selects the first open PR and skips merged PRs', async () => {
+        const mergedItem = pendingItem();
+        const openItem = pendingItem();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch
+          .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
+          .mockResolvedValueOnce({ state: 'open', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, openItem]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(2);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
+        expect(deps.mockProbe.prClosedDuringScan).toHaveBeenCalledWith(mergedItem.repo_full_name, mergedItem.pr_number, 'merged', deps.tx);
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(openItem, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('skips items whose PR state fetch fails', async () => {
+        const failedItem = pendingItem();
+        const openItem = pendingItem();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch.mockResolvedValueOnce(undefined).mockResolvedValueOnce({ state: 'open', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([failedItem, openItem]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(2);
+        expect(deps.queue.markResolved).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(openItem, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('resolves closed-without-merge PR and continues to next item', async () => {
+        const closedItem = pendingItem();
+        const openItem = pendingItem();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch
+          .mockResolvedValueOnce({ state: 'closed', merged_at: null, closed_at: null } satisfies PRState)
+          .mockResolvedValueOnce({ state: 'open', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([closedItem, openItem]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(2);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(closedItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.mockProbe.prClosedDuringScan).toHaveBeenCalledWith(closedItem.repo_full_name, closedItem.pr_number, 'closed', deps.tx);
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(openItem, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('calls noItemsDue when all candidates are merged or closed', async () => {
+        const mergedItem = pendingItem();
+        const closedItem = pendingItem();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch
+          .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
+          .mockResolvedValueOnce({ state: 'closed', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, closedItem]);
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(2);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(closedItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('resolves without unnecessary transaction when single item is merged', async () => {
+        const mergedItem = pendingItem();
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch.mockResolvedValue({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem]);
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(1);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('skips a candidate whose cooldown_until is still in the future', async () => {
+        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() + FUTURE_COOLDOWN_MS) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).toHaveBeenCalledWith(item.id, 'cooldown', deps.tx);
+        expect(deps.mockProbe.retriggerSkipped).toHaveBeenCalledWith(item, 'cooldown');
+        expect(deps.prStateFetcher.fetch).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('does not report a skip when the candidate status changed before recording', async () => {
+        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() + FUTURE_COOLDOWN_MS) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.queue.markRetriggerSkipped.mockResolvedValue(false);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).toHaveBeenCalledWith(item.id, 'cooldown', deps.tx);
+        expect(deps.mockProbe.retriggerSkipped).not.toHaveBeenCalled();
+        expect(deps.prStateFetcher.fetch).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('triggers a candidate whose cooldown_until has expired', async () => {
+        const item = pendingItem({ cooldown_until: new Date(frozenNow.getTime() - ONE_SECOND_MS) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('skips a candidate still within the settling window', async () => {
+        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - ONE_SECOND_MS) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).toHaveBeenCalledWith(item.id, 'settling', deps.tx);
+        expect(deps.mockProbe.retriggerSkipped).toHaveBeenCalledWith(item, 'settling');
+        expect(deps.prStateFetcher.fetch).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('triggers a candidate exactly at the settling boundary', async () => {
+        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - SETTLING_WINDOW_MS) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('triggers a candidate older than the settling boundary', async () => {
+        const item = pendingItem({ created_at: new Date(frozenNow.getTime() - SETTLING_WINDOW_MS * OLDER_THAN_SETTLING_MULTIPLIER) });
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+
+        await stop();
+      });
     });
   });
 });

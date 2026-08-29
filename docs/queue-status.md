@@ -1,35 +1,23 @@
 # Queue Status
 
-State diagram of the `QueueStatus` values from `src/types/QueueStatus.ts`. Each queue item moves through these statuses as the scheduler processes it.
+State diagram and resolution reasons for the `QueueStatus` values. For authoritative behavior, read the source: [`QueueStatus`](../src/QueueStatus.ts), [`Resolution`](../src/Resolution.ts), [`queueRepository.enqueue()`](../src/db/queueRepository.ts), [`queueOrderRepository`](../src/db/queueOrderRepository.ts).
 
 ```mermaid
 stateDiagram-v2
-    [*] --> pending
-    pending --> retriggered
-    pending --> failed
-    retriggered --> completed
-    retriggered --> [*]
-    completed --> [*]
-    failed --> [*]
+    [*] --> pending: rate-limit or skip comment detected
+    pending --> retriggered: scheduler or dashboard posts retrigger
+    pending --> resolved: PR unavailable (404/410), max attempts
+    retriggered --> resolved: review completed, PR merged/closed, max attempts, or stale
+    resolved --> [*]
 ```
 
-## Status details
+Resolution reasons:
 
-| Status        | Set by                              | Meaning                                                                                                                                                                             |
-| ------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pending`     | `QueueRepository.enqueue()`         | Awaiting scheduler pick-up. Only `pending` items are returned by `getNextDue()`.                                                                                                    |
-| `retriggered` | `QueueRepository.markRetriggered()` | Retrigger comment was posted on the PR. The scheduler does not re-pick this up. If CodeRabbit responds with another review limit, the poll detector creates a fresh `pending` item. |
-| `completed`   | `CompletionDetector`                | CodeRabbit review ran successfully after retrigger. Detected by finding a non-rate-limit bot comment on the PR.                                                                     |
-| `failed`      | `QueueRepository.markFailed()`      | Terminal. PR was closed or merged before the retrigger could be posted.                                                                                                             |
+- `review_completed` — CodeRabbit completed a review after the request.
+- `manual_review` — a human marked the item reviewed from the dashboard.
+- `pr_merged` / `pr_closed_without_merge` — the PR left the open state.
+- `failed` — max trigger attempts reached, terminal HTTP failure, or the retriggered item went stale.
+- `skipped` — CodeRabbit re-skipped the review after the request.
+- `stale_comment` — the source comment is gone and no replacement exists.
 
-## Transition details
-
-| From          | To            | Trigger / explanation                                                                          |
-| ------------- | ------------- | ---------------------------------------------------------------------------------------------- |
-| `[*]`         | `pending`     | Poll detector enqueues PR after detecting a review-limit comment                               |
-| `pending`     | `retriggered` | Scheduler posts retrigger successfully                                                         |
-| `pending`     | `failed`      | Scheduler hits HTTP 404/410 (PR closed or merged)                                              |
-| `retriggered` | `completed`   | `CompletionDetector` finds a non-rate-limit `coderabbitai[bot]` comment after `retriggered_at` |
-| `retriggered` | `[*]`         | Retrigger sent, awaiting outcome (cycle may restart via poll detector)                         |
-| `completed`   | `[*]`         | Terminal success                                                                               |
-| `failed`      | `[*]`         | Terminal failure                                                                               |
+`EFFECTIVE_ORDER_STATUSES` includes both `pending` and `retriggered` — both appear in Queue Order. When a new rate-limit comment arrives on a `retriggered` item, the source comment is updated in place; no new item is created. When the same comment is re-edited with a new CodeRabbit Run ID, the item's run tracking is updated in place and the retrigger clock restarts; no new item is created and no new retrigger comment is posted.

@@ -1,14 +1,19 @@
+import { EventType } from '../domain.js';
+
 import type {
-  BypassedPayload,
   CoderabbitReviewApprovedPayload,
-  CoderabbitReviewChangesRequestedPayload,
+  CoderabbitReviewChangesSuggestedPayload,
+  CoderabbitReviewSkippedPayload,
+  CoderabbitRunIdChangedPayload,
+  CoderabbitRunIdClearedPayload,
+  CoderabbitRunIdFirstSeenPayload,
   DetectedPayload,
+  DismissedPayload,
   EnqueuedPayload,
   EventMetadata,
   FailedPayload,
   RetriggeredPayload,
-} from './EventPayloads.js';
-import { EventType } from './EventType.js';
+} from './index.js';
 
 /** Always-present columns shared by every event, regardless of type. */
 export interface EventEnvelope {
@@ -26,12 +31,12 @@ export interface EventEnvelope {
 // Keep union members in alphabetical order by EventType.
 export type EventLogEntry =
   | (EventEnvelope & {
-      readonly type: EventType.bypassed;
-      readonly payload: BypassedPayload;
-    })
-  | (EventEnvelope & {
       readonly type: EventType.detected;
       readonly payload: DetectedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.dismissed;
+      readonly payload: DismissedPayload;
     })
   | (EventEnvelope & {
       readonly type: EventType.enqueued;
@@ -50,6 +55,26 @@ export type EventLogEntry =
       readonly payload: CoderabbitReviewApprovedPayload;
     })
   | (EventEnvelope & {
-      readonly type: EventType.coderabbit_review_changes_requested;
-      readonly payload: CoderabbitReviewChangesRequestedPayload;
+      readonly type: EventType.coderabbit_review_changes_suggested;
+      readonly payload: CoderabbitReviewChangesSuggestedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_review_skipped;
+      readonly payload: CoderabbitReviewSkippedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_run_id_changed;
+      readonly payload: CoderabbitRunIdChangedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_run_id_cleared;
+      readonly payload: CoderabbitRunIdClearedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_run_id_first_seen;
+      readonly payload: CoderabbitRunIdFirstSeenPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: string;
+      readonly payload: unknown;
     });

@@ -1,8 +1,8 @@
-import type { QueueRepository } from './db/queueRepository.js';
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
-import { TYPES } from './inversify-types.js';
-import type { PruneEvaluator } from './PruneEvaluator.js';
+import type { QueueRepository } from './db/index.js';
+import { RabbitMaximizerError } from './errors/index.js';
+import type { ProbeFactory } from './probes/index.js';
+import { Resolution, TYPES } from './domain.js';
+import type { PruneEvaluator } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -26,8 +26,12 @@ export class PrunerImpl implements Pruner {
 
   async prune(): Promise<void> {
     const probe = this.probeFactory.createPrunerProbe();
-    const pending = await this.queue.getPendingQueue();
-    const enriched = await this.pruneEvaluator.evaluate(pending);
+    const active = await this.queue.getActiveQueue();
+    if (active.length === 0) {
+      probe.noItemsToPrune();
+      return;
+    }
+    const enriched = await this.pruneEvaluator.evaluate(active);
     if (enriched.length === 0) {
       probe.noItemsToPrune();
       return;
@@ -38,11 +42,11 @@ export class PrunerImpl implements Pruner {
         await this.prisma.$transaction(async (tx) => {
           switch (e.outcome) {
             case 'merged':
-              await this.queue.markReviewed(e.item.id, tx);
+              await this.queue.markResolved(e.item.id, Resolution.PrMerged, tx);
               await probe.prMerged(tx);
               break;
             case 'closed-without-merge':
-              await this.queue.markFailed(e.item.id, tx);
+              await this.queue.markResolved(e.item.id, Resolution.PrClosedWithoutMerge, tx);
               await probe.prClosedWithoutMerge(tx);
               break;
             default:

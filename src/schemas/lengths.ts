@@ -28,3 +28,24 @@ export const REASON_MAX_LENGTH = 1024;
 
 // Column limit for source_comment_url on review_queue.
 export const SOURCE_COMMENT_URL_MAX_LENGTH = COMMENT_URL_MAX_LENGTH;
+
+// Column limit for last_skip_reason on review_queue. Currently 'cooldown' | 'settling'; 25 opens room for future values (CHECK in the 20260819 migration).
+export const SKIP_REASON_MAX_LENGTH = 25;
+
+// Column limits for last_review_url and last_review_state on pull_request.
+// Review URL format: https://github.com/{owner}/{repo}/pull/{pr}#pullrequestreview-{id}
+export const REVIEW_URL_MAX_LENGTH = COMMENT_URL_MAX_LENGTH; // 512 — same as comment URLs
+export const REVIEW_STATE_MAX_LENGTH = STATUS_MAX_LENGTH; // 25 — 'approved' | 'changes_suggested'
+
+// Column limit for last_body_preview on coderabbit_comment.
+export const BODY_PREVIEW_MAX_LENGTH = 1024;
+
+// Column limit for coderabbit_run_id on coderabbit_comment (CodeRabbit's per-comment Run ID).
+// UUIDs are 36 chars; 75 leaves room for a future longer identifier format.
+export const CODERABBIT_RUN_ID_MAX_LENGTH = 75;
+
+// Column limit for source_comment_run_id on review_queue — the same CodeRabbit per-comment Run ID,
+// adopted onto the queue item. CHECK in the 20260820 migration.
+export const SOURCE_COMMENT_RUN_ID_MAX_LENGTH = CODERABBIT_RUN_ID_MAX_LENGTH;
+
+export const PULL_REQUEST_SHA_MAX_LENGTH = 40;

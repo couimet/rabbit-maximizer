@@ -1,6 +1,6 @@
 import type { operations } from '../api-types.js';
 
-import { MS_PER_DAY } from './durations.js';
+import { MS_PER_DAY } from './index.js';
 
 export type Duration = NonNullable<NonNullable<operations['getSummary']['parameters']['query']>['duration']>;
 

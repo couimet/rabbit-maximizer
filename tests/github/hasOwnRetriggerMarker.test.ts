@@ -1,5 +1,5 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { hasOwnRetriggerMarker } from '../../src/github/hasOwnRetriggerMarker.js';
+import { hasOwnRetriggerMarker } from '../../src/github/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';

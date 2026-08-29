@@ -1,18 +1,16 @@
-import type { SystemStateRepository } from '../../src/db/systemStateRepository.js';
+import type { SystemStateRepository } from '../../src/db/index.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { createSetPausedHandler } from '../../src/routes/setPaused.js';
-import { createMockSystemStateRepository } from '../helpers/index.js';
-import { postJson } from '../helpers/postJson.js';
+import { createSetPausedHandler } from '../../src/routes/index.js';
+import { createMockSystemStateRepository, postJson } from '../helpers/index.js';
 
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import express from 'express';
-import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
+import type { Server } from 'node:http';
 
 describe('setPaused', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
 
@@ -20,6 +18,7 @@ describe('setPaused', () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
+  /** @testFixture */
   const startServer = (systemStateRepoOver: Partial<jest.Mocked<SystemStateRepository>> = {}) => {
     logger = createMockLogger();
     const result = startTestServer(logger, (app) => {
@@ -37,8 +36,8 @@ describe('setPaused', () => {
     const res = await postJson(port, '/api/pause', { paused: true });
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({ paused: true });
-    expect(pauseScheduler).toHaveBeenCalledWith();
-    expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.pause' }, 'Scheduler paused');
+    expect(pauseScheduler).toHaveBeenCalledWith(undefined);
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'api.pause' }, 'Scheduler paused');
   });
 
   it('sets paused to false', async () => {
@@ -48,8 +47,8 @@ describe('setPaused', () => {
     const res = await postJson(port, '/api/pause', { paused: false });
     expect(res.status).toBe(StatusCodes.OK);
     expect(await res.json()).toStrictEqual({ paused: false });
-    expect(resumeScheduler).toHaveBeenCalledWith();
-    expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.pause' }, 'Scheduler resumed');
+    expect(resumeScheduler).toHaveBeenCalledWith(undefined);
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'api.pause' }, 'Scheduler resumed');
   });
 
   it('returns 400 for non-boolean paused (string)', async () => {
@@ -92,6 +91,6 @@ describe('setPaused', () => {
     const res = await postJson(port, '/api/pause', { paused: true });
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to set pause state' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.pause', error: repoError }, 'Failed to set pause state');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.pause', error: repoError }, 'Failed to set pause state');
   });
 });

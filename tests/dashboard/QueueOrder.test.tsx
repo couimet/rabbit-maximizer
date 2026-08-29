@@ -1,40 +1,46 @@
 /** @jest-environment jsdom */
 
-import QueueOrder from '../../dashboard/src/components/QueueOrder.js';
-import { QueueStatus, TriggerSource } from '../../src/types/index.js';
-import { createMockFetch } from '../helpers/index.js';
+import { QueueOrder } from '../../dashboard/src/index.js';
+import { createMockFetch, generateQueueItemResponseData } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StatusCodes } from 'http-status-codes';
 import { StrictMode } from 'react';
 
 const defaultOnMoveComplete = jest.fn();
 
-const renderQueueOrder = (
-  items: ReturnType<typeof makeQueueItem>[] | null = null,
-  error: string | null = null,
-  onMoveComplete = defaultOnMoveComplete,
-  paused = false,
-) => render(<QueueOrder items={items} error={error} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} paused={paused} />);
+/** @testFixture */
+const renderQueueOrder = ({
+  items,
+  onMoveComplete,
+  paused,
+  schedulerStale,
+  lastUpdatedAt,
+  lastSchedulerTickAt,
+}: {
+  items: ReturnType<typeof makeQueueItem>[] | null;
+  onMoveComplete: () => void;
+  paused: boolean;
+  schedulerStale: boolean;
+  lastUpdatedAt: Date | null;
+  lastSchedulerTickAt: string | null;
+}) =>
+  render(
+    <QueueOrder
+      items={items}
+      schedulerStale={schedulerStale}
+      lastUpdatedAt={lastUpdatedAt}
+      lastSchedulerTickAt={lastSchedulerTickAt}
+      onMoveComplete={onMoveComplete}
+      headingLevel="h2"
+      paused={paused}
+    />,
+  );
 
-const makeQueueItem = (over: Record<string, unknown> = {}) => ({
-  id: getUniqueInt(),
-  uuid: getUniqueString({ prefix: 'uuid-' }),
-  repo_full_name: `${getUniqueString({ prefix: 'owner' })}/${getUniqueString({ prefix: 'repo' })}`,
-  pr_number: getUniqueInt(),
-  pr_title: getUniqueString({ prefix: 'pr-' }),
-  status: QueueStatus.pending,
-  not_before: getUniqueDate().toISOString(),
-  attempts: getUniqueInt(),
-  source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
-  trigger_source: TriggerSource.scheduler,
-  pull_request_id: getUniqueInt(),
-  created_at: getUniqueDate().toISOString(),
-  updated_at: getUniqueDate().toISOString(),
-  ...over,
-});
+/** @testFixture */
+const makeQueueItem = (over: Record<string, unknown> = {}) => generateQueueItemResponseData(over);
 
 describe('QueueOrder', () => {
   afterEach(() => {
@@ -43,7 +49,14 @@ describe('QueueOrder', () => {
 
   describe('loading', () => {
     it('shows loading text when items is null', () => {
-      renderQueueOrder(null);
+      renderQueueOrder({
+        items: null,
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       expect(screen.getByText('Loading queue order…')).toBeInTheDocument();
     });
   });
@@ -53,44 +66,69 @@ describe('QueueOrder', () => {
     let item2: ReturnType<typeof makeQueueItem>;
 
     beforeEach(() => {
-      item1 = makeQueueItem();
-      item2 = makeQueueItem();
+      item1 = makeQueueItem({ status: 'pending' });
+      item2 = makeQueueItem({ status: 'pending' });
     });
 
     it('renders queue order items with position numbers and details', () => {
-      renderQueueOrder([item1, item2]);
+      renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
 
       expect(screen.getByText('1')).toBeInTheDocument();
       expect(screen.getByText('2')).toBeInTheDocument();
-      expect(screen.getByText(item1.repo_full_name)).toBeInTheDocument();
-      expect(screen.getByText(item2.repo_full_name)).toBeInTheDocument();
-      expect(screen.getByText(`#${item1.pr_number}`)).toBeInTheDocument();
-      expect(screen.getByText(`#${item2.pr_number}`)).toBeInTheDocument();
-      expect(screen.getByText(item1.pr_title)).toBeInTheDocument();
-      expect(screen.getByText(item2.pr_title)).toBeInTheDocument();
-    });
-
-    it('renders repo links opening in new tabs', () => {
-      renderQueueOrder([item1, item2]);
-      const link = screen.getByText(item1.repo_full_name).closest('a');
-      expect(link).toHaveAttribute('href', `https://github.com/${item1.repo_full_name}`);
-      expect(link).toHaveAttribute('target', '_blank');
+      expect(screen.getByText(`${item1.pr_title} (#${item1.pr_number})`)).toBeInTheDocument();
+      expect(screen.getByText(`${item2.pr_title} (#${item2.pr_number})`)).toBeInTheDocument();
+      expect(screen.getByText(`by ${item1.author_login}`)).toBeInTheDocument();
+      expect(screen.getByText(`by ${item2.author_login}`)).toBeInTheDocument();
     });
 
     it('renders PR links opening in new tabs', () => {
-      renderQueueOrder([item1, item2]);
-      const link = screen.getByText(`#${item1.pr_number}`).closest('a');
+      renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
+      const link = screen.getByText(`${item1.pr_title} (#${item1.pr_number})`).closest('a');
       expect(link).toHaveAttribute('href', `https://github.com/${item1.repo_full_name}/pull/${item1.pr_number}`);
       expect(link).toHaveAttribute('target', '_blank');
     });
 
-    it('includes pending count in heading when pendingCount is provided', () => {
-      render(<QueueOrder items={[makeQueueItem()]} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={3} paused={false} />);
-      expect(screen.getByText('Queue Order — 3 pending item(s)')).toBeInTheDocument();
+    it('shows heading with total count', () => {
+      const item1 = makeQueueItem({ status: 'pending' });
+      const item2 = makeQueueItem({ status: 'pending' });
+      const item3 = makeQueueItem({ status: 'retriggered' });
+      render(
+        <QueueOrder
+          items={[item1, item2, item3]}
+          schedulerStale={false}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={false}
+        />,
+      );
+      expect(screen.getByRole('heading', { name: 'Queue Order — 3 items' })).toBeInTheDocument();
     });
 
     it('renders up and down arrow buttons per row', () => {
-      renderQueueOrder([item1, item2]);
+      renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       const upButtons = screen.getAllByLabelText('Move up');
       const downButtons = screen.getAllByLabelText('Move down');
       expect(upButtons).toHaveLength(2);
@@ -100,21 +138,21 @@ describe('QueueOrder', () => {
 
   describe('empty', () => {
     it('shows empty message when items is empty', () => {
-      renderQueueOrder([]);
-      expect(screen.getByText('No pending items.')).toBeInTheDocument();
-    });
-  });
-
-  describe('error', () => {
-    it('shows error message when error prop is set', () => {
-      renderQueueOrder(null, 'Internal server error');
-      expect(screen.getByText('Failed to load queue order: Internal server error')).toBeInTheDocument();
+      renderQueueOrder({
+        items: [],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
+      expect(screen.getByText('No items in queue.')).toBeInTheDocument();
     });
   });
 
   describe('cleanup', () => {
     it('does not update state after unmount when move request resolves', async () => {
-      const items = [makeQueueItem(), makeQueueItem()];
+      const items = [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })];
 
       let resolveMove!: (value: { data: ReturnType<typeof makeQueueItem>[] }) => void;
       const movePromise = new Promise<{ data: ReturnType<typeof makeQueueItem>[] }>((resolve) => {
@@ -123,38 +161,52 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => movePromise,
         } as Response),
       ) as unknown as typeof fetch;
 
-      const { unmount } = renderQueueOrder(items);
+      const { unmount } = renderQueueOrder({
+        items,
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       fireEvent.click(screen.getAllByLabelText('Move up')[0]);
       unmount();
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      resolveMove({ data: [makeQueueItem(), makeQueueItem()] });
+      resolveMove({ data: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })] });
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
     it('allows move after StrictMode double-invoke', async () => {
-      const items = [makeQueueItem(), makeQueueItem()];
+      const items = [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })];
       const onMoveComplete = jest.fn();
 
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
-          json: () => Promise.resolve({ data: [makeQueueItem(), makeQueueItem()] }),
+          status: StatusCodes.OK,
+          json: () => Promise.resolve({ data: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })] }),
         } as Response),
       ) as unknown as typeof fetch;
 
       render(
         <StrictMode>
-          <QueueOrder items={items} error={null} onMoveComplete={onMoveComplete} headingLevel="h2" pendingCount={null} paused={false} />
+          <QueueOrder
+            items={items}
+            schedulerStale={false}
+            lastUpdatedAt={null}
+            lastSchedulerTickAt={null}
+            onMoveComplete={onMoveComplete}
+            headingLevel="h2"
+            paused={false}
+          />
         </StrictMode>,
       );
 
@@ -166,7 +218,7 @@ describe('QueueOrder', () => {
     });
 
     it('does not update state after unmount when move request fails', async () => {
-      const items = [makeQueueItem(), makeQueueItem()];
+      const items = [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })];
 
       let rejectMove!: (reason: Error) => void;
       const moveFetchPromise = new Promise<Response>((_, reject) => {
@@ -174,7 +226,14 @@ describe('QueueOrder', () => {
       });
       globalThis.fetch = jest.fn(() => moveFetchPromise) as unknown as typeof fetch;
 
-      const { unmount } = renderQueueOrder(items);
+      const { unmount } = renderQueueOrder({
+        items,
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       fireEvent.click(screen.getAllByLabelText('Move up')[0]);
       unmount();
 
@@ -182,16 +241,22 @@ describe('QueueOrder', () => {
       rejectMove(new Error('Network error'));
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });
 
   describe('select all', () => {
-    const items = [makeQueueItem(), makeQueueItem()];
+    const items = [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })];
 
     it('selects all items when header checkbox is clicked', () => {
-      renderQueueOrder([...items]);
+      renderQueueOrder({
+        items: [...items],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[0]);
 
@@ -201,7 +266,14 @@ describe('QueueOrder', () => {
     });
 
     it('deselects all when header checkbox is clicked twice', () => {
-      renderQueueOrder([...items]);
+      renderQueueOrder({
+        items: [...items],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[0]);
       fireEvent.click(checkboxes[0]);
@@ -212,7 +284,14 @@ describe('QueueOrder', () => {
     });
 
     it('toggles individual item selection on checkbox click', () => {
-      renderQueueOrder([...items]);
+      renderQueueOrder({
+        items: [...items],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[1]);
       expect(checkboxes[1]).toBeChecked();
@@ -227,16 +306,16 @@ describe('QueueOrder', () => {
     let onMoveComplete: jest.Mock;
 
     beforeEach(() => {
-      item1 = makeQueueItem();
-      item2 = makeQueueItem();
+      item1 = makeQueueItem({ status: 'pending' });
+      item2 = makeQueueItem({ status: 'pending' });
       onMoveComplete = jest.fn();
     });
 
-    const moveResponse = () => ({ data: [makeQueueItem(), makeQueueItem()] });
+    const moveResponse = () => ({ data: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })] });
 
     it('calls moveQueueItems with correct args on single up click', async () => {
       createMockFetch(200, moveResponse());
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText('Move up')[0]);
 
@@ -251,7 +330,7 @@ describe('QueueOrder', () => {
 
     it('calls onMoveComplete after successful move', async () => {
       createMockFetch(200, moveResponse());
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText('Move up')[0]);
 
@@ -260,9 +339,20 @@ describe('QueueOrder', () => {
       });
     });
 
+    it('shows success toast after move', async () => {
+      createMockFetch(200, moveResponse());
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
+
+      fireEvent.click(screen.getAllByLabelText('Move up')[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Moved up')).toBeInTheDocument();
+      });
+    });
+
     it('calls moveQueueItems with correct args on single down click', async () => {
       createMockFetch(200, moveResponse());
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText('Move down')[1]);
 
@@ -277,7 +367,7 @@ describe('QueueOrder', () => {
 
     it('moves selected items on Move Up toolbar click', async () => {
       createMockFetch(200, moveResponse());
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[1]);
@@ -296,7 +386,7 @@ describe('QueueOrder', () => {
 
     it('moves selected items on Move Down toolbar click', async () => {
       createMockFetch(200, moveResponse());
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       const checkboxes = screen.getAllByRole('checkbox');
       fireEvent.click(checkboxes[1]);
@@ -313,7 +403,7 @@ describe('QueueOrder', () => {
     });
 
     it('shows error message when move request fails', async () => {
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       createMockFetch(500, { error: 'Server error' });
       fireEvent.click(screen.getAllByLabelText('Move up')[0]);
@@ -322,7 +412,7 @@ describe('QueueOrder', () => {
     });
 
     it('shows error message when response data is not an array', async () => {
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       createMockFetch(200, { data: null });
       fireEvent.click(screen.getAllByLabelText('Move up')[0]);
@@ -331,69 +421,42 @@ describe('QueueOrder', () => {
     });
   });
 
-  describe('not_before display', () => {
-    it('renders column header', () => {
-      renderQueueOrder([makeQueueItem({ not_before: new Date(Date.now() + 300_000).toISOString() })]);
-      expect(screen.getByText('Not Before')).toBeInTheDocument();
-    });
-
-    it('shows eligible now for not_before in the past', () => {
-      renderQueueOrder([makeQueueItem({ not_before: new Date(Date.now() - 60_000).toISOString() })]);
-      expect(screen.getAllByText('eligible now').length).toBeGreaterThanOrEqual(1);
-    });
-  });
-
   describe('Status column', () => {
-    const PAST_NOT_BEFORE_ISO = new Date(Date.now() - 60_000).toISOString();
-    const FUTURE_NOT_BEFORE_ISO = new Date(Date.now() + 300_000).toISOString();
-
     it('renders Status column header', () => {
-      renderQueueOrder([makeQueueItem()]);
+      renderQueueOrder({
+        items: [makeQueueItem({ status: 'pending' })],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       expect(screen.getByText('Status')).toBeInTheDocument();
     });
 
-    it('shows green Eligible now pill for position 1 when not_before is in the past', () => {
-      renderQueueOrder([makeQueueItem({ not_before: PAST_NOT_BEFORE_ISO })]);
-      const pill = document.querySelector('.status-pill.eligible');
-      expect(pill).not.toBeNull();
-      expect(pill!.textContent).toBe('eligible now');
+    it('renders carrots for positions beyond the first', () => {
+      renderQueueOrder({
+        items: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
+      expect(screen.getByText('🥕')).toBeInTheDocument();
     });
 
-    it('shows orange cooldown pill for position 1 when not_before is in the future', () => {
-      renderQueueOrder([makeQueueItem({ not_before: FUTURE_NOT_BEFORE_ISO })]);
-      const pill = document.querySelector('.status-pill.cooldown');
-      expect(pill).not.toBeNull();
-      expect(pill!.textContent).toMatch(/^in \d+m$/);
-    });
-
-    it('shows one carrot for position 2', () => {
-      renderQueueOrder([makeQueueItem(), makeQueueItem()]);
-      const rows = screen.getAllByRole('row');
-      expect(rows[2]).toHaveTextContent('🥕');
-    });
-
-    it('shows two carrots for position 3', () => {
-      renderQueueOrder([makeQueueItem(), makeQueueItem(), makeQueueItem()]);
-      const rows = screen.getAllByRole('row');
-      expect(rows[3]).toHaveTextContent('🥕🥕');
-    });
-
-    it('applies row-waiting class to positions greater than 1', () => {
-      renderQueueOrder([makeQueueItem(), makeQueueItem()]);
-      const rows = screen.getAllByRole('row');
-      expect(rows[2].classList.contains('row-waiting')).toBe(true);
-    });
-
-    it('does not apply row-waiting class to position 1', () => {
-      renderQueueOrder([makeQueueItem(), makeQueueItem()]);
+    it('renders status pill at position 1', () => {
+      renderQueueOrder({
+        items: [makeQueueItem({ status: 'pending' }), makeQueueItem({ status: 'pending' })],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       const rows = screen.getAllByRole('row');
       expect(rows[1].classList.contains('row-waiting')).toBe(false);
-    });
-
-    it('shows pill with no carrots for single item', () => {
-      renderQueueOrder([makeQueueItem({ not_before: PAST_NOT_BEFORE_ISO })]);
-      expect(document.querySelector('.status-pill')).not.toBeNull();
-      expect(screen.queryByText('🥕')).not.toBeInTheDocument();
     });
   });
 
@@ -403,13 +466,20 @@ describe('QueueOrder', () => {
     let onMoveComplete: jest.Mock;
 
     beforeEach(() => {
-      item1 = makeQueueItem();
-      item2 = makeQueueItem();
+      item1 = makeQueueItem({ status: 'pending' });
+      item2 = makeQueueItem({ status: 'pending' });
       onMoveComplete = jest.fn();
     });
 
     it('renders lightning-bolt button per row', () => {
-      renderQueueOrder([item1, item2]);
+      renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
 
       const buttons = screen.getAllByLabelText(/^Retrigger now/);
       expect(buttons).toHaveLength(2);
@@ -417,7 +487,7 @@ describe('QueueOrder', () => {
 
     it('calls retriggerNow API on click', async () => {
       createMockFetch(204, undefined);
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
 
@@ -430,7 +500,7 @@ describe('QueueOrder', () => {
 
     it('shows success toast with interval on success', async () => {
       createMockFetch(204, undefined);
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
 
@@ -441,7 +511,7 @@ describe('QueueOrder', () => {
 
     it('shows error toast on failure', async () => {
       createMockFetch(500, { error: 'Rate limited' });
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
 
@@ -458,12 +528,12 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => retriggerPromise,
         } as Response),
       ) as unknown as typeof fetch;
 
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
 
       await waitFor(() => {
@@ -479,7 +549,7 @@ describe('QueueOrder', () => {
 
     it('calls onMoveComplete on success', async () => {
       createMockFetch(204, undefined);
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
 
@@ -496,12 +566,19 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => retriggerPromise,
         } as Response),
       ) as unknown as typeof fetch;
 
-      const { unmount } = renderQueueOrder([item1, item2], null, onMoveComplete);
+      const { unmount } = renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
       unmount();
 
@@ -509,8 +586,7 @@ describe('QueueOrder', () => {
       resolveRetrigger();
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
     it('does not update state after unmount on error', async () => {
@@ -520,7 +596,14 @@ describe('QueueOrder', () => {
       });
       globalThis.fetch = jest.fn(() => retriggerFetchPromise) as unknown as typeof fetch;
 
-      const { unmount } = renderQueueOrder([item1, item2], null, onMoveComplete);
+      const { unmount } = renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       fireEvent.click(screen.getAllByLabelText(/^Retrigger now/)[0]);
       unmount();
 
@@ -528,27 +611,56 @@ describe('QueueOrder', () => {
       rejectRetrigger(new Error('Network error'));
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
     it('retrigger buttons are enabled when paused is false', () => {
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={false} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(
+        <QueueOrder
+          items={items}
+          schedulerStale={false}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={false}
+        />,
+      );
 
       expect(screen.getByLabelText(/^Retrigger now/)).not.toBeDisabled();
     });
 
     it('retrigger buttons are enabled when paused is true', () => {
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(
+        <QueueOrder
+          items={items}
+          schedulerStale={false}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={true}
+        />,
+      );
 
       expect(screen.getByLabelText(/^Retrigger now/)).not.toBeDisabled();
     });
 
     it('shows confirmation dialog when retrigger is clicked while paused', () => {
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(
+        <QueueOrder
+          items={items}
+          schedulerStale={false}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={true}
+        />,
+      );
 
       fireEvent.click(screen.getByLabelText(/^Retrigger now/));
 
@@ -558,8 +670,18 @@ describe('QueueOrder', () => {
 
     it('confirming the dialog calls retriggerNow with overridePause=true', async () => {
       createMockFetch(204, undefined);
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(
+        <QueueOrder
+          items={items}
+          schedulerStale={false}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={true}
+        />,
+      );
 
       fireEvent.click(screen.getByLabelText(/^Retrigger now/));
       fireEvent.click(screen.getByText('Retrigger anyway'));
@@ -572,13 +694,61 @@ describe('QueueOrder', () => {
     });
 
     it('canceling the dialog does not call retriggerNow', () => {
-      const items = [makeQueueItem()];
-      render(<QueueOrder items={items} error={null} onMoveComplete={jest.fn()} headingLevel="h2" pendingCount={null} paused={true} />);
+      const items = [makeQueueItem({ status: 'pending' })];
+      render(
+        <QueueOrder
+          items={items}
+          schedulerStale={false}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={true}
+        />,
+      );
 
       fireEvent.click(screen.getByLabelText(/^Retrigger now/));
       fireEvent.click(screen.getByText('Cancel'));
 
       expect(screen.queryByText(/scheduler is currently paused. Retrigger anyway/)).not.toBeInTheDocument();
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('does not call retriggerNow when confirming after scheduler became stale', () => {
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(undefined) } as Response),
+      ) as unknown as typeof fetch;
+      const items = [makeQueueItem({ status: 'pending' })];
+
+      const { rerender } = render(
+        <QueueOrder
+          items={items}
+          schedulerStale={false}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={true}
+        />,
+      );
+
+      fireEvent.click(screen.getByLabelText(/^Retrigger now/));
+      expect(screen.getByText('Retrigger anyway')).toBeInTheDocument();
+
+      rerender(
+        <QueueOrder
+          items={items}
+          schedulerStale={true}
+          lastUpdatedAt={null}
+          lastSchedulerTickAt={null}
+          onMoveComplete={jest.fn()}
+          headingLevel="h2"
+          paused={true}
+        />,
+      );
+
+      fireEvent.click(screen.getByText('Retrigger anyway'));
+
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
   });
@@ -589,13 +759,20 @@ describe('QueueOrder', () => {
     let onMoveComplete: jest.Mock;
 
     beforeEach(() => {
-      item1 = makeQueueItem();
-      item2 = makeQueueItem();
+      item1 = makeQueueItem({ status: 'pending' });
+      item2 = makeQueueItem({ status: 'pending' });
       onMoveComplete = jest.fn();
     });
 
     it('renders move-to-top button per row', () => {
-      renderQueueOrder([item1, item2]);
+      renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
 
       const buttons = screen.getAllByLabelText('Move to top');
       expect(buttons).toHaveLength(2);
@@ -603,7 +780,7 @@ describe('QueueOrder', () => {
 
     it('calls moveToTop API on click', async () => {
       createMockFetch(204, undefined);
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
 
@@ -618,7 +795,7 @@ describe('QueueOrder', () => {
 
     it('shows success toast on success', async () => {
       createMockFetch(204, undefined);
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
 
@@ -629,7 +806,7 @@ describe('QueueOrder', () => {
 
     it('calls onMoveComplete on success', async () => {
       createMockFetch(204, undefined);
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
 
@@ -638,11 +815,11 @@ describe('QueueOrder', () => {
       });
     });
 
-    const ERROR_MESSAGE_NOT_PENDING = 'Queue item is not pending';
+    const ERROR_MESSAGE_NOT_PENDING = 'Queue item is already resolved';
 
     it('shows error toast on failure', async () => {
       createMockFetch(409, { error: ERROR_MESSAGE_NOT_PENDING });
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
 
       fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
 
@@ -659,12 +836,12 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => moveToTopPromise,
         } as Response),
       ) as unknown as typeof fetch;
 
-      renderQueueOrder([item1, item2], null, onMoveComplete);
+      renderQueueOrder({ items: [item1, item2], onMoveComplete, paused: false, schedulerStale: false, lastUpdatedAt: null, lastSchedulerTickAt: null });
       fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
 
       await waitFor(() => {
@@ -686,12 +863,19 @@ describe('QueueOrder', () => {
       globalThis.fetch = jest.fn(() =>
         Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => moveToTopPromise,
         } as Response),
       ) as unknown as typeof fetch;
 
-      const { unmount } = renderQueueOrder([item1, item2], null, onMoveComplete);
+      const { unmount } = renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
       unmount();
 
@@ -699,8 +883,7 @@ describe('QueueOrder', () => {
       resolveMoveToTop();
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
 
     it('does not update state after unmount on error', async () => {
@@ -710,7 +893,14 @@ describe('QueueOrder', () => {
       });
       globalThis.fetch = jest.fn(() => moveToTopFetchPromise) as unknown as typeof fetch;
 
-      const { unmount } = renderQueueOrder([item1, item2], null, onMoveComplete);
+      const { unmount } = renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
       fireEvent.click(screen.getAllByLabelText('Move to top')[0]);
       unmount();
 
@@ -718,8 +908,161 @@ describe('QueueOrder', () => {
       rejectMoveToTop(new Error('Network error'));
       await new Promise((r) => setTimeout(r, 0));
 
-      const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
-      expect(stateUpdateWarnings).toHaveLength(0);
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('stale', () => {
+    it('renders stale banner with heartbeat info when schedulerStale is true', () => {
+      const items = [makeQueueItem({ status: 'pending' })];
+      renderQueueOrder({
+        items,
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: new Date(),
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      expect(screen.getByText(/Scheduler may be down — no heartbeat for/)).toBeInTheDocument();
+      expect(screen.getByText(/Data refreshed/)).toBeInTheDocument();
+    });
+
+    it('shows "unknown" fallback when lastSchedulerTickAt is null', () => {
+      const items = [makeQueueItem({ status: 'pending' })];
+      renderQueueOrder({ items, onMoveComplete: jest.fn(), paused: false, schedulerStale: true, lastUpdatedAt: null, lastSchedulerTickAt: null });
+
+      expect(screen.getByText('Scheduler may be down — no heartbeat for unknown')).toBeInTheDocument();
+    });
+
+    it('does not show "Data refreshed" line when lastUpdatedAt is null', () => {
+      const items = [makeQueueItem({ status: 'pending' })];
+      renderQueueOrder({
+        items,
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      expect(screen.getByText(/Scheduler may be down — no heartbeat for/)).toBeInTheDocument();
+      expect(screen.queryByText(/Data refreshed/)).not.toBeInTheDocument();
+    });
+
+    it('shows stale banner when items is empty', () => {
+      renderQueueOrder({
+        items: [],
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: new Date(),
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+      expect(screen.getByText('No items in queue.')).toBeInTheDocument();
+    });
+
+    it('shows stale banner when items is null (loading)', () => {
+      renderQueueOrder({
+        items: null,
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: new Date(),
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      expect(screen.getByText(/Scheduler may be down/)).toBeInTheDocument();
+      expect(screen.getByText('Loading queue order…')).toBeInTheDocument();
+    });
+
+    it('disables all action buttons when schedulerStale is true', () => {
+      const items = [makeQueueItem({ status: 'pending' })];
+      renderQueueOrder({
+        items,
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: new Date(),
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      const upButtons = screen.getAllByLabelText('Move up');
+      const downButtons = screen.getAllByLabelText('Move down');
+      const retriggerButtons = screen.getAllByLabelText(/^Retrigger now/);
+      const moveToTopButtons = screen.getAllByLabelText('Move to top');
+
+      for (const btn of [...upButtons, ...downButtons, ...retriggerButtons, ...moveToTopButtons, screen.getByText('Move Up'), screen.getByText('Move Down')]) {
+        expect(btn).toBeDisabled();
+      }
+    });
+
+    it('disables checkboxes when schedulerStale is true', () => {
+      const items = [makeQueueItem({ status: 'pending' })];
+      renderQueueOrder({
+        items,
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: new Date(),
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      const checkboxes = screen.getAllByRole('checkbox');
+      for (const cb of checkboxes) {
+        expect(cb).toBeDisabled();
+      }
+    });
+
+    it('toolbar buttons have title when schedulerStale is true', () => {
+      const items = [makeQueueItem({ status: 'pending' })];
+      renderQueueOrder({
+        items,
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: new Date(),
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      expect(screen.getByText('Move Up')).toHaveAttribute('title', 'Unavailable while scheduler is down');
+      expect(screen.getByText('Move Down')).toHaveAttribute('title', 'Unavailable while scheduler is down');
+    });
+
+    it('checkboxes have title when schedulerStale is true', () => {
+      const items = [makeQueueItem({ status: 'pending' })];
+      renderQueueOrder({
+        items,
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: new Date(),
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      const checkboxes = screen.getAllByRole('checkbox');
+      for (const cb of checkboxes) {
+        expect(cb).toHaveAttribute('title', 'Unavailable while scheduler is down');
+      }
+    });
+
+    it('per-row buttons have title when schedulerStale is true', () => {
+      const items = [makeQueueItem({ status: 'pending' })];
+      renderQueueOrder({
+        items,
+        onMoveComplete: jest.fn(),
+        paused: false,
+        schedulerStale: true,
+        lastUpdatedAt: new Date(),
+        lastSchedulerTickAt: '2026-07-28T10:00:00Z',
+      });
+
+      expect(screen.getByLabelText(/^Retrigger now/)).toHaveAttribute('title', 'Unavailable while scheduler is down');
+      expect(screen.getByLabelText('Move to top')).toHaveAttribute('title', 'Unavailable while scheduler is down');
+      expect(screen.getAllByLabelText('Move up')[0]).toHaveAttribute('title', 'Unavailable while scheduler is down');
+      expect(screen.getAllByLabelText('Move down')[0]).toHaveAttribute('title', 'Unavailable while scheduler is down');
     });
   });
 });

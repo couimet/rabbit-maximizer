@@ -1,15 +1,20 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import { TYPES } from '../inversify-types.js';
-import type { ObservationContext, ObservationContextProvider } from '../observability/observationContext.js';
+import type { EventRepository } from '../db/index.js';
+import { TYPES } from '../domain.js';
 import type { QueueItem } from '../types/index.js';
 
-import { DetectedProbe, type DetectedProbeContext } from './DetectedProbe.js';
-import { EnqueueProbe } from './EnqueueProbe.js';
-import { MarkQueueItemReviewedProbe } from './MarkQueueItemReviewedProbe.js';
-import { PrunerProbe } from './PrunerProbe.js';
-import { ReviewDetectorProbe } from './ReviewDetectorProbe.js';
-import { ReviewRetriggerProbe } from './ReviewRetriggerProbe.js';
-import { type CreateSchedulerProbeParams, SchedulerProbe } from './SchedulerProbe.js';
+import {
+  type CreateSchedulerProbeParams,
+  DetectedProbe,
+  type DetectedProbeContext,
+  DirectCommentCheckProbe,
+  EnqueueProbe,
+  MarkQueueItemReviewedProbe,
+  PrScannerProbe,
+  PrunerProbe,
+  ReviewDetectorProbe,
+  ReviewRetriggerProbe,
+  SchedulerProbe,
+} from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -20,19 +25,20 @@ export class ProbeFactory {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.EventRepository) private readonly eventRepository: EventRepository,
-    @inject(TYPES.ObservationContextProvider) private readonly observation: ObservationContextProvider,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
 
-  // C011 exception: same ObservationContext must be shared with queue.enqueue() in EnqueueService.handle
-  // This is the only factory method that accepts ObservationContext directly.
-  createDetectedProbe(context: DetectedProbeContext, observation: ObservationContext): DetectedProbe {
-    return new DetectedProbe(context, this.eventRepository, observation, this.log);
+  createDetectedProbe(context: DetectedProbeContext): DetectedProbe {
+    return new DetectedProbe(context, this.eventRepository, this.log);
+  }
+
+  createPrScannerProbe(): PrScannerProbe {
+    return new PrScannerProbe(this.log);
   }
 
   createPrunerProbe(): PrunerProbe {
-    return new PrunerProbe(this.eventRepository, this.observation.current(), this.log);
+    return new PrunerProbe(this.eventRepository, this.log);
   }
 
   createMarkQueueItemReviewedProbe(uuid: string): MarkQueueItemReviewedProbe {
@@ -40,18 +46,22 @@ export class ProbeFactory {
   }
 
   createEnqueueProbe(tx: Prisma.TransactionClient): EnqueueProbe {
-    return new EnqueueProbe(this.eventRepository, this.observation.current(), tx, this.log);
+    return new EnqueueProbe(this.eventRepository, tx, this.log);
   }
 
   createSchedulerProbe(params: CreateSchedulerProbeParams): SchedulerProbe {
-    return new SchedulerProbe(params.baseBackoff, params.maxBackoff, this.eventRepository, this.observation.current(), this.log);
+    return new SchedulerProbe(params.baseBackoff, params.maxBackoff, params.maxRetriggerAttempts, this.eventRepository, this.log);
   }
 
   createReviewRetriggerProbe(item: QueueItem): ReviewRetriggerProbe {
-    return new ReviewRetriggerProbe(item, this.eventRepository, this.observation.current(), this.log);
+    return new ReviewRetriggerProbe(item, this.eventRepository, this.log);
   }
 
   createReviewDetectorProbe(): ReviewDetectorProbe {
-    return new ReviewDetectorProbe(this.eventRepository, this.observation.current(), this.log);
+    return new ReviewDetectorProbe(this.eventRepository, this.log);
+  }
+
+  createDirectCommentCheckProbe(): DirectCommentCheckProbe {
+    return new DirectCommentCheckProbe(this.eventRepository, this.log);
   }
 }

@@ -1,9 +1,10 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
-import type { ObservationContext } from '../observability/observationContext.js';
-import { EventType, type QueueItem } from '../types/index.js';
-import { computeSchedulerBackoff } from '../utils/computeSchedulerBackoff.js';
+import type { EventRepository } from '../db/index.js';
+import { DismissalReason, EventType, PrState, SkipReason } from '../domain.js';
+import { type RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import type { QueueItem } from '../types/index.js';
+import { computeSchedulerBackoff, dismissalReasonFromPrState } from '../utils/index.js';
+
+import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -11,6 +12,7 @@ import type { Prisma } from '@prisma/client';
 export interface CreateSchedulerProbeParams {
   baseBackoff: number;
   maxBackoff: number;
+  maxRetriggerAttempts: number;
 }
 
 export class SchedulerProbe {
@@ -19,13 +21,17 @@ export class SchedulerProbe {
   constructor(
     private readonly baseBackoff: number,
     private readonly maxBackoff: number,
+    private readonly maxRetriggerAttempts: number,
     private readonly events: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly log: Logger,
   ) {}
 
   withItem(item: QueueItem): void {
     this.item = item;
+  }
+
+  staleRetriggeredResolved(count: number): void {
+    this.log.info({ fn: 'SchedulerProbe.staleRetriggeredResolved', count }, 'Resolved stale retriggered items');
   }
 
   pruningCompleted(): void {
@@ -36,6 +42,15 @@ export class SchedulerProbe {
   }
   tickSkippedAwaitingAcknowledgement(): void {
     this.log.info({ fn: 'SchedulerProbe.tickSkippedAwaitingAcknowledgement' }, 'Awaiting CodeRabbit acknowledgement; skipping tick');
+  }
+  tickSkippedCooldown(): void {
+    this.log.debug({ fn: 'SchedulerProbe.tickSkippedCooldown' }, 'Tick skipped: review cooldown active');
+  }
+  retriggerSkipped(item: QueueItem, reason: SkipReason): void {
+    this.log.debug(
+      { fn: 'SchedulerProbe.retriggerSkipped', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, reason },
+      'Retrigger skipped for this candidate',
+    );
   }
   noItemsDue(): void {
     this.log.debug({ fn: 'SchedulerProbe.noItemsDue' }, 'No items due for retrigger');
@@ -51,9 +66,7 @@ export class SchedulerProbe {
         type: EventType.retriggered,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: { source_comment_url: this.item!.source_comment_url, retriggered_comment_url: retriggeredCommentUrl },
       },
       tx,
@@ -64,22 +77,59 @@ export class SchedulerProbe {
     );
   }
 
-  async prClosedOrMerged(status: number, tx: Prisma.TransactionClient): Promise<void> {
+  async prClosedDuringScan(repo: string, pr: number, prState: PrState, tx: Prisma.TransactionClient): Promise<void> {
+    const reason = dismissalReasonFromPrState(prState);
+    await this.events.record(
+      {
+        type: EventType.dismissed,
+        repo_full_name: repo,
+        pr_number: pr,
+        ...getEventTraceAttributes(),
+        payload: { reason },
+      },
+      tx,
+    );
+    this.log.info({ fn: 'SchedulerProbe.prClosedDuringScan', repo, pr, prState, reason }, 'PR closed or merged during scheduler scan; dismissed');
+  }
+
+  async prDeleted(status: number, tx: Prisma.TransactionClient): Promise<void> {
+    await this.events.record(
+      {
+        type: EventType.dismissed,
+        repo_full_name: this.item!.repo_full_name,
+        pr_number: this.item!.pr_number,
+        ...getEventTraceAttributes(),
+        payload: { reason: DismissalReason.prDeleted },
+      },
+      tx,
+    );
+    this.log.info(
+      { fn: 'SchedulerProbe.prDeleted', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, status },
+      'PR not found (deleted); dismissed',
+    );
+  }
+
+  async maxRetriggersExceeded(retriggerCount: number, tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {
         type: EventType.failed,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
-        payload: { reason: 'PR closed or merged' },
+        ...getEventTraceAttributes(),
+        payload: { reason: 'max_retrigger_attempts_exceeded', retrigger_count: retriggerCount, max: this.maxRetriggerAttempts },
       },
       tx,
     );
-    this.log.info(
-      { fn: 'SchedulerProbe.prClosedOrMerged', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, status },
-      'PR closed or merged; marked failed',
+    this.log.warn(
+      {
+        fn: 'SchedulerProbe.maxRetriggersExceeded',
+        repo: this.item!.repo_full_name,
+        pr: this.item!.pr_number,
+        queueId: this.item!.id,
+        retriggerCount,
+        max: this.maxRetriggerAttempts,
+      },
+      'Max retrigger attempts exceeded; marking failed',
     );
   }
 
@@ -94,11 +144,11 @@ export class SchedulerProbe {
     const item = this.item!;
 
     if (error.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
-      const details = error.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
-      const newNotBefore = new Date(details.notBefore);
+      const details = error.details as { rescheduleEarliest: string; sourceComment: { commentId: number; commentUrl: string } };
+      const rescheduleEarliest = new Date(details.rescheduleEarliest);
       this.log.info(
-        { fn: 'SchedulerProbe.rescheduled', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, newNotBefore, error },
-        'Stale source comment replaced; rescheduled with updated not_before',
+        { fn: 'SchedulerProbe.rescheduled', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, rescheduleEarliest, error },
+        'Stale source comment replaced; rescheduled with updated time',
       );
     } else {
       const backoffMs = computeSchedulerBackoff(item.attempts, this.baseBackoff, this.maxBackoff);

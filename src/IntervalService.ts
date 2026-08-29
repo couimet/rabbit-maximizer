@@ -1,3 +1,5 @@
+import { ExecutionContext, RequestId } from './external-deps/couimet/execution-context/src/index.js';
+
 import type { Logger } from '@couimet/logger-contract';
 
 /**
@@ -11,8 +13,9 @@ export abstract class IntervalService {
   protected stopped = false;
 
   constructor(
-    protected readonly log: Logger,
+    private readonly correlationId: string,
     protected readonly intervalMs: number,
+    protected readonly log: Logger,
   ) {}
 
   protected abstract executeTick(): Promise<void>;
@@ -21,9 +24,9 @@ export abstract class IntervalService {
     return !this.stopped && this.tickPromise === null;
   }
 
-  start(): { stop(): Promise<void> } {
+  async start(): Promise<{ stop(): Promise<void> }> {
     this.onStart();
-    this.tick();
+    await this.bootstrapTick();
     this.intervalId = setInterval(() => {
       this.tick();
     }, this.intervalMs);
@@ -50,13 +53,33 @@ export abstract class IntervalService {
 
   private async tick(): Promise<void> {
     if (!this.tickGuard()) return;
-    this.tickPromise = this.executeTick();
+    this.tickPromise = ExecutionContext.run(
+      {
+        correlationId: this.correlationId,
+        requestId: RequestId.create().toString(),
+        attributes: { ...ExecutionContext.getAttributes() },
+      },
+      () => this.executeTick(),
+    );
     try {
       await this.tickPromise;
     } catch (err) {
       this.log.warn({ fn: 'IntervalService.tick', error: err }, 'executeTick threw; continuing');
     } finally {
       this.tickPromise = null;
+    }
+  }
+
+  /**
+   * Runs the initial tick and awaits its completion so start() only returns
+   * after the first tick has settled. If a tick is already in flight, awaits
+   * it instead of starting a second concurrent one.
+   */
+  async bootstrapTick(): Promise<void> {
+    if (this.tickPromise) {
+      await this.tickPromise;
+    } else {
+      await this.tick();
     }
   }
 }

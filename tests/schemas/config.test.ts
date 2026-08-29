@@ -1,10 +1,14 @@
-import { type Config, ConfigSchema } from '../../src/schemas/config.js';
+import { type Config, ConfigSchema } from '../../src/schemas/index.js';
 
 import { getRandomString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 const DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC = 1800;
 const DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC = 900;
+const DEFAULT_MAX_RETRIGGER_ATTEMPTS = 10;
+const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
+const DEFAULT_MAX_RETRIGGER_AGE_SEC = 259200;
+const ACCOUNT_COOLDOWN_SEC = 3600;
 
 describe('ConfigSchema', () => {
   let githubPat: string;
@@ -17,20 +21,25 @@ describe('ConfigSchema', () => {
     webhookSecret = getRandomString({ charset: 'alphanumeric', length: 16 });
     tunnelUrl = `https://${getRandomString({ charset: 'alpha', length: 8 })}.com`;
     BASE = {
+      CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_SEC: 10,
       GITHUB_PAT: githubPat,
       PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
+      MAX_RETRIGGER_ATTEMPTS: DEFAULT_MAX_RETRIGGER_ATTEMPTS,
       POLL_INTERVAL_SEC: 90,
+      PR_SCANNER_INTERVAL_SEC: 300,
+      REVIEW_DETECTION_LOOKBACK_SEC: DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC,
       REVIEW_LIMIT_BUFFER_SEC: 60,
       REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
       REPO_FILTER: [{ pattern: 'couimet/*', scope: 'user' as const }],
-      SCHEDULER_POST_COOLDOWN_SEC: 3600,
+      SCHEDULER_MAX_RETRIGGER_AGE_SEC: DEFAULT_MAX_RETRIGGER_AGE_SEC,
       SCHEDULER_RETRIGGER_SPACING_SEC: 180,
       SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
       SCHEDULER_RETRY_BACKOFF_MAX_SEC: 3600,
+      SCHEDULER_STALE_TICK_MULTIPLIER: 4,
       SCHEDULER_TICK_INTERVAL_SEC: 10,
       WEB_PORT: 3000,
     };
@@ -107,6 +116,69 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('defaults PR_SCANNER_INTERVAL_SEC to 300', () => {
+    const { PR_SCANNER_INTERVAL_SEC: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.PR_SCANNER_INTERVAL_SEC).toBe(300);
+    }
+  });
+
+  it('coerces numeric PR_SCANNER_INTERVAL_SEC from a string', () => {
+    const customPrScannerIntervalSec = 450;
+    const result = ConfigSchema.safeParse({ ...BASE, PR_SCANNER_INTERVAL_SEC: String(customPrScannerIntervalSec) });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.PR_SCANNER_INTERVAL_SEC).toBe(customPrScannerIntervalSec);
+    }
+  });
+
+  it('applies default REVIEW_DETECTION_LOOKBACK_SEC when missing', () => {
+    const { REVIEW_DETECTION_LOOKBACK_SEC: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.REVIEW_DETECTION_LOOKBACK_SEC).toBe(DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC);
+    }
+  });
+
+  it('applies default MAX_RETRIGGER_ATTEMPTS when missing', () => {
+    const { MAX_RETRIGGER_ATTEMPTS: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.MAX_RETRIGGER_ATTEMPTS).toBe(DEFAULT_MAX_RETRIGGER_ATTEMPTS);
+    }
+  });
+
+  it('applies default SCHEDULER_MAX_RETRIGGER_AGE_SEC when missing', () => {
+    const { SCHEDULER_MAX_RETRIGGER_AGE_SEC: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.SCHEDULER_MAX_RETRIGGER_AGE_SEC).toBe(DEFAULT_MAX_RETRIGGER_AGE_SEC);
+    }
+  });
+
+  it('coerces numeric REVIEW_DETECTION_LOOKBACK_SEC from a string', () => {
+    const customLookbackSec = 3600;
+    const result = ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: String(customLookbackSec) });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.REVIEW_DETECTION_LOOKBACK_SEC).toBe(customLookbackSec);
+    }
+  });
+
+  it('coerces numeric MAX_RETRIGGER_ATTEMPTS from a string', () => {
+    const customMaxAttempts = 5;
+    const result = ConfigSchema.safeParse({ ...BASE, MAX_RETRIGGER_ATTEMPTS: String(customMaxAttempts) });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.MAX_RETRIGGER_ATTEMPTS).toBe(customMaxAttempts);
+    }
+  });
+
   // -- Failure cases -----------------------------------------------------------
 
   it('rejects an invalid DETECTION_MODE', () => {
@@ -128,6 +200,10 @@ describe('ConfigSchema', () => {
 
   it('rejects negative POLL_INTERVAL_SEC', () => {
     expect(ConfigSchema.safeParse({ ...BASE, POLL_INTERVAL_SEC: -5 }).success).toBe(false);
+  });
+
+  it('rejects negative PR_SCANNER_INTERVAL_SEC', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, PR_SCANNER_INTERVAL_SEC: -5 }).success).toBe(false);
   });
 
   it('rejects empty REPO_FILTER array', () => {
@@ -159,11 +235,35 @@ describe('ConfigSchema', () => {
     }
   });
 
-  it('rejects SCHEDULER_RETRIGGER_SPACING_SEC >= SCHEDULER_POST_COOLDOWN_SEC', () => {
-    const result = ConfigSchema.safeParse({ ...BASE, SCHEDULER_RETRIGGER_SPACING_SEC: 3600, SCHEDULER_POST_COOLDOWN_SEC: 3600 });
+  it('rejects SCHEDULER_RETRIGGER_SPACING_SEC >= CODERABBIT_ACCOUNT_COOLDOWN_SEC', () => {
+    const result = ConfigSchema.safeParse({
+      ...BASE,
+      SCHEDULER_RETRIGGER_SPACING_SEC: ACCOUNT_COOLDOWN_SEC,
+      CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
+    });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((i) => i.path.includes('SCHEDULER_RETRIGGER_SPACING_SEC'))).toBe(true);
+    }
+  });
+
+  it('rejects negative REVIEW_DETECTION_LOOKBACK_SEC', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: -1 }).success).toBe(false);
+  });
+
+  it('rejects negative MAX_RETRIGGER_ATTEMPTS', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, MAX_RETRIGGER_ATTEMPTS: -1 }).success).toBe(false);
+  });
+
+  it('rejects negative SCHEDULER_MAX_RETRIGGER_AGE_SEC', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, SCHEDULER_MAX_RETRIGGER_AGE_SEC: -1 }).success).toBe(false);
+  });
+
+  it('rejects REVIEW_DETECTION_LOOKBACK_SEC > CODERABBIT_ACCOUNT_COOLDOWN_SEC * 2', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: 7201, CODERABBIT_ACCOUNT_COOLDOWN_SEC: 3600 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('REVIEW_DETECTION_LOOKBACK_SEC'))).toBe(true);
     }
   });
 

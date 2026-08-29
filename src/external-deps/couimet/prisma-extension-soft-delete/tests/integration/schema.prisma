@@ -1,0 +1,16 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated"
+}
+
+model TestEntity {
+  id             Int       @id @default(autoincrement())
+  label          String
+  is_not_deleted Boolean?  @default(true)
+  deleted_at     DateTime?
+  created_at     DateTime  @default(now())
+}

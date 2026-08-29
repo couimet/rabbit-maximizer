@@ -164,14 +164,14 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/queue/triggered': {
+  '/api/activity-list': {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get: operations['getTriggered'];
+    get: operations['getActivityList'];
     put?: never;
     post?: never;
     delete?: never;
@@ -220,19 +220,21 @@ export interface components {
       error: string;
     };
     /** @enum {string} */
-    QueueStatus: 'pending' | 'retriggered' | 'reviewed' | 'failed';
+    QueueStatus: 'pending' | 'retriggered' | 'resolved';
     QueueItem: {
       id: number;
       uuid: string;
       repo_full_name: string;
       pr_number: number;
       pr_title: string;
-      status: components['schemas']['QueueStatus'];
+      /** @description GitHub login of the PR author */
+      author_login: string;
       /**
-       * Format: date-time
-       * @description Eligibility gate — item cannot be processed before this timestamp
+       * @description PR state from GitHub (open, merged, closed)
+       * @enum {string|null}
        */
-      not_before: string;
+      pr_state?: 'open' | 'merged' | 'closed' | null;
+      status: components['schemas']['QueueStatus'];
       attempts: number;
       source_comment_url?: string;
       /** @enum {string} */
@@ -249,13 +251,75 @@ export interface components {
       last_coderabbit_acknowledged_at?: string | null;
       /** Format: date-time */
       reviewed_at?: string | null;
+      /**
+       * Format: date-time
+       * @description When the item transitioned to resolved (supersedes reviewed_at/failed_at for new code)
+       */
+      resolved_at?: string | null;
+      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped) */
+      resolution?: string | null;
+      /**
+       * @description Outcome of the most recent CodeRabbit review for this PR
+       * @enum {string|null}
+       */
+      coderabbit_review_state?: 'review_approved' | 'review_changes_suggested' | null;
+      /**
+       * Format: uri
+       * @description URL of the most recent CodeRabbit review for this PR
+       */
+      coderabbit_review_url?: string | null;
       /** Format: date-time */
       created_at: string;
       /** Format: date-time */
       updated_at: string;
     };
+    ActivityListItem: {
+      uuid: string;
+      repo_full_name: string;
+      pr_number: number;
+      pr_title: string;
+      /** @description GitHub login of the PR author */
+      author_login: string;
+      /**
+       * @description PR state from GitHub (open, merged, closed)
+       * @enum {string|null}
+       */
+      pr_state?: 'open' | 'merged' | 'closed' | null;
+      status: components['schemas']['QueueStatus'];
+      resolution?: string | null;
+      /** Format: date-time */
+      retriggered_at?: string | null;
+      /** Format: date-time */
+      resolved_at?: string | null;
+      /** Format: date-time */
+      failed_at?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      retrigger_comment_url?: string | null;
+      source_comment_url: string;
+      last_review_url?: string | null;
+      /** @enum {string|null} */
+      last_review_state?: 'review_approved' | 'review_changes_suggested' | null;
+      review_count: number;
+      retrigger_count: number;
+      /** Format: date-time */
+      last_coderabbit_acknowledged_at?: string | null;
+      /** Format: date-time */
+      last_activity_at: string;
+    };
     /** @enum {string} */
-    EventType: 'bypassed' | 'coderabbit_review_approved' | 'coderabbit_review_changes_requested' | 'detected' | 'enqueued' | 'failed' | 'retriggered';
+    EventType:
+      | 'coderabbit_review_approved'
+      | 'coderabbit_review_changes_suggested'
+      | 'coderabbit_review_skipped'
+      | 'coderabbit_run_id_changed'
+      | 'coderabbit_run_id_cleared'
+      | 'coderabbit_run_id_first_seen'
+      | 'detected'
+      | 'dismissed'
+      | 'enqueued'
+      | 'failed'
+      | 'retriggered';
     EventEntry: {
       id: number;
       uuid: string;
@@ -277,7 +341,7 @@ export interface components {
     QueueCounts: {
       pending: number;
       retriggered: number;
-      failed: number;
+      resolved: number;
     };
     EventCounts: {
       detected: number;
@@ -287,10 +351,24 @@ export interface components {
     };
     DashboardState: {
       /** Format: date-time */
+      lastSchedulerTickAt: string | null;
+      /** Format: date-time */
       nextReviewAvailableAt: string | null;
       pendingItems: components['schemas']['QueueItem'][];
+      skippedItems: components['schemas']['QueueItem'][];
       eventCounts: components['schemas']['EventCounts'];
       paused: boolean;
+      schedulerStale: boolean;
+      trackedPrs: components['schemas']['TrackedPr'][];
+    };
+    TrackedPr: {
+      repo_full_name: string;
+      pr_number: number;
+      title: string;
+      author_login: string;
+      last_review_state?: string | null;
+      /** Format: date-time */
+      last_coderabbit_review_at?: string | null;
     };
     PauseRequest: {
       paused: boolean;
@@ -303,6 +381,8 @@ export interface components {
       pauseNotificationInitialDelaySec: number;
       /** @description Interval in seconds between repeat "paused" notifications */
       pauseNotificationRepeatIntervalSec: number;
+      /** @description Time in ms before the scheduler is considered stale (no heartbeat) */
+      schedulerStaleThresholdMs: number;
     };
     Summary: {
       queueCounts: components['schemas']['QueueCounts'];
@@ -311,6 +391,12 @@ export interface components {
     };
     PaginatedQueue: {
       data: components['schemas']['QueueItem'][];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    PaginatedActivityList: {
+      data: components['schemas']['ActivityListItem'][];
       total: number;
       page: number;
       pageSize: number;
@@ -677,13 +763,12 @@ export interface operations {
       500: components['responses']['InternalError'];
     };
   };
-  getTriggered: {
+  getActivityList: {
     parameters: {
       query: {
         since: string;
         page?: number;
         pageSize?: number;
-        include_reviewed?: boolean;
       };
       header?: never;
       path?: never;
@@ -691,13 +776,13 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Paginated triggered items */
+      /** @description Paginated activity list */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          'application/json': components['schemas']['PaginatedQueue'];
+          'application/json': components['schemas']['PaginatedActivityList'];
         };
       };
       /** @description Validation error */

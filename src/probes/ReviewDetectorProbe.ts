@@ -1,6 +1,9 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { ObservationContext } from '../observability/observationContext.js';
-import { EventType, type QueueItem } from '../types/index.js';
+import type { EventRepository } from '../db/index.js';
+import { EventType, PrState, Resolution, ReviewDetectionMethod } from '../domain.js';
+import type { CoderabbitReviewVerdictState, QueueItem } from '../types/index.js';
+import { toReviewEventType } from '../utils/index.js';
+
+import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -10,7 +13,6 @@ export class ReviewDetectorProbe {
 
   constructor(
     private readonly events: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly log: Logger,
   ) {}
 
@@ -29,21 +31,60 @@ export class ReviewDetectorProbe {
     );
   }
 
+  resolutionLostRace(resolution: Resolution): void {
+    this.log.warn(
+      {
+        fn: 'ReviewDetectorProbe.resolutionLostRace',
+        repo: this.item!.repo_full_name,
+        pr: this.item!.pr_number,
+        queueId: this.item!.id,
+        resolution,
+      },
+      'Item was no longer retriggered; another writer resolved it first — skipping resolution',
+    );
+  }
+
+  async reviewedViaFallback(tx: Prisma.TransactionClient): Promise<void> {
+    await this.events.record(
+      {
+        type: EventType.coderabbit_review_approved,
+        repo_full_name: this.item!.repo_full_name,
+        pr_number: this.item!.pr_number,
+        ...getEventTraceAttributes(),
+        payload: {
+          detected_via: ReviewDetectionMethod.LastReviewAtFallback,
+        },
+      },
+      tx,
+    );
+    this.log.info(
+      {
+        fn: 'ReviewDetectorProbe.reviewedViaFallback',
+        repo: this.item!.repo_full_name,
+        pr: this.item!.pr_number,
+        queueId: this.item!.id,
+      },
+      'Review detected via last_coderabbit_review_at fallback',
+    );
+  }
+
   async reviewed(
-    eventType: EventType.coderabbit_review_approved | EventType.coderabbit_review_changes_requested,
     commentUrl: string,
+    verdictState: CoderabbitReviewVerdictState,
+    detectedVia: ReviewDetectionMethod,
     tx: Prisma.TransactionClient,
   ): Promise<void> {
+    const eventType = toReviewEventType(verdictState);
     await this.events.record(
       {
         type: eventType,
         repo_full_name: this.item!.repo_full_name,
         pr_number: this.item!.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: {
           coderabbit_comment_url: commentUrl,
+          verdict_state: verdictState,
+          detected_via: detectedVia,
         },
       },
       tx,
@@ -58,6 +99,20 @@ export class ReviewDetectorProbe {
         commentUrl,
       },
       'Review detected',
+    );
+  }
+
+  prClosedResolved(prState: PrState): void {
+    this.log.info(
+      { fn: 'ReviewDetectorProbe.prClosedResolved', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, prState },
+      'PR is closed or merged; auto-resolving retriggered queue item',
+    );
+  }
+
+  editDetectionFailed(error: unknown): void {
+    this.log.warn(
+      { fn: 'ReviewDetectorProbe.editDetectionFailed', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, error },
+      'Edit detection failed; skipping retrigger check for this item',
     );
   }
 

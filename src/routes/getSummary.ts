@@ -1,9 +1,7 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { QueueRepository } from '../db/queueRepository.js';
-import type { EventCountsMapper } from '../mappers/index.js';
-import type { QueueItemMapper } from '../mappers/index.js';
-import type { SummaryResponse } from '../types/api.js';
-import { resolveDurationSince } from '../utils/resolveDurationSince.js';
+import type { EventRepository, QueueRepository } from '../db/index.js';
+import type { EventCountsMapper, QueueItemMapper } from '../mappers/index.js';
+import type { SummaryResponse } from '../types/index.js';
+import { resolveDurationSince } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
@@ -27,7 +25,8 @@ export const createGetSummaryHandler = (
       ]);
 
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
-      const mappedPending = oldestPending ? queueItemMapper.mapToQueueItemResponse(oldestPending) : null;
+      const [enrichedPending] = oldestPending ? await queueItemMapper.mapToQueueItemResponseList([oldestPending]) : [];
+      const mappedPending = enrichedPending ?? null;
 
       const response: SummaryResponse = { queueCounts, eventCounts: activeEventCounts, oldestPending: mappedPending };
       res.json(response);

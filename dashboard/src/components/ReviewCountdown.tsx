@@ -1,3 +1,5 @@
+import { formatElapsed } from './index.js';
+
 import { useEffect, useState } from 'react';
 
 const COUNTDOWN_TICK_MS = 1_000;
@@ -15,11 +17,15 @@ const ReviewCountdown = ({
   paused,
   onTogglePaused,
   toggling,
+  schedulerStale,
+  lastSchedulerTickAt,
 }: {
   target: Date | null;
   paused: boolean;
   onTogglePaused: () => void;
   toggling: boolean;
+  schedulerStale: boolean;
+  lastSchedulerTickAt: string | null;
 }) => {
   const [now, setNow] = useState(Date.now());
 
@@ -31,24 +37,35 @@ const ReviewCountdown = ({
   const diffMs = target === null ? 0 : target.getTime() - now;
   const available = diffMs <= 0;
 
-  const barClass = paused ? 'countdown-bar paused' : available ? 'countdown-bar available' : 'countdown-bar waiting';
-  const dotClass = paused ? 'countdown-dot paused' : available ? 'countdown-dot available' : 'countdown-dot waiting';
+  const barClass = schedulerStale ? 'countdown-bar stale' : paused ? 'countdown-bar paused' : available ? 'countdown-bar available' : 'countdown-bar waiting';
+  const dotClass = schedulerStale ? 'countdown-dot stale' : paused ? 'countdown-dot paused' : available ? 'countdown-dot available' : 'countdown-dot waiting';
 
-  const countdownText = available
-    ? 'Available now'
-    : (() => {
-        const { h, m, s } = formatCountdown(diffMs);
-        return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
-      })();
+  const countdownText = schedulerStale
+    ? (() => {
+        const elapsed = formatElapsed(lastSchedulerTickAt);
+        return elapsed !== null ? `No heartbeat for ${elapsed}` : 'No heartbeat yet';
+      })()
+    : available
+      ? 'Available now'
+      : (() => {
+          const { h, m, s } = formatCountdown(diffMs);
+          return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+        })();
 
   return (
     <div className={barClass}>
       <div className="countdown-status">
         <div className={dotClass} />
-        <span className="countdown-label">{paused ? 'Paused' : 'Next review'}</span>
-        <span className={`countdown-value${available ? ' available' : ''}`}>{countdownText}</span>
+        <span className="countdown-label">{schedulerStale ? 'Status unknown' : paused ? 'Paused' : 'Next review'}</span>
+        <span className={schedulerStale ? 'countdown-value stale' : `countdown-value${available ? ' available' : ''}`}>{countdownText}</span>
       </div>
-      <button className="countdown-toggle" onClick={onTogglePaused} disabled={toggling} aria-label={paused ? 'Resume scheduler' : 'Pause scheduler'}>
+      <button
+        className="countdown-toggle"
+        onClick={onTogglePaused}
+        disabled={toggling || schedulerStale}
+        title={schedulerStale ? 'Scheduler is unreachable' : undefined}
+        aria-label={paused ? 'Resume scheduler' : 'Pause scheduler'}
+      >
         {toggling ? '…' : paused ? 'Resume' : 'Pause'}
       </button>
     </div>

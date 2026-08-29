@@ -1,7 +1,7 @@
-import type { EventRepository } from '../db/eventRepository.js';
+import type { EventRepository } from '../db/index.js';
 import type { EventEntryMapper } from '../mappers/index.js';
 
-import { DEFAULT_PAGE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from './pagination.js';
+import { DEFAULT_PAGE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';

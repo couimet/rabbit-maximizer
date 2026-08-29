@@ -1,14 +1,10 @@
-import type { PullRequestRepository } from '../db/pullRequestRepository.js';
-import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
-import type { QueueRepository } from '../db/queueRepository.js';
-import type { SystemStateRepository } from '../db/systemStateRepository.js';
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
-import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
+import type { QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
+import { QueueStatus, Resolution, TriggerSource } from '../domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
 import type { QueueItemMapper } from '../mappers/index.js';
-import { ReviewTrigger } from '../ReviewTrigger.js';
-import { QueueStatus, TriggerSource } from '../types/index.js';
-import { isValidUuid } from '../utils/uuidLookup.js';
+import { ReviewTrigger } from '../services.js';
+import { isValidUuid } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -18,8 +14,8 @@ import { StatusCodes } from 'http-status-codes';
 export const createGetQueueOrderHandler = (queueOrderRepo: QueueOrderRepository, queueItemMapper: QueueItemMapper, logger: Logger) => {
   return async (_req: Request, res: Response): Promise<void> => {
     try {
-      const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
-      const data = queueItemMapper.mapToQueueItemResponseList(items);
+      const items = await queueOrderRepo.getEffectiveOrder();
+      const data = await queueItemMapper.mapToQueueItemResponseList(items);
       res.json({ data });
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.get', error }, 'Failed to get queue order');
@@ -47,7 +43,7 @@ export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository
         return;
       }
 
-      const currentOrder = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
+      const currentOrder = await queueOrderRepo.getEffectiveOrder();
       const currentUuids = new Set(currentOrder.map((item) => item.uuid));
       const missingUuids = queueItemUuids.filter((uuid: string) => !currentUuids.has(uuid));
       if (missingUuids.length > 0) {
@@ -56,7 +52,7 @@ export const createMoveQueueOrderHandler = (queueOrderRepo: QueueOrderRepository
       }
 
       const updatedOrder = await queueOrderRepo.moveItems(queueItemUuids, direction);
-      const data = queueItemMapper.mapToQueueItemResponseList(updatedOrder);
+      const data = await queueItemMapper.mapToQueueItemResponseList(updatedOrder);
 
       res.json({ data });
     } catch (error) {
@@ -80,7 +76,7 @@ export const createRetriggerNowHandler = (
         return;
       }
 
-      if (await systemStateRepo.isSchedulerPaused()) {
+      if (await systemStateRepo.isSchedulerPaused(undefined)) {
         if (req.query.overridePause !== 'true') {
           logger.info({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Retrigger blocked: scheduler is paused');
           res.status(StatusCodes.CONFLICT).json({ error: 'Maximizer is paused; resume it before retriggering' });
@@ -89,16 +85,22 @@ export const createRetriggerNowHandler = (
         logger.info({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Retriggering while scheduler is paused (overridePause=true)');
       }
 
-      const items = await queueOrderRepo.getEffectiveOrder({ eligibleOnly: false });
+      const items = await queueOrderRepo.getEffectiveOrder();
       const item = items.find((i) => i.uuid === uuid);
       if (!item) {
         logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid }, 'Queue item not found');
         res.status(StatusCodes.NOT_FOUND).json({ error: 'Queue item not found' });
         return;
       }
-      if (item.status !== QueueStatus.pending) {
-        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is not pending');
-        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is not pending' });
+      if (item.status === QueueStatus.resolved) {
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is already resolved');
+        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is already resolved' });
+        return;
+      }
+
+      if (item.status === QueueStatus.retriggered) {
+        logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, status: item.status }, 'Queue item is in retrigger cooldown');
+        res.status(StatusCodes.CONFLICT).json({ error: 'Queue item is in retrigger cooldown' });
         return;
       }
 
@@ -147,7 +149,7 @@ export const createMoveToTopHandler = (queueOrderRepo: QueueOrderRepository, log
   };
 };
 
-export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullRequests: PullRequestRepository, prisma: PrismaClient, logger: Logger) => {
+export const createMarkReviewedHandler = (queueRepo: QueueRepository, prisma: PrismaClient, logger: Logger) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const uuid = req.params.uuid as string;
@@ -157,10 +159,8 @@ export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullReques
       }
 
       const item = await prisma.$transaction(async (tx) => {
-        const updated = await queueRepo.markReviewedByUuid(uuid, tx);
-        if (!updated) return null;
-        await pullRequests.recordReview(updated.pull_request_id, tx);
-        return updated;
+        const updated = await queueRepo.markResolvedByUuid(uuid, Resolution.ManualReview, tx);
+        return updated ?? null;
       });
 
       if (!item) {
@@ -170,7 +170,7 @@ export const createMarkReviewedHandler = (queueRepo: QueueRepository, pullReques
 
       res.json({ ok: true });
     } catch (error) {
-      logger.error({ fn: 'api.queueOrder.markReviewed', error }, 'Failed to mark item reviewed');
+      logger.error({ fn: 'api.queueOrder.markResolved', error }, 'Failed to mark item resolved');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to mark item reviewed' });
     }
   };

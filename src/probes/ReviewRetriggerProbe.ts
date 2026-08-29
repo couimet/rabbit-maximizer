@@ -1,6 +1,8 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { ObservationContext } from '../observability/observationContext.js';
-import { EventType, type QueueItem } from '../types/index.js';
+import type { EventRepository } from '../db/index.js';
+import { EventType } from '../domain.js';
+import type { QueueItem } from '../types/index.js';
+
+import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Prisma } from '@prisma/client';
@@ -9,7 +11,6 @@ export class ReviewRetriggerProbe {
   constructor(
     private readonly item: QueueItem,
     private readonly events: EventRepository,
-    private readonly observation: ObservationContext,
     private readonly log: Logger,
   ) {}
 
@@ -27,22 +28,20 @@ export class ReviewRetriggerProbe {
     );
   }
 
-  staleCommentRescheduled(notBefore: Date): void {
+  staleCommentRescheduled(cooldownUntil: Date): void {
     this.log.info(
-      { fn: 'ReviewRetriggerProbe.staleCommentRescheduled', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, notBefore },
-      'Stale source comment replaced; rescheduled with updated not_before',
+      { fn: 'ReviewRetriggerProbe.staleCommentRescheduled', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, cooldownUntil },
+      'Stale source comment replaced; rescheduled with updated cooldown time',
     );
   }
 
-  async reviewRetriggered(retriggeredCommentUrl: string, cooldownUntil: Date, tx: Prisma.TransactionClient): Promise<void> {
+  async reviewRetriggered(retriggeredCommentUrl: string, tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {
         type: EventType.retriggered,
         repo_full_name: this.item.repo_full_name,
         pr_number: this.item.pr_number,
-        correlation_id: this.observation.correlationId,
-        request_id: this.observation.requestId,
-        version: this.observation.version,
+        ...getEventTraceAttributes(),
         payload: { source_comment_url: this.item.source_comment_url, retriggered_comment_url: retriggeredCommentUrl },
       },
       tx,

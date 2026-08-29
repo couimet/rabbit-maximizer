@@ -1,0 +1,15 @@
+# MD013/line-length: disabled — project documentation uses long lines
+# (code references, URLs, detailed explanations) that don't benefit
+# from hard wrapping at 80 characters.
+config:
+  MD013: false
+
+# MD033/no-inline-html: disabled for CLAUDE.md (custom XML rule tags)
+# and README.md (logo alignment HTML). Everything else is still checked.
+overrides:
+  - filter:
+      - 'CLAUDE.md'
+      - 'README.md'
+    config:
+      MD033: false
+    combine: merge

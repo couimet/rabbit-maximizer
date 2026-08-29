@@ -1,103 +1,73 @@
-import { EventEntryMapper } from '../../src/mappers/EventEntryMapper.js';
-import type { EventLogEntry } from '../../src/types/EventLogEntry.js';
-import { BypassReason, type DetectedPayload, type EnqueuedPayload, type FailedPayload, type RetriggeredPayload } from '../../src/types/EventPayloads.js';
-import { EventType } from '../../src/types/EventType.js';
+import { DismissalReason, EventType } from '../../src/domain.js';
+import { EventEntryMapper } from '../../src/mappers/index.js';
+import { type DetectedPayload, type EnqueuedPayload, type FailedPayload, type RetriggeredPayload } from '../../src/types/EventPayloads.js';
+import type { EventLogEntry } from '../../src/types/index.js';
+import { generateEventLogEntryHydrationData, generateReviewRef } from '../../tests/helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
-import { describe, expect, it } from '@jest/globals';
-
-const REPO = getUniqueGitHubRepoRef().fullName;
-const PR_NUMBER = getUniqueInt();
-const ID = getUniqueInt();
-const UUID = getUuid();
-const CORRELATION_ID = getUuid();
-const TS = getUniqueDate();
-const REQUEST_ID = 'req-abc-123';
-const VERSION = '1.0.0';
-
-const makeDetectedEntry = (): EventLogEntry => ({
-  id: ID,
-  uuid: UUID,
-  ts: TS,
-  type: EventType.detected,
-  repo_full_name: REPO,
-  pr_number: PR_NUMBER,
-  correlation_id: CORRELATION_ID,
-  request_id: REQUEST_ID,
-  version: VERSION,
-  payload: { source_comment_url: 'https://gh/c/1' } as DetectedPayload,
-});
-
-const makeEnqueuedEntry = (): EventLogEntry => ({
-  id: ID + 1,
-  uuid: getUuid(),
-  ts: TS,
-  type: EventType.enqueued,
-  repo_full_name: REPO,
-  pr_number: PR_NUMBER,
-  correlation_id: CORRELATION_ID,
-  version: VERSION,
-  payload: { not_before: TS, new_wait: 42 } as EnqueuedPayload,
-});
-
-const makeRetriggeredEntry = (): EventLogEntry => ({
-  id: ID + 2,
-  uuid: getUuid(),
-  ts: TS,
-  type: EventType.retriggered,
-  repo_full_name: REPO,
-  pr_number: PR_NUMBER,
-  correlation_id: CORRELATION_ID,
-  version: VERSION,
-  payload: { source_comment_url: 'https://gh/c/2', retriggered_comment_url: 'https://gh/c/3' } as RetriggeredPayload,
-});
-
-const makeFailedEntry = (): EventLogEntry => ({
-  id: ID + 3,
-  uuid: getUuid(),
-  ts: TS,
-  type: EventType.failed,
-  repo_full_name: REPO,
-  pr_number: PR_NUMBER,
-  correlation_id: CORRELATION_ID,
-  version: VERSION,
-  payload: { reason: 'Rate limited' } as FailedPayload,
-});
-
-const makeBypassedEntry = (): EventLogEntry => ({
-  id: ID + 4,
-  uuid: getUuid(),
-  ts: TS,
-  type: EventType.bypassed,
-  repo_full_name: REPO,
-  pr_number: PR_NUMBER,
-  correlation_id: CORRELATION_ID,
-  version: VERSION,
-  payload: { reason: BypassReason.prMerged },
-});
+import { getUniqueDate, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('EventEntryMapper', () => {
   const mapper = new EventEntryMapper();
+
+  let ref: ReturnType<typeof generateReviewRef>;
+  let correlationId: string;
+  let ts: Date;
+  let requestId: string;
+  let version: string;
+
+  beforeEach(() => {
+    ref = generateReviewRef();
+    correlationId = getUuid();
+    ts = getUniqueDate();
+    requestId = getUniqueString({ prefix: 'req-' });
+    version = getUniqueString({ prefix: 'version-' });
+  });
+
+  const makeEntry = (overrides: Partial<EventLogEntry>): EventLogEntry =>
+    generateEventLogEntryHydrationData({
+      ts,
+      repo_full_name: ref.repoFullName,
+      pr_number: ref.prNumber,
+      correlation_id: correlationId,
+      version,
+      ...overrides,
+    });
+
+  const makeDetectedEntry = (): EventLogEntry =>
+    makeEntry({ type: EventType.detected, request_id: requestId, payload: { source_comment_url: 'https://gh/c/1' } as DetectedPayload });
+
+  const makeEnqueuedEntry = (): EventLogEntry => makeEntry({ type: EventType.enqueued, payload: {} as EnqueuedPayload });
+
+  const makeRetriggeredEntry = (): EventLogEntry =>
+    makeEntry({
+      type: EventType.retriggered,
+      payload: { source_comment_url: 'https://gh/c/2', retriggered_comment_url: 'https://gh/c/3' } as RetriggeredPayload,
+    });
+
+  const makeFailedEntry = (): EventLogEntry => makeEntry({ type: EventType.failed, payload: { reason: 'Rate limited' } as FailedPayload });
+
+  const makeDismissedEntry = (): EventLogEntry => makeEntry({ type: EventType.dismissed, payload: { reason: DismissalReason.prMerged } });
 
   describe('mapToEventEntryResponse', () => {
     it('maps shared envelope fields', () => {
       const input = makeDetectedEntry();
       const result = mapper.mapToEventEntryResponse(input);
 
-      expect(result.id).toBe(ID);
-      expect(result.uuid).toBe(UUID);
-      expect(result.repo_full_name).toBe(REPO);
-      expect(result.pr_number).toBe(PR_NUMBER);
-      expect(result.correlation_id).toBe(CORRELATION_ID);
-      expect(result.request_id).toBe(REQUEST_ID);
-      expect(result.version).toBe(VERSION);
+      expect(result.id).toBe(input.id);
+      expect(result.uuid).toBe(input.uuid);
+      expect(result.repo_full_name).toBe(ref.repoFullName);
+      expect(result.pr_number).toBe(ref.prNumber);
+      expect(result.correlation_id).toBe(correlationId);
+      expect(result.request_id).toBe(requestId);
+      expect(result.version).toBe(version);
     });
 
     it('converts ts Date to ISO string', () => {
       const input = makeDetectedEntry();
       const result = mapper.mapToEventEntryResponse(input);
 
-      expect(result.ts).toBe(TS.toISOString());
+      expect(result.ts).toBe(ts.toISOString());
     });
 
     it('converts EventType enum to string', () => {
@@ -136,7 +106,7 @@ describe('EventEntryMapper', () => {
       const result = mapper.mapToEventEntryResponse(input);
 
       expect(result.type).toBe('enqueued');
-      expect(result.payload).toStrictEqual({ not_before: TS, new_wait: 42 });
+      expect(result.payload).toStrictEqual({});
     });
 
     it('handles retriggered event type', () => {
@@ -154,11 +124,11 @@ describe('EventEntryMapper', () => {
       expect(result.payload).toStrictEqual({ reason: 'Rate limited' });
     });
 
-    it('handles bypassed event type', () => {
-      const input = makeBypassedEntry();
+    it('handles dismissed event type', () => {
+      const input = makeDismissedEntry();
       const result = mapper.mapToEventEntryResponse(input);
 
-      expect(result.type).toBe('bypassed');
+      expect(result.type).toBe('dismissed');
       expect(result.payload).toStrictEqual({ reason: 'prMerged' });
     });
   });

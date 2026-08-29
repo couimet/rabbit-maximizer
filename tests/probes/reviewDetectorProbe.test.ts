@@ -1,94 +1,197 @@
-import type { ObservationContext } from '../../src/observability/observationContext.js';
-import { ReviewDetectorProbe } from '../../src/probes/ReviewDetectorProbe.js';
-import { EventType, type QueueItem } from '../../src/types/index.js';
-import { createMockEventRepo, createMockObservationContext } from '../helpers/index.js';
+import { CodeRabbitCommentType, PrState, Resolution, ReviewDetectionMethod } from '../../src/domain.js';
+import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
+import { ReviewDetectorProbe } from '../../src/probes/index.js';
+import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
+import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
-import type { Logger } from '@couimet/logger-contract';
+import { getUniqueString } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { Prisma } from '@prisma/client';
-
-const makeTx = (): Prisma.TransactionClient => ({}) as Prisma.TransactionClient;
-const makeItem = (repo: string, pr: number): QueueItem =>
-  ({ id: getUniqueInt(), repo_full_name: repo, pr_number: pr, source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }) }) as unknown as QueueItem;
 
 describe('ReviewDetectorProbe', () => {
   let events: ReturnType<typeof createMockEventRepo>;
-  let logger: Logger;
-  let observation: ObservationContext;
+  let eventTrace: { correlationId: string; requestId: string; version: string };
+  let logger: ReturnType<typeof createMockLogger>;
+
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
+    eventTrace = generateEventTraceContext();
     events = createMockEventRepo();
     logger = createMockLogger();
-    observation = createMockObservationContext();
   });
 
-  const createProbe = () => new ReviewDetectorProbe(events, observation, logger);
+  const createProbe = () => new ReviewDetectorProbe(events, logger);
 
   describe('noRetriggeredItemFound', () => {
     it('logs info when no retriggered items exist', () => {
       const probe = createProbe();
       probe.noRetriggeredItemFound();
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'ReviewDetectorProbe.noRetriggeredItemFound' }, 'No retriggered items to check');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'ReviewDetectorProbe.noRetriggeredItemFound' }, 'No retriggered items to check');
     });
   });
 
   describe('noCompletedReviewFound', () => {
     it('logs debug when no completed review is found', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const probe = createProbe();
       probe.withItem(item);
       probe.noCompletedReviewFound();
-      expect(logger.debug as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'ReviewDetectorProbe.noCompletedReviewFound', repo, pr, queueId: item.id },
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.noCompletedReviewFound', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
         'No completed review found; will retry on next tick',
+      );
+    });
+  });
+
+  describe('reviewedViaFallback', () => {
+    it('records coderabbit_review_approved event with fallback payload and logs info', async () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const tx = createMockTx();
+      const probe = createProbe();
+      probe.withItem(item);
+      await runInContext(() => probe.reviewedViaFallback(tx));
+      expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'coderabbit_review_approved',
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
+          payload: { detected_via: 'last_coderabbit_review_at_fallback' },
+        },
+        tx,
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.reviewedViaFallback', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
+        'Review detected via last_coderabbit_review_at fallback',
       );
     });
   });
 
   describe('reviewed', () => {
     it('records coderabbit_review_approved event with coderabbit_comment_url and logs info', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const commentUrl = getUniqueString({ prefix: 'https://gh/c/posted-' });
-      const tx = makeTx();
+      const tx = createMockTx();
       const probe = createProbe();
       probe.withItem(item);
-      await probe.reviewed(EventType.coderabbit_review_approved, commentUrl, tx);
+      await runInContext(() => probe.reviewed(commentUrl, CodeRabbitCommentType.review_approved, ReviewDetectionMethod.EditDetection, tx));
       expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
         {
           type: 'coderabbit_review_approved',
-          repo_full_name: repo,
-          pr_number: pr,
-          correlation_id: observation.correlationId,
-          request_id: observation.requestId,
-          version: observation.version,
-          payload: { coderabbit_comment_url: commentUrl },
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
+          payload: { coderabbit_comment_url: commentUrl, verdict_state: 'review_approved', detected_via: 'edit_detection' },
         },
         tx,
       );
-      expect(logger.info as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'ReviewDetectorProbe.reviewed', repo, pr, queueId: item.id, eventType: 'coderabbit_review_approved', commentUrl },
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.reviewed', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, eventType: 'coderabbit_review_approved', commentUrl },
         'Review detected',
+      );
+    });
+  });
+
+  describe('prClosedResolved', () => {
+    it('logs info with merged prState', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.prClosedResolved(PrState.merged);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.prClosedResolved', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, prState: 'merged' },
+        'PR is closed or merged; auto-resolving retriggered queue item',
+      );
+    });
+
+    it('logs info with closed prState', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.prClosedResolved(PrState.closed);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.prClosedResolved', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, prState: 'closed' },
+        'PR is closed or merged; auto-resolving retriggered queue item',
+      );
+    });
+  });
+
+  describe('prClosedResolved', () => {
+    it('logs info with merged prState', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.prClosedResolved(PrState.merged);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.prClosedResolved', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, prState: 'merged' },
+        'PR is closed or merged; auto-resolving retriggered queue item',
+      );
+    });
+
+    it('logs info with closed prState', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.prClosedResolved(PrState.closed);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.prClosedResolved', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, prState: 'closed' },
+        'PR is closed or merged; auto-resolving retriggered queue item',
+      );
+    });
+  });
+
+  describe('resolutionLostRace', () => {
+    it('logs warn with item context and resolution', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.resolutionLostRace(Resolution.ReviewCompleted);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.resolutionLostRace', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, resolution: 'review_completed' },
+        'Item was no longer retriggered; another writer resolved it first — skipping resolution',
+      );
+    });
+  });
+
+  describe('editDetectionFailed', () => {
+    it('logs warn with item context and error when edit detection fails', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const detectionError = new Error('fetchComment failed');
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.editDetectionFailed(detectionError);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.editDetectionFailed', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, error: detectionError },
+        'Edit detection failed; skipping retrigger check for this item',
       );
     });
   });
 
   describe('caughtError', () => {
     it('logs warn with item context and error', () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
-      const item = makeItem(repo, pr);
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const tickError = new Error('API unavailable');
       const probe = createProbe();
       probe.withItem(item);
       probe.caughtError(tickError);
-      expect(logger.warn as jest.Mock<any>).toHaveBeenCalledWith(
-        { fn: 'ReviewDetectorProbe.caughtError', repo, pr, queueId: item.id, error: tickError },
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.caughtError', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, error: tickError },
         'Review detection tick failed; will retry on next interval',
       );
     });

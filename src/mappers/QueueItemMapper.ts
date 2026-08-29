@@ -1,32 +1,44 @@
-import type { QueueItemResponse } from '../types/api.js';
-import type { QueueItem } from '../types/QueueItem.js';
+import { TYPES } from '../domain.js';
+import type { EnrichedQueueItem, QueueItem, QueueItemResponse } from '../types/index.js';
+import { nullableDateToISOString, nullableString, type QueueItemEnricher } from '../utils/index.js';
 
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
 @injectable()
 export class QueueItemMapper {
-  mapToQueueItemResponse(input: QueueItem): QueueItemResponse {
+  /* c8 ignore start — decorator emit branches */
+  constructor(@inject(TYPES.QueueItemEnricher) private readonly enricher: QueueItemEnricher) {}
+  /* c8 ignore stop */
+
+  mapToQueueItemResponse(input: EnrichedQueueItem): QueueItemResponse {
     return {
       id: input.id,
       uuid: input.uuid,
       repo_full_name: input.repo_full_name,
       pr_number: input.pr_number,
       pr_title: input.pr_title,
+      author_login: input.authorLogin,
       status: input.status as QueueItemResponse['status'],
-      not_before: input.not_before.toISOString(),
       attempts: input.attempts,
       source_comment_url: input.source_comment_url,
       trigger_source: input.trigger_source as QueueItemResponse['trigger_source'],
-      retrigger_comment_url: input.retrigger_comment_url,
-      retriggered_at: input.retriggered_at?.toISOString(),
-      failed_at: input.failed_at?.toISOString(),
-      reviewed_at: input.reviewed_at?.toISOString(),
+      retrigger_comment_url: nullableString(input.retrigger_comment_url),
+      retriggered_at: nullableDateToISOString(input.retriggered_at),
+      failed_at: nullableDateToISOString(input.failed_at),
+      reviewed_at: nullableDateToISOString(input.reviewed_at),
+      resolved_at: nullableDateToISOString(input.resolved_at),
+      resolution: nullableString(input.resolution),
+      pr_state: nullableString(input.prState) as QueueItemResponse['pr_state'],
+      last_coderabbit_acknowledged_at: nullableDateToISOString(input.lastCoderabbitAcknowledgedAt),
+      coderabbit_review_state: nullableString(input.coderabbitReview?.state) as QueueItemResponse['coderabbit_review_state'],
+      coderabbit_review_url: nullableString(input.coderabbitReview?.htmlUrl),
       created_at: input.created_at.toISOString(),
       updated_at: input.updated_at.toISOString(),
     };
   }
 
-  mapToQueueItemResponseList(inputs: QueueItem[]): QueueItemResponse[] {
-    return inputs.map((item) => this.mapToQueueItemResponse(item));
+  async mapToQueueItemResponseList(inputs: QueueItem[]): Promise<QueueItemResponse[]> {
+    const enriched = await this.enricher.enrich(inputs);
+    return enriched.map((item) => this.mapToQueueItemResponse(item));
   }
 }

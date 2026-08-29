@@ -1,4 +1,4 @@
-import { isApprovalReviewSignal } from '../../src/github/isApprovalReviewSignal.js';
+import { isApprovalReviewSignal } from '../../src/github/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

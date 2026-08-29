@@ -1,9 +1,7 @@
-import type { EventRepository } from '../db/eventRepository.js';
-import type { QueueOrderRepository } from '../db/queueOrderRepository.js';
-import type { SystemStateRepository } from '../db/systemStateRepository.js';
-import type { EventCountsMapper } from '../mappers/index.js';
-import type { QueueItemMapper } from '../mappers/index.js';
-import { resolveDurationSince } from '../utils/resolveDurationSince.js';
+import type { Config } from '../config.js';
+import { type EventRepository, type PullRequestRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from '../db/index.js';
+import type { EventCountsMapper, QueueItemMapper, TrackedPrMapper } from '../mappers/index.js';
+import { MS_PER_SECOND, resolveDurationSince } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
@@ -11,32 +9,50 @@ import { StatusCodes } from 'http-status-codes';
 
 export const createGetDashboardStateHandler = (
   queueOrderRepo: QueueOrderRepository,
+  queueRepo: QueueRepository,
   eventRepo: EventRepository,
   systemStateRepo: SystemStateRepository,
+  pullRequestRepo: PullRequestRepository,
   queueItemMapper: QueueItemMapper,
   eventCountsMapper: EventCountsMapper,
+  trackedPrMapper: TrackedPrMapper,
   logger: Logger,
+  config: Config,
 ) => {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const since = resolveDurationSince(req.query.duration);
 
-      const [items, eventCounts, paused] = await Promise.all([
-        queueOrderRepo.getEffectiveOrder({ eligibleOnly: false }),
+      const [items, eventCounts, systemState, skippedQueueItems, trackedPrRows] = await Promise.all([
+        queueOrderRepo.getEffectiveOrder(),
         eventRepo.countByType(since),
-        systemStateRepo.isSchedulerPaused(),
+        systemStateRepo.getDashboardSystemState(),
+        queueRepo.getSkippedItems(),
+        pullRequestRepo.findTrackedPRs(),
       ]);
+      const { paused, lastSchedulerTickAt, nextReviewAvailableAt: storedNextReviewAt } = systemState;
       const activeEventCounts = eventCountsMapper.mapToResponse(eventCounts);
-      const pendingItems = queueItemMapper.mapToQueueItemResponseList(items);
+      const [pendingItems, skippedItems] = await Promise.all([
+        queueItemMapper.mapToQueueItemResponseList(items),
+        queueItemMapper.mapToQueueItemResponseList(skippedQueueItems),
+      ]);
+      const trackedPrs = trackedPrRows.map((row) => trackedPrMapper.mapToResponse(row));
 
-      const now = new Date();
-      const hasEligibleNow = items.some((item) => item.not_before <= now);
-      const nextReviewAvailableAt =
-        !hasEligibleNow && items.length > 0
-          ? items.reduce((min, item) => (item.not_before < min ? item.not_before : min), items[0].not_before).toISOString()
-          : null;
+      const nextReviewAvailableAt = storedNextReviewAt && storedNextReviewAt.getTime() > Date.now() ? storedNextReviewAt.toISOString() : null;
 
-      res.json({ nextReviewAvailableAt, pendingItems, eventCounts: activeEventCounts, paused });
+      const staleThresholdMs = config.SCHEDULER_STALE_TICK_MULTIPLIER * config.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND;
+      const schedulerStale = lastSchedulerTickAt === undefined || Date.now() - lastSchedulerTickAt.getTime() > staleThresholdMs;
+
+      res.json({
+        lastSchedulerTickAt: lastSchedulerTickAt?.toISOString() ?? null,
+        nextReviewAvailableAt,
+        pendingItems,
+        skippedItems,
+        eventCounts: activeEventCounts,
+        paused,
+        schedulerStale,
+        trackedPrs,
+      });
     } catch (error) {
       logger.error({ fn: 'api.dashboardState', error }, 'Failed to get dashboard state');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to get dashboard state' });

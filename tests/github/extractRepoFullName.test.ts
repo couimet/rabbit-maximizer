@@ -1,4 +1,4 @@
-import { extractRepoFullName } from '../../src/github/extractRepoFullName.js';
+import { extractRepoFullName } from '../../src/github/index.js';
 
 import { getUniqueGitHubRepoRef } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';

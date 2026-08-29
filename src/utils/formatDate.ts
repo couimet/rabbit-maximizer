@@ -1,4 +1,4 @@
-import { isValidTimezone } from './isValidTimezone.js';
+import { isValidTimezone } from './index.js';
 
 const TIMESTAMP_LENGTH = 19;
 

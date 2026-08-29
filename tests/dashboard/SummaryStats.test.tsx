@@ -1,40 +1,51 @@
 /** @jest-environment jsdom */
 
-import SummaryStats from '../../dashboard/src/components/SummaryStats.js';
-import { TimezoneProvider } from '../../dashboard/src/timezone.js';
+import { ErrorProvider, formatElapsed, GlobalErrorBanner, SummaryStats, TimezoneProvider } from '../../dashboard/src/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactElement } from 'react';
-import { StrictMode } from 'react';
+import { StatusCodes } from 'http-status-codes';
+import { type ReactElement, StrictMode } from 'react';
 
-const renderSummaryStats = (ui?: ReactElement) => render(<TimezoneProvider>{ui ?? <SummaryStats />}</TimezoneProvider>);
+const renderSummaryStats = (ui?: ReactElement) =>
+  render(
+    <TimezoneProvider>
+      <ErrorProvider>
+        <GlobalErrorBanner />
+        {ui ?? <SummaryStats />}
+      </ErrorProvider>
+    </TimezoneProvider>,
+  );
 
 const DEFAULT_EVENT_COUNTS = { detected: 8, enqueued: 7, retriggered: 3, failed: 1 };
 
-const TRIGGERED_RESPONSE = { data: [], total: 0, page: 1, pageSize: 50 };
+const ACTIVITY_LIST_RESPONSE = { data: [], total: 0, page: 1, pageSize: 50 };
+
+const DEFAULT_CONFIG_RESPONSE = { pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 40000 };
+const RECENT_TICK_AGE_MS = 10_000;
+const FIRST_MATCH_INDEX = 0;
 
 const mockDashboardState = (data: Record<string, unknown>) => {
   globalThis.fetch = jest.fn((url: string) => {
-    if (typeof url === 'string' && url.includes('/queue/triggered')) {
+    if (typeof url === 'string' && url.includes('/activity-list')) {
       return Promise.resolve({
         ok: true,
-        status: 200,
-        json: () => Promise.resolve(TRIGGERED_RESPONSE),
+        status: StatusCodes.OK,
+        json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE),
       } as Response);
     }
     if (url === '/api/config') {
       return Promise.resolve({
         ok: true,
-        status: 200,
-        json: () => Promise.resolve({ pauseNotificationInitialDelayMinutes: 30, pauseNotificationRepeatIntervalMinutes: 15 }),
+        status: StatusCodes.OK,
+        json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
       } as Response);
     }
     return Promise.resolve({
       ok: true,
-      status: 200,
+      status: StatusCodes.OK,
       json: () => Promise.resolve(data),
     } as Response);
   }) as unknown as typeof fetch;
@@ -57,6 +68,7 @@ describe('SummaryStats', () => {
 
   afterEach(() => {
     localStorage.clear();
+    globalThis.fetch = undefined as unknown as typeof fetch;
   });
 
   describe('loading', () => {
@@ -75,10 +87,12 @@ describe('SummaryStats', () => {
 
   describe('data', () => {
     const dashboardData = {
+      lastSchedulerTickAt: null,
       nextReviewAvailableAt: null,
       pendingItems: [],
       eventCounts: DEFAULT_EVENT_COUNTS,
       paused: false,
+      schedulerStale: false,
     };
 
     beforeEach(() => {
@@ -87,7 +101,7 @@ describe('SummaryStats', () => {
 
     it('renders pending count from pendingItems', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 items')).toBeInTheDocument());
     });
 
     it('renders event counts', async () => {
@@ -100,7 +114,7 @@ describe('SummaryStats', () => {
 
     it('changes duration and re-fetches', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 items')).toBeInTheDocument());
 
       const newData = {
         nextReviewAvailableAt: null,
@@ -110,13 +124,13 @@ describe('SummaryStats', () => {
       };
       let capturedUrl = '';
       globalThis.fetch = jest.fn((url: string) => {
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(TRIGGERED_RESPONSE) } as Response);
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE) } as Response);
         }
         capturedUrl = url as string;
         return Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => Promise.resolve(newData),
         } as Response);
       }) as unknown as typeof fetch;
@@ -128,7 +142,7 @@ describe('SummaryStats', () => {
 
     it('renders the QueueOrder component on the Summary tab', async () => {
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 items')).toBeInTheDocument());
     });
 
     it('ignores stale response when newer request resolves first', async () => {
@@ -137,12 +151,16 @@ describe('SummaryStats', () => {
         pendingItems: [],
         eventCounts: { detected: 1, enqueued: 0, retriggered: 0, failed: 0 },
         paused: false,
+        schedulerStale: false,
+        lastSchedulerTickAt: null,
       };
       const freshData = {
         nextReviewAvailableAt: null,
         pendingItems: [],
         eventCounts: { detected: 9, enqueued: 0, retriggered: 0, failed: 0 },
         paused: false,
+        schedulerStale: false,
+        lastSchedulerTickAt: null,
       };
 
       mockDashboardState({
@@ -161,12 +179,12 @@ describe('SummaryStats', () => {
 
       let callCount = 0;
       globalThis.fetch = jest.fn((url: string) => {
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(TRIGGERED_RESPONSE) } as Response);
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE) } as Response);
         }
         callCount++;
         if (callCount === 1) return stalePromise;
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(freshData) } as Response);
+        return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(freshData) } as Response);
       }) as unknown as typeof fetch;
 
       // Two rapid duration changes: first is stale (pending), second resolves immediately.
@@ -175,7 +193,7 @@ describe('SummaryStats', () => {
 
       await waitFor(() => expect(screen.getByText('9')).toBeInTheDocument());
 
-      resolveStale!({ ok: true, status: 200, json: () => Promise.resolve(staleData) } as Response);
+      resolveStale!({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(staleData) } as Response);
 
       await new Promise((r) => setTimeout(r, 0));
       expect(screen.getByText('9')).toBeInTheDocument();
@@ -188,6 +206,8 @@ describe('SummaryStats', () => {
         pendingItems: [],
         eventCounts: { detected: 9, enqueued: 0, retriggered: 0, failed: 0 },
         paused: false,
+        schedulerStale: false,
+        lastSchedulerTickAt: null,
       };
 
       mockDashboardState({
@@ -206,12 +226,12 @@ describe('SummaryStats', () => {
 
       let callCount = 0;
       globalThis.fetch = jest.fn((url: string) => {
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(TRIGGERED_RESPONSE) } as Response);
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE) } as Response);
         }
         callCount++;
         if (callCount === 1) return stalePromise;
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(freshData) } as Response);
+        return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(freshData) } as Response);
       }) as unknown as typeof fetch;
 
       // Two rapid duration changes: first will error, second succeeds.
@@ -231,9 +251,11 @@ describe('SummaryStats', () => {
 
   describe('review countdown', () => {
     const dashboardData = {
+      lastSchedulerTickAt: null,
       pendingItems: [],
       eventCounts: DEFAULT_EVENT_COUNTS,
       paused: false,
+      schedulerStale: false,
     };
 
     it('renders Available now when nextReviewAvailableAt is null', async () => {
@@ -255,8 +277,124 @@ describe('SummaryStats', () => {
     });
   });
 
+  describe('scheduler stale banner', () => {
+    it('renders banner when schedulerStale is true with a timestamp', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - 120_000).toISOString();
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getAllByText(/Scheduler may be down/)[FIRST_MATCH_INDEX]).toBeInTheDocument());
+      expect(screen.getAllByText(/no heartbeat for 2 minutes/)[FIRST_MATCH_INDEX]).toBeInTheDocument();
+    });
+
+    it('renders "no heartbeat yet" when lastSchedulerTickAt is null', async () => {
+      mockDashboardState({
+        lastSchedulerTickAt: null,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText(/no heartbeat yet/)).toBeInTheDocument());
+    });
+
+    it('does not render banner when schedulerStale is false', async () => {
+      mockDashboardState({
+        lastSchedulerTickAt: new Date().toISOString(),
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: false,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
+      expect(screen.queryByText(/Scheduler may be down/)).not.toBeInTheDocument();
+    });
+
+    it('shows seconds for recent heartbeat', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - 30_000).toISOString();
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getAllByText(/no heartbeat for 30 seconds/)[FIRST_MATCH_INDEX]).toBeInTheDocument());
+    });
+
+    it('shows hours for very old heartbeat', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - 3600 * 1000 * 2).toISOString();
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getAllByText(/no heartbeat for 2 hours/)[FIRST_MATCH_INDEX]).toBeInTheDocument());
+    });
+  });
+
+  describe('formatElapsed', () => {
+    let frozenNow: Date;
+
+    beforeEach(() => {
+      frozenNow = getUniqueDate();
+      jest.useFakeTimers();
+      jest.setSystemTime(frozenNow);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('returns null when lastSchedulerTickAt is null', () => {
+      expect(formatElapsed(null)).toBeNull();
+    });
+
+    it('returns singular "1 second" for elapsed of exactly 1 second', () => {
+      const tick = new Date(frozenNow.getTime() - 1000).toISOString();
+      expect(formatElapsed(tick)).toBe('1 second');
+    });
+
+    it('returns "1 minute" for elapsed of 60 seconds', () => {
+      const tick = new Date(frozenNow.getTime() - 60_000).toISOString();
+      expect(formatElapsed(tick)).toBe('1 minute');
+    });
+
+    it('returns "1 hour" for elapsed of 3600 seconds', () => {
+      const tick = new Date(frozenNow.getTime() - 3_600_000).toISOString();
+      expect(formatElapsed(tick)).toBe('1 hour');
+    });
+  });
+
   describe('cleanup', () => {
     it('cancels in-flight fetch on unmount', () => {
+      mockDashboardState({
+        lastSchedulerTickAt: null,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: false,
+      });
       const { unmount } = renderSummaryStats();
       unmount();
       expect(globalThis.fetch).toHaveBeenCalled();
@@ -267,14 +405,25 @@ describe('SummaryStats', () => {
       const pending = new Promise<Response>((r) => {
         resolveFetch = r;
       });
-      globalThis.fetch = jest.fn(() => pending) as unknown as typeof fetch;
+      let callCount = 0;
+      globalThis.fetch = jest.fn(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
+          } as Response);
+        }
+        return pending;
+      }) as unknown as typeof fetch;
 
       const { unmount } = renderSummaryStats();
       unmount();
 
       resolveFetch!({
         ok: true,
-        status: 200,
+        status: StatusCodes.OK,
         json: () =>
           Promise.resolve({
             nextReviewAvailableAt: null,
@@ -292,7 +441,18 @@ describe('SummaryStats', () => {
       const pending = new Promise<Response>((_resolve, reject) => {
         rejectFetch = reject;
       });
-      globalThis.fetch = jest.fn(() => pending) as unknown as typeof fetch;
+      let callCount2 = 0;
+      globalThis.fetch = jest.fn(() => {
+        callCount2++;
+        if (callCount2 === 1) {
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
+          } as Response);
+        }
+        return pending;
+      }) as unknown as typeof fetch;
 
       const { unmount } = renderSummaryStats();
       unmount();
@@ -313,11 +473,14 @@ describe('SummaryStats', () => {
       render(
         <StrictMode>
           <TimezoneProvider>
-            <SummaryStats />
+            <ErrorProvider>
+              <GlobalErrorBanner />
+              <SummaryStats />
+            </ErrorProvider>
           </TimezoneProvider>
         </StrictMode>,
       );
-      await waitFor(() => expect(screen.getByText('Queue Order — 0 pending item(s)')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(/Queue Order/)).toBeInTheDocument());
     });
 
     it('re-fetches dashboard state when QueueOrder calls onMoveComplete', async () => {
@@ -328,7 +491,6 @@ describe('SummaryStats', () => {
         repo_full_name: repo,
         pr_number: prNumber,
         status: 'pending',
-        not_before: getUniqueDate().toISOString(),
         attempts: 0,
         trigger_source: 'scheduler',
         pull_request_id: getUniqueInt(),
@@ -353,23 +515,23 @@ describe('SummaryStats', () => {
         if (init?.method === 'POST') {
           return Promise.resolve({
             ok: true,
-            status: 200,
+            status: StatusCodes.OK,
             json: () => Promise.resolve({ data: [queueItem] }),
           } as Response);
         }
-        if (typeof url === 'string' && url.includes('/queue/triggered')) {
-          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(TRIGGERED_RESPONSE) } as Response);
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE) } as Response);
         }
         dashboardCallCount++;
         return Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => Promise.resolve(dashboardCallCount === 1 ? initialData : refreshedData),
         } as Response);
       }) as unknown as typeof fetch;
 
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Queue Order — 1 pending item(s)')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Queue Order — 1 item')).toBeInTheDocument());
 
       fireEvent.click(screen.getByLabelText(`Select ${repo} #${prNumber}`));
       fireEvent.click(screen.getByText('Move Up'));
@@ -380,10 +542,12 @@ describe('SummaryStats', () => {
 
   describe('pause toggle', () => {
     const dashboardData = {
+      lastSchedulerTickAt: null,
       nextReviewAvailableAt: null,
       pendingItems: [],
       eventCounts: DEFAULT_EVENT_COUNTS,
       paused: false,
+      schedulerStale: false,
     };
 
     it('renders Pause button when not paused', async () => {
@@ -408,13 +572,13 @@ describe('SummaryStats', () => {
         if (init?.method === 'POST') {
           return Promise.resolve({
             ok: true,
-            status: 200,
+            status: StatusCodes.OK,
             json: () => Promise.resolve({ paused: true }),
           } as Response);
         }
         return Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => Promise.resolve(refreshedData),
         } as Response);
       }) as unknown as typeof fetch;
@@ -440,13 +604,13 @@ describe('SummaryStats', () => {
         if (init?.method === 'POST') {
           return Promise.resolve({
             ok: true,
-            status: 200,
+            status: StatusCodes.OK,
             json: () => Promise.resolve({ paused: false }),
           } as Response);
         }
         return Promise.resolve({
           ok: true,
-          status: 200,
+          status: StatusCodes.OK,
           json: () => Promise.resolve(refreshedData),
         } as Response);
       }) as unknown as typeof fetch;
@@ -489,7 +653,7 @@ describe('SummaryStats', () => {
       unmount();
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      resolveSetPaused!({ ok: true, status: 200, json: () => Promise.resolve({ paused: true }) } as Response);
+      resolveSetPaused!({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve({ paused: true }) } as Response);
       await new Promise((r) => setTimeout(r, 0));
 
       const stateUpdateWarnings = consoleErrorSpy.mock.calls.filter((call) => typeof call[0] === 'string' && (call[0] as string).includes('unmounted'));
@@ -521,17 +685,66 @@ describe('SummaryStats', () => {
 
   describe('error', () => {
     it('shows error message on HTTP failure', async () => {
-      globalThis.fetch = jest.fn(() =>
-        Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({ error: 'Internal server error' }) } as Response),
-      ) as unknown as typeof fetch;
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/api/config')) {
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
+          } as Response);
+        }
+        return Promise.resolve({
+          ok: false,
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          json: () => Promise.resolve({ error: 'Internal server error' }),
+        } as Response);
+      }) as unknown as typeof fetch;
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Failed to load summary: Internal server error')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Summary: Internal server error — data may not reflect current state')).toBeInTheDocument());
     });
 
     it('shows generic error message when fetch rejects', async () => {
-      globalThis.fetch = jest.fn(() => Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/api/config')) {
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
+          } as Response);
+        }
+        return Promise.reject(new Error('Network error'));
+      }) as unknown as typeof fetch;
       renderSummaryStats();
-      await waitFor(() => expect(screen.getByText('Failed to load summary: Network error')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Summary: Network error — data may not reflect current state')).toBeInTheDocument());
+    });
+
+    it('uses known lastTick to compute staleness on fetch error', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - 120_000).toISOString();
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
+
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/api/config')) {
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve({ pauseNotificationInitialDelaySec: 1800, pauseNotificationRepeatIntervalSec: 900, schedulerStaleThresholdMs: 30000 }),
+          } as Response);
+        }
+        return Promise.reject(new Error('Background refresh failed'));
+      }) as unknown as typeof fetch;
+
+      fireEvent.change(screen.getByRole('combobox', { name: 'Events time range' }), { target: { value: '2d' } });
+
+      await waitFor(() => expect(screen.getByText('Summary: Background refresh failed — data may not reflect current state')).toBeInTheDocument());
     });
 
     it('shows refresh error banner alongside data when background poll fails', async () => {
@@ -548,8 +761,119 @@ describe('SummaryStats', () => {
 
       fireEvent.change(screen.getByRole('combobox', { name: 'Events time range' }), { target: { value: '2d' } });
 
-      await waitFor(() => expect(screen.getByText('Failed to refresh: Background refresh failed')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Summary: Background refresh failed — data may not reflect current state')).toBeInTheDocument());
       expect(screen.getByText('8')).toBeInTheDocument();
+    });
+
+    it('uses default stale threshold when config fetch fails', async () => {
+      globalThis.fetch = jest.fn((url: string) => {
+        if (url === '/api/config') {
+          return Promise.resolve({
+            ok: false,
+            status: StatusCodes.INTERNAL_SERVER_ERROR,
+            json: () => Promise.resolve({ error: 'Config fetch failed' }),
+          } as Response);
+        }
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE),
+          } as Response);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: StatusCodes.OK,
+          json: () =>
+            Promise.resolve({
+              lastSchedulerTickAt: null,
+              nextReviewAvailableAt: null,
+              pendingItems: [],
+              eventCounts: DEFAULT_EVENT_COUNTS,
+              paused: false,
+              schedulerStale: false,
+            }),
+        } as Response);
+      }) as unknown as typeof fetch;
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Summary')).toBeInTheDocument());
+    });
+
+    it('does not add staleness suffix when recent tick is known', async () => {
+      const now = new Date();
+      const tickTime = new Date(now.getTime() - RECENT_TICK_AGE_MS).toISOString(); // 10s ago, under 40s threshold
+      mockDashboardState({
+        lastSchedulerTickAt: tickTime,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: false,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('8')).toBeInTheDocument());
+
+      globalThis.fetch = jest.fn((url: string) => {
+        if (typeof url === 'string' && url.includes('/api/config')) {
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve(DEFAULT_CONFIG_RESPONSE),
+          } as Response);
+        }
+        if (typeof url === 'string' && url.includes('/activity-list')) {
+          return Promise.resolve({
+            ok: true,
+            status: StatusCodes.OK,
+            json: () => Promise.resolve(ACTIVITY_LIST_RESPONSE),
+          } as Response);
+        }
+        return Promise.resolve({
+          ok: false,
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          json: () => Promise.resolve({ error: 'Internal server error' }),
+        } as Response);
+      }) as unknown as typeof fetch;
+
+      fireEvent.change(screen.getByRole('combobox', { name: 'Events time range' }), { target: { value: '2d' } });
+
+      await waitFor(() => expect(screen.getByText('Summary: Internal server error')).toBeInTheDocument());
+    });
+  });
+
+  describe('retry button', () => {
+    it('renders Retry now button in the stale banner', async () => {
+      mockDashboardState({
+        lastSchedulerTickAt: null,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getAllByText(/Scheduler may be down/)[FIRST_MATCH_INDEX]).toBeInTheDocument());
+      expect(screen.getByText('Retry now')).toBeInTheDocument();
+    });
+
+    it('clicking Retry now triggers a re-fetch', async () => {
+      mockDashboardState({
+        lastSchedulerTickAt: null,
+        nextReviewAvailableAt: null,
+        pendingItems: [],
+        eventCounts: DEFAULT_EVENT_COUNTS,
+        paused: false,
+        schedulerStale: true,
+      });
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getAllByText(/Scheduler may be down/)[FIRST_MATCH_INDEX]).toBeInTheDocument());
+
+      const fetchCallsBefore = (globalThis.fetch as jest.Mock).mock.calls.length;
+      fireEvent.click(screen.getByText('Retry now'));
+
+      await waitFor(() => {
+        expect((globalThis.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(fetchCallsBefore);
+      });
     });
   });
 });

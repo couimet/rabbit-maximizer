@@ -1,4 +1,4 @@
-import { formatDate } from '../../src/utils/formatDate.js';
+import { formatDate } from '../../src/utils/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

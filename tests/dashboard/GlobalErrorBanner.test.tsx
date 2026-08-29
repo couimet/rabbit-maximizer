@@ -1,0 +1,140 @@
+/** @jest-environment jsdom */
+
+import { ErrorProvider, GlobalErrorBanner, useErrorContext } from '../../dashboard/src/index.js';
+
+import '@testing-library/jest-dom/jest-globals';
+import { describe, expect, it } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { type ReactElement, useEffect } from 'react';
+
+const renderBanner = (ui?: ReactElement) => render(<ErrorProvider>{ui ?? <GlobalErrorBanner />}</ErrorProvider>);
+
+const ErrorReporter = ({ id, label, message }: { id: string; label: string; message: string }) => {
+  const { reportError } = useErrorContext();
+  useEffect(() => {
+    reportError(id, label, message);
+  }, [id, label, message, reportError]);
+  return null;
+};
+
+describe('GlobalErrorBanner', () => {
+  it('renders nothing when there are no errors', () => {
+    const { container } = renderBanner();
+    expect(container.querySelector('.global-error-banner')).not.toBeInTheDocument();
+  });
+
+  it('renders a single error message', () => {
+    renderBanner(
+      <>
+        <ErrorReporter id="test-1" label="" message="Something went wrong" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  it('renders multiple errors stacked', () => {
+    renderBanner(
+      <>
+        <ErrorReporter id="err-a" label="" message="First error" />
+        <ErrorReporter id="err-b" label="" message="Second error" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('First error')).toBeInTheDocument();
+    expect(screen.getByText('Second error')).toBeInTheDocument();
+  });
+
+  it('dismisses an individual error on button click', () => {
+    renderBanner(
+      <>
+        <ErrorReporter id="err-a" label="" message="First error" />
+        <ErrorReporter id="err-b" label="" message="Second error" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    const dismissButtons = screen.getAllByLabelText('Dismiss error');
+    fireEvent.click(dismissButtons[0]);
+    expect(screen.queryByText('First error')).not.toBeInTheDocument();
+    expect(screen.getByText('Second error')).toBeInTheDocument();
+  });
+
+  it('does not add duplicate when same id and message are re-reported', () => {
+    const DoubleReporter = () => {
+      const { reportError } = useErrorContext();
+      useEffect(() => {
+        reportError('test-1', '', 'Same message');
+        reportError('test-1', '', 'Same message');
+      }, [reportError]);
+      return null;
+    };
+    renderBanner(
+      <>
+        <DoubleReporter />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('Same message')).toBeInTheDocument();
+    expect(screen.getAllByText('Same message')).toHaveLength(1);
+  });
+
+  it('renders label and message when label is provided', () => {
+    renderBanner(
+      <>
+        <ErrorReporter id="test-1" label="Summary" message="Network error" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('Summary: Network error')).toBeInTheDocument();
+  });
+
+  it('renders only message when label is absent', () => {
+    renderBanner(
+      <>
+        <ErrorReporter id="test-1" label="" message="Something went wrong" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+    expect(screen.queryByText(': Something went wrong')).not.toBeInTheDocument();
+  });
+
+  it('replaces error with same id when message changes', () => {
+    const { rerender } = renderBanner(
+      <>
+        <ErrorReporter id="test-1" label="" message="First message" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('First message')).toBeInTheDocument();
+
+    rerender(
+      <ErrorProvider>
+        <ErrorReporter id="test-1" label="" message="Updated message" />
+        <GlobalErrorBanner />
+      </ErrorProvider>,
+    );
+    expect(screen.queryByText('First message')).not.toBeInTheDocument();
+    expect(screen.getByText('Updated message')).toBeInTheDocument();
+  });
+
+  it('replaces error with same id when label changes but message stays the same', () => {
+    const { rerender } = renderBanner(
+      <>
+        <ErrorReporter id="test-1" label="Old label" message="Same message" />
+        <GlobalErrorBanner />
+      </>,
+    );
+    expect(screen.getByText('Old label: Same message')).toBeInTheDocument();
+
+    rerender(
+      <ErrorProvider>
+        <ErrorReporter id="test-1" label="New label" message="Same message" />
+        <GlobalErrorBanner />
+      </ErrorProvider>,
+    );
+    expect(screen.queryByText('Old label: Same message')).not.toBeInTheDocument();
+    expect(screen.getByText('New label: Same message')).toBeInTheDocument();
+  });
+});

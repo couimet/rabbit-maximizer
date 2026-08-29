@@ -1,4 +1,4 @@
-import type { EventCountsResponse } from '../types/api.js';
+import type { EventCountsResponse } from '../types/index.js';
 
 import { injectable } from 'inversify';
 

@@ -1,25 +1,22 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
-import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
-import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
-import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
-import { parseWaitSeconds } from './github/parseWaitSeconds.js';
-import { splitRepo } from './github/splitRepo.js';
-import { ProbeFactory } from './probes/ProbeFactory.js';
-import type { ReviewRetriggerProbe } from './probes/ReviewRetriggerProbe.js';
-import { type QueueItem, TriggerSource } from './types/index.js';
-import { RabbitResult } from './types/RabbitResult.js';
-import { MS_PER_SECOND } from './utils/durations.js';
+import type { PullRequestRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from './errors/index.js';
+import {
+  classifyCoderabbitComment,
+  type CoderabbitGitHubClient,
+  hasOwnRetriggerMarker,
+  hasRateLimitMarker,
+  parseWaitSeconds,
+  splitRepo,
+} from './github/index.js';
+import { ProbeFactory, type ReviewRetriggerProbe } from './probes/index.js';
+import type { CommentDiagnosis, QueueItem, RetriggerDecision, RetriggerDiagnosis } from './types/index.js';
+import { extractCoderabbitRunId, generateRunId, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { TYPES } from './inversify-types.js';
+import { CodeRabbitCommentType, QueueStatus, RabbitResult, TriggerSource, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
-import { StatusCodes } from 'http-status-codes';
 import { inject, injectable } from 'inversify';
-import { randomUUID } from 'node:crypto';
 
 export type TriggerDetails = { retriggeredCommentUrl: string };
 
@@ -41,38 +38,85 @@ export class ReviewTrigger {
     private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.PrismaClient)
     private readonly prisma: PrismaClient,
+    @inject(TYPES.SystemStateRepository)
+    private readonly systemState: SystemStateRepository,
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {
-    this.postCooldownMs = cfg.SCHEDULER_POST_COOLDOWN_SEC * MS_PER_SECOND;
+    this.postCooldownMs = cfg.CODERABBIT_ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
     this.fallbackWaitSeconds = cfg.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
     this.bufferSeconds = cfg.REVIEW_LIMIT_BUFFER_SEC;
   }
   /* c8 ignore stop */
 
   async trigger(item: QueueItem, triggerSource: TriggerSource): Promise<RabbitResult<TriggerDetails>> {
+    if (item.status !== QueueStatus.pending) {
+      this.log.warn({ fn: 'ReviewTrigger.trigger', queueId: item.id, status: item.status }, 'Item not pending; refusing to trigger');
+      return RabbitResult.err(
+        new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.RETRIGGER_ITEM_NOT_PENDING,
+          message: 'Item is not in pending status',
+          functionName: 'ReviewTrigger.trigger',
+          details: { status: item.status },
+        }),
+      );
+    }
+
     const probe = this.probeFactory.createReviewRetriggerProbe(item);
     const { owner, repo } = splitRepo(item.repo_full_name);
+    const includeDiagnosis = triggerSource === TriggerSource.scheduler;
 
     let storedBody: string;
+    let sourceCreatedAt: string;
+    let sourceUpdatedAt: string;
     try {
-      storedBody = await this.github.fetchComment(owner, repo, item.source_comment_id);
+      const result = await this.github.fetchComment(owner, repo, item.source_comment_id);
+      storedBody = result.body;
+      sourceCreatedAt = result.createdAt;
+      sourceUpdatedAt = result.updatedAt;
     } catch (err: unknown) {
       const error = err as { status?: number };
-      if (error.status === StatusCodes.NOT_FOUND || error.status === StatusCodes.GONE) {
+      if (isTerminalHttpStatus(error.status)) {
         storedBody = '';
+        sourceCreatedAt = '';
+        sourceUpdatedAt = '';
       } else {
         throw err;
       }
     }
 
+    const sourceRunId = extractCoderabbitRunId(storedBody);
+
     if (storedBody !== '' && hasRateLimitMarker(storedBody) && !hasOwnRetriggerMarker(storedBody)) {
-      return this.postAndRecord(item, probe, triggerSource);
+      const isReplacement = item.original_source_comment_url !== undefined;
+      const diagnosis = includeDiagnosis
+        ? isReplacement
+          ? await this.buildReplacementDiagnosis(item, storedBody, sourceCreatedAt, sourceUpdatedAt)
+          : this.buildDiagnosis(item.source_comment_url, sourceCreatedAt, sourceUpdatedAt, storedBody, 'source')
+        : undefined;
+      return this.postAndRecord(item, probe, triggerSource, item.source_comment_url, diagnosis, sourceRunId);
+    }
+
+    if (
+      storedBody !== '' &&
+      classifyCoderabbitComment(storedBody).classification === CodeRabbitCommentType.review_skipped &&
+      !hasOwnRetriggerMarker(storedBody)
+    ) {
+      const diagnosis = includeDiagnosis ? this.buildDiagnosis(item.source_comment_url, sourceCreatedAt, sourceUpdatedAt, storedBody, 'source') : undefined;
+      return this.postAndRecord(item, probe, triggerSource, item.source_comment_url, diagnosis, sourceRunId);
     }
 
     const latest = await this.github.findLatestReviewLimitComment(owner, repo, item.pr_number);
 
     if (!latest) {
+      if (storedBody === '') {
+        this.log.info(
+          { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
+          'No review-limit comment found; posting retrigger without a reply target',
+        );
+        const diagnosis = includeDiagnosis ? this.buildDirectDiagnosis(item.source_comment_url) : undefined;
+        return this.postAndRecord(item, probe, triggerSource, undefined, diagnosis, sourceRunId);
+      }
       probe.staleCommentSkipped();
       return RabbitResult.err(
         new RabbitMaximizerError({
@@ -85,11 +129,12 @@ export class ReviewTrigger {
 
     let latestBody: string;
     try {
-      latestBody = await this.github.fetchComment(owner, repo, latest.comment_id);
+      const result = await this.github.fetchComment(owner, repo, latest.commentId);
+      latestBody = result.body;
     } catch (err: unknown) {
       const error = err as { status?: number };
-      if (error.status === StatusCodes.NOT_FOUND || error.status === StatusCodes.GONE) {
-        probe.staleCommentReplacementDeleted(latest.comment_id);
+      if (isTerminalHttpStatus(error.status)) {
+        probe.staleCommentReplacementDeleted(latest.commentId);
         return RabbitResult.err(
           new RabbitMaximizerError({
             code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED,
@@ -102,37 +147,135 @@ export class ReviewTrigger {
     }
 
     const waitSeconds = (parseWaitSeconds(latestBody) ?? this.fallbackWaitSeconds) + this.bufferSeconds;
-    const notBefore = new Date(new Date(latest.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
+    const rescheduleEarliest = new Date(new Date(latest.updatedAt).getTime() + waitSeconds * MS_PER_SECOND);
 
-    probe.staleCommentRescheduled(notBefore);
+    probe.staleCommentRescheduled(rescheduleEarliest);
+    const { classification, matchedMarker } = classifyCoderabbitComment(storedBody);
     return RabbitResult.err(
-      new RabbitMaximizerError({
-        code: RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE,
-        message: 'Source comment was replaced; item must be rescheduled',
-        functionName: 'ReviewTrigger.trigger',
-        details: { notBefore: notBefore.toISOString(), sourceComment: { commentId: latest.comment_id, commentUrl: latest.url } },
-      }),
+      new StaleCommentRescheduledError(
+        { commentId: latest.commentId, commentUrl: latest.url, coderabbitRunId: extractCoderabbitRunId(latestBody) },
+        {
+          url: item.original_source_comment_url ?? item.source_comment_url,
+          createdAt: sourceCreatedAt,
+          updatedAt: sourceUpdatedAt,
+          classification,
+          matchedMarker,
+        },
+        rescheduleEarliest,
+        'ReviewTrigger.trigger',
+      ),
     );
   }
 
-  private async postAndRecord(item: QueueItem, probe: ReviewRetriggerProbe, triggerSource: TriggerSource): Promise<RabbitResult<TriggerDetails>> {
-    const runId = randomUUID();
+  private buildDiagnosis(
+    sourceCommentUrl: string,
+    sourceCreatedAt: string,
+    sourceUpdatedAt: string,
+    storedBody: string,
+    decision: RetriggerDecision,
+  ): RetriggerDiagnosis {
+    const { classification, matchedMarker } = classifyCoderabbitComment(storedBody);
+
+    const sourceComment: CommentDiagnosis = {
+      url: sourceCommentUrl,
+      createdAt: sourceCreatedAt,
+      updatedAt: sourceUpdatedAt,
+      classification,
+      matchedMarker,
+    };
+
+    const waitSeconds = parseWaitSeconds(storedBody);
+
+    return { sourceComment, waitSeconds, decision };
+  }
+
+  private async buildReplacementDiagnosis(
+    item: QueueItem,
+    replacementBody: string,
+    replacementCreatedAt: string,
+    replacementUpdatedAt: string,
+  ): Promise<RetriggerDiagnosis> {
+    const originalUrl = item.original_source_comment_url!;
+
+    const emptyOriginal = (): CommentDiagnosis => ({
+      url: originalUrl,
+      createdAt: '',
+      updatedAt: '',
+      classification: CodeRabbitCommentType.unknown,
+      matchedMarker: undefined,
+    });
+
+    let original: CommentDiagnosis;
+    try {
+      const result = await this.github.fetchCommentByUrl(originalUrl);
+      const { classification, matchedMarker } = classifyCoderabbitComment(result.body);
+      original = { url: originalUrl, createdAt: result.createdAt, updatedAt: result.updatedAt, classification, matchedMarker };
+    } catch (err: unknown) {
+      const error = err as { status?: number };
+      if (isTerminalHttpStatus(error.status)) {
+        original = emptyOriginal();
+      } else {
+        this.log.warn(
+          { fn: 'ReviewTrigger.buildReplacementDiagnosis', originalUrl, error: err },
+          'Failed to fetch original source comment; falling back to empty diagnosis',
+        );
+        original = emptyOriginal();
+      }
+    }
+
+    const { classification, matchedMarker } = classifyCoderabbitComment(replacementBody);
+    const replacementComment: CommentDiagnosis = {
+      url: item.source_comment_url,
+      createdAt: replacementCreatedAt,
+      updatedAt: replacementUpdatedAt,
+      classification,
+      matchedMarker,
+    };
+
+    return { sourceComment: original, replacementComment, waitSeconds: parseWaitSeconds(replacementBody), decision: 'replacement' };
+  }
+
+  private buildDirectDiagnosis(sourceCommentUrl: string): RetriggerDiagnosis {
+    const sourceComment: CommentDiagnosis = {
+      url: sourceCommentUrl,
+      createdAt: '',
+      updatedAt: '',
+      classification: CodeRabbitCommentType.unknown,
+      matchedMarker: undefined,
+    };
+
+    return { sourceComment, waitSeconds: undefined, decision: 'direct' };
+  }
+
+  private async postAndRecord(
+    item: QueueItem,
+    probe: ReviewRetriggerProbe,
+    triggerSource: TriggerSource,
+    replyToCommentUrl: string | undefined,
+    diagnosis: RetriggerDiagnosis | undefined,
+    sourceRunId: string | undefined,
+  ): Promise<RabbitResult<TriggerDetails>> {
+    const runId = generateRunId();
     this.log.info({ fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId }, 'Posting retrigger');
 
     const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(
       item.repo_full_name,
       item.pr_number,
-      item.source_comment_url,
+      replyToCommentUrl,
       runId,
       triggerSource,
+      diagnosis,
     );
 
     const cooldownUntil = new Date(Date.now() + this.postCooldownMs);
 
     await this.prisma.$transaction(async (tx) => {
-      await this.queue.markRetriggered(item.id, cooldownUntil, retriggeredCommentUrl, tx);
+      await this.queue.markRetriggered(item.id, cooldownUntil, retriggeredCommentUrl, sourceRunId, tx);
       await this.pullRequests.incrementRetriggerCount(item.pull_request_id, tx);
-      await probe.reviewRetriggered(retriggeredCommentUrl, cooldownUntil, tx);
+      await probe.reviewRetriggered(retriggeredCommentUrl, tx);
+      const existing = await this.systemState.getNextReviewAvailableAt(tx);
+      const nextAvailable = existing !== undefined && existing > cooldownUntil ? existing : cooldownUntil;
+      await this.systemState.setNextReviewAvailableAt(nextAvailable, tx);
     });
 
     return RabbitResult.ok({ retriggeredCommentUrl });

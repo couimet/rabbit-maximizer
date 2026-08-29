@@ -1,17 +1,17 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { SystemStateRepository } from './db/systemStateRepository.js';
-import { StateKey } from './db/systemStateRepository.js';
-import type { CoderabbitGitHubClient } from './github/coderabbitGitHubClient.js';
-import { hasOwnRetriggerMarker } from './github/hasOwnRetriggerMarker.js';
-import { hasRateLimitMarker } from './github/hasRateLimitMarker.js';
-import { parseGitHubRateLimitError } from './github/parseGitHubRateLimitError.js';
-import { parseWaitSeconds } from './github/parseWaitSeconds.js';
-import { splitRepo } from './github/splitRepo.js';
+import { type PullRequestRepository, type SystemStateRepository } from './db/index.js';
+import {
+  classifyCoderabbitComment,
+  type CoderabbitGitHubClient,
+  hasOwnRetriggerMarker,
+  parseGitHubRateLimitError,
+  parseWaitSeconds,
+  splitRepo,
+} from './github/index.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { MS_PER_SECOND } from './utils/durations.js';
+import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
-import { IntervalService } from './IntervalService.js';
-import { TYPES } from './inversify-types.js';
+import { CodeRabbitCommentType, IntervalService, TYPES } from './domain.js';
+import type { DirectCommentChecker, PrScanner, StalePrRecoverer } from './services.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -26,6 +26,12 @@ export class PollDetector extends IntervalService {
   constructor(
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
+    @inject(TYPES.PrScanner)
+    private readonly prScanner: PrScanner,
+    @inject(TYPES.StalePrRecoverer)
+    private readonly stalePrRecoverer: StalePrRecoverer,
+    @inject(TYPES.DirectCommentChecker)
+    private readonly directCommentChecker: DirectCommentChecker,
     @inject(TYPES.OnDetectedCallback)
     private readonly onDetected: OnDetectedCallback,
     @inject(TYPES.PullRequestRepository)
@@ -34,7 +40,7 @@ export class PollDetector extends IntervalService {
     private readonly systemStateRepo: SystemStateRepository,
     @inject(TYPES.Logger) log: Logger,
   ) {
-    super(log, POLL_INTERVAL_MS);
+    super('poll-detector', POLL_INTERVAL_MS, log);
   }
   /* c8 ignore stop */
 
@@ -54,31 +60,55 @@ export class PollDetector extends IntervalService {
     const logCtx: LoggingContext = { fn: 'PollDetector.tick' };
 
     try {
+      const { scannedPRs } = await this.prScanner.scan();
+      const stalePRs = await this.stalePrRecoverer.recover();
+
+      const mergedPRs = mergeByPullRequestId(scannedPRs, stalePRs);
+      const directCandidates = await this.directCommentChecker.check(mergedPRs);
+
       const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;
 
       for (const c of comments) {
-        const { owner, repo } = splitRepo(c.repo_full_name);
-        const body = await this.github.fetchComment(owner, repo, c.comment_id);
+        const { owner, repo } = splitRepo(c.repoFullName);
+        const { body } = await this.github.fetchComment(owner, repo, c.commentId);
 
-        if (!hasRateLimitMarker(body)) {
-          this.log.debug({ ...logCtx, owner, repo, commentId: c.comment_id }, 'Skipping comment without rate-limit marker');
+        const { classification } = classifyCoderabbitComment(body);
+
+        if (classification === CodeRabbitCommentType.unknown) {
+          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with unknown classification');
           continue;
         }
 
-        if (hasOwnRetriggerMarker(body)) {
-          this.log.debug({ ...logCtx, owner, repo, commentId: c.comment_id }, 'Skipping comment with own retrigger marker');
+        if (classification === CodeRabbitCommentType.review_limited && hasOwnRetriggerMarker(body)) {
+          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with own retrigger marker');
           continue;
         }
 
-        const waitSeconds = parseWaitSeconds(body);
-        const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
-        const candidate = new Date(new Date(c.updated_at).getTime() + effectiveWait * MS_PER_SECOND);
+        if (classification === CodeRabbitCommentType.review_limited) {
+          const waitSeconds = parseWaitSeconds(body);
+          const effectiveWait = waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
+          const candidate = new Date(new Date(c.updatedAt).getTime() + effectiveWait * MS_PER_SECOND);
+          if (!earliestNextReview || candidate < earliestNextReview) {
+            earliestNextReview = candidate;
+          }
+        }
+
+        const existingPr = await this.pullRequests.findByRepoAndPr(c.repoFullName, c.prNumber, undefined);
+        if (!existingPr) {
+          this.log.warn({ ...logCtx, repo: c.repoFullName, pr: c.prNumber }, 'PR not registered; skipping comment');
+          continue;
+        }
+
+        await this.onDetected({ ...c, body, commentType: classification }, existingPr.id);
+      }
+
+      for (const c of directCandidates) {
+        const effectiveWait = c.waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC;
+        const candidate = new Date(c.updatedAt.getTime() + effectiveWait * MS_PER_SECOND);
         if (!earliestNextReview || candidate < earliestNextReview) {
           earliestNextReview = candidate;
         }
-
-        await this.onDetected(c, effectiveWait);
       }
 
       try {
@@ -95,11 +125,7 @@ export class PollDetector extends IntervalService {
       }
 
       if (earliestNextReview) {
-        const existing = await this.systemStateRepo.getState(StateKey.nextReviewAvailableAt);
-        const existingIsActive = existing !== undefined && existing.getTime() > Date.now();
-        if (!existingIsActive || earliestNextReview < existing) {
-          await this.systemStateRepo.setState(StateKey.nextReviewAvailableAt, earliestNextReview);
-        }
+        await this.systemStateRepo.setNextReviewAvailableAtIfLater(earliestNextReview, undefined);
       }
     } catch (err: unknown) {
       const rateLimit = parseGitHubRateLimitError(err);

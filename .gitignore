@@ -20,6 +20,10 @@ dist/
 *.db-shm
 data/backups/
 
+# Prisma generated client (only index.d.ts is tracked — the type contract)
+prisma/generated/*
+!prisma/generated/index.d.ts
+
 # Logs
 logs/
 

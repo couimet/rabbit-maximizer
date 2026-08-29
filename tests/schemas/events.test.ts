@@ -1,29 +1,12 @@
-import { parseEventRow } from '../../src/schemas/events.js';
-import { COMMENT_URL_MAX_LENGTH, REASON_MAX_LENGTH } from '../../src/schemas/lengths.js';
-import { EventType } from '../../src/types/index.js';
+import { EventType } from '../../src/domain.js';
+import { CODERABBIT_RUN_ID_MAX_LENGTH, COMMENT_URL_MAX_LENGTH, parseEventRow, REASON_MAX_LENGTH } from '../../src/schemas/index.js';
+import { generateEventHydrationData } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
-import type { Event as PrismaEvent } from '@prisma/client';
+import { z } from 'zod';
 
 const EXCEEDS_MAX_BY = 1;
-const DEFAULT_NEW_WAIT = 60;
-
-const baseRow = (over: Partial<PrismaEvent>): PrismaEvent =>
-  ({
-    id: getUniqueInt(),
-    uuid: getUuid(),
-    ts: getUniqueDate(),
-    type: 'detected',
-    repo_full_name: getUniqueGitHubRepoRef().fullName,
-    pr_number: getUniqueInt(),
-    correlation_id: getUuid(),
-    request_id: null,
-    version: getUniqueString(),
-    payload: '{}',
-    metadata: null,
-    ...over,
-  }) as PrismaEvent;
 
 describe('parseEventRow', () => {
   it('parses a detected event with metadata and request id', () => {
@@ -34,7 +17,7 @@ describe('parseEventRow', () => {
       node_version: getUniqueString(),
     };
     const requestId = getUuid();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'detected',
       request_id: requestId,
       metadata: JSON.stringify(metadata),
@@ -61,23 +44,40 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses an enqueued event coercing dates', () => {
-    const notBefore = getUniqueDate();
-    const row = baseRow({
-      type: 'enqueued',
+  it('parses a detected event with coderabbit_run_id', () => {
+    const sourceTs = getUniqueDate();
+    const sourceCommentUrl = getUniqueString();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'detected',
       payload: JSON.stringify({
-        not_before: notBefore.toISOString(),
-        new_wait: DEFAULT_NEW_WAIT,
+        source_ts: sourceTs.toISOString(),
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: coderabbitRunId,
       }),
     });
 
     const result = parseEventRow(row);
 
-    expect(result.type).toBe('enqueued');
     expect(result.payload).toStrictEqual({
-      not_before: notBefore,
-      new_wait: 60,
+      source_ts: sourceTs,
+      source_comment_url: sourceCommentUrl,
+      coderabbit_run_id: coderabbitRunId,
     });
+  });
+
+  it('parses an enqueued event', () => {
+    const row = generateEventHydrationData({
+      type: 'enqueued',
+      request_id: null,
+      metadata: null,
+      payload: JSON.stringify({}),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('enqueued');
+    expect(result.payload).toStrictEqual({});
     expect(result.request_id).toBeUndefined();
     expect(result.metadata).toBeUndefined();
   });
@@ -85,7 +85,7 @@ describe('parseEventRow', () => {
   it('parses a retriggered event', () => {
     const sourceCommentUrl = getUniqueString();
     const retriggeredCommentUrl = getUniqueString();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'retriggered',
       payload: JSON.stringify({
         source_comment_url: sourceCommentUrl,
@@ -102,23 +102,22 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses a bypassed event', () => {
+  it('parses a dismissed event', () => {
     const reason = 'prMerged';
-    const detail = getUniqueString();
-    const row = baseRow({
-      type: 'bypassed',
-      payload: JSON.stringify({ reason, detail }),
+    const row = generateEventHydrationData({
+      type: 'dismissed',
+      payload: JSON.stringify({ reason }),
     });
 
     const result = parseEventRow(row);
 
-    expect(result.type).toBe('bypassed');
-    expect(result.payload).toStrictEqual({ reason: 'prMerged', detail });
+    expect(result.type).toBe('dismissed');
+    expect(result.payload).toStrictEqual({ reason: 'prMerged' });
   });
 
   it('parses a coderabbit_review_approved event', () => {
     const coderabbitCommentUrl = getUniqueString();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'coderabbit_review_approved',
       payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl }),
     });
@@ -131,24 +130,165 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses a coderabbit_review_changes_requested event', () => {
+  it('parses a coderabbit_review_approved event with coderabbit_run_id', () => {
     const coderabbitCommentUrl = getUniqueString();
-    const row = baseRow({
-      type: 'coderabbit_review_changes_requested',
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_approved',
+      payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl, coderabbit_run_id: coderabbitRunId }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.payload).toStrictEqual({
+      coderabbit_comment_url: coderabbitCommentUrl,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('parses a coderabbit_review_skipped event without coderabbit_run_id', () => {
+    const commentUrl = getUniqueString();
+    const skipReason = getUniqueString();
+    const sourceTs = getUniqueDate();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_skipped',
+      payload: JSON.stringify({ source_ts: sourceTs.toISOString(), comment_url: commentUrl, skip_reason: skipReason }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_skipped');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      skip_reason: skipReason,
+    });
+  });
+
+  it('parses a coderabbit_review_skipped event with coderabbit_run_id', () => {
+    const commentUrl = getUniqueString();
+    const skipReason = getUniqueString();
+    const sourceTs = getUniqueDate();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_skipped',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        comment_url: commentUrl,
+        skip_reason: skipReason,
+        coderabbit_run_id: coderabbitRunId,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_skipped');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      skip_reason: skipReason,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('parses a coderabbit_run_id_first_seen event', () => {
+    const commentUrl = getUniqueString();
+    const commentId = getUniqueInt();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_run_id_first_seen',
+      payload: JSON.stringify({ comment_id: commentId, comment_url: commentUrl, coderabbit_run_id: coderabbitRunId }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_run_id_first_seen');
+    expect(result.payload).toStrictEqual({
+      comment_id: commentId,
+      comment_url: commentUrl,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('parses a coderabbit_run_id_changed event', () => {
+    const commentUrl = getUniqueString();
+    const commentId = getUniqueInt();
+    const previousRunId = getUuid();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_run_id_changed',
+      payload: JSON.stringify({
+        comment_id: commentId,
+        comment_url: commentUrl,
+        previous_coderabbit_run_id: previousRunId,
+        coderabbit_run_id: coderabbitRunId,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_run_id_changed');
+    expect(result.payload).toStrictEqual({
+      comment_id: commentId,
+      comment_url: commentUrl,
+      previous_coderabbit_run_id: previousRunId,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('parses a coderabbit_run_id_cleared event', () => {
+    const commentUrl = getUniqueString();
+    const commentId = getUniqueInt();
+    const previousRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_run_id_cleared',
+      payload: JSON.stringify({ comment_id: commentId, comment_url: commentUrl, previous_coderabbit_run_id: previousRunId }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_run_id_cleared');
+    expect(result.payload).toStrictEqual({
+      comment_id: commentId,
+      comment_url: commentUrl,
+      previous_coderabbit_run_id: previousRunId,
+    });
+  });
+
+  it('parses a coderabbit_review_changes_suggested event', () => {
+    const coderabbitCommentUrl = getUniqueString();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_changes_suggested',
       payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl }),
     });
 
     const result = parseEventRow(row);
 
-    expect(result.type).toBe('coderabbit_review_changes_requested');
+    expect(result.type).toBe('coderabbit_review_changes_suggested');
     expect(result.payload).toStrictEqual({
       coderabbit_comment_url: coderabbitCommentUrl,
     });
   });
 
+  it('parses a coderabbit_review_changes_suggested event with coderabbit_run_id', () => {
+    const coderabbitCommentUrl = getUniqueString();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_changes_suggested',
+      payload: JSON.stringify({ coderabbit_comment_url: coderabbitCommentUrl, coderabbit_run_id: coderabbitRunId }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.payload).toStrictEqual({
+      coderabbit_comment_url: coderabbitCommentUrl,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
   it('parses a failed event', () => {
     const reason = getUniqueString();
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'failed',
       payload: JSON.stringify({ reason }),
     });
@@ -159,71 +299,59 @@ describe('parseEventRow', () => {
     expect(result.payload).toStrictEqual({ reason });
   });
 
-  it('throws on an unexpected event type', () => {
-    const row = baseRow({ type: 'bogus', payload: '{}' });
-    expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_CODE_PATH', {
+  it('throws for an unknown event type', () => {
+    const row = generateEventHydrationData({ type: 'bogus', payload: '{}' });
+    expect(() => parseEventRow(row)).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
       message: 'Unexpected event type: "bogus"',
       functionName: 'parseEventRow',
       details: { unexpectedValue: 'bogus' },
     });
   });
-
-  it('remaps legacy scheduled_for key to not_before in enqueued payloads', () => {
-    const notBefore = getUniqueDate();
-    const row = baseRow({
-      type: 'enqueued',
-      payload: JSON.stringify({
-        scheduled_for: notBefore.toISOString(),
-        new_wait: DEFAULT_NEW_WAIT,
-      }),
-    });
-
-    const result = parseEventRow(row);
-
-    expect(result.type).toBe('enqueued');
-    expect(result.payload).toStrictEqual({
-      not_before: notBefore,
-      new_wait: 60,
-    });
-  });
-
-  it('rejects an enqueued payload missing not_before', () => {
-    const row = baseRow({
-      type: 'enqueued',
-      payload: JSON.stringify({ new_wait: 60 }),
-    });
-    expect(() => parseEventRow(row)).toThrow();
-  });
 });
 
 describe('payload length limits', () => {
   it('rejects a retriggered event whose comment URL exceeds the max', () => {
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'retriggered',
       payload: JSON.stringify({
         source_comment_url: 'a'.repeat(COMMENT_URL_MAX_LENGTH + EXCEEDS_MAX_BY),
         retriggered_comment_url: getUniqueString(),
       }),
     });
-    expect(() => parseEventRow(row)).toThrow();
+    expect(() => parseEventRow(row)).toThrow(z.ZodError);
   });
 
   it('rejects a failed event whose reason exceeds the max', () => {
-    const row = baseRow({
+    const row = generateEventHydrationData({
       type: 'failed',
       payload: JSON.stringify({
         reason: 'a'.repeat(REASON_MAX_LENGTH + EXCEEDS_MAX_BY),
       }),
     });
-    expect(() => parseEventRow(row)).toThrow();
+    expect(() => parseEventRow(row)).toThrow(z.ZodError);
   });
 
-  it('rejects an enqueued event whose new_wait is not a positive integer', () => {
-    const row = baseRow({
-      type: 'enqueued',
+  it('rejects a coderabbit_review_skipped event whose coderabbit_run_id exceeds the max', () => {
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_skipped',
       payload: JSON.stringify({
-        not_before: getUniqueDate().toISOString(),
-        new_wait: -1,
+        source_ts: getUniqueDate().toISOString(),
+        comment_url: getUniqueString(),
+        skip_reason: getUniqueString(),
+        coderabbit_run_id: 'a'.repeat(CODERABBIT_RUN_ID_MAX_LENGTH + EXCEEDS_MAX_BY),
+      }),
+    });
+    expect(() => parseEventRow(row)).toThrow(z.ZodError);
+  });
+
+  it('rejects a coderabbit_review_skipped event whose coderabbit_run_id exceeds the max', () => {
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_skipped',
+      payload: JSON.stringify({
+        source_ts: getUniqueDate().toISOString(),
+        comment_url: getUniqueString(),
+        skip_reason: getUniqueString(),
+        coderabbit_run_id: 'a'.repeat(CODERABBIT_RUN_ID_MAX_LENGTH + EXCEEDS_MAX_BY),
       }),
     });
     expect(() => parseEventRow(row)).toThrow();

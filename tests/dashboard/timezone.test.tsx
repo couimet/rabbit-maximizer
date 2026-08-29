@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone, useTimezoneSuffix } from '../../dashboard/src/timezone.js';
+import { detectLocalTimezone, getTimezoneLabel, TimezoneProvider, useTimezone, useTimezoneSuffix } from '../../dashboard/src/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
 import { beforeEach, describe, expect, it } from '@jest/globals';

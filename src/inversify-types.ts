@@ -5,6 +5,7 @@
  * identifiers here as the service graph grows.
  */
 export const TYPES = {
+  CoderabbitCommentRepository: Symbol.for('CoderabbitCommentRepository'),
   Config: Symbol.for('Config'),
   CoderabbitGitHubClient: Symbol.for('CoderabbitGitHubClient'),
   EnqueueService: Symbol.for('EnqueueService'),
@@ -12,22 +13,29 @@ export const TYPES = {
   EventEntryMapper: Symbol.for('EventEntryMapper'),
   EventRepository: Symbol.for('EventRepository'),
   Logger: Symbol.for('Logger'),
-  ObservationContextProvider: Symbol.for('ObservationContextProvider'),
+  DirectCommentChecker: Symbol.for('DirectCommentChecker'),
+  EditDetector: Symbol.for('EditDetector'),
   OnDetectedCallback: Symbol.for('OnDetectedCallback'),
   Octokit: Symbol.for('Octokit'),
   PollDetector: Symbol.for('PollDetector'),
   PRStateFetcher: Symbol.for('PRStateFetcher'),
   PrismaClient: Symbol.for('PrismaClient'),
   ProbeFactory: Symbol.for('ProbeFactory'),
+  PrScanner: Symbol.for('PrScanner'),
   PruneEvaluator: Symbol.for('PruneEvaluator'),
   Pruner: Symbol.for('Pruner'),
   PullRequestRepository: Symbol.for('PullRequestRepository'),
+  QueueItemEnricher: Symbol.for('QueueItemEnricher'),
   QueueItemMapper: Symbol.for('QueueItemMapper'),
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
   ReviewDetector: Symbol.for('ReviewDetector'),
+  ReviewQueueToActivityListItemMapper: Symbol.for('ReviewQueueToActivityListItemMapper'),
+  ReviewQueueToQueueItemMapper: Symbol.for('ReviewQueueToQueueItemMapper'),
   ReviewTrigger: Symbol.for('ReviewTrigger'),
   Scheduler: Symbol.for('Scheduler'),
+  StalePrRecoverer: Symbol.for('StalePrRecoverer'),
   SystemStateRepository: Symbol.for('SystemStateRepository'),
+  TrackedPrMapper: Symbol.for('TrackedPrMapper'),
   // Keep this object alphabetically sorted by key.
 } as const;

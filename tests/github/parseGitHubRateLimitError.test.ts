@@ -1,4 +1,4 @@
-import { parseGitHubRateLimitError } from '../../src/github/parseGitHubRateLimitError.js';
+import { parseGitHubRateLimitError } from '../../src/github/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 

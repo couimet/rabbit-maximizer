@@ -6,6 +6,7 @@ export interface MockReviewQueueDelegate {
   findFirst: jest.Mock<any>;
   findUnique: jest.Mock<any>;
   update: jest.Mock<any>;
+  updateMany: jest.Mock<any>;
   findMany: jest.Mock<any>;
   count: jest.Mock<any>;
   groupBy: jest.Mock<any>;
@@ -33,11 +34,23 @@ export interface MockQueueOrderDelegate {
   aggregate: jest.Mock<any>;
 }
 
+export interface MockCoderabbitCommentDelegate {
+  create: jest.Mock<any>;
+  findFirst: jest.Mock<any>;
+  findMany: jest.Mock<any>;
+  update: jest.Mock<any>;
+  updateMany: jest.Mock<any>;
+}
+
 export interface MockPullRequestDelegate {
   create: jest.Mock<any>;
   findUnique: jest.Mock<any>;
   findMany: jest.Mock<any>;
   update: jest.Mock<any>;
+}
+
+export interface MockPullRequestShaDelegate {
+  upsert: jest.Mock<any>;
 }
 
 export interface MockSystemStateDelegate {
@@ -51,10 +64,12 @@ export interface MockSystemStateDelegate {
 }
 
 export interface MockPrismaOptions {
+  coderabbitComment?: Partial<MockCoderabbitCommentDelegate>;
   reviewQueue?: Partial<MockReviewQueueDelegate>;
   event?: Partial<MockEventDelegate>;
   queueOrder?: Partial<MockQueueOrderDelegate>;
   pullRequest?: Partial<MockPullRequestDelegate>;
+  pullRequestSha?: Partial<MockPullRequestShaDelegate>;
   systemState?: Partial<MockSystemStateDelegate>;
   $executeRawUnsafe?: jest.Mock<any>;
   $executeRaw?: jest.Mock<any>;
@@ -65,19 +80,31 @@ export interface MockPrismaOptions {
 
 export interface MockPrismaResult {
   prisma: PrismaClient;
+  coderabbitComment: MockCoderabbitCommentDelegate;
   reviewQueue: MockReviewQueueDelegate;
   event: MockEventDelegate;
   queueOrder: MockQueueOrderDelegate;
   pullRequest: MockPullRequestDelegate;
+  pullRequestSha: MockPullRequestShaDelegate;
   systemState: MockSystemStateDelegate;
 }
 
+/** @testFixture */
 export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockPrismaResult => {
+  const coderabbitComment: MockCoderabbitCommentDelegate = {
+    create: jest.fn<any>(),
+    findFirst: jest.fn<any>(),
+    findMany: jest.fn<any>(),
+    update: jest.fn<any>(),
+    updateMany: jest.fn<any>(),
+    ...overrides.coderabbitComment,
+  };
   const reviewQueue: MockReviewQueueDelegate = {
     create: jest.fn<any>(),
     findFirst: jest.fn<any>(),
     findUnique: jest.fn<any>(),
     update: jest.fn<any>(),
+    updateMany: jest.fn<any>(),
     findMany: jest.fn<any>(),
     count: jest.fn<any>(),
     groupBy: jest.fn<any>(),
@@ -112,6 +139,10 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
     update: jest.fn<any>(),
     ...overrides.pullRequest,
   };
+  const pullRequestSha: MockPullRequestShaDelegate = {
+    upsert: jest.fn<any>(),
+    ...overrides.pullRequestSha,
+  };
   const systemState: MockSystemStateDelegate = {
     findUnique: jest.fn<any>(),
     upsert: jest.fn<any>(),
@@ -127,14 +158,28 @@ export const createMockPrismaClient = (overrides: MockPrismaOptions = {}): MockP
   const $queryRawUnsafe: jest.Mock<any> = overrides.$queryRawUnsafe ?? jest.fn<any>();
   const $queryRaw: jest.Mock<any> = overrides.$queryRaw ?? jest.fn<any>();
 
-  const mockForTx = { reviewQueue, event, queueOrder, pullRequest, systemState, $executeRawUnsafe, $executeRaw, $queryRawUnsafe, $queryRaw };
+  const mockForTx = {
+    coderabbitComment,
+    reviewQueue,
+    event,
+    queueOrder,
+    pullRequest,
+    pullRequestSha,
+    systemState,
+    $executeRawUnsafe,
+    $executeRaw,
+    $queryRawUnsafe,
+    $queryRaw,
+  };
   const $transaction: jest.Mock<any> = overrides.$transaction ?? jest.fn<any>().mockImplementation((fn: (tx: unknown) => unknown) => fn(mockForTx));
 
   return {
     prisma: { ...mockForTx, $transaction } as unknown as PrismaClient,
+    coderabbitComment,
     reviewQueue,
     event,
     pullRequest,
+    pullRequestSha,
     queueOrder,
     systemState,
   };

@@ -1,5 +1,4 @@
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 
 const PREFIX = 'https://api.github.com/repos/';
 

@@ -1,7 +1,7 @@
-import type { QueueRepository } from '../db/queueRepository.js';
+import type { QueueRepository } from '../db/index.js';
 import type { QueueItemMapper } from '../mappers/index.js';
 
-import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from './pagination.js';
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
@@ -15,7 +15,7 @@ export const createGetQueueHandler = (queueRepo: QueueRepository, queueItemMappe
       const skip = (page - 1) * pageSize;
 
       const { items, total } = await queueRepo.getAll(skip, pageSize);
-      const data = queueItemMapper.mapToQueueItemResponseList(items);
+      const data = await queueItemMapper.mapToQueueItemResponseList(items);
 
       res.json({ data, total, page, pageSize });
     } catch (error) {

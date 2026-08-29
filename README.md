@@ -1,6 +1,6 @@
 # Rabbit Maximizer
 
-<div style="text-align: center">
+<div align="center">
   <img src="./assets/icon.png" alt="Rabbit Maximizer Logo" width="128" />
 </div>
 
@@ -29,7 +29,9 @@ flowchart TD
 
 The poll detector and scheduler run on independent intervals. The detector finds review-limit comments and enqueues PRs with their cooldown time. The scheduler picks due items and posts retrigger comments. If a retrigger hits another review limit, CodeRabbit posts a new comment — the detector finds it and the cycle continues. If the PR is closed or merged, the item is marked failed and stops retrying.
 
-Detailed state diagrams: [Event lifecycle](docs/event-lifecycle.md) · [Queue statuses](docs/queue-status.md)
+Repos with fewer than 10 stars get no automatic reviews: CodeRabbit posts a "Review available on request" comment instead. The detector recognizes these skip comments too, enqueues a full-review trigger through the same queue, and posts `@coderabbitai full review` on the comment.
+
+Queue statuses: [state diagram](docs/queue-status.md). Authoritative behavior: [`QueueStatus`](src/QueueStatus.ts), [`queueOrderRepository`](src/db/queueOrderRepository.ts), [`queueRepository`](src/db/queueRepository.ts)
 
 ## Stack
 
@@ -70,9 +72,9 @@ The dashboard shows current system status across three tabs:
 
 Rabbit Maximizer needs a GitHub **fine-grained personal access token** (classic tokens also work but fine-grained is recommended). The token must be issued by a **user account** (not a GitHub App) — CodeRabbit ignores `[bot]` identities. A user PAT works for both user-owned and organization-owned repos, as long as your account has access to them.
 
-1. Go to https://github.com/settings/personal-access-tokens/new
+1. Go to <https://github.com/settings/personal-access-tokens/new>
 2. Under **Resource owner**, select your user account
 3. Under **Repository access**, choose "All repositories" or "Selected repositories". Do **not** choose "Public repositories" — that option hides the Issues permission from the dropdown below, which means you cannot grant write access. If you pick "Selected repositories", add the repos you want Rabbit Maximizer to watch. Selecting specific repos limits exposure if the token leaks.
-4. Under **Permissions** → **Repository permissions**, set both **Issues** and **Pull requests** to "Read and write". Both default to "No access", so you must change them explicitly. Issues write is required to post retrigger comments; Pull requests read/write is required to check PR state.
+4. Under **Permissions** → **Repository permissions**, set **Issues** and **Pull requests** to "Read and write", and **Contents** to "Read". All default to "No access", so you must change them explicitly. Issues write is required to post retrigger comments; Pull requests read/write is required to check PR state; Contents read is required to fetch the head commit timestamp when the scanner records each push.
 5. Generate the token and copy it — you won't see it again
 6. Paste it into `.env` as `GITHUB_PAT=<your-token>`

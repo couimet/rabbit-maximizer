@@ -1,0 +1,44 @@
+import { QueueStatus, Resolution, TriggerSource } from '../../src/domain.js';
+import { buildCommentUrl } from '../../src/github/index.js';
+
+import { generateReviewRef } from './ReviewRefTestSupport.js';
+
+import { getRandomEnumValue, getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import type { ReviewQueue } from '@prisma/client';
+
+export const generateReviewQueueHydrationData = (overrideValues?: Partial<ReviewQueue>): ReviewQueue => {
+  const ref = generateReviewRef({
+    repoFullName: overrideValues?.repo_full_name,
+    prNumber: overrideValues?.pr_number,
+    commentId: overrideValues?.source_comment_id,
+  });
+  const { repo_full_name: _rf, pr_number: _pn, source_comment_id: _ci, source_comment_url: _cu, ...rest } = overrideValues ?? {};
+  return {
+    id: getUniqueInt(),
+    uuid: getUuid(),
+    repo_full_name: ref.repoFullName,
+    pr_number: ref.prNumber,
+    pr_title: getUniqueString({ prefix: 'pr-title-' }),
+    status: getRandomEnumValue(QueueStatus),
+    attempts: getUniqueInt(),
+    source_comment_url: buildCommentUrl(ref.repoFullName, ref.prNumber, getUniqueInt()),
+    source_comment_id: ref.commentId,
+    source_comment_run_id: getUniqueString({ prefix: 'src-comment-run-id-' }),
+    trigger_source: getRandomEnumValue(TriggerSource),
+    original_source_comment_url: null,
+    retrigger_comment_url: null,
+    retriggered_at: getUniqueDate(),
+    cooldown_until: null,
+    last_skipped_at: null,
+    last_skip_reason: null,
+    retrigger_skip_count: 0,
+    failed_at: getUniqueDate(),
+    reviewed_at: getUniqueDate(),
+    pull_request_id: getUniqueInt(),
+    resolution: getRandomEnumValue(Resolution),
+    resolved_at: getUniqueDate(),
+    created_at: getUniqueDate(),
+    updated_at: getUniqueDate(),
+    ...rest,
+  };
+};

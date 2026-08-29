@@ -1,5 +1,4 @@
-import type { EventEntryResponse } from '../types/api.js';
-import type { EventLogEntry } from '../types/EventLogEntry.js';
+import type { EventEntryResponse, EventLogEntry } from '../types/index.js';
 
 import { injectable } from 'inversify';
 

@@ -1,8 +1,7 @@
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
-import { type Config, ConfigSchema } from './schemas/config.js';
-import { RabbitResult } from './types/RabbitResult.js';
-import { type RepoFilter } from './types/RepoFilter.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
+import { type Config, ConfigSchema } from './schemas/index.js';
+import { type RepoFilter } from './types/index.js';
+import { RabbitResult } from './domain.js';
 
 import dotenv from 'dotenv';
 
@@ -61,20 +60,25 @@ const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
 export const parseConfig = (raw: Record<string, string | undefined>): RabbitResult<Config> => {
   // Keep alphabetically sorted by key.
   const prepped = {
+    CODERABBIT_ACCOUNT_COOLDOWN_SEC: emptyToUndefined(raw.CODERABBIT_ACCOUNT_COOLDOWN_SEC),
     DATABASE_URL: emptyToUndefined(raw.DATABASE_URL),
     DETECTION_MODE: emptyToUndefined(raw.DETECTION_MODE),
     GITHUB_API_TIMEOUT_SEC: emptyToUndefined(raw.GITHUB_API_TIMEOUT_SEC),
     GITHUB_PAT: emptyToUndefined(raw.GITHUB_PAT),
+    MAX_RETRIGGER_ATTEMPTS: emptyToUndefined(raw.MAX_RETRIGGER_ATTEMPTS),
     PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: emptyToUndefined(raw.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC),
     PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: emptyToUndefined(raw.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC),
     POLL_INTERVAL_SEC: emptyToUndefined(raw.POLL_INTERVAL_SEC),
+    PR_SCANNER_INTERVAL_SEC: emptyToUndefined(raw.PR_SCANNER_INTERVAL_SEC),
     REPO_FILTER: parseRepoFilter(raw.REPO_FILTER),
+    REVIEW_DETECTION_LOOKBACK_SEC: emptyToUndefined(raw.REVIEW_DETECTION_LOOKBACK_SEC),
     REVIEW_LIMIT_BUFFER_SEC: emptyToUndefined(raw.REVIEW_LIMIT_BUFFER_SEC),
     REVIEW_LIMIT_FALLBACK_WAIT_SEC: emptyToUndefined(raw.REVIEW_LIMIT_FALLBACK_WAIT_SEC),
-    SCHEDULER_POST_COOLDOWN_SEC: emptyToUndefined(raw.SCHEDULER_POST_COOLDOWN_SEC),
+    SCHEDULER_MAX_RETRIGGER_AGE_SEC: emptyToUndefined(raw.SCHEDULER_MAX_RETRIGGER_AGE_SEC),
     SCHEDULER_RETRIGGER_SPACING_SEC: emptyToUndefined(raw.SCHEDULER_RETRIGGER_SPACING_SEC),
     SCHEDULER_RETRY_BACKOFF_BASE_SEC: emptyToUndefined(raw.SCHEDULER_RETRY_BACKOFF_BASE_SEC),
     SCHEDULER_RETRY_BACKOFF_MAX_SEC: emptyToUndefined(raw.SCHEDULER_RETRY_BACKOFF_MAX_SEC),
+    SCHEDULER_STALE_TICK_MULTIPLIER: emptyToUndefined(raw.SCHEDULER_STALE_TICK_MULTIPLIER),
     SCHEDULER_TICK_INTERVAL_SEC: emptyToUndefined(raw.SCHEDULER_TICK_INTERVAL_SEC),
     TUNNEL_URL: emptyToUndefined(raw.TUNNEL_URL),
     WEB_PORT: emptyToUndefined(raw.WEB_PORT),
@@ -107,20 +111,25 @@ export const exitWithConfigErrors = (error: RabbitMaximizerError): never => {
 
 // Keep alphabetically sorted by key.
 const parsed = parseConfig({
+  CODERABBIT_ACCOUNT_COOLDOWN_SEC: process.env.CODERABBIT_ACCOUNT_COOLDOWN_SEC,
   DATABASE_URL: process.env.DATABASE_URL,
   DETECTION_MODE: process.env.DETECTION_MODE,
   GITHUB_API_TIMEOUT_SEC: process.env.GITHUB_API_TIMEOUT_SEC,
   GITHUB_PAT: process.env.GITHUB_PAT,
+  MAX_RETRIGGER_ATTEMPTS: process.env.MAX_RETRIGGER_ATTEMPTS,
   PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: process.env.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
   PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: process.env.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
   POLL_INTERVAL_SEC: process.env.POLL_INTERVAL_SEC,
+  PR_SCANNER_INTERVAL_SEC: process.env.PR_SCANNER_INTERVAL_SEC,
   REPO_FILTER: process.env.REPO_FILTER,
+  REVIEW_DETECTION_LOOKBACK_SEC: process.env.REVIEW_DETECTION_LOOKBACK_SEC,
   REVIEW_LIMIT_BUFFER_SEC: process.env.REVIEW_LIMIT_BUFFER_SEC,
   REVIEW_LIMIT_FALLBACK_WAIT_SEC: process.env.REVIEW_LIMIT_FALLBACK_WAIT_SEC,
-  SCHEDULER_POST_COOLDOWN_SEC: process.env.SCHEDULER_POST_COOLDOWN_SEC,
+  SCHEDULER_MAX_RETRIGGER_AGE_SEC: process.env.SCHEDULER_MAX_RETRIGGER_AGE_SEC,
   SCHEDULER_RETRIGGER_SPACING_SEC: process.env.SCHEDULER_RETRIGGER_SPACING_SEC,
   SCHEDULER_RETRY_BACKOFF_BASE_SEC: process.env.SCHEDULER_RETRY_BACKOFF_BASE_SEC,
   SCHEDULER_RETRY_BACKOFF_MAX_SEC: process.env.SCHEDULER_RETRY_BACKOFF_MAX_SEC,
+  SCHEDULER_STALE_TICK_MULTIPLIER: process.env.SCHEDULER_STALE_TICK_MULTIPLIER,
   SCHEDULER_TICK_INTERVAL_SEC: process.env.SCHEDULER_TICK_INTERVAL_SEC,
   TUNNEL_URL: process.env.TUNNEL_URL,
   WEB_PORT: process.env.WEB_PORT,

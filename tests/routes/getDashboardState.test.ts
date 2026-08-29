@@ -1,44 +1,78 @@
+import type { Config } from '../../src/config.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { EventCountsMapper } from '../../src/mappers/EventCountsMapper.js';
-import { QueueItemMapper } from '../../src/mappers/QueueItemMapper.js';
-import { createGetDashboardStateHandler } from '../../src/routes/getDashboardState.js';
-import { fetchResponse } from '../helpers/fetchResponse.js';
-import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, createMockQueueOrderRepo, createMockSystemStateRepository, makeQueueItem } from '../helpers/index.js';
+import { EventCountsMapper, TrackedPrMapper } from '../../src/mappers/index.js';
+import { createGetDashboardStateHandler } from '../../src/routes/index.js';
+import {
+  apiJson,
+  createMockEventRepo,
+  createMockPullRequestRepo,
+  createMockQueueItemMapper,
+  createMockQueueOrderRepo,
+  createMockQueueRepo,
+  createMockSystemStateRepository,
+  fetchResponse,
+  generateConfigData,
+  generateQueueItemHydrationData,
+  generateTrackedPrRow,
+  getJson,
+} from '../helpers/index.js';
 
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { StatusCodes } from 'http-status-codes';
+import type { Server } from 'node:http';
+
+const STALE_CONFIG = generateConfigData();
+
+const STALE_TICK_MULTIPLIER = STALE_CONFIG.SCHEDULER_STALE_TICK_MULTIPLIER;
+const TICK_INTERVAL_SEC = STALE_CONFIG.SCHEDULER_TICK_INTERVAL_SEC;
+const SCHEDULER_STALE_THRESHOLD_MS = STALE_TICK_MULTIPLIER * TICK_INTERVAL_SEC * 1000;
+const STALE_TICK_OFFSET_MS = SCHEDULER_STALE_THRESHOLD_MS + 1000;
+const RECENT_TICK_OFFSET_MS = SCHEDULER_STALE_THRESHOLD_MS - 10_000;
 
 describe('getDashboardState', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
+  let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
+  let eventCountsMapper: EventCountsMapper;
+
+  beforeEach(() => {
+    queueItemMapper = createMockQueueItemMapper();
+    eventCountsMapper = new EventCountsMapper();
+  });
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
   });
 
-  const queueItemMapper = new QueueItemMapper();
-  const eventCountsMapper = new EventCountsMapper();
-
+  /** @testFixture */
   const startServer = (
     queueOrderRepoOver: Record<string, unknown> = {},
     eventRepoOver: Record<string, unknown> = {},
     systemStateRepoOver: Record<string, unknown> = {},
+    queueRepoOver: Record<string, unknown> = {},
+    pullRequestRepoOver: Record<string, unknown> = {},
+    config?: Config,
   ) => {
+    const mergedSystemState = {
+      getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: new Date(), nextReviewAvailableAt: undefined }),
+      ...systemStateRepoOver,
+    };
     const result = startTestServer(logger, (app) => {
       app.get(
         '/api/dashboard-state',
         createGetDashboardStateHandler(
           createMockQueueOrderRepo(queueOrderRepoOver as any),
+          createMockQueueRepo(queueRepoOver as any),
           createMockEventRepo(eventRepoOver as any),
-          createMockSystemStateRepository(systemStateRepoOver as any),
+          createMockSystemStateRepository(mergedSystemState as any),
+          createMockPullRequestRepo(pullRequestRepoOver as any),
           queueItemMapper,
           eventCountsMapper,
+          new TrackedPrMapper(),
           logger,
+          config ?? STALE_CONFIG,
         ),
       );
     });
@@ -46,16 +80,9 @@ describe('getDashboardState', () => {
     port = result.port;
   };
 
-  it('returns null for nextReviewAvailableAt when at least one pending item is eligible now', async () => {
+  it('returns null for nextReviewAvailableAt regardless of pending items', async () => {
     logger = createMockLogger();
-    const futureDate1 = new Date(Date.now() + 900_000);
-    const pastDate = new Date(Date.now() - 3_600_000);
-    const futureDate2 = new Date(Date.now() + 3_600_000);
-    const items = [
-      makeQueueItem({ id: 1, not_before: futureDate2 }),
-      makeQueueItem({ id: 2, not_before: pastDate }),
-      makeQueueItem({ id: 3, not_before: futureDate1 }),
-    ];
+    const items = [generateQueueItemHydrationData({ id: 1 }), generateQueueItemHydrationData({ id: 2 }), generateQueueItemHydrationData({ id: 3 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
       {
@@ -64,76 +91,23 @@ describe('getDashboardState', () => {
           enqueued: 3,
           retriggered: 2,
           failed: 1,
-          bypassed: 0,
+          dismissed: 0,
           coderabbit_review_approved: 0,
-          coderabbit_review_changes_requested: 0,
+          coderabbit_review_changes_suggested: 0,
         }),
       },
     );
 
     const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
-      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
+      pendingItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)),
+      skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
-      paused: false,
-    });
-  });
-
-  it('returns nextReviewAvailableAt from oldest future not_before when all items are in the future', async () => {
-    logger = createMockLogger();
-    const futureDate1 = new Date(Date.now() + 900_000);
-    const futureDate2 = new Date(Date.now() + 3_600_000);
-    const items = [makeQueueItem({ id: 1, not_before: futureDate2 }), makeQueueItem({ id: 2, not_before: futureDate1 })];
-    startServer(
-      { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
-      {
-        countByType: jest.fn<any>().mockResolvedValue({
-          detected: 5,
-          enqueued: 3,
-          retriggered: 2,
-          failed: 1,
-          bypassed: 0,
-          coderabbit_review_approved: 0,
-          coderabbit_review_changes_requested: 0,
-        }),
-      },
-    );
-
-    const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
-      nextReviewAvailableAt: futureDate1.toISOString(),
-      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
-      eventCounts: { detected: 5, enqueued: 3, retriggered: 2, failed: 1 },
-      paused: false,
-    });
-  });
-
-  it('returns null for nextReviewAvailableAt when all pending not_before values are in the past', async () => {
-    logger = createMockLogger();
-    const pastDate1 = new Date(Date.now() - 3_600_000);
-    const pastDate2 = new Date(Date.now() - 1_800_000);
-    const items = [makeQueueItem({ id: 1, not_before: pastDate1 }), makeQueueItem({ id: 2, not_before: pastDate2 })];
-    startServer(
-      { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
-      {
-        countByType: jest.fn<any>().mockResolvedValue({
-          detected: 0,
-          enqueued: 0,
-          retriggered: 0,
-          bypassed: 0,
-          coderabbit_review_approved: 0,
-          coderabbit_review_changes_requested: 0,
-          failed: 0,
-        }),
-      },
-    );
-
-    const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
-      nextReviewAvailableAt: null,
-      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
-      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
   });
@@ -143,9 +117,14 @@ describe('getDashboardState', () => {
     startServer();
 
     const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
+      skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
@@ -153,7 +132,7 @@ describe('getDashboardState', () => {
 
   it('returns pendingItems as the array from getEffectiveOrder', async () => {
     logger = createMockLogger();
-    const items = [makeQueueItem({ id: 1, not_before: new Date(0) }), makeQueueItem({ id: 2, repo_full_name: 'a/b', pr_number: 99, not_before: new Date(0) })];
+    const items = [generateQueueItemHydrationData({ id: 1 }), generateQueueItemHydrationData({ id: 2, repo_full_name: 'a/b', pr_number: 99 })];
     startServer(
       { getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) },
       {
@@ -161,24 +140,29 @@ describe('getDashboardState', () => {
           detected: 0,
           enqueued: 0,
           retriggered: 0,
-          bypassed: 0,
+          dismissed: 0,
           coderabbit_review_approved: 0,
-          coderabbit_review_changes_requested: 0,
+          coderabbit_review_changes_suggested: 0,
           failed: 0,
         }),
       },
     );
 
     const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
-      pendingItems: apiJson(queueItemMapper.mapToQueueItemResponseList(items)),
+      pendingItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)),
+      skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: false,
     });
   });
 
-  it('eventCounts excludes bypassed, coderabbit_review_approved, and coderabbit_review_changes_requested', async () => {
+  it('eventCounts excludes dismissed, coderabbit_review_approved, and coderabbit_review_changes_suggested', async () => {
     logger = createMockLogger();
     startServer(
       {},
@@ -187,18 +171,23 @@ describe('getDashboardState', () => {
           detected: 1,
           enqueued: 2,
           retriggered: 3,
-          bypassed: 4,
+          dismissed: 4,
           coderabbit_review_approved: 3,
-          coderabbit_review_changes_requested: 2,
+          coderabbit_review_changes_suggested: 2,
           failed: 6,
         }),
       },
     );
 
     const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
+      skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 1, enqueued: 2, retriggered: 3, failed: 6 },
       paused: false,
     });
@@ -213,9 +202,9 @@ describe('getDashboardState', () => {
       detected: 0,
       enqueued: 0,
       retriggered: 0,
-      bypassed: 0,
+      dismissed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
       failed: 0,
     });
     startServer({}, { countByType });
@@ -234,9 +223,9 @@ describe('getDashboardState', () => {
       detected: 0,
       enqueued: 0,
       retriggered: 0,
-      bypassed: 0,
+      dismissed: 0,
       coderabbit_review_approved: 0,
-      coderabbit_review_changes_requested: 0,
+      coderabbit_review_changes_suggested: 0,
       failed: 0,
     });
     startServer({}, { countByType });
@@ -248,14 +237,91 @@ describe('getDashboardState', () => {
 
   it('returns paused true when schedulerStatus is paused', async () => {
     logger = createMockLogger();
-    startServer({}, {}, { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) });
+    startServer(
+      {},
+      {},
+      { getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: true, lastSchedulerTickAt: new Date(), nextReviewAvailableAt: undefined }) },
+    );
 
     const json = await getJson(port, '/api/dashboard-state');
-    expect(json).toStrictEqual({
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
       nextReviewAvailableAt: null,
       pendingItems: [],
+      skippedItems: [],
+      trackedPrs: [],
       eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
       paused: true,
+    });
+  });
+
+  it('sets schedulerStale: true when lastSchedulerTickAt has never been written', async () => {
+    logger = createMockLogger();
+    startServer(
+      {},
+      {},
+      { getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: undefined, nextReviewAvailableAt: undefined }) },
+    );
+
+    const json = await getJson(port, '/api/dashboard-state');
+    const data = json as Record<string, unknown>;
+    expect(data.lastSchedulerTickAt).toBeNull();
+    expect(data.schedulerStale).toBe(true);
+    expect(data.paused).toBe(false);
+  });
+
+  it('sets schedulerStale: true when last tick exceeds threshold', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const staleTick = new Date(fixedNow - STALE_TICK_OFFSET_MS);
+    startServer(
+      {},
+      {},
+      { getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: staleTick, nextReviewAvailableAt: undefined }) },
+    );
+
+    const json = await getJson(port, '/api/dashboard-state');
+    const data2 = json as Record<string, unknown>;
+    expect(typeof data2.lastSchedulerTickAt).toBe('string');
+    expect(data2.schedulerStale).toBe(true);
+  });
+
+  it('sets schedulerStale: false when last tick is within threshold', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const recentTick = new Date(fixedNow - RECENT_TICK_OFFSET_MS);
+    startServer(
+      {},
+      {},
+      { getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: recentTick, nextReviewAvailableAt: undefined }) },
+    );
+
+    const json = await getJson(port, '/api/dashboard-state');
+    const data3 = json as Record<string, unknown>;
+    expect(typeof data3.lastSchedulerTickAt).toBe('string');
+    expect(data3.schedulerStale).toBe(false);
+  });
+
+  it('includes skipped items from getSkippedItems mapped through queueItemMapper', async () => {
+    logger = createMockLogger();
+    const skipped = [generateQueueItemHydrationData({ id: 1 }), generateQueueItemHydrationData({ id: 2 })];
+    startServer({}, {}, {}, { getSkippedItems: jest.fn<any>().mockResolvedValue(skipped) });
+
+    const json = await getJson(port, '/api/dashboard-state');
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      skippedItems: apiJson(await queueItemMapper.mapToQueueItemResponseList(skipped)),
+      trackedPrs: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
     });
   });
 
@@ -267,17 +333,98 @@ describe('getDashboardState', () => {
     const res = await fetchResponse(port, '/api/dashboard-state');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get dashboard state' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: repoError }, 'Failed to get dashboard state');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: repoError }, 'Failed to get dashboard state');
   });
 
   it('returns 500 and logs error on countByType failure', async () => {
     const eventError = new Error('DB down');
     logger = createMockLogger();
-    startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([makeQueueItem()]) }, { countByType: jest.fn<any>().mockRejectedValue(eventError) });
+    startServer(
+      { getEffectiveOrder: jest.fn<any>().mockResolvedValue([generateQueueItemHydrationData()]) },
+      { countByType: jest.fn<any>().mockRejectedValue(eventError) },
+    );
 
     const res = await fetchResponse(port, '/api/dashboard-state');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get dashboard state' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: eventError }, 'Failed to get dashboard state');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.dashboardState', error: eventError }, 'Failed to get dashboard state');
+  });
+
+  it('returns a countdown ISO string when stored nextReviewAvailableAt is in the future', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const futureNextReview = new Date(fixedNow + 5000);
+    const getDashboardSystemState = jest
+      .fn<any>()
+      .mockResolvedValue({ paused: false, lastSchedulerTickAt: new Date(), nextReviewAvailableAt: futureNextReview });
+    startServer({}, {}, { getDashboardSystemState });
+
+    const json = await getJson(port, '/api/dashboard-state');
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
+      nextReviewAvailableAt: futureNextReview.toISOString(),
+      pendingItems: [],
+      skippedItems: [],
+      trackedPrs: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
+    });
+
+    expect(getDashboardSystemState).toHaveBeenCalledWith();
+  });
+
+  it('returns null when stored nextReviewAvailableAt is in the past', async () => {
+    logger = createMockLogger();
+    const fixedNow = 1_756_800_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+    const pastNextReview = new Date(fixedNow - 5000);
+    const getDashboardSystemState = jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: new Date(), nextReviewAvailableAt: pastNextReview });
+    startServer({}, {}, { getDashboardSystemState });
+
+    const json = await getJson(port, '/api/dashboard-state');
+    expect(typeof (json as Record<string, unknown>).lastSchedulerTickAt).toBe('string');
+    expect((json as Record<string, unknown>).schedulerStale).toBe(false);
+    const { lastSchedulerTickAt: _lastSchedulerTickAt, schedulerStale: _schedulerStale, ...restJson } = json as Record<string, unknown> & typeof json;
+    expect(restJson).toStrictEqual({
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      skippedItems: [],
+      trackedPrs: [],
+      eventCounts: { detected: 0, enqueued: 0, retriggered: 0, failed: 0 },
+      paused: false,
+    });
+
+    expect(getDashboardSystemState).toHaveBeenCalledWith();
+  });
+
+  it('maps tracked PR rows through TrackedPrMapper', async () => {
+    const reviewAt = new Date('2026-08-12T10:00:00.000Z');
+    const row1 = generateTrackedPrRow({ last_review_state: 'review_approved', last_coderabbit_review_at: reviewAt });
+    const row2 = generateTrackedPrRow({ last_review_state: null, last_coderabbit_review_at: null });
+    startServer({}, {}, {}, {}, { findTrackedPRs: jest.fn<any>().mockResolvedValue([row1, row2]) });
+
+    const json = await getJson(port, '/api/dashboard-state');
+
+    expect((json as Record<string, unknown>).trackedPrs).toStrictEqual([
+      {
+        repo_full_name: row1.repo_full_name,
+        pr_number: row1.pr_number,
+        title: row1.title,
+        author_login: row1.author_login,
+        last_review_state: 'review_approved',
+        last_coderabbit_review_at: reviewAt.toISOString(),
+      },
+      {
+        repo_full_name: row2.repo_full_name,
+        pr_number: row2.pr_number,
+        title: row2.title,
+        author_login: row2.author_login,
+        last_review_state: null,
+        last_coderabbit_review_at: null,
+      },
+    ]);
   });
 });

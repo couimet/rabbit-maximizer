@@ -1,5 +1,28 @@
 import { jest } from '@jest/globals';
 
+export interface MockPrScannerProbe {
+  scanStarted: jest.Mock<any>;
+  skipped: jest.Mock<any>;
+  discovered: jest.Mock<any>;
+  detectedClosures: jest.Mock<any>;
+  caughtError: jest.Mock<any>;
+  failed: jest.Mock<any>;
+  failedToPersistScanStartedAt: jest.Mock<any>;
+  failedToPersistScanCompletedAt: jest.Mock<any>;
+  completed: jest.Mock<any>;
+}
+export const createMockPrScannerProbe = (): MockPrScannerProbe => ({
+  scanStarted: jest.fn<any>(),
+  skipped: jest.fn<any>(),
+  discovered: jest.fn<any>(),
+  detectedClosures: jest.fn<any>(),
+  caughtError: jest.fn<any>(),
+  failed: jest.fn<any>(),
+  failedToPersistScanStartedAt: jest.fn<any>(),
+  failedToPersistScanCompletedAt: jest.fn<any>(),
+  completed: jest.fn<any>(),
+});
+
 export interface MockPrunerProbe {
   withItem: jest.Mock<any>;
   noItemsToPrune: jest.Mock<any>;
@@ -20,14 +43,24 @@ export interface MockDetectedProbe {
   enqueued: jest.Mock<() => Promise<unknown>>;
   prMerged: jest.Mock<() => Promise<unknown>>;
   prClosedWithoutMerge: jest.Mock<() => Promise<unknown>>;
+  prNotRegistered: jest.Mock<() => Promise<unknown>>;
   alreadyQueued: jest.Mock;
+  skipped: jest.Mock<() => Promise<unknown>>;
+  alreadySkipped: jest.Mock;
+  alreadyReviewed: jest.Mock<any>;
+  verdictResolved: jest.Mock<() => Promise<unknown>>;
 }
 export const createMockDetectedProbe = (): MockDetectedProbe => ({
   detected: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
   enqueued: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   prMerged: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   prClosedWithoutMerge: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
+  prNotRegistered: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadyQueued: jest.fn(),
+  skipped: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
+  alreadySkipped: jest.fn(),
+  alreadyReviewed: jest.fn(),
+  verdictResolved: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
 });
 
 export interface MockReviewDetectorProbe {
@@ -35,56 +68,109 @@ export interface MockReviewDetectorProbe {
   noRetriggeredItemFound: jest.Mock<any>;
   noCompletedReviewFound: jest.Mock<any>;
   reviewed: jest.Mock<any>;
+  reviewedViaFallback: jest.Mock<any>;
+  prClosedResolved: jest.Mock<any>;
+  resolutionLostRace: jest.Mock<any>;
   caughtError: jest.Mock<any>;
+  editDetectionFailed: jest.Mock<any>;
 }
 export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   withItem: jest.fn<any>(),
   noRetriggeredItemFound: jest.fn<any>(),
   noCompletedReviewFound: jest.fn<any>(),
   reviewed: jest.fn<any>(),
+  reviewedViaFallback: jest.fn<any>(),
+  prClosedResolved: jest.fn<any>(),
+  resolutionLostRace: jest.fn<any>(),
   caughtError: jest.fn<any>(),
+  editDetectionFailed: jest.fn<any>(),
 });
 
 export interface MockEnqueueProbe {
   enqueued: jest.Mock<any>;
   recentlyRetriggered: jest.Mock<any>;
+  recentlyResolved: jest.Mock<any>;
   alreadyQueued: jest.Mock<any>;
-  alreadyQueuedRescheduled: jest.Mock<any>;
+  retriggeredReplaced: jest.Mock<any>;
+  resolvedReEnqueued: jest.Mock<any>;
+  resolvedNotEdited: jest.Mock<any>;
 }
 export const createMockEnqueueProbe = (): MockEnqueueProbe => ({
   enqueued: jest.fn<any>(),
   recentlyRetriggered: jest.fn<any>(),
+  recentlyResolved: jest.fn<any>(),
   alreadyQueued: jest.fn<any>(),
-  alreadyQueuedRescheduled: jest.fn<any>(),
+  retriggeredReplaced: jest.fn<any>(),
+  resolvedReEnqueued: jest.fn<any>(),
+  resolvedNotEdited: jest.fn<any>(),
+});
+
+export interface MockDirectCommentCheckProbe {
+  withComment: jest.Mock<any>;
+  clearComment: jest.Mock<any>;
+  truncated: jest.Mock<any>;
+  skippedUnclassified: jest.Mock<any>;
+  skippedOwnRetrigger: jest.Mock<any>;
+  walkthroughRecorded: jest.Mock<any>;
+  skippedAlreadySeen: jest.Mock<any>;
+  prCheckFailed: jest.Mock<any>;
+  found: jest.Mock<any>;
+  runIdFirstSeen: jest.Mock<any>;
+  runIdChanged: jest.Mock<any>;
+  runIdCleared: jest.Mock<any>;
+}
+export const createMockDirectCommentCheckProbe = (): MockDirectCommentCheckProbe => ({
+  withComment: jest.fn<any>(),
+  clearComment: jest.fn<any>(),
+  truncated: jest.fn<any>(),
+  skippedUnclassified: jest.fn<any>(),
+  skippedOwnRetrigger: jest.fn<any>(),
+  walkthroughRecorded: jest.fn<any>(),
+  skippedAlreadySeen: jest.fn<any>(),
+  prCheckFailed: jest.fn<any>(),
+  found: jest.fn<any>(),
+  runIdFirstSeen: jest.fn<any>().mockResolvedValue(undefined),
+  runIdChanged: jest.fn<any>().mockResolvedValue(undefined),
+  runIdCleared: jest.fn<any>().mockResolvedValue(undefined),
 });
 
 export interface MockSchedulerProbe {
   pruningCompleted: jest.Mock<any>;
   schedulerPaused: jest.Mock<any>;
   tickSkippedAwaitingAcknowledgement: jest.Mock<any>;
+  tickSkippedCooldown: jest.Mock<any>;
+  retriggerSkipped: jest.Mock<any>;
   noItemsDue: jest.Mock<any>;
+  staleRetriggeredResolved: jest.Mock<any>;
   tickFailed: jest.Mock<any>;
   rescheduled: jest.Mock<any>;
   skipped: jest.Mock<any>;
   withItem: jest.Mock<any>;
   retriggered: jest.Mock<any>;
-  prClosedOrMerged: jest.Mock<any>;
+  prDeleted: jest.Mock<any>;
+  maxRetriggersExceeded: jest.Mock<any>;
   backedOff: jest.Mock<any>;
   triggerFailed: jest.Mock<any>;
+  prClosedDuringScan: jest.Mock<any>;
 }
 export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
+  staleRetriggeredResolved: jest.fn<any>(),
   pruningCompleted: jest.fn<any>(),
   schedulerPaused: jest.fn<any>(),
   tickSkippedAwaitingAcknowledgement: jest.fn<any>(),
+  tickSkippedCooldown: jest.fn<any>(),
+  retriggerSkipped: jest.fn<any>(),
   noItemsDue: jest.fn<any>(),
   tickFailed: jest.fn<any>(),
   rescheduled: jest.fn<any>(),
   skipped: jest.fn<any>(),
   withItem: jest.fn<any>(),
   retriggered: jest.fn<any>(),
-  prClosedOrMerged: jest.fn<any>(),
+  prDeleted: jest.fn<any>(),
+  maxRetriggersExceeded: jest.fn<any>(),
   backedOff: jest.fn<any>(),
   triggerFailed: jest.fn<any>(),
+  prClosedDuringScan: jest.fn<any>(),
 });
 
 export interface MockReviewRetriggerProbe {

@@ -1,37 +1,29 @@
-import type { EventRepository } from './db/eventRepository.js';
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueOrderRepository } from './db/queueOrderRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import type { SystemStateRepository } from './db/systemStateRepository.js';
-import { RabbitMaximizerError } from './errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
-import { createExpressApp } from './external-deps/couimet/express-tools/createExpressApp.js';
-import type { EventCountsMapper } from './mappers/index.js';
-import type { EventEntryMapper } from './mappers/index.js';
-import type { QueueItemMapper } from './mappers/index.js';
+import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
+import { createExpressAppWithExecutionContext } from './external-deps/couimet/execution-context-http-express/src/index.js';
+import { startServer } from './external-deps/couimet/express-tools/index.js';
+import type { EventCountsMapper, EventEntryMapper, QueueItemMapper, ReviewQueueToActivityListItemMapper, TrackedPrMapper } from './mappers/index.js';
 import {
+  createGetActivityListHandler,
   createGetConfigHandler,
   createGetDashboardStateHandler,
   createGetEventsHandler,
   createGetQueueHandler,
   createGetQueueOrderHandler,
   createGetSummaryHandler,
-  createGetTriggeredHandler,
   createMarkReviewedHandler,
   createMoveQueueOrderHandler,
   createMoveToTopHandler,
   createRetriggerNowHandler,
   createSetPausedHandler,
+  trySetupVite,
 } from './routes/index.js';
-import { trySetupVite } from './routes/setupVite.js';
 import type { Config } from './config.js';
-import { isProduction } from './isProduction.js';
-import type { ReviewTrigger } from './ReviewTrigger.js';
+import { isProduction } from './domain.js';
+import type { ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
-import type { Request, Response } from 'express';
-import express from 'express';
+import express, { type Request, type Response } from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,13 +34,15 @@ export interface ExpressDeps {
   eventCountsMapper: EventCountsMapper;
   eventEntryMapper: EventEntryMapper;
   eventRepo: EventRepository;
-  pullRequestRepo: PullRequestRepository;
   prisma: PrismaClient;
+  pullRequestRepo: PullRequestRepository;
+  activityListMapper: ReviewQueueToActivityListItemMapper;
   queueItemMapper: QueueItemMapper;
   queueOrderRepo: QueueOrderRepository;
   queueRepo: QueueRepository;
   reviewTrigger: ReviewTrigger;
   systemStateRepo: SystemStateRepository;
+  trackedPrMapper: TrackedPrMapper;
   logger: Logger;
   port: number;
 }
@@ -58,36 +52,52 @@ export interface ExpressApp {
   stop(): Promise<void>;
 }
 
-export const setupExpress = (deps: ExpressDeps): ExpressApp => {
+export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   const {
+    activityListMapper,
     config,
     eventCountsMapper,
     eventEntryMapper,
     eventRepo,
-    pullRequestRepo,
     prisma,
+    pullRequestRepo,
     queueItemMapper,
     queueOrderRepo,
     queueRepo,
     reviewTrigger,
     systemStateRepo,
+    trackedPrMapper,
     logger,
     port,
   } = deps;
   const production = isProduction();
-  const app = createExpressApp({ logger, helmet: production });
+  const app = createExpressAppWithExecutionContext({ logger, helmet: production });
 
   app.use(express.json());
   app.get('/api/summary', createGetSummaryHandler(queueRepo, eventRepo, queueItemMapper, eventCountsMapper, logger));
   app.get('/api/queue', createGetQueueHandler(queueRepo, queueItemMapper, logger));
   app.get('/api/config', createGetConfigHandler(config, logger));
-  app.get('/api/dashboard-state', createGetDashboardStateHandler(queueOrderRepo, eventRepo, systemStateRepo, queueItemMapper, eventCountsMapper, logger));
+  app.get(
+    '/api/dashboard-state',
+    createGetDashboardStateHandler(
+      queueOrderRepo,
+      queueRepo,
+      eventRepo,
+      systemStateRepo,
+      pullRequestRepo,
+      queueItemMapper,
+      eventCountsMapper,
+      trackedPrMapper,
+      logger,
+      config,
+    ),
+  );
   app.get('/api/queue/order', createGetQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));
   app.post('/api/queue/order/move', createMoveQueueOrderHandler(queueOrderRepo, queueItemMapper, logger));
   app.post('/api/queue/order/move-to-top', createMoveToTopHandler(queueOrderRepo, logger));
   app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, reviewTrigger, logger));
-  app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, pullRequestRepo, prisma, logger));
-  app.get('/api/queue/triggered', createGetTriggeredHandler(queueRepo, queueItemMapper, logger));
+  app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, prisma, logger));
+  app.get('/api/activity-list', createGetActivityListHandler(queueRepo, activityListMapper, logger));
   app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, eventEntryMapper, logger));
 
@@ -100,19 +110,17 @@ export const setupExpress = (deps: ExpressDeps): ExpressApp => {
     trySetupVite(app, logger, port, DASHBOARD_DIR);
   }
 
-  const server = app.listen(port);
-  const address = server.address();
-  /* c8 ignore start — defensive: numeric ports always return an address object */
-  if (!address || typeof address === 'string') {
-    throw new RabbitMaximizerError({
-      code: RabbitMaximizerErrorCodes.SERVER_ADDRESS_NOT_AVAILABLE,
-      functionName: 'setupExpress',
-      message: 'Server did not bind to a TCP port',
-      details: { port },
-    });
+  let server: ReturnType<typeof app.listen>;
+  let actualPort: number;
+
+  try {
+    const result = await startServer(app, port);
+    server = result.server;
+    actualPort = result.port;
+  } catch (err: unknown) {
+    logger.error({ fn: 'setupExpress', port, error: err }, 'Failed to start server.');
+    throw err;
   }
-  /* c8 ignore stop */
-  const actualPort = address.port;
 
   return {
     port: actualPort,

@@ -1,29 +1,24 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueOrderRepository } from './db/queueOrderRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import type { SystemStateRepository } from './db/systemStateRepository.js';
-import { RabbitMaximizerErrorCodes } from './errors/RabbitMaximizerErrorCodes.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
-import { type QueueItem, TriggerSource } from './types/index.js';
-import { computeSchedulerBackoff, MS_PER_SECOND } from './utils/index.js';
+import { type PullRequestRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from './db/index.js';
+import { RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from './errors/index.js';
+import { isPRClosedWithoutMerge, isPRMerged, type PRStateFetcher } from './github/index.js';
+import type { ProbeFactory, SchedulerProbe } from './probes/index.js';
+import type { QueueItem } from './types/index.js';
+import { computeSchedulerBackoff, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { IntervalService } from './IntervalService.js';
-import { TYPES } from './inversify-types.js';
-import type { Pruner } from './Pruner.js';
-import { ReviewTrigger } from './ReviewTrigger.js';
+import { IntervalService, PrState, QueueStatus, Resolution, SkipReason, TriggerSource, TYPES } from './domain.js';
+import { type Pruner, ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type PrismaClient } from '@prisma/client';
-import { StatusCodes } from 'http-status-codes';
 import { inject, injectable } from 'inversify';
-
-const TERMINAL_HTTP_STATUSES = [StatusCodes.NOT_FOUND, StatusCodes.GONE];
 
 @injectable()
 export class Scheduler extends IntervalService {
   private readonly baseBackoff: number;
   private readonly maxBackoff: number;
+  private readonly maxRetriggerAttempts: number;
   private readonly retriggerSpacingMs: number;
+  private readonly maxRetriggerAgeMs: number;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
@@ -44,12 +39,16 @@ export class Scheduler extends IntervalService {
     private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.SystemStateRepository)
     private readonly systemState: SystemStateRepository,
+    @inject(TYPES.PRStateFetcher)
+    private readonly prStateFetcher: PRStateFetcher,
     @inject(TYPES.Logger) log: Logger,
   ) {
-    super(log, cfg.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND);
+    super('scheduler', cfg.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND, log);
     this.baseBackoff = cfg.SCHEDULER_RETRY_BACKOFF_BASE_SEC * MS_PER_SECOND;
     this.maxBackoff = cfg.SCHEDULER_RETRY_BACKOFF_MAX_SEC * MS_PER_SECOND;
+    this.maxRetriggerAttempts = cfg.MAX_RETRIGGER_ATTEMPTS;
     this.retriggerSpacingMs = cfg.SCHEDULER_RETRIGGER_SPACING_SEC * MS_PER_SECOND;
+    this.maxRetriggerAgeMs = cfg.SCHEDULER_MAX_RETRIGGER_AGE_SEC * MS_PER_SECOND;
   }
   /* c8 ignore stop */
 
@@ -62,13 +61,24 @@ export class Scheduler extends IntervalService {
   }
 
   protected async executeTick(): Promise<void> {
-    const probe = this.probeFactory.createSchedulerProbe({ baseBackoff: this.baseBackoff, maxBackoff: this.maxBackoff });
+    const probe = this.probeFactory.createSchedulerProbe({
+      baseBackoff: this.baseBackoff,
+      maxBackoff: this.maxBackoff,
+      maxRetriggerAttempts: this.maxRetriggerAttempts,
+    });
     let item: QueueItem | undefined;
     try {
       await this.pruner.prune();
       probe.pruningCompleted();
 
-      if (await this.systemState.isSchedulerPaused()) {
+      await this.prisma.$transaction(async (tx) => {
+        const resolvedCount = await this.queue.resolveStaleRetriggered(this.maxRetriggerAgeMs, tx);
+        if (resolvedCount > 0) {
+          probe.staleRetriggeredResolved(resolvedCount);
+        }
+      });
+
+      if (await this.systemState.isSchedulerPaused(undefined)) {
         probe.schedulerPaused();
         return;
       }
@@ -82,8 +92,13 @@ export class Scheduler extends IntervalService {
         }
       }
 
-      const eligible = await this.queueOrder.getEffectiveOrder();
-      item = eligible[0];
+      const nextReviewAvailableAt = await this.systemState.getNextReviewAvailableAt(undefined);
+      if (nextReviewAvailableAt !== undefined && nextReviewAvailableAt.getTime() > Date.now()) {
+        probe.tickSkippedCooldown();
+        return;
+      }
+
+      item = await this.selectNextEligibleItem(probe);
       if (!item) {
         probe.noItemsDue();
         return;
@@ -97,20 +112,45 @@ export class Scheduler extends IntervalService {
       if (!result.success) {
         await this.prisma.$transaction(async (tx) => {
           const err = result.error;
-          if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_RESCHEDULE) {
-            // Source comment was replaced by a newer rate-limit comment: reschedule to the
-            // new comment's notBefore with updated source_comment data. Not a failure.
-            const details = err.details as { notBefore: string; sourceComment: { commentId: number; commentUrl: string } };
-            await this.queue.reschedule(item!.id, new Date(details.notBefore), details.sourceComment, tx);
+          if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_ITEM_NOT_PENDING) {
+            this.log.warn({ fn: 'Scheduler.executeTick', queueId: item!.id, error: err }, 'Item not pending at trigger time; skipping');
+          } else if (err instanceof StaleCommentRescheduledError) {
+            // Source comment was replaced by a newer rate-limit comment: reschedule with
+            // updated source_comment data. Not a failure.
+            await this.queue.reschedule(item!.id, err.sourceComment, err.originalSource.url, tx);
+            const existing = await this.systemState.getNextReviewAvailableAt(tx);
+            const nextAvailable = existing !== undefined && existing > err.rescheduleEarliest ? existing : err.rescheduleEarliest;
+            await this.systemState.setNextReviewAvailableAt(nextAvailable, tx);
+            probe.triggerFailed(err, tx);
+          } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP) {
+            await this.queue.markResolved(item!.id, Resolution.StaleComment, tx);
+            probe.triggerFailed(err, tx);
           } else {
-            // Genuine failure (stale-skip, replacement-deleted, or unknown): apply
-            // exponential backoff. The item may succeed on a later attempt.
-            const backoffMs = computeSchedulerBackoff(item!.attempts, this.baseBackoff, this.maxBackoff);
-            await this.queue.backoff(item!.id, new Date(Date.now() + backoffMs), tx);
+            if (item!.attempts >= this.maxRetriggerAttempts) {
+              await this.queue.markResolved(item!.id, Resolution.Failed, tx);
+              await probe.maxRetriggersExceeded(item!.attempts, tx);
+            } else {
+              await this.queue.backoff(item!.id, tx);
+              probe.triggerFailed(err, tx);
+            }
           }
-          await probe.triggerFailed(err, tx);
         });
         return;
+      }
+
+      // Cap total retriggers to prevent indefinite retrigger loops.
+      // Attempts are incremented on both success and failure so the item
+      // eventually resolves even when every retrigger succeeds.
+      const newAttempts = item_!.attempts + 1;
+      if (newAttempts >= this.maxRetriggerAttempts) {
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.markResolved(item_!.id, Resolution.Failed, tx);
+          await probe.maxRetriggersExceeded(newAttempts, tx);
+        });
+      } else {
+        await this.prisma.$transaction(async (tx) => {
+          await this.queue.incrementAttempts(item_!.id, newAttempts, tx);
+        });
       }
     } catch (err: unknown) {
       if (!item) {
@@ -120,10 +160,10 @@ export class Scheduler extends IntervalService {
 
       const error = err as { status?: number };
 
-      if (error.status !== undefined && TERMINAL_HTTP_STATUSES.includes(error.status)) {
+      if (isTerminalHttpStatus(error.status)) {
         await this.prisma.$transaction(async (tx) => {
-          await this.queue.markFailed(item!.id, tx);
-          await probe.prClosedOrMerged(error.status!, tx);
+          await this.queue.markResolved(item!.id, Resolution.Failed, tx);
+          await probe.prDeleted(error.status!, tx);
         });
         return;
       }
@@ -131,9 +171,66 @@ export class Scheduler extends IntervalService {
       const backoffMs = computeSchedulerBackoff(item!.attempts, this.baseBackoff, this.maxBackoff);
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.backoff(item!.id, new Date(Date.now() + backoffMs), tx);
-        await probe.backedOff(backoffMs, item!.attempts, err, tx);
+        if (item!.attempts >= this.maxRetriggerAttempts) {
+          await this.queue.markResolved(item!.id, Resolution.Failed, tx);
+          await probe.maxRetriggersExceeded(item!.attempts, tx);
+        } else {
+          await this.queue.backoff(item!.id, tx);
+          probe.backedOff(backoffMs, item!.attempts, err, tx);
+        }
       });
+    } finally {
+      try {
+        await this.systemState.setLastSchedulerTickAt(new Date(), undefined);
+      } catch (error) {
+        this.log.error({ fn: 'Scheduler.executeTick', error }, 'Failed to persist scheduler heartbeat');
+      }
     }
+  }
+
+  private async selectNextEligibleItem(probe: SchedulerProbe): Promise<QueueItem | undefined> {
+    const eligible = (await this.queueOrder.getEffectiveOrder()).filter((item) => item.status === QueueStatus.pending);
+
+    for (const candidate of eligible) {
+      if (candidate.cooldown_until !== undefined && candidate.cooldown_until.getTime() > Date.now()) {
+        await this.skipCandidate(candidate, SkipReason.cooldown, probe);
+        continue;
+      }
+      if (Date.now() - candidate.created_at.getTime() < this.retriggerSpacingMs) {
+        await this.skipCandidate(candidate, SkipReason.settling, probe);
+        continue;
+      }
+      const prState = await this.prStateFetcher.fetch(candidate.repo_full_name, candidate.pr_number, 'Scheduler.selectNextEligibleItem');
+      if (prState === undefined) {
+        continue;
+      }
+      if (isPRMerged(prState)) {
+        await this.resolveTerminalCandidate(candidate, Resolution.PrMerged, PrState.merged, probe);
+        continue;
+      }
+      if (isPRClosedWithoutMerge(prState)) {
+        await this.resolveTerminalCandidate(candidate, Resolution.PrClosedWithoutMerge, PrState.closed, probe);
+        continue;
+      }
+      return candidate;
+    }
+
+    return undefined;
+  }
+
+  private async skipCandidate(candidate: QueueItem, reason: SkipReason, probe: SchedulerProbe): Promise<void> {
+    const changed = await this.prisma.$transaction(async (tx) => {
+      return await this.queue.markRetriggerSkipped(candidate.id, reason, tx);
+    });
+    if (changed) {
+      probe.retriggerSkipped(candidate, reason);
+    }
+  }
+
+  private async resolveTerminalCandidate(candidate: QueueItem, resolution: Resolution, prState: PrState, probe: SchedulerProbe): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.queue.markResolved(candidate.id, resolution, tx);
+      await probe.prClosedDuringScan(candidate.repo_full_name, candidate.pr_number, prState, tx);
+    });
   }
 }

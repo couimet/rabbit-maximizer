@@ -1,60 +1,42 @@
-import type { QueueRepository } from '../src/db/queueRepository.js';
-import { EnqueueService } from '../src/EnqueueService.js';
-import type { PRStateFetcher } from '../src/github/PRStateFetcher.js';
-import type { ObservationContextProvider } from '../src/observability/observationContext.js';
-import type { DetectedProbe } from '../src/probes/DetectedProbe.js';
-import type { ProbeFactory } from '../src/probes/ProbeFactory.js';
-import type { DetectedComment } from '../src/types/DetectedComment.js';
+import { config } from '../src/config.js';
+import { CodeRabbitCommentType } from '../src/domain.js';
+import type { DetectedProbe, ProbeFactory } from '../src/probes/index.js';
+import { EnqueueService } from '../src/services.js';
+import { MS_PER_SECOND } from '../src/utils/index.js';
 
-import { createMockProbeFactory } from './helpers/createMockProbeFactory.js';
-import { createMockDetectedProbe } from './helpers/createMockProbes.js';
-import { createMockPullRequestRepo } from './helpers/index.js';
+import { createMockCoderabbitCommentRepo } from './helpers/createMockCoderabbitCommentRepo.js';
+import {
+  createMockDetectedProbe,
+  createMockProbeFactory,
+  createMockPullRequestRepo,
+  createMockQueueRepo,
+  generateCoderabbitCommentHydrationData,
+  generateDetectedCommentHydrationData,
+} from './helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
-const MS_PER_SECOND = 1000;
-
-const makeComment = (): DetectedComment => ({
-  url: getUniqueString({ prefix: 'https://gh/c/' }),
-  repo_full_name: getUniqueGitHubRepoRef().fullName,
-  pr_number: getUniqueInt(),
-  pr_title: 'Test PR title',
-  comment_id: getUniqueInt(),
-  created_at: getUniqueDate().toISOString(),
-  updated_at: getUniqueDate().toISOString(),
-});
+const FOR_TEST_SKIP_BODY = 'skip review by coderabbit.ai';
 
 describe('EnqueueService', () => {
-  let queue: QueueRepository;
+  let frozenNow: Date;
+  let queue: ReturnType<typeof createMockQueueRepo>;
+  let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let probes: ProbeFactory;
-  let observation: ObservationContextProvider;
+  let coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
-  let probe: {
-    detected: jest.Mock;
-    enqueued: jest.Mock;
-    prMerged: jest.Mock;
-    prClosedWithoutMerge: jest.Mock;
-    alreadyQueued: jest.Mock;
-  };
-  let fetcher: PRStateFetcher;
-  let mockPullRequests: ReturnType<typeof createMockPullRequestRepo>;
+  let probe: ReturnType<typeof createMockDetectedProbe>;
 
   beforeEach(() => {
     jest.useFakeTimers();
-    jest.setSystemTime(new Date('2026-06-22T12:00:00Z'));
-    mockPullRequests = createMockPullRequestRepo();
+    frozenNow = getUniqueDate();
+    jest.setSystemTime(frozenNow);
+    queue = createMockQueueRepo({ enqueue: jest.fn<any>().mockResolvedValue({ item: {}, created: true }) });
 
-    queue = {
-      enqueue: jest.fn<any>().mockResolvedValue({ item: {}, created: true }),
-      markPosted: jest.fn(),
-      markReviewed: jest.fn(),
-      reschedule: jest.fn(),
-      markFailed: jest.fn(),
-      getPendingQueue: jest.fn(),
-    } as unknown as QueueRepository;
+    pullRequests = createMockPullRequestRepo();
 
     tx = {} as Prisma.TransactionClient;
     prisma = {
@@ -64,134 +46,285 @@ describe('EnqueueService', () => {
     probe = createMockDetectedProbe();
     probes = createMockProbeFactory({ createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) });
 
-    observation = {
-      current: jest.fn().mockReturnValue({ correlationId: getUuid(), requestId: getUuid(), version: '1.0.0' }),
-    } as unknown as ObservationContextProvider;
-
-    fetcher = {
-      fetch: jest.fn<any>().mockResolvedValue({ state: 'open', merged_at: null }),
-    } as unknown as PRStateFetcher;
+    coderabbitComments = createMockCoderabbitCommentRepo();
   });
 
-  const createService = () => new EnqueueService(queue, mockPullRequests, prisma, probes, observation, fetcher);
+  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, coderabbitComments);
 
   describe('handle', () => {
-    it('bypasses via probe when PR is already merged', async () => {
-      (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: '2026-06-22T10:00:00Z' });
+    it('creates probe, enqueues, and completes probe in a transaction with pullRequestId', async () => {
       const svc = createService();
-      const comment = makeComment();
-
-      await svc.handle(comment, 330);
-
-      expect(probe.detected).toHaveBeenCalled();
-      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(probe.prMerged).toHaveBeenCalledWith(tx);
-      expect(queue.enqueue).not.toHaveBeenCalled();
-      expect(probe.enqueued).not.toHaveBeenCalled();
-    });
-
-    it('bypasses via probe when PR is closed without merge', async () => {
-      (fetcher.fetch as jest.Mock<any>).mockResolvedValue({ state: 'closed', merged_at: null });
-      const svc = createService();
-      const comment = makeComment();
-
-      await svc.handle(comment, 330);
-
-      expect(probe.detected).toHaveBeenCalled();
-      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-      expect(probe.prClosedWithoutMerge).toHaveBeenCalledWith(tx);
-      expect(queue.enqueue).not.toHaveBeenCalled();
-      expect(probe.enqueued).not.toHaveBeenCalled();
-    });
-
-    it('creates probe, enqueues, and completes probe in a transaction when PR is open', async () => {
-      const svc = createService();
-      const comment = makeComment();
-      const waitSeconds = 330;
+      const comment = generateDetectedCommentHydrationData();
       const pullRequestId = getUniqueInt();
-      mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
-      const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
+      const expectedCooldownUntil = new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
 
-      await svc.handle(comment, waitSeconds);
+      await svc.handle(comment, pullRequestId);
 
-      expect(probes.createDetectedProbe).toHaveBeenCalledWith(
-        { repo_full_name: comment.repo_full_name, pr_number: comment.pr_number, source_ts: new Date(comment.created_at), source_comment_url: comment.url },
-        observation.current(),
-      );
+      expect(probes.createDetectedProbe).toHaveBeenCalledWith({
+        repo_full_name: comment.repoFullName,
+        pr_number: comment.prNumber,
+        source_ts: new Date(comment.createdAt),
+        source_comment_url: comment.url,
+        coderabbit_run_id: undefined,
+      });
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
       expect(queue.enqueue).toHaveBeenCalledWith(
         {
-          repo: comment.repo_full_name,
-          pr: comment.pr_number,
-          prTitle: comment.pr_title,
-          notBefore: expectedScheduledFor,
+          repo: comment.repoFullName,
+          pr: comment.prNumber,
+          prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
-          sourceCommentId: comment.comment_id,
-          newWait: waitSeconds,
+          sourceCommentId: comment.commentId,
+          commentUpdatedAt: new Date(comment.updatedAt),
+          cooldownUntil: expectedCooldownUntil,
           pullRequestId,
         },
-        observation.current(),
         tx,
       );
       expect(probe.enqueued).toHaveBeenCalledWith(tx);
-      expect(probe.prMerged).not.toHaveBeenCalled();
     });
 
-    it('proceeds with enqueue when getPRState fails', async () => {
-      (fetcher.fetch as jest.Mock<any>).mockResolvedValue(undefined);
+    it('persists the comment via coderabbitComments.upsert after classification', async () => {
       const svc = createService();
-      const comment = makeComment();
-      const waitSeconds = 330;
+      const comment = generateDetectedCommentHydrationData({
+        body: 'No actionable comments were generated in the recent review.',
+      });
+      const pullRequestId = getUniqueInt();
 
-      await svc.handle(comment, waitSeconds);
+      await svc.handle(comment, pullRequestId);
 
-      expect(probe.detected).toHaveBeenCalled();
-      expect(queue.enqueue).toHaveBeenCalled();
-      expect(probe.enqueued).toHaveBeenCalledWith(tx);
-      expect(probe.prMerged).not.toHaveBeenCalled();
+      expect(coderabbitComments.upsert).toHaveBeenCalledWith(
+        {
+          comment_id: comment.commentId,
+          pull_request_id: pullRequestId,
+          url: comment.url,
+          comment_type: 'review_approved',
+          body: comment.body,
+          gh_created_at: new Date(comment.createdAt),
+          gh_updated_at: new Date(comment.updatedAt),
+          coderabbit_run_id: null,
+        },
+        tx,
+      );
+    });
+
+    it('dismisses the comment but still upserts it when the existing review is newer', async () => {
+      const svc = createService();
+      const comment = generateDetectedCommentHydrationData({ body: 'rate limited by coderabbit.ai' });
+      const reviewComment = generateCoderabbitCommentHydrationData({
+        comment_id: getUniqueInt(),
+        url: getUniqueString({ prefix: 'https://gh/' }),
+        comment_type: CodeRabbitCommentType.review_approved,
+        gh_updated_at: new Date(new Date(comment.updatedAt).getTime() + 60 * MS_PER_SECOND),
+      });
+      coderabbitComments.findCompletedReview.mockResolvedValueOnce(reviewComment);
+      const pullRequestId = getUniqueInt();
+
+      await svc.handle(comment, pullRequestId);
+
+      expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(coderabbitComments.upsert).toHaveBeenCalledWith(
+        {
+          comment_id: comment.commentId,
+          pull_request_id: pullRequestId,
+          url: comment.url,
+          comment_type: 'review_limited',
+          body: comment.body,
+          gh_created_at: new Date(comment.createdAt),
+          gh_updated_at: new Date(comment.updatedAt),
+          coderabbit_run_id: null,
+        },
+        tx,
+      );
+      expect(queue.enqueue).not.toHaveBeenCalled();
+      expect(probe.alreadyReviewed).toHaveBeenCalledWith(reviewComment);
+    });
+
+    it('proceeds past the guard when the comment is newer than the existing review', async () => {
+      const svc = createService();
+      const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
+      const reviewComment = generateCoderabbitCommentHydrationData({
+        comment_id: getUniqueInt(),
+        url: getUniqueString({ prefix: 'https://gh/' }),
+        comment_type: CodeRabbitCommentType.review_approved,
+        gh_updated_at: new Date(new Date(comment.updatedAt).getTime() - 60 * MS_PER_SECOND),
+      });
+      coderabbitComments.findCompletedReview.mockResolvedValueOnce(reviewComment);
+      const pullRequestId = getUniqueInt();
+
+      await svc.handle(comment, pullRequestId);
+
+      expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        {
+          repo: comment.repoFullName,
+          pr: comment.prNumber,
+          prTitle: comment.prTitle,
+          sourceCommentUrl: comment.url,
+          sourceCommentId: comment.commentId,
+          commentUpdatedAt: new Date(comment.updatedAt),
+          cooldownUntil: undefined,
+          pullRequestId,
+        },
+        tx,
+      );
+      expect(probe.alreadyReviewed).not.toHaveBeenCalled();
+      expect(probe.skipped).toHaveBeenCalledWith(tx);
+    });
+
+    it('proceeds with enqueue when findCompletedReview returns no existing review', async () => {
+      const svc = createService();
+      const comment = generateDetectedCommentHydrationData();
+      const pullRequestId = getUniqueInt();
+
+      await svc.handle(comment, pullRequestId);
+
+      expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     });
 
     it('skips enqueued when enqueue returns created: false', async () => {
       (queue.enqueue as jest.Mock<any>).mockResolvedValue({ item: {}, created: false });
       const svc = createService();
-      const comment = makeComment();
-      const waitSeconds = 330;
+      const comment = generateDetectedCommentHydrationData();
+      const pullRequestId = getUniqueInt();
 
-      await svc.handle(comment, waitSeconds);
+      await svc.handle(comment, pullRequestId);
 
       expect(probe.detected).toHaveBeenCalled();
       expect(prisma.$transaction).toHaveBeenCalledTimes(1);
       expect(queue.enqueue).toHaveBeenCalled();
       expect(probe.enqueued).not.toHaveBeenCalled();
       expect(probe.alreadyQueued).toHaveBeenCalled();
-      expect(probe.prMerged).not.toHaveBeenCalled();
     });
 
     it('schedules the enqueue based on comment.updated_at and wait', async () => {
       const svc = createService();
-      const comment = makeComment();
-      const waitSeconds = 120;
+      const comment = generateDetectedCommentHydrationData();
       const pullRequestId = getUniqueInt();
-      mockPullRequests.upsert.mockResolvedValue({ id: pullRequestId, created: true });
-      const expectedScheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MS_PER_SECOND);
+      const expectedCooldownUntil = new Date(new Date(comment.updatedAt).getTime() + config.REVIEW_LIMIT_FALLBACK_WAIT_SEC * MS_PER_SECOND);
 
-      await svc.handle(comment, waitSeconds);
+      await svc.handle(comment, pullRequestId);
 
       expect(queue.enqueue).toHaveBeenCalledWith(
         {
-          repo: comment.repo_full_name,
-          pr: comment.pr_number,
-          prTitle: comment.pr_title,
-          notBefore: expectedScheduledFor,
+          repo: comment.repoFullName,
+          pr: comment.prNumber,
+          prTitle: comment.prTitle,
           sourceCommentUrl: comment.url,
-          sourceCommentId: comment.comment_id,
-          newWait: waitSeconds,
+          sourceCommentId: comment.commentId,
+          commentUpdatedAt: new Date(comment.updatedAt),
+          cooldownUntil: expectedCooldownUntil,
           pullRequestId,
         },
-        observation.current(),
         tx,
       );
+    });
+
+    describe('skip path', () => {
+      it('enqueues with the skip comment as source and records the skipped encounter', async () => {
+        const coderabbitRunId = getUuid();
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: `${FOR_TEST_SKIP_BODY}\n\n**Run ID**: \`${coderabbitRunId}\``,
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(probe.detected).toHaveBeenCalled();
+        expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
+        expect(coderabbitComments.upsert).toHaveBeenCalledWith(
+          {
+            comment_id: comment.commentId,
+            pull_request_id: pullRequestId,
+            url: comment.url,
+            comment_type: 'review_skipped',
+            body: comment.body,
+            gh_created_at: new Date(comment.createdAt),
+            gh_updated_at: new Date(comment.updatedAt),
+            coderabbit_run_id: coderabbitRunId,
+          },
+          tx,
+        );
+        expect(queue.enqueue).toHaveBeenCalledWith(
+          {
+            repo: comment.repoFullName,
+            pr: comment.prNumber,
+            prTitle: comment.prTitle,
+            sourceCommentUrl: comment.url,
+            sourceCommentId: comment.commentId,
+            coderabbitRunId,
+            commentUpdatedAt: new Date(comment.updatedAt),
+            cooldownUntil: undefined,
+            pullRequestId,
+          },
+          tx,
+        );
+        expect(probe.enqueued).toHaveBeenCalledWith(tx);
+        expect(probe.skipped).toHaveBeenCalledWith(tx);
+      });
+
+      it('drives alreadyQueued and still records the skipped encounter when enqueue returns created: false', async () => {
+        (queue.enqueue as jest.Mock<any>).mockResolvedValue({ item: {}, created: false });
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(queue.enqueue).toHaveBeenCalled();
+        expect(probe.enqueued).not.toHaveBeenCalled();
+        expect(probe.alreadyQueued).toHaveBeenCalled();
+        expect(probe.skipped).toHaveBeenCalledWith(tx);
+      });
+    });
+
+    describe('verdict path', () => {
+      it('does not enqueue review_approved comments and records the review', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'No actionable comments were generated in the recent review.',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_approved', undefined, tx);
+        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_approved');
+        expect(queue.enqueue).not.toHaveBeenCalled();
+      });
+
+      it('does not enqueue review_changes_suggested comments and records the review', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'Actionable comments posted:',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_changes_suggested', undefined, tx);
+        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_changes_suggested');
+        expect(queue.enqueue).not.toHaveBeenCalled();
+      });
+
+      it('still enqueues review_limited (non-verdict) comments', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({
+          body: 'rate limited by coderabbit.ai',
+        });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(queue.enqueue).toHaveBeenCalled();
+        expect(pullRequests.recordReview).not.toHaveBeenCalled();
+        expect(probe.verdictResolved).not.toHaveBeenCalled();
+      });
     });
   });
 });

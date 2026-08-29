@@ -1,4 +1,4 @@
-import type { PRState } from '../types/PRState.js';
+import type { PRState } from '../types/index.js';
 
 const PR_STATE_CLOSED = 'closed';
 

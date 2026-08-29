@@ -1,16 +1,13 @@
-import type { PullRequestRepository } from './db/pullRequestRepository.js';
-import type { QueueRepository } from './db/queueRepository.js';
-import type { PRStateFetcher } from './github/PRStateFetcher.js';
-import { isPRClosedWithoutMerge, isPRMerged } from './github/prStateUtils.js';
-import type { ObservationContextProvider } from './observability/observationContext.js';
-import type { ProbeFactory } from './probes/ProbeFactory.js';
+import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository, UpsertCommentData } from './db/index.js';
+import { classifyCoderabbitComment, parseWaitSeconds } from './github/index.js';
+import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
-import { TYPES } from './inversify-types.js';
+import { extractCoderabbitRunId, isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
+import { config } from './config.js';
+import { TYPES } from './domain.js';
 
 import { type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
-
-const MILLISECONDS_PER_SECOND = 1000;
 
 @injectable()
 export class EnqueueService {
@@ -24,54 +21,66 @@ export class EnqueueService {
     private readonly prisma: PrismaClient,
     @inject(TYPES.ProbeFactory)
     private readonly probes: ProbeFactory,
-    @inject(TYPES.ObservationContextProvider)
-    private readonly observation: ObservationContextProvider,
-    @inject(TYPES.PRStateFetcher)
-    private readonly fetcher: PRStateFetcher,
+    @inject(TYPES.CoderabbitCommentRepository)
+    private readonly coderabbitComments: CoderabbitCommentRepository,
   ) {}
   /* c8 ignore stop */
 
-  readonly handle: OnDetectedCallback = async (comment, waitSeconds) => {
-    const scheduledFor = new Date(new Date(comment.updated_at).getTime() + waitSeconds * MILLISECONDS_PER_SECOND);
-    const obs = this.observation.current();
+  readonly handle: OnDetectedCallback = async (comment, pullRequestId) => {
+    const coderabbitRunId = extractCoderabbitRunId(comment.body);
 
-    const probe = this.probes.createDetectedProbe(
-      {
-        repo_full_name: comment.repo_full_name,
-        pr_number: comment.pr_number,
-        source_ts: new Date(comment.created_at),
-        source_comment_url: comment.url,
-      },
-      obs,
-    );
+    const probe = this.probes.createDetectedProbe({
+      repo_full_name: comment.repoFullName,
+      pr_number: comment.prNumber,
+      source_ts: new Date(comment.createdAt),
+      source_comment_url: comment.url,
+      coderabbit_run_id: coderabbitRunId,
+    });
     await probe.detected();
 
-    const prState = await this.fetcher.fetch(comment.repo_full_name, comment.pr_number, 'EnqueueService.handle');
+    const { classification } = classifyCoderabbitComment(comment.body);
+    const commentData: UpsertCommentData = {
+      comment_id: comment.commentId,
+      pull_request_id: pullRequestId,
+      url: comment.url,
+      comment_type: classification,
+      body: comment.body,
+      gh_created_at: new Date(comment.createdAt),
+      gh_updated_at: new Date(comment.updatedAt),
+      coderabbit_run_id: coderabbitRunId ?? null,
+    };
+
+    // A completed review only dismisses comments from runs it already saw. CodeRabbit
+    // edits its comment in place per push, so an edit newer than the recorded verdict
+    // is a new run and must flow through the normal branches.
+    const existingReview = await this.coderabbitComments.findCompletedReview(pullRequestId);
+    if (existingReview && new Date(comment.updatedAt) <= existingReview.gh_updated_at) {
+      await this.prisma.$transaction(async (tx) => {
+        // Latch last_seen_at even when dismissing, or the DirectCommentChecker
+        // freshness gate re-detects this comment on every scan.
+        await this.coderabbitComments.upsert(commentData, tx);
+      });
+      probe.alreadyReviewed(existingReview);
+      return;
+    }
 
     await this.prisma.$transaction(async (tx) => {
-      if (prState !== undefined && isPRMerged(prState)) {
-        await probe.prMerged(tx);
-      } else if (prState !== undefined && isPRClosedWithoutMerge(prState)) {
-        await probe.prClosedWithoutMerge(tx);
-      } else {
-        const { id: pullRequestId } = await this.pullRequests.upsert(
-          comment.repo_full_name,
-          comment.pr_number,
-          { prTitle: comment.pr_title, reviewLimitAt: new Date() },
-          tx,
-        );
+      await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
+      await this.coderabbitComments.upsert(commentData, tx);
+
+      if (classification === 'review_skipped') {
         const { created } = await this.queue.enqueue(
           {
-            repo: comment.repo_full_name,
-            pr: comment.pr_number,
-            prTitle: comment.pr_title,
-            notBefore: scheduledFor,
+            repo: comment.repoFullName,
+            pr: comment.prNumber,
+            prTitle: comment.prTitle,
             sourceCommentUrl: comment.url,
-            sourceCommentId: comment.comment_id,
-            newWait: waitSeconds,
+            sourceCommentId: comment.commentId,
+            coderabbitRunId,
+            commentUpdatedAt: new Date(comment.updatedAt),
+            cooldownUntil: undefined,
             pullRequestId,
           },
-          obs,
           tx,
         );
         if (created) {
@@ -79,6 +88,38 @@ export class EnqueueService {
         } else {
           probe.alreadyQueued();
         }
+        await probe.skipped(tx);
+        return;
+      }
+
+      if (isReviewVerdictState(classification)) {
+        await this.pullRequests.recordReview(pullRequestId, comment.url, classification, undefined, tx);
+        await probe.verdictResolved(tx, classification);
+        return;
+      }
+
+      const waitSeconds = parseWaitSeconds(comment.body);
+      const effectiveWait = (waitSeconds ?? config.REVIEW_LIMIT_FALLBACK_WAIT_SEC) * MS_PER_SECOND;
+      const cooldownUntil = new Date(new Date(comment.updatedAt).getTime() + effectiveWait);
+
+      const { created } = await this.queue.enqueue(
+        {
+          repo: comment.repoFullName,
+          pr: comment.prNumber,
+          prTitle: comment.prTitle,
+          sourceCommentUrl: comment.url,
+          sourceCommentId: comment.commentId,
+          coderabbitRunId,
+          commentUpdatedAt: new Date(comment.updatedAt),
+          cooldownUntil,
+          pullRequestId,
+        },
+        tx,
+      );
+      if (created) {
+        await probe.enqueued(tx);
+      } else {
+        probe.alreadyQueued();
       }
     });
   };

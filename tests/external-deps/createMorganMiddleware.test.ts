@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
+import type { Server } from 'node:http';
 
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
@@ -37,7 +37,7 @@ describe('createMorganMiddleware', () => {
   };
 
   it('has the expected middleware identifier value for MORGAN', () => {
-    expect(MiddlewareIdentifier.MORGAN).toBe('morgan');
+    expect(MiddlewareIdentifier.Morgan).toBe('morgan');
   });
 
   it('has the expected default format', () => {

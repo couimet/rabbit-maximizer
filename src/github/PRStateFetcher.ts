@@ -1,7 +1,7 @@
-import { TYPES } from '../inversify-types.js';
-import type { PRState } from '../types/PRState.js';
+import { TYPES } from '../domain.js';
+import type { PRState } from '../types/index.js';
 
-import type { CoderabbitGitHubClient } from './coderabbitGitHubClient.js';
+import type { CoderabbitGitHubClient } from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -24,7 +24,7 @@ export class PRStateFetcherImpl implements PRStateFetcher {
     try {
       return await this.github.getPRState(repo, pr);
     } catch (err: unknown) {
-      this.log.warn({ fn, repo, pr, error: err }, 'Failed to fetch PR state; proceeding without it');
+      this.log.warn({ fn: `${fn}::PRStateFetcher.fetch`, repo, pr, error: err }, 'Failed to fetch PR state');
       return undefined;
     }
   }

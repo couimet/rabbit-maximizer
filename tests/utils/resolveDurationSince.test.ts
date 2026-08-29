@@ -1,4 +1,4 @@
-import { resolveDurationSince } from '../../src/utils/resolveDurationSince.js';
+import { resolveDurationSince } from '../../src/utils/index.js';
 
 import { describe, expect, it, jest } from '@jest/globals';
 

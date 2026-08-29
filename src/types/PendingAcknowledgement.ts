@@ -1,4 +1,3 @@
-/* c8 ignore next 7 — type-only file, no runtime code to cover */
 /** A PullRequest that has a pending retrigger without a matching CodeRabbit acknowledgement. */
 export interface PendingAcknowledgement {
   readonly id: number;

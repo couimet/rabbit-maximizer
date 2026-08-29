@@ -265,9 +265,9 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/queue/triggered:
+  /api/activity-list:
     get:
-      operationId: getTriggered
+      operationId: getActivityList
       parameters:
         - name: since
           in: query
@@ -288,18 +288,13 @@ paths:
             minimum: 1
             maximum: 100
             default: 50
-        - name: include_reviewed
-          in: query
-          schema:
-            type: boolean
-            default: false
       responses:
         '200':
-          description: Paginated triggered items
+          description: Paginated activity list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PaginatedQueue'
+                $ref: '#/components/schemas/PaginatedActivityList'
         '400':
           description: Validation error
           content:
@@ -367,7 +362,7 @@ components:
 
     QueueStatus:
       type: string
-      enum: [pending, retriggered, reviewed, failed]
+      enum: [pending, retriggered, resolved]
 
     QueueItem:
       type: object
@@ -377,8 +372,8 @@ components:
         - repo_full_name
         - pr_number
         - pr_title
+        - author_login
         - status
-        - not_before
         - attempts
         - trigger_source
         - created_at
@@ -394,12 +389,16 @@ components:
           type: integer
         pr_title:
           type: string
+        author_login:
+          type: string
+          description: GitHub login of the PR author
+        pr_state:
+          type: string
+          nullable: true
+          description: PR state from GitHub (open, merged, closed)
+          enum: [open, merged, closed]
         status:
           $ref: '#/components/schemas/QueueStatus'
-        not_before:
-          type: string
-          format: date-time
-          description: Eligibility gate — item cannot be processed before this timestamp
         attempts:
           type: integer
         source_comment_url:
@@ -427,6 +426,25 @@ components:
           type: string
           format: date-time
           nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the item transitioned to resolved (supersedes reviewed_at/failed_at for new code)
+        resolution:
+          type: string
+          nullable: true
+          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped)
+        coderabbit_review_state:
+          type: string
+          nullable: true
+          description: Outcome of the most recent CodeRabbit review for this PR
+          enum: [review_approved, review_changes_suggested]
+        coderabbit_review_url:
+          type: string
+          nullable: true
+          format: uri
+          description: URL of the most recent CodeRabbit review for this PR
         created_at:
           type: string
           format: date-time
@@ -435,9 +453,98 @@ components:
           format: date-time
       additionalProperties: false
 
+    ActivityListItem:
+      type: object
+      required:
+        - uuid
+        - repo_full_name
+        - pr_number
+        - pr_title
+        - author_login
+        - status
+        - created_at
+        - source_comment_url
+        - review_count
+        - retrigger_count
+        - last_activity_at
+      properties:
+        uuid:
+          type: string
+        repo_full_name:
+          type: string
+        pr_number:
+          type: integer
+        pr_title:
+          type: string
+        author_login:
+          type: string
+          description: GitHub login of the PR author
+        pr_state:
+          type: string
+          nullable: true
+          description: PR state from GitHub (open, merged, closed)
+          enum: [open, merged, closed]
+        status:
+          $ref: '#/components/schemas/QueueStatus'
+        resolution:
+          type: string
+          nullable: true
+        retriggered_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        failed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        retrigger_comment_url:
+          type: string
+          nullable: true
+        source_comment_url:
+          type: string
+        last_review_url:
+          type: string
+          nullable: true
+        last_review_state:
+          type: string
+          nullable: true
+          enum: [review_approved, review_changes_suggested]
+        review_count:
+          type: integer
+        retrigger_count:
+          type: integer
+        last_coderabbit_acknowledged_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_activity_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
     EventType:
       type: string
-      enum: [bypassed, coderabbit_review_approved, coderabbit_review_changes_requested, detected, enqueued, failed, retriggered]
+      enum:
+        [
+          coderabbit_review_approved,
+          coderabbit_review_changes_suggested,
+          coderabbit_review_skipped,
+          coderabbit_run_id_changed,
+          coderabbit_run_id_cleared,
+          coderabbit_run_id_first_seen,
+          detected,
+          dismissed,
+          enqueued,
+          failed,
+          retriggered,
+        ]
 
     EventEntry:
       type: object
@@ -481,13 +588,13 @@ components:
 
     QueueCounts:
       type: object
-      required: [pending, retriggered, failed]
+      required: [pending, retriggered, resolved]
       properties:
         pending:
           type: integer
         retriggered:
           type: integer
-        failed:
+        resolved:
           type: integer
       additionalProperties: false
 
@@ -507,8 +614,12 @@ components:
 
     DashboardState:
       type: object
-      required: [nextReviewAvailableAt, pendingItems, eventCounts, paused]
+      required: [lastSchedulerTickAt, nextReviewAvailableAt, pendingItems, skippedItems, eventCounts, paused, schedulerStale, trackedPrs]
       properties:
+        lastSchedulerTickAt:
+          type: string
+          format: date-time
+          nullable: true
         nextReviewAvailableAt:
           type: string
           format: date-time
@@ -517,10 +628,41 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/QueueItem'
+        skippedItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
         eventCounts:
           $ref: '#/components/schemas/EventCounts'
         paused:
           type: boolean
+        schedulerStale:
+          type: boolean
+        trackedPrs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackedPr'
+      additionalProperties: false
+
+    TrackedPr:
+      type: object
+      required: [repo_full_name, pr_number, title, author_login]
+      properties:
+        repo_full_name:
+          type: string
+        pr_number:
+          type: integer
+        title:
+          type: string
+        author_login:
+          type: string
+        last_review_state:
+          type: string
+          nullable: true
+        last_coderabbit_review_at:
+          type: string
+          format: date-time
+          nullable: true
       additionalProperties: false
 
     PauseRequest:
@@ -541,7 +683,7 @@ components:
 
     PublicConfig:
       type: object
-      required: [pauseNotificationInitialDelaySec, pauseNotificationRepeatIntervalSec]
+      required: [pauseNotificationInitialDelaySec, pauseNotificationRepeatIntervalSec, schedulerStaleThresholdMs]
       properties:
         pauseNotificationInitialDelaySec:
           type: integer
@@ -549,6 +691,9 @@ components:
         pauseNotificationRepeatIntervalSec:
           type: integer
           description: Interval in seconds between repeat "paused" notifications
+        schedulerStaleThresholdMs:
+          type: integer
+          description: Time in ms before the scheduler is considered stale (no heartbeat)
       additionalProperties: false
 
     Summary:
@@ -574,6 +719,23 @@ components:
           maxItems: 100
           items:
             $ref: '#/components/schemas/QueueItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+      additionalProperties: false
+
+    PaginatedActivityList:
+      type: object
+      required: [data, total, page, pageSize]
+      properties:
+        data:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ActivityListItem'
         total:
           type: integer
         page:

@@ -1,8 +1,7 @@
 /** @jest-environment jsdom */
 
-import EventHistory from '../../dashboard/src/components/EventHistory.js';
-import { TimezoneProvider } from '../../dashboard/src/timezone.js';
-import { formatDate } from '../../src/utils/formatDate.js';
+import { ErrorProvider, EventHistory, GlobalErrorBanner, TimezoneProvider } from '../../dashboard/src/index.js';
+import { formatDate } from '../../src/utils/index.js';
 import { createMockFetch } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
@@ -16,7 +15,10 @@ const TYPE_DETECTED = 'detected';
 const renderEventHistory = () =>
   render(
     <TimezoneProvider>
-      <EventHistory />
+      <ErrorProvider>
+        <GlobalErrorBanner />
+        <EventHistory />
+      </ErrorProvider>
     </TimezoneProvider>,
   );
 
@@ -39,6 +41,7 @@ const TS_2 = new Date(TS_1.getTime() + TS_TO_TS2_OFFSET_MINUTES * MS_PER_MINUTE)
 const TS_2_ISO = TS_2.toISOString();
 const TS_2_DISPLAY = formatDate(TS_2_ISO, 'UTC');
 
+/** @testFixture */
 const makeEvent = (over: Record<string, unknown> = {}) => ({
   id: getUniqueInt(),
   uuid: getUuid(),
@@ -228,7 +231,7 @@ describe('EventHistory', () => {
     it('shows error message on HTTP failure', async () => {
       createMockFetch(500, { error: 'Internal server error' });
       renderEventHistory();
-      await screen.findByText('Failed to load events: Internal server error');
+      await screen.findByText('Event history: Internal server error');
     });
   });
 

@@ -1,20 +1,17 @@
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
-import { EventEntryMapper } from '../../src/mappers/EventEntryMapper.js';
-import { createGetEventsHandler } from '../../src/routes/getEvents.js';
-import { fetchResponse } from '../helpers/fetchResponse.js';
-import { getJson } from '../helpers/getJson.js';
-import { apiJson, createMockEventRepo, makeEventEntry } from '../helpers/index.js';
+import { EventEntryMapper } from '../../src/mappers/index.js';
+import { createGetEventsHandler } from '../../src/routes/index.js';
+import { apiJson, createMockEventRepo, fetchResponse, generateEventLogEntryHydrationData, getJson } from '../helpers/index.js';
 
-import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import type { Server } from 'http';
 import { StatusCodes } from 'http-status-codes';
+import type { Server } from 'node:http';
 
 describe('getEvents', () => {
   let server: Server;
   let port: number;
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
 
   afterEach(async () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -22,6 +19,7 @@ describe('getEvents', () => {
 
   const eventEntryMapper = new EventEntryMapper();
 
+  /** @testFixture */
   const startServer = (over = {}) => {
     logger = createMockLogger();
     const result = startTestServer(logger, (app) => {
@@ -32,7 +30,7 @@ describe('getEvents', () => {
   };
 
   it('returns 200 with paginated events', async () => {
-    const eventEntries = [makeEventEntry(), makeEventEntry()];
+    const eventEntries = [generateEventLogEntryHydrationData(), generateEventLogEntryHydrationData()];
     startServer({ listRecent: jest.fn<any>().mockResolvedValue({ items: eventEntries, total: 2 }) });
 
     const json = await getJson(port, '/api/events');
@@ -54,7 +52,9 @@ describe('getEvents', () => {
 
   it('custom pageSize query param still works', async () => {
     const TS = new Date('2026-06-25T10:00:00.000Z');
-    const eventEntries = [makeEventEntry({ id: 3, uuid: 'evt-custom', ts: TS, repo_full_name: 'o/r', pr_number: 99, correlation_id: 'corr-003' })];
+    const eventEntries = [
+      generateEventLogEntryHydrationData({ id: 3, uuid: 'evt-custom', ts: TS, repo_full_name: 'o/r', pr_number: 99, correlation_id: 'corr-003' }),
+    ];
     startServer({ listRecent: jest.fn<any>().mockResolvedValue({ items: eventEntries, total: 10 }) });
 
     const json = await getJson(port, '/api/events?pageSize=5');
@@ -68,6 +68,6 @@ describe('getEvents', () => {
     const res = await fetchResponse(port, '/api/events');
     expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
     expect(await res.json()).toStrictEqual({ error: 'Failed to get events' });
-    expect(logger.error as jest.Mock<any>).toHaveBeenCalledWith({ fn: 'api.getEvents', error: repoError }, 'Failed to get events');
+    expect(logger.error).toHaveBeenCalledWith({ fn: 'api.getEvents', error: repoError }, 'Failed to get events');
   });
 });

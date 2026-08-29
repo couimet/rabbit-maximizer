@@ -1,5 +1,4 @@
-import type { Logger } from '@couimet/logger-contract';
-import { getLogger } from '@couimet/logger-contract';
+import { getLogger, type Logger } from '@couimet/logger-contract';
 import type { RequestHandler } from 'express';
 import morgan from 'morgan';
 

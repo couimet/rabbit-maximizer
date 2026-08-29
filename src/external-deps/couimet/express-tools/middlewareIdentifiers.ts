@@ -1,3 +1,4 @@
 export enum MiddlewareIdentifier {
-  MORGAN = 'morgan',
+  InboundRequestLogger = 'inbound-request-logger',
+  Morgan = 'morgan',
 }

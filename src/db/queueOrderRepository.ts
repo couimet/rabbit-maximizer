@@ -1,39 +1,47 @@
-import { RabbitMaximizerError } from '../errors/RabbitMaximizerError.js';
-import { RabbitMaximizerErrorCodes } from '../errors/RabbitMaximizerErrorCodes.js';
-import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/BasePrismaRepository.js';
-import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/PrismaRecordNotFoundError.js';
-import { TYPES } from '../inversify-types.js';
-import { type QueueItem, QueueStatus, TriggerSource } from '../types/index.js';
-import { findByUuid, resolveUuidsToIds } from '../utils/uuidLookup.js';
+import { QueueStatus, TYPES } from '../domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import { BasePrismaRepository, PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
+import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
+import type { QueueItem } from '../types/index.js';
+import { findByUuid, resolveUuidsToIds } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
-import { Prisma, type PrismaClient, type QueueOrder, type ReviewQueue } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
 export type MoveDirection = 'up' | 'down';
 
+const EFFECTIVE_ORDER_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
+
 export interface QueueOrderRepository {
-  getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]>;
+  getEffectiveOrder(): Promise<QueueItem[]>;
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]>;
   moveToTop(uuid: string): Promise<QueueItem>;
 }
 
 @injectable()
 export class QueueOrderRepositoryImpl extends BasePrismaRepository implements QueueOrderRepository {
-  constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
+  /* c8 ignore start — decorator emit branches */
+  constructor(
+    @inject(TYPES.PrismaClient) prisma: PrismaClient,
+    @inject(TYPES.ReviewQueueToQueueItemMapper) private readonly mapper: ReviewQueueToQueueItemMapper,
+    @inject(TYPES.Logger) log: Logger,
+  ) {
     super(prisma, Prisma.ModelName.QueueOrder, log);
   }
+  /* c8 ignore stop */
 
-  getEffectiveOrder(options?: { eligibleOnly?: boolean }): Promise<QueueItem[]> {
-    return this.readEffectiveOrder(undefined, options?.eligibleOnly ?? true);
+  getEffectiveOrder(): Promise<QueueItem[]> {
+    return this.readEffectiveOrder(undefined);
   }
 
-  private readEffectiveOrder(tx: Prisma.TransactionClient | undefined, eligibleOnly: boolean): Promise<QueueItem[]> {
+  /**
+   * Returns items with status `pending` or `retriggered`. Both are movable;
+   * cooldown is enforced at the account level by the scheduler, not here.
+   */
+  private readEffectiveOrder(tx: Prisma.TransactionClient | undefined): Promise<QueueItem[]> {
     return this.enforceTx(tx, async (db) => {
-      const where: Prisma.ReviewQueueWhereInput = { status: 'pending' };
-      if (eligibleOnly) {
-        where.not_before = { lte: new Date() };
-      }
+      const where: Prisma.ReviewQueueWhereInput = { status: { in: [...EFFECTIVE_ORDER_STATUSES] } };
       const rows = await db.reviewQueue.findMany({
         where,
         include: { queueOrder: true },
@@ -46,16 +54,21 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
           'Filtered out rows with null pull_request_id',
         );
       }
-      this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length, eligibleOnly }, 'Fetched effective order');
-      return validRows.map((row) => this.toQueueItem(row));
+      this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length }, 'Fetched effective order');
+      return validRows.map((row) => this.mapper.fromReviewQueue(row));
     });
   }
 
   moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]> {
     return this.enforceTx(undefined, async (tx) => {
-      const ordered = await this.readEffectiveOrder(tx, false);
+      const ordered = await this.readEffectiveOrder(tx);
       const orderedIds = ordered.map((item) => item.id);
       const selectedIds = resolveUuidsToIds(ordered, [...new Set(queueItemUuids)]);
+
+      if (selectedIds.length === 0) {
+        this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems' }, 'No items to move; returning effective order unchanged');
+        return ordered;
+      }
 
       const sortedSelected = selectedIds.sort((a, b) => orderedIds.indexOf(a) - orderedIds.indexOf(b));
       if (direction === 'down') {
@@ -77,7 +90,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemUuids, direction }, 'Moved items in queue order');
 
-      return this.readEffectiveOrder(tx, false);
+      return this.readEffectiveOrder(tx);
     });
   }
 
@@ -96,16 +109,16 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
         });
       }
 
-      if (rawItem.status !== QueueStatus.pending) {
+      if (rawItem.status === QueueStatus.resolved) {
         throw new RabbitMaximizerError({
           code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
-          message: `Queue item ${uuid} is not pending`,
+          message: `Queue item ${uuid} is already resolved`,
           functionName: 'QueueOrderRepositoryImpl.moveToTop',
           details: { uuid, status: rawItem.status },
         });
       }
 
-      const ordered = await this.readEffectiveOrder(tx, false);
+      const ordered = await this.readEffectiveOrder(tx);
       const item = findByUuid(ordered, uuid);
 
       if (!item) {
@@ -124,18 +137,18 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid }, 'Moved item to top');
 
-      const updatedList = await this.readEffectiveOrder(tx, false);
+      const updatedList = await this.readEffectiveOrder(tx);
       return updatedList.find((i) => i.uuid === uuid)!;
     });
   }
 
   private async normalizePositionsToOrder(db: Prisma.TransactionClient, orderedIds: number[]): Promise<void> {
-    const pendingItems = await db.reviewQueue.findMany({
-      where: { status: 'pending' },
+    const activeItems = await db.reviewQueue.findMany({
+      where: { status: { in: [...EFFECTIVE_ORDER_STATUSES] } },
       include: { queueOrder: true },
     });
 
-    const qoIds = pendingItems.map((item) => item.queueOrder?.id).filter((id): id is number => id != null);
+    const qoIds = activeItems.map((item) => item.queueOrder?.id).filter((id): id is number => id != null);
     if (qoIds.length > 0) {
       await db.queueOrder.updateMany({
         where: { id: { in: qoIds } },
@@ -144,10 +157,10 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     }
 
     // Assign new positions, creating queue_order rows for items that lack them (pre-migration backfill)
-    const itemById = new Map(pendingItems.map((item) => [item.id, item]));
+    const itemById = new Map(activeItems.map((item) => [item.id, item]));
     for (let i = 0; i < orderedIds.length; i++) {
       const item = itemById.get(orderedIds[i]);
-      /* c8 ignore next 2 — defensive: orderedIds are derived from readEffectiveOrder which returns pending items */
+      /* c8 ignore next 2 — defensive: orderedIds are derived from readEffectiveOrder which returns active items */
       if (!item) continue;
 
       if (item.queueOrder) {
@@ -167,28 +180,5 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
     }
 
     this.log.debug({ fn: 'QueueOrderRepositoryImpl.normalizePositionsToOrder', count: orderedIds.length }, 'Normalized queue positions');
-  }
-
-  private toQueueItem(row: ReviewQueue & { queueOrder: QueueOrder | null }): QueueItem {
-    return {
-      id: row.id,
-      uuid: row.uuid,
-      repo_full_name: row.repo_full_name,
-      pr_number: row.pr_number,
-      pr_title: row.pr_title,
-      status: row.status as QueueStatus,
-      not_before: row.not_before,
-      attempts: row.attempts,
-      source_comment_url: row.source_comment_url,
-      source_comment_id: row.source_comment_id,
-      trigger_source: row.trigger_source as TriggerSource,
-      retriggered_at: row.retriggered_at ?? undefined,
-      failed_at: row.failed_at ?? undefined,
-      reviewed_at: row.reviewed_at ?? undefined,
-      // Guaranteed non-null by the filter in readEffectiveOrder
-      pull_request_id: row.pull_request_id!,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-    };
   }
 }

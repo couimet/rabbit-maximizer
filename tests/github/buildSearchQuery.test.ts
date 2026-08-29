@@ -1,5 +1,5 @@
-import { buildSearchQuery } from '../../src/github/buildSearchQuery.js';
-import type { RepoFilter } from '../../src/types/RepoFilter.js';
+import { buildSearchQuery } from '../../src/github/index.js';
+import type { RepoFilter } from '../../src/types/index.js';
 
 import { describe, expect, it } from '@jest/globals';
 
@@ -12,16 +12,21 @@ describe('buildSearchQuery', () => {
 
   it('wraps multiple qualifiers in an OR group', () => {
     const query = buildSearchQuery([userFilter, repoFilter]);
-    expect(query).toBe('("review limit" OR "rate limit") type:pr state:open (user:couimet OR repo:other-org/specific-repo)');
+    expect(query).toBe('("review limit" OR "rate limit" OR "review available") type:pr state:open (user:couimet OR repo:other-org/specific-repo)');
   });
 
   it('uses a bare qualifier for a single filter', () => {
     const query = buildSearchQuery([userFilter]);
-    expect(query).toBe('("review limit" OR "rate limit") type:pr state:open user:couimet');
+    expect(query).toBe('("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet');
   });
 
   it('omits the qualifier clause when the filter list is empty', () => {
     const query = buildSearchQuery([]);
-    expect(query).toBe('("review limit" OR "rate limit") type:pr state:open');
+    expect(query).toBe('("review limit" OR "rate limit" OR "review available") type:pr state:open');
+  });
+
+  it('includes the on-request review skip phrase in the search clause', () => {
+    const query = buildSearchQuery([userFilter]);
+    expect(query).toBe('("review limit" OR "rate limit" OR "review available") type:pr state:open user:couimet');
   });
 });

@@ -1,4 +1,4 @@
-import { type Duration, DURATION_OPTIONS } from '../../../src/utils/resolveDurationSince.js';
+import { type Duration, DURATION_OPTIONS } from '../../../src/utils/index.js';
 
 interface DurationSelectProps {
   value: Duration;

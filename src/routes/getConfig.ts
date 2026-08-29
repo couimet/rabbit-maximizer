@@ -1,4 +1,5 @@
 import type { Config } from '../config.js';
+import { MS_PER_SECOND } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Request, Response } from 'express';
@@ -10,6 +11,7 @@ export const createGetConfigHandler = (config: Config, logger: Logger) => {
       res.json({
         pauseNotificationInitialDelaySec: config.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
         pauseNotificationRepeatIntervalSec: config.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
+        schedulerStaleThresholdMs: config.SCHEDULER_STALE_TICK_MULTIPLIER * config.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND,
       });
     } catch (error) {
       logger.error({ fn: 'api.config', error }, 'Failed to get config');

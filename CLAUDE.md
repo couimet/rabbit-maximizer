@@ -2,6 +2,8 @@
 
 Project-specific guidance for Claude Code.
 
+The authoritative description of what this product does and why is in [docs/business-rules.md](docs/business-rules.md) — read it before changing behavior; rules below govern how the code is written.
+
 Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies everywhere), **T** for tests. Numbered sequentially from 1 within each category.
 
 <rule id="C001" priority="critical">
@@ -51,9 +53,10 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 
 <rule id="C004" priority="critical">
   <title>Logger is always the last constructor parameter</title>
-  <do>Place `@inject(TYPES.Logger) private readonly log: Logger` as the last parameter in every DI constructor</do>
+  <do>Place `@inject(TYPES.Logger) private readonly log: Logger` as the last parameter in every DI constructor that logs directly</do>
+  <do>Omit the Logger from a DI constructor when the module never logs directly — its observability is fully owned by a probe (see C011), so a Logger would be a dead dependency</do>
   <never>Add Logger anywhere other than last in the constructor parameter list</never>
-  <rationale>Consistent ordering makes constructors predictable and diffs cleaner</rationale>
+  <rationale>Consistent ordering makes constructors predictable and diffs cleaner. The Logger requirement applies only when the module has something to log; a module whose every outcome is recorded through a probe has no direct logging to write.</rationale>
 </rule>
 
 <rule id="C005" priority="critical">
@@ -82,23 +85,35 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 </rule>
 
 <rule id="C008" priority="critical">
-  <title>No default parameter values</title>
+  <title>No default or optional parameters — use T | undefined</title>
   <never>Use default parameter values in function signatures (`paused = false`, `timeout = 5000`)</never>
-  <do>Make every parameter required. Callers must pass every argument explicitly</do>
-  <do>Combine with `?:` optional markers only when the caller genuinely may omit the value and the function handles `undefined` explicitly</do>
-  <rationale>Default values create falsy traps (`''`, `0`, `false`, `null` all trigger the default, not just `undefined`). Required parameters force call sites to be explicit, making intent visible and contracts harder to accidentally break. Optional `?:` without defaults is acceptable when absence has a clear semantic meaning distinct from any falsy value.</rationale>
+  <never>Use TypeScript optional-parameter syntax (`param?: Type`) in production code — it lets callers omit the argument, hiding intent at call sites</never>
+  <do>Make every parameter required. Use `T | undefined` when a parameter is semantically optional — callers pass `undefined` explicitly, making the "no value" choice visible at every call site</do>
+  <rationale>Defaults and `?:` let callers omit the argument, hiding intent. `T | undefined` forces every caller to write either the value or `undefined`, making the choice explicit.</rationale>
   <bad-example>
     ```typescript
-    // BAD: falsy trap — paused={false} still gets defaulted
+    // BAD: default applies when the prop is omitted — omission is indistinguishable from explicit undefined
     const QueueOrder = ({ paused = false }: { paused?: boolean }) => { ... }
+    // <QueueOrder /> and <QueueOrder paused={undefined} /> both default — intent is hidden
+
+    // BAD: optional marker — caller can omit, intent is hidden
+    async trigger(item: QueueItem, diagnosis?: RetriggerDiagnosis): Promise<void>
     ```
+
   </bad-example>
   <good-example>
     ```typescript
     // GOOD: required — every caller must think about paused
     const QueueOrder = ({ paused }: { paused: boolean }) => { ... }
+
+    // GOOD: explicit undefined — caller intent is visible
+    async trigger(item: QueueItem, diagnosis: RetriggerDiagnosis | undefined): Promise<void>
+    // At call site: trigger(item, undefined) — the "no diagnosis" choice is explicit
     ```
+
   </good-example>
+  <exception>Test fixture functions marked with `/** @testFixture */` may use default parameter values. These are functions in test files or tests/helpers/ whose sole purpose is creating test servers, mock data, or mock clients. Defaults eliminate {} boilerplate for the common case. The @testFixture tag signals the defaults were reviewed and the function is not exposed to production code.</exception>
+  <exception>Test mock factory functions (files matching `tests/helpers/createMock*.ts`) may use optional `overrides` parameters with `?:` to let callers omit overrides when no mocks need customization. This avoids `{}` boilerplate at every call site.</exception>
 </rule>
 
 <rule id="C009" priority="critical">
@@ -108,20 +123,118 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <rationale>A `DetailedError` carries code, message, functionName, and an arbitrary details object. Logging just the code drops everything else — the message explains what happened, functionName pinpoints the source, and details carries operation-specific context (notBefore, sourceComment, etc.). Passing the full error preserves all of it in structured log output.</rationale>
 </rule>
 
+<rule id="C010" priority="critical">
+  <title>Migrations must carry forward all indexes and constraints on table rebuilds</title>
+  <do>When a migration copies a table via `CREATE TABLE ..._new ... INSERT INTO ..._new SELECT ... FROM ... DROP TABLE ... ALTER TABLE ..._new RENAME TO ...`, recreate every index, unique constraint, and CHECK constraint that existed on the original table (unless the business rules intentionally changed)</do>
+  <do>Audit the original table's indexes and constraints before writing the rebuild block. Compare the `CREATE INDEX` / constraint statements after the rename against the original schema's DDL or a prior migration that created the table</do>
+  <never>Recreate only a subset of indexes after a table rebuild — missing constraints silently allow invalid data (duplicate UUIDs, duplicate pending PRs) that the application assumes cannot exist</never>
+  <rationale>SQLite requires full table rebuilds for schema changes (CHECK constraint modifications, column additions). It is easy to recreate the explicitly-changed constraint and forget the unchanged ones. A missing `review_queue_pending_unique` partial unique index allowed duplicate pending entries for the same PR, silently breaking the scheduler's assumption of at most one pending item per PR. This has happened multiple times (20260716, 20260707).</rationale>
+</rule>
+
 <rule id="C011" priority="critical">
   <title>Probes own all observability for a business process</title>
   <do>Create exactly one probe per business process, at the top, via `ProbeFactory`</do>
   <do>Name probe methods as past-tense domain verbs describing what happened: `retriggered()`, `failed()`, `backedOff()`, `queueItemNotFound()`</do>
   <do>Put all event recording AND business-outcome logging inside the probe — even on branches that do not record an event</do>
-  <do>Pass a domain object (`QueueItem`, `uuid`) to the factory method, never an `ObservationContext`</do>
+  <do>Pass a domain object (`QueueItem`, `uuid`) to the factory method, never an observation context</do>
   <do>Keep all entity mutations in the caller — the probe never touches the entity it observes. The caller updates state, then tells the probe what happened (see `MarkQueueItemReviewedProbe`)</do>
   <never>Create two probes for the same business process — merge them</never>
   <never>Prefix probe method names with `record` — the caller describes the outcome, not the mechanism</never>
   <never>Duplicate a business-outcome log in both the caller and the probe</never>
-  <never>Pass `ObservationContext` into a factory method — the factory calls `this.observation.current()` internally</never>
-  <exception>When the SAME observation context instance must be shared between a probe and other code in the same flow (e.g. both the probe and `queue.enqueue()` receive `obs`), extract it once in the caller and pass to both. This is the only valid reason for a factory method to accept `ObservationContext`. See `EnqueueService.handle`: `obs` is shared with `createDetectedProbe(context, obs)` and `queue.enqueue(data, obs, tx)`.</exception>
+  <never>Pass an observation context into a factory method — record sites read the ambient `ExecutionContext` themselves (`correlationId`, `requestId`, `getAttribute('version')`)</never>
   <rationale>A probe represents one business process end-to-end. It owns every observable trace — events AND logs — so callers stay focused on control flow and their own entity. See `src/probes/README.md` for the full decision framework.</rationale>
   <see>src/probes/README.md</see>
+</rule>
+
+<rule id="C012" priority="critical">
+  <title>Every import comes from the source file or a same-directory barrel</title>
+  <do>Import symbols from the file that defines them, or from a same-directory barrel file that only re-exports its sibling files</do>
+  <do>Use barrel files to aggregate exports within a single directory, providing a shorter import path for consumers</do>
+  <do>Only re-export the directory's public API through the barrel — symbols exported solely for testing (e.g., internal lookup tables, column mappers) belong to the source file and must not appear in the barrel</do>
+  <do>Package entrypoint files (<code>src/index.ts</code>, <code>dashboard/src/index.ts</code>) serve as the public API surface for their package. They may re-export symbols from any subdirectory barrel or source file within that package.</do>
+  <do>The test for "same-directory barrel" is whether the barrel lives in the same directory as the symbol's defining file. The importer's location does not matter — a barrel in `src/` that re-exports files from `src/` is valid when imported from any directory, including `src/probes/`. A file importing from its own directory's barrel is explicitly allowed — sibling components importing each other through the directory barrel is the barrel's primary purpose.</do>
+  <never>Re-export a symbol from one directory or package through a barrel file in a different directory, unless the barrel is a package entrypoint file (e.g., do not have `prisma-repo/index.ts` re-export `SoftDeleteConfig` from `prisma-extension-soft-delete`)</never>
+  <never>Import a symbol through a barrel that lives outside the symbol's defining directory</never>
+  <rationale>Cross-directory re-exports create invisible coupling, make refactoring harder (changing the source requires updating the shim), and mislead readers about where a symbol actually lives. Same-directory barrels are fine — they act as namespace indexes for their own directory's exports, reduce import path verbosity, and make future linting rules (removing redundant folder segments) possible. Barrels are the public API of a directory — testing-only exports are imported directly from the source file, keeping the barrel surface intentional. Package entrypoints are the single exception for cross-directory re-exports — they define the package's public API contract and must aggregate symbols from subdirectories.</rationale>
+  <good-example>
+    ```typescript
+    // GOOD: test imports testing-only export directly from the source file
+    import { VALUE_SETTER } from '../../src/db/systemStateRepository.js';
+    ```
+
+    ```typescript
+    // GOOD: importing from a same-directory barrel (src/domain.ts) from a subdirectory.
+    // domain.ts re-exports PrState from the sibling PrState.ts — both are in src/.
+    import { PrState, EventType } from '../domain.js';
+    ```
+
+    ```typescript
+    // GOOD: package entrypoint re-exports from subdirectories.
+    // dashboard/src/index.ts is the public API — it may aggregate from any subdirectory.
+    export { SummaryStats, QueueOrder } from './components/index.js';
+    export { ErrorProvider } from './context/index.js';
+    ```
+
+    ```typescript
+    // GOOD: sibling importing another sibling through the directory barrel.
+    // Both EventHistory and Pagination live in dashboard/src/components/.
+    import { Pagination } from './index.js';
+    ```
+
+  </good-example>
+  <bad-example>
+    ```typescript
+    // BAD: VALUE_SETTER is exported for testing only — not part of the public API
+    export { VALUE_SETTER } from './systemStateRepository.js';
+    ```
+  </bad-example>
+  <bad-example>
+    ```typescript
+    // BAD: cross-directory re-export — ScannedPR is defined in src/types/ScannedPR.ts,
+    // not in src/prScanner.ts. Consumers should import from src/types/index.js directly.
+    export type { ScannedPR } from './types/index.js';
+    ```
+  </bad-example>
+  <bad-example>
+    ```typescript
+    // BAD: cross-directory re-export through a non-entrypoint barrel.
+    // prisma-repo/index.ts must not re-export SoftDeleteConfig from prisma-extension-soft-delete.
+    export { SoftDeleteConfig } from '../prisma-extension-soft-delete/index.js';
+    ```
+  </bad-example>
+</rule>
+
+<rule id="C013" priority="critical">
+  <title>Run pnpm install after branch switches that change the lockfile</title>
+  <do>Run `pnpm install` after any `git checkout`, `git rebase`, `git pull`, or `git merge` that modifies `pnpm-lock.yaml`</do>
+  <do>Check for lockfile changes with `git diff --name-only HEAD@{1} HEAD | grep pnpm-lock.yaml` after a branch switch — if it changed, reinstall</do>
+  <never>Assume `node_modules` is current after switching to a branch with a different lockfile — stale packages cause false test failures that look like real bugs</never>
+  <rationale>Switching branches or rebasing onto a new base may bring in lockfile changes (dependency bumps, new packages). Without `pnpm install`, `node_modules` remains at the old versions. This produces false-negative test failures — matchers break, APIs change — that waste investigation time on "pre-existing" failures that are actually just stale installs. This has happened multiple times (20260722, earlier sessions).</rationale>
+</rule>
+
+<rule id="C014" priority="critical">
+  <title>Extract inline object types in method signatures into named interfaces</title>
+  <do>Define a named `export interface` for every object-typed parameter in a method signature. Place it in a standalone file under `src/types/` and re-export through the types barrel. Name the file after the interface.</do>
+  <never>Use an inline object literal type (`{ readonly a: string; readonly b: number }`) in a method signature. The only exception is for private methods where the type is truly local.</never>
+  <rationale>Inline types are not reusable, make refactoring harder (changing the type requires finding every inline occurrence), and can't be imported by tests or other consumers. A named interface documents intent and provides a single point of change.</rationale>
+  <bad-example>
+    ```typescript
+    // BAD: inline type cannot be imported or reused
+    alreadyReviewed(comment: { readonly comment_id: number; readonly url: string }): void {
+    ```
+  </bad-example>
+  <good-example>
+    ```typescript
+    // GOOD: named interface, exportable, single source of truth
+    export interface AlreadyReviewedComment {
+      readonly comment_id: number;
+      readonly url: string;
+    }
+
+    alreadyReviewed(comment: AlreadyReviewedComment): void {
+    ```
+
+  </good-example>
 </rule>
 
 <rule id="T001" priority="critical">
@@ -171,6 +284,17 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 
     // GOOD: Assertions use literals to freeze contract
     expect(result.linkType).toBe('regular');
+    ```
+
+  </good-example>
+  <good-example>
+    ```typescript
+    // GOOD: Same value — enum in setup (type safety), literal in toHaveBeenCalledWith (freeze contract)
+    const retriggered = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
+
+    expect(repo.updateMany).toHaveBeenCalledWith({
+      where: { id: retriggered.id, status: 'retriggered' },
+    });
     ```
 
   </good-example>
@@ -238,12 +362,13 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 </rule>
 
 <rule id="T009" priority="critical">
-  <title>Extract shared test literals into constants</title>
-  <do>Extract any literal (string, number, date) used in a test setup block that is also referenced in assertions into a named SCREAMING_SNAKE_CASE constant</do>
+  <title>Extract shared test literals into module-level constants</title>
+  <do>Extract any literal (string, number, date) used in a test setup block that is also referenced in assertions into a named SCREAMING_SNAKE_CASE constant at module level</do>
   <do>For timestamps shared between setup (ISO format) and assertions (display format), define the ISO constant and derive the display constant via `formatDate(ISO_CONST, 'UTC')`</do>
-  <never>Duplicate a literal in both a `beforeEach`/setup block and an assertion — extract it so the two stays are linked by a single source of truth</never>
+  <never>Duplicate a literal in both a `beforeEach`/setup block and an assertion — extract it so the two occurrences are linked by a single source of truth</never>
   <rationale>Prevents "magic number" drift between setup data and expected values. When a test fails because the setup value changed, the assertion message shows the constant name rather than a stale literal.</rationale>
   <see>T003 — T009 takes precedence over T003 for test-internal plumbing values (mock props, fixture data). T003 governs assertions against production contract values (enums, user-facing text). Favor `getUniqueString()` or `getUniqueInt()` from `@couimet/dynamic-testing` over static literals for shared constants — dynamic values prove the value is passed through rather than matching a hardcoded default at the destination. Exception: UI component tests (React Testing Library) that look up elements by text content (`getByText`, `getByRole`) need static literal strings that match what the component renders.</see>
+  <see>T011 — SCREAMING_SNAKE_CASE constants go at module level only. Values inside test functions use camelCase per T011.</see>
 </rule>
 
 <rule id="T010" priority="critical">
@@ -278,6 +403,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Reserve SCREAMING_SNAKE_CASE for module-level constants and values shared between `beforeEach`/setup blocks and assertions (see T009)</do>
   <never>Use SCREAMING_SNAKE_CASE for `const` variables declared inside `it()` blocks — they are regular local variables, not contract constants</never>
   <rationale>SCREAMING_SNAKE_CASE signals "this value is a frozen contract" (per T003, T009). Local test variables are plumbing, not contracts. Using the wrong case misleads the reader about the variable's role.</rationale>
+  <see>T009 — T009 is the ONLY exception: constants shared between beforeEach/setup and assertions go at module level in SCREAMING_SNAKE_CASE. Everything inside test functions uses camelCase.</see>
   <bad-example>
     ```typescript
     it('returns the correct value', () => {
@@ -300,6 +426,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 
 <rule id="P001" priority="critical">
   <title>No magic numbers</title>
+  <scope>Applies to production code only. Test constants follow T009 (module-level SCREAMING_SNAKE_CASE for values shared between setup and assertions) and T011 (local camelCase inside test functions).</scope>
   <do>Define named constants for all numeric literals with semantic meaning</do>
   <do>Use SCREAMING_SNAKE_CASE for constant names</do>
 </rule>
@@ -362,4 +489,62 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Export from `src/utils/index.ts` barrel file</do>
   <never>Define utility functions inline inside repository classes or service files — these are harder to discover, test in isolation, and reuse</never>
   <rationale>Small functional utilities are the most reusable and testable units of code. Extracting them eliminates duplication, makes tests focused and fast (no DI/mocking needed), and signals intent clearly through the filename. This is the single most impactful habit for keeping the codebase composable.</rationale>
+</rule>
+
+<rule id="P006" priority="critical">
+  <title>Resolve the database path via scripts/db/data-dir.sh, never guess it</title>
+  <do>Use `bash scripts/db/data-dir.sh` to get the data directory before running any `sqlite3`, `prisma`, or other database command</do>
+  <do>Construct the database path as `$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db`</do>
+  <never>Assume the database is at `data/rabbit-maximizer.db` relative to the current working directory — the repo uses git worktrees, and all worktrees share a single database in the main repository's `data/` directory</never>
+  <rationale>The `local` script in `package.json` overrides `DATABASE_URL` at startup with `file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db`, which resolves to the main repo's data directory (not the worktree's). The `.env` file's `DATABASE_URL=file:./data/rabbit-maximizer.db` is a relative fallback that may point to the wrong location when working from a worktree. Querying the wrong database leads to false conclusions — an empty database looks like a broken app when the real database is healthy.</rationale>
+</rule>
+
+<rule id="P007" priority="critical">
+  <title>Constructors must not call new() on collaborators</title>
+  <do>Inject a factory interface when a class needs to instantiate another class. The factory is registered in the DI container and injected via the constructor.</do>
+  <do>Follow the existing `ProbeFactory` pattern: define a factory interface, bind it in `container.ts`, inject it in the consuming class's constructor, and call `factory.create()` at the point of use.</do>
+  <never>Call `new` on a collaborator class inside a constructor or method of an @injectable() class</never>
+  <rationale>Inlined `new()` calls couple the parent to a concrete implementation, making unit testing harder (can't mock the collaborator) and violating the Dependency Inversion Principle. Factory injection keeps the container as the single source of wiring while allowing instances to be created at runtime with their own DI-resolved dependencies.</rationale>
+  <good-example>
+    ```typescript
+    @injectable()
+    class PollDetector extends IntervalService {
+      constructor(
+        @inject(TYPES.ReviewCompletionGuardFactory) private readonly reviewCompletionGuardFactory: ReviewCompletionGuardFactory,
+        @inject(TYPES.Logger) log: Logger,
+      ) {
+        super(log, POLL_INTERVAL_MS);
+      }
+      private async someMethod() {
+        const guard = this.reviewCompletionGuardFactory.create();
+        const hasReview = await guard.hasCompletedReview(prId);
+      }
+    }
+    ```
+  </good-example>
+  <bad-example>
+    ```typescript
+    @injectable()
+    class PollDetector extends IntervalService {
+      private async someMethod() {
+        const guard = new ReviewCompletionGuard(this.coderabbitCommentRepo); // BAD: inline new()
+        const hasReview = await guard.hasCompletedReview(prId);
+      }
+    }
+    ```
+  </bad-example>
+</rule>
+
+<rule id="P008" priority="critical">
+  <title>Zod schema defaults are self-documenting — no named constants needed</title>
+  <do>Use inline numeric literals in Zod `.default()` calls within schema definition files (<code>src/schemas/config.ts</code>). The config key name already documents the value's purpose</do>
+  <never>Extract a Zod schema `.default()` value into a named constant — the indirection adds noise without adding clarity</never>
+  <rationale>A Zod schema is a declarative specification of shape + defaults. The key name (e.g., <code>SCHEDULER_STALE_TICK_MULTIPLIER</code>) already names the value; wrapping <code>.default(4)</code> as <code>.default(SCHEDULER_STALE_TICK_MULTIPLIER_DEFAULT)</code> just repeats the key name with a <code>_DEFAULT</code> suffix. The inline literal is the single source of truth — there is no other reference site to keep in sync. P001 (no magic numbers) applies to business logic, not schema declarations.</rationale>
+</rule>
+
+<rule id="P009" priority="critical">
+  <title>Never delete the database file</title>
+  <never>Delete the database file (data/rabbit-maximizer.db) — even on a dev machine</never>
+  <do>Use surgical SQL operations: DROP COLUMN (SQLite ≥3.35), DELETE FROM _prisma_migrations to retry a specific migration, or create a new forward-fixing migration</do>
+  <rationale>The dev database contains real queue state, review history, and system configuration accumulated over time. Deleting it loses operational context that takes hours to rebuild. SQLite and Prisma support precise fixes that target only what needs changing.</rationale>
 </rule>

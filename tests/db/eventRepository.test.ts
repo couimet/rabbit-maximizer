@@ -1,9 +1,8 @@
-import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/eventRepository.js';
-import { TYPES } from '../../src/inversify-types.js';
-import { EventType } from '../../src/types/index.js';
-import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
+import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/index.js';
+import { EventType, TYPES } from '../../src/domain.js';
+import { createMockPrismaClient, createResolvedMock, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it } from '@jest/globals';
@@ -14,9 +13,8 @@ describe('EventRepositoryImpl', () => {
   const EXPECTED_EVENT_COUNT = 2;
 
   describe('record', () => {
-    it('inserts a detected event and returns the parsed entry', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+    it('inserts a detected event standalone through its own client when no tx is passed', async () => {
+      const ref = generateReviewRef();
       const correlationId = getUuid();
       const requestId = getUuid();
       const version = getUniqueString({ prefix: 'v' });
@@ -30,8 +28,8 @@ describe('EventRepositoryImpl', () => {
         uuid,
         ts,
         type: 'detected',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: requestId,
         version,
@@ -47,20 +45,20 @@ describe('EventRepositoryImpl', () => {
 
       const input: NewEvent = {
         type: EventType.detected,
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: requestId,
         version,
         payload: { source_comment_url: sourceCommentUrl },
       };
-      const result = await sut.record(input, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.record(input, undefined);
 
       expect(event.create).toHaveBeenCalledWith({
         data: {
           type: 'detected',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: correlationId,
           request_id: requestId,
           version,
@@ -73,20 +71,22 @@ describe('EventRepositoryImpl', () => {
         uuid,
         ts,
         type: 'detected',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: requestId,
         version,
         metadata: undefined,
         payload: { source_comment_url: sourceCommentUrl },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.record', type: 'detected', repo, pr }, 'Event recorded');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'EventRepositoryImpl.record', type: 'detected', repo: ref.repoFullName, pr: ref.prNumber },
+        'Event recorded',
+      );
     });
 
     it('writes through the transaction client and serializes metadata', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const correlationId = getUuid();
       const version = getUniqueString({ prefix: 'v' });
       const reason = getUniqueString({ prefix: 'reason-' });
@@ -101,8 +101,8 @@ describe('EventRepositoryImpl', () => {
         uuid: getUuid(),
         ts,
         type: 'failed',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: null,
         version,
@@ -120,8 +120,8 @@ describe('EventRepositoryImpl', () => {
       const result = await sut.record(
         {
           type: EventType.failed,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: correlationId,
           version,
           metadata,
@@ -133,8 +133,8 @@ describe('EventRepositoryImpl', () => {
       expect(tx.event.create).toHaveBeenCalledWith({
         data: {
           type: 'failed',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: correlationId,
           request_id: null,
           version,
@@ -145,24 +145,25 @@ describe('EventRepositoryImpl', () => {
       expect(base.event.create).not.toHaveBeenCalled();
       expect(result.metadata).toStrictEqual(metadata);
       expect(result.request_id).toBeUndefined();
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.record', type: 'failed', repo, pr }, 'Event recorded');
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'EventRepositoryImpl.record', type: 'failed', repo: ref.repoFullName, pr: ref.prNumber },
+        'Event recorded',
+      );
     });
   });
 
   describe('listForPr', () => {
     it('returns events for a PR ordered by ts', async () => {
-      const { fullName: repo } = getUniqueGitHubRepoRef();
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const detectedUrl = getUniqueString({ prefix: 'https://gh/c/' });
-      const scheduledFor = getUniqueDate();
 
       const detectedRow = {
         id: getUniqueInt(),
         uuid: getUuid(),
         ts: getUniqueDate(),
         type: 'detected',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: getUuid(),
         request_id: null,
         version: getUniqueString(),
@@ -174,15 +175,12 @@ describe('EventRepositoryImpl', () => {
         uuid: getUuid(),
         ts: getUniqueDate(),
         type: 'enqueued',
-        repo_full_name: repo,
-        pr_number: pr,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
         correlation_id: getUuid(),
         request_id: null,
         version: getUniqueString(),
-        payload: JSON.stringify({
-          not_before: scheduledFor.toISOString(),
-          new_wait: 60,
-        }),
+        payload: JSON.stringify({}),
         metadata: null,
       };
 
@@ -192,10 +190,10 @@ describe('EventRepositoryImpl', () => {
       const logger = createMockLogger();
       const sut = new EventRepositoryImpl(prisma, logger);
 
-      const result = await sut.listForPr(repo, pr);
+      const result = await sut.listForPr(ref.repoFullName, ref.prNumber);
 
       expect(event.findMany).toHaveBeenCalledWith({
-        where: { repo_full_name: repo, pr_number: pr },
+        where: { repo_full_name: ref.repoFullName, pr_number: ref.prNumber },
         orderBy: { ts: 'asc' },
       });
       expect(result).toStrictEqual([
@@ -203,8 +201,8 @@ describe('EventRepositoryImpl', () => {
           id: detectedRow.id,
           uuid: detectedRow.uuid,
           ts: detectedRow.ts,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: detectedRow.correlation_id,
           request_id: undefined,
           version: detectedRow.version,
@@ -216,24 +214,21 @@ describe('EventRepositoryImpl', () => {
           id: enqueuedRow.id,
           uuid: enqueuedRow.uuid,
           ts: enqueuedRow.ts,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: enqueuedRow.correlation_id,
           request_id: undefined,
           version: enqueuedRow.version,
           metadata: undefined,
           type: 'enqueued',
-          payload: {
-            not_before: scheduledFor,
-            new_wait: 60,
-          },
+          payload: {},
         },
       ]);
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'EventRepositoryImpl.listForPr',
-          repo,
-          pr,
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
           count: EXPECTED_EVENT_COUNT,
         },
         'Listed events for PR',
@@ -245,8 +240,7 @@ describe('EventRepositoryImpl', () => {
     it('returns paginated events sorted by ts descending, with total count', async () => {
       const skip = 0;
       const take = 10;
-      const repo = getUniqueGitHubRepoRef().fullName;
-      const pr = getUniqueInt();
+      const ref = generateReviewRef();
       const sourceCommentUrl = getUniqueString();
       const retriggeredCommentUrl = getUniqueString();
       const rows = [
@@ -255,8 +249,8 @@ describe('EventRepositoryImpl', () => {
           uuid: getUuid(),
           ts: getUniqueDate(),
           type: 'retriggered',
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: getUuid(),
           request_id: null,
           version: getUniqueString(),
@@ -285,8 +279,8 @@ describe('EventRepositoryImpl', () => {
           id: rows[0].id,
           uuid: rows[0].uuid,
           ts: rows[0].ts,
-          repo_full_name: repo,
-          pr_number: pr,
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
           correlation_id: rows[0].correlation_id,
           request_id: undefined,
           version: rows[0].version,
@@ -303,14 +297,43 @@ describe('EventRepositoryImpl', () => {
   describe('countByType', () => {
     it('returns counts keyed by EventType for events since the given date', async () => {
       const since = getUniqueDate();
+      const {
+        detectedCnt,
+        enqueuedCnt,
+        retriggeredCnt,
+        dismissedCnt,
+        approvedCnt,
+        changesReqCnt,
+        skippedCnt,
+        failedCnt,
+        runIdChangedCnt,
+        runIdClearedCnt,
+        runIdFirstSeenCnt,
+      } = getUniqueIntsNamed([
+        'detectedCnt',
+        'enqueuedCnt',
+        'retriggeredCnt',
+        'dismissedCnt',
+        'approvedCnt',
+        'changesReqCnt',
+        'skippedCnt',
+        'failedCnt',
+        'runIdChangedCnt',
+        'runIdClearedCnt',
+        'runIdFirstSeenCnt',
+      ]);
       const rows = [
-        { type: 'detected', _count: { type: 11 } },
-        { type: 'enqueued', _count: { type: 8 } },
-        { type: 'retriggered', _count: { type: 5 } },
-        { type: 'bypassed', _count: { type: 3 } },
-        { type: 'coderabbit_review_approved', _count: { type: 1 } },
-        { type: 'coderabbit_review_changes_requested', _count: { type: 1 } },
-        { type: 'failed', _count: { type: 1 } },
+        { type: 'detected', _count: { type: detectedCnt } },
+        { type: 'enqueued', _count: { type: enqueuedCnt } },
+        { type: 'retriggered', _count: { type: retriggeredCnt } },
+        { type: 'dismissed', _count: { type: dismissedCnt } },
+        { type: 'coderabbit_review_approved', _count: { type: approvedCnt } },
+        { type: 'coderabbit_review_changes_suggested', _count: { type: changesReqCnt } },
+        { type: 'coderabbit_review_skipped', _count: { type: skippedCnt } },
+        { type: 'coderabbit_run_id_changed', _count: { type: runIdChangedCnt } },
+        { type: 'coderabbit_run_id_cleared', _count: { type: runIdClearedCnt } },
+        { type: 'coderabbit_run_id_first_seen', _count: { type: runIdFirstSeenCnt } },
+        { type: 'failed', _count: { type: failedCnt } },
       ];
 
       const { prisma, event } = createMockPrismaClient({
@@ -327,29 +350,72 @@ describe('EventRepositoryImpl', () => {
         _count: { type: true },
       });
       expect(result).toStrictEqual({
-        bypassed: 3,
-        detected: 11,
-        enqueued: 8,
-        failed: 1,
-        retriggered: 5,
-        coderabbit_review_approved: 1,
-        coderabbit_review_changes_requested: 1,
+        dismissed: dismissedCnt,
+        coderabbit_review_approved: approvedCnt,
+        coderabbit_review_changes_suggested: changesReqCnt,
+        coderabbit_review_skipped: skippedCnt,
+        coderabbit_run_id_changed: runIdChangedCnt,
+        coderabbit_run_id_cleared: runIdClearedCnt,
+        coderabbit_run_id_first_seen: runIdFirstSeenCnt,
+        detected: detectedCnt,
+        enqueued: enqueuedCnt,
+        failed: failedCnt,
+        retriggered: retriggeredCnt,
       });
       expect(logger.debug).toHaveBeenCalledWith(
         {
           fn: 'EventRepositoryImpl.countByType',
           counts: {
-            bypassed: 3,
-            detected: 11,
-            enqueued: 8,
-            failed: 1,
-            retriggered: 5,
-            coderabbit_review_approved: 1,
-            coderabbit_review_changes_requested: 1,
+            dismissed: dismissedCnt,
+            coderabbit_review_approved: approvedCnt,
+            coderabbit_review_changes_suggested: changesReqCnt,
+            coderabbit_review_skipped: skippedCnt,
+            coderabbit_run_id_changed: runIdChangedCnt,
+            coderabbit_run_id_cleared: runIdClearedCnt,
+            coderabbit_run_id_first_seen: runIdFirstSeenCnt,
+            detected: detectedCnt,
+            enqueued: enqueuedCnt,
+            failed: failedCnt,
+            retriggered: retriggeredCnt,
           },
         },
         'Counted events by type',
       );
+    });
+
+    it('excludes rows with undeclared event types', async () => {
+      const since = getUniqueDate();
+      const { detectedCnt, enqueuedCnt } = getUniqueIntsNamed(['detectedCnt', 'enqueuedCnt']);
+      const unknownCnt = getUniqueInt();
+      const rows = [
+        { type: 'detected', _count: { type: detectedCnt } },
+        { type: 'enqueued', _count: { type: enqueuedCnt } },
+        { type: 'undeclared_type', _count: { type: unknownCnt } },
+      ];
+      const expectedCounts = {
+        dismissed: 0,
+        coderabbit_review_approved: 0,
+        coderabbit_review_changes_suggested: 0,
+        coderabbit_review_skipped: 0,
+        coderabbit_run_id_changed: 0,
+        coderabbit_run_id_cleared: 0,
+        coderabbit_run_id_first_seen: 0,
+        detected: detectedCnt,
+        enqueued: enqueuedCnt,
+        failed: 0,
+        retriggered: 0,
+      };
+
+      const { prisma } = createMockPrismaClient({
+        event: { groupBy: createResolvedMock(rows) },
+      });
+      const logger = createMockLogger();
+      const sut = new EventRepositoryImpl(prisma, logger);
+
+      const result = await sut.countByType(since);
+
+      expect(result).toStrictEqual(expectedCounts);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.countByType', counts: expectedCounts }, 'Counted events by type');
     });
   });
 

@@ -1,23 +1,27 @@
-import { TYPES } from '../inversify-types.js';
-import type { AcknowledgementResult } from '../types/AcknowledgementResult.js';
-import type { DetectedComment } from '../types/DetectedComment.js';
-import type { PRState } from '../types/PRState.js';
-import type { RepoFilter } from '../types/RepoFilter.js';
-import type { ReviewLimitComment } from '../types/ReviewLimitComment.js';
-import type { TriggerSource } from '../types/TriggerSource.js';
+import { type TriggerSource, TYPES } from '../domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, RetriggerDiagnosis, ReviewLimitComment } from '../types/index.js';
 
-import type { CoderabbitReview, CompletedReview, RetriggerComment } from './types/index.js';
-import { buildCommentBody } from './buildCommentBody.js';
-import { buildSearchQuery } from './buildSearchQuery.js';
-import { extractRepoFullName } from './extractRepoFullName.js';
-import { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
-import { hasRateLimitMarker } from './hasRateLimitMarker.js';
-import { isAcknowledgementComment } from './isAcknowledgementComment.js';
-import { isApprovalReviewSignal } from './isApprovalReviewSignal.js';
-import { isMatchingCoderabbitReview } from './isMatchingCoderabbitReview.js';
-import { isMatchingCompletedReview } from './isMatchingCompletedReview.js';
-import { splitRepo } from './splitRepo.js';
-import { toReviewState } from './toReviewState.js';
+import type { CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
+import {
+  buildCommentBody,
+  buildOpenPRSearchQuery,
+  buildSearchQuery,
+  classifyCoderabbitComment,
+  extractRepoFullName,
+  hasOwnRetriggerMarker,
+  hasRateLimitMarker,
+  hasRateLimitOrSkipMarker,
+  isAcknowledgementComment,
+  isApprovalReviewSignal,
+  isMatchingCompletedReview,
+  isReviewForRun,
+  normalizeCommentBody,
+  parseCommentUrl,
+  splitRepo,
+  SubmittedComment,
+  SubmittedReview,
+} from './index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { Octokit } from '@octokit/rest';
@@ -26,19 +30,41 @@ import { inject, injectable } from 'inversify';
 const SEARCH_PER_PAGE = 100;
 const SEARCH_MAX_PAGES = 3;
 const COMMENTS_FETCH_PER_PAGE = 100;
+const OPEN_PR_SEARCH_PER_PAGE = 100;
+const OPEN_PR_SEARCH_MAX_PAGES = 3;
+const UNKNOWN_USER = '<unknown>';
 
 export interface CoderabbitGitHubClient {
   searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]>;
 
-  fetchComment(owner: string, repo: string, commentId: number): Promise<string>;
+  fetchComment(owner: string, repo: string, commentId: number): Promise<FetchCommentResult>;
+  fetchCommentByUrl(url: string): Promise<FetchCommentResult>;
 
-  postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment>;
+  listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]>;
+
+  listOpenPRs(repoFilter: readonly RepoFilter[]): Promise<DiscoveredPR[]>;
+
+  postRetrigger(
+    repo: string,
+    pr: number,
+    sourceCommentUrl: string | undefined,
+    runId: string,
+    triggerSource: TriggerSource,
+    diagnosis: RetriggerDiagnosis | undefined,
+  ): Promise<RetriggerComment>;
 
   getPRState(repo: string, pr: number): Promise<PRState>;
+  getPRHeadSha(owner: string, repo: string, prNumber: number): Promise<string>;
+  getCommitCommittedAt(owner: string, repo: string, sha: string): Promise<string>;
 
-  findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined>;
-
-  findLatestCoderabbitReview(owner: string, repo: string, pr: number, since: Date): Promise<CoderabbitReview | undefined>;
+  findCompletedReview(
+    owner: string,
+    repo: string,
+    pr: number,
+    since: Date,
+    expectedRunId: string | undefined,
+    expectedHeadSha: string | undefined,
+  ): Promise<CompletedReview | undefined>;
 
   findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
 
@@ -86,17 +112,19 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
           per_page: COMMENTS_FETCH_PER_PAGE,
         });
 
-        const rateLimitComment = comments.data.find((c) => c.body && hasRateLimitMarker(c.body));
+        const rateLimitComment = comments.data.find((c) => hasRateLimitOrSkipMarker(c.body));
 
         if (rateLimitComment && rateLimitComment.body) {
           results.push({
-            repo_full_name: repoFullName,
-            pr_number: item.number,
-            pr_title: item.title,
-            comment_id: rateLimitComment.id,
+            repoFullName,
+            prNumber: item.number,
+            prTitle: item.title,
+            body: rateLimitComment.body,
+            commentType: classifyCoderabbitComment(rateLimitComment.body).classification,
+            commentId: rateLimitComment.id,
             url: rateLimitComment.html_url,
-            created_at: rateLimitComment.created_at,
-            updated_at: rateLimitComment.updated_at,
+            createdAt: rateLimitComment.created_at,
+            updatedAt: rateLimitComment.updated_at,
           });
         }
       }
@@ -107,7 +135,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
     return results;
   }
 
-  async fetchComment(owner: string, repo: string, commentId: number): Promise<string> {
+  async fetchComment(owner: string, repo: string, commentId: number): Promise<FetchCommentResult> {
     this.log.debug({ fn: 'fetchComment', owner, repo, commentId }, 'Fetching comment body');
 
     const response = await this.octokit.rest.issues.getComment({
@@ -116,12 +144,93 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       comment_id: commentId,
     });
 
-    return response.data.body ?? '';
+    return { body: normalizeCommentBody(response.data.body), createdAt: response.data.created_at, updatedAt: response.data.updated_at };
   }
 
-  async postRetrigger(repo: string, pr: number, sourceCommentUrl: string, runId: string, triggerSource: TriggerSource): Promise<RetriggerComment> {
+  // eslint-disable-next-line require-await
+  async fetchCommentByUrl(url: string): Promise<FetchCommentResult> {
+    const parsed = parseCommentUrl(url);
+    if (!parsed) {
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.GITHUB_INVALID_COMMENT_URL,
+        message: `Cannot parse comment URL: ${url}`,
+        functionName: 'fetchCommentByUrl',
+        details: { url },
+      });
+    }
+    return this.fetchComment(parsed.owner, parsed.repo, parsed.commentId);
+  }
+
+  async listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]> {
+    this.log.debug({ fn: 'listComments', owner, repo, issueNumber }, 'Listing issue comments');
+
+    const results: ListedComment[] = [];
+    for (let page = 1; ; page++) {
+      const response = await this.octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        per_page: COMMENTS_FETCH_PER_PAGE,
+        page,
+      });
+
+      for (const c of response.data) {
+        results.push({
+          body: normalizeCommentBody(c.body),
+          id: c.id,
+          createdAt: new Date(c.created_at),
+          updatedAt: new Date(c.updated_at),
+          user: c.user?.login ?? UNKNOWN_USER,
+        });
+      }
+
+      if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
+    }
+
+    return results;
+  }
+
+  async listOpenPRs(repoFilter: readonly RepoFilter[]): Promise<DiscoveredPR[]> {
+    const query = buildOpenPRSearchQuery(repoFilter);
+    this.log.debug({ fn: 'listOpenPRs', query }, 'Searching for open PRs');
+
+    const results: DiscoveredPR[] = [];
+    for (let page = 1; page <= OPEN_PR_SEARCH_MAX_PAGES; page++) {
+      const response = await this.octokit.rest.search.issuesAndPullRequests({
+        q: query,
+        sort: 'created',
+        order: 'desc',
+        per_page: OPEN_PR_SEARCH_PER_PAGE,
+        page,
+      });
+
+      if (response.data.items.length === 0) break;
+
+      for (const item of response.data.items) {
+        results.push({
+          repoFullName: extractRepoFullName(item.repository_url),
+          prNumber: item.number,
+          prTitle: item.title,
+          authorLogin: item.user?.login ?? '<unknown>',
+        });
+      }
+
+      if (response.data.items.length < OPEN_PR_SEARCH_PER_PAGE) break;
+    }
+
+    return results;
+  }
+
+  async postRetrigger(
+    repo: string,
+    pr: number,
+    sourceCommentUrl: string | undefined,
+    runId: string,
+    triggerSource: TriggerSource,
+    diagnosis: RetriggerDiagnosis | undefined,
+  ): Promise<RetriggerComment> {
     const { owner, repo: repoName } = splitRepo(repo);
-    const body = buildCommentBody(sourceCommentUrl, runId, triggerSource);
+    const body = buildCommentBody(sourceCommentUrl, runId, triggerSource, diagnosis);
 
     this.log.info({ fn: 'postRetrigger', owner, repo: repoName, pr, runId, triggerSource }, 'Posting retrigger comment');
 
@@ -146,12 +255,47 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
       pull_number: pr,
     });
 
-    return { state: response.data.state, merged_at: response.data.merged_at };
+    return { state: response.data.state, merged_at: response.data.merged_at, closed_at: response.data.closed_at };
   }
 
-  async findCompletedReview(owner: string, repo: string, pr: number, since: Date): Promise<CompletedReview | undefined> {
+  async getPRHeadSha(owner: string, repo: string, prNumber: number): Promise<string> {
+    this.log.debug({ fn: 'getPRHeadSha', owner, repo, prNumber }, 'Fetching PR head sha');
+
+    const response = await this.octokit.rest.pulls.get({
+      owner,
+      repo,
+      pull_number: prNumber,
+    });
+
+    return response.data.head.sha;
+  }
+
+  async getCommitCommittedAt(owner: string, repo: string, sha: string): Promise<string> {
+    this.log.debug({ fn: 'getCommitCommittedAt', owner, repo, sha }, 'Fetching commit timestamp');
+
+    const response = await this.octokit.rest.repos.getCommit({
+      owner,
+      repo,
+      ref: sha,
+    });
+
+    // Every commit has a committer date; the API type only marks it nullable.
+    return response.data.commit.committer!.date!;
+  }
+
+  async findCompletedReview(
+    owner: string,
+    repo: string,
+    pr: number,
+    since: Date,
+    expectedRunId: string | undefined,
+    expectedHeadSha: string | undefined,
+  ): Promise<CompletedReview | undefined> {
     this.log.debug({ fn: 'findCompletedReview', owner, repo, pr }, 'Searching for completed review');
 
+    // listReviews returns reviews oldest-first, so the first accepted match is the OLDEST,
+    // not the freshest. Scan every page and keep the newest accepted review.
+    let latest: CompletedReview | undefined;
     for (let page = 1; ; page++) {
       const response = await this.octokit.rest.pulls.listReviews({
         owner,
@@ -161,46 +305,25 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         page,
       });
 
-      const completedReview = response.data.find((r) => isMatchingCompletedReview(r, since));
-
-      if (completedReview) {
-        this.log.info(
-          { fn: 'findCompletedReview', owner, repo, pr, reviewId: completedReview.id, htmlUrl: completedReview.html_url },
-          'Found completed review',
-        );
-        return { htmlUrl: completedReview.html_url, reviewId: completedReview.id, isApproval: isApprovalReviewSignal(completedReview.body!) };
+      for (const r of response.data) {
+        const review = SubmittedReview.from(r);
+        if (!isMatchingCompletedReview(review, since) || !isReviewForRun(review, expectedRunId, expectedHeadSha)) continue;
+        latest = {
+          htmlUrl: r.html_url,
+          reviewId: r.id,
+          // Body is a string here: isMatchingCompletedReview rejects bodyless reviews first.
+          isApproval: isApprovalReviewSignal(r.body!),
+          commitId: r.commit_id ?? undefined,
+        };
       }
 
       if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
     }
 
-    return undefined;
-  }
-
-  async findLatestCoderabbitReview(owner: string, repo: string, pr: number, since: Date): Promise<CoderabbitReview | undefined> {
-    this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr }, 'Searching for latest CodeRabbit review');
-
-    for (let page = 1; ; page++) {
-      const response = await this.octokit.rest.pulls.listReviews({
-        owner,
-        repo,
-        pull_number: pr,
-        per_page: COMMENTS_FETCH_PER_PAGE,
-        page,
-      });
-
-      const review = response.data.find((r) => isMatchingCoderabbitReview(r, since));
-
-      if (review) {
-        const state = toReviewState(review.state);
-        this.log.debug({ fn: 'findLatestCoderabbitReview', owner, repo, pr, reviewId: review.id, state }, 'Found CodeRabbit review');
-        return { htmlUrl: review.html_url, state };
-      }
-
-      if (response.data.length < COMMENTS_FETCH_PER_PAGE) break;
+    if (latest) {
+      this.log.info({ fn: 'findCompletedReview', owner, repo, pr, reviewId: latest.reviewId, htmlUrl: latest.htmlUrl }, 'Found completed review');
     }
-
-    return undefined;
+    return latest;
   }
 
   async findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined> {
@@ -223,12 +346,12 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         'Found latest rate-limit comment',
       );
       return {
-        repo_full_name: `${owner}/${repo}`,
-        pr_number: pr,
-        comment_id: rateLimitComment.id,
+        repoFullName: `${owner}/${repo}`,
+        prNumber: pr,
+        commentId: rateLimitComment.id,
         url: rateLimitComment.html_url,
-        created_at: rateLimitComment.created_at,
-        updated_at: rateLimitComment.updated_at,
+        createdAt: rateLimitComment.created_at,
+        updatedAt: rateLimitComment.updated_at,
       };
     }
 
@@ -250,7 +373,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
         page,
       });
 
-      const ackComment = response.data.find((c) => isAcknowledgementComment(c));
+      const ackComment = response.data.find((c) => isAcknowledgementComment(SubmittedComment.from(c)));
 
       if (ackComment) {
         this.log.debug(

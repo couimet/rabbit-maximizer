@@ -1,128 +1,52 @@
-import { type QueueOrderRepository, QueueOrderRepositoryImpl } from '../../src/db/queueOrderRepository.js';
-import { TYPES } from '../../src/inversify-types.js';
-import { type QueueItem, QueueStatus, TriggerSource } from '../../src/types/index.js';
-import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
+import { type QueueOrderRepository, QueueOrderRepositoryImpl } from '../../src/db/index.js';
+import { TYPES } from '../../src/domain.js';
+import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
+import { createMockPrismaClient, createResolvedMock, generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
-interface MakeRowOverrides {
-  id?: number;
-  repo_full_name?: string;
-  pr_number?: number;
-  pr_title?: string;
-  status?: string;
-  not_before?: Date;
-  attempts?: number;
-  source_comment_url?: string;
-  source_comment_id?: number;
-  trigger_source?: string | null;
-  retriggered_at?: Date | null;
-  failed_at?: Date | null;
-  reviewed_at?: Date | null;
-}
-
-const makeRow = (over: MakeRowOverrides = {}, qoOver: { id?: number; position?: number | null } = {}) => {
-  const commentId = getUniqueInt();
-  return {
-    id: over.id ?? getUniqueInt(),
-    uuid: getUuid(),
-    repo_full_name: over.repo_full_name ?? getUniqueGitHubRepoRef().fullName,
-    pr_number: over.pr_number ?? getUniqueInt(),
-    pr_title: over.pr_title ?? 'Test PR title',
-    status: over.status ?? 'pending',
-    not_before: over.not_before ?? new Date(Date.now() - 60_000),
-    attempts: over.attempts ?? 0,
-    source_comment_url: over.source_comment_url ?? `https://gh/c/${getUniqueInt()}#issuecomment-${commentId}`,
-    source_comment_id: over.source_comment_id ?? commentId,
-    trigger_source: over.trigger_source ?? null,
-    retriggered_at: over.retriggered_at ?? null,
-    failed_at: over.failed_at ?? null,
-    reviewed_at: over.reviewed_at ?? null,
-    pull_request_id: getUniqueInt(),
-    created_at: getUniqueDate(),
-    updated_at: getUniqueDate(),
-    queueOrder: {
-      id: qoOver.id ?? getUniqueInt(),
-      queue_item_id: over.id ?? 0,
-      position: qoOver.position ?? null,
-      created_at: getUniqueDate(),
-      updated_at: getUniqueDate(),
-    },
-  };
-};
-
-const toExpectedItem = (row: ReturnType<typeof makeRow>): QueueItem => ({
-  id: row.id,
-  uuid: row.uuid,
-  repo_full_name: row.repo_full_name,
-  pr_number: row.pr_number,
-  pr_title: row.pr_title,
-  status: row.status as QueueStatus,
-  not_before: row.not_before,
-  attempts: row.attempts,
-  source_comment_url: row.source_comment_url,
-  source_comment_id: row.source_comment_id,
-  trigger_source: row.trigger_source as TriggerSource,
-  retriggered_at: row.retriggered_at ?? undefined,
-  failed_at: row.failed_at ?? undefined,
-  reviewed_at: row.reviewed_at ?? undefined,
-  pull_request_id: row.pull_request_id!,
-  created_at: row.created_at,
-  updated_at: row.updated_at,
-});
-
 describe('QueueOrderRepositoryImpl', () => {
-  let logger: Logger;
+  let logger: ReturnType<typeof createMockLogger>;
   let frozenNow: Date;
+  let mapper: ReviewQueueToQueueItemMapper;
 
   beforeEach(() => {
     frozenNow = getUniqueDate();
     logger = createMockLogger();
+    mapper = new ReviewQueueToQueueItemMapper();
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);
   });
 
   describe('getEffectiveOrder', () => {
     it('returns explicit-position items before unordered items, and unordered items sorted by queue_order id ASC', async () => {
-      const itemOrdered = makeRow({}, { position: 2 });
-      const itemNoPos1 = makeRow({}, { position: null, id: 5 });
-      const itemNoPos2 = makeRow({}, { position: null, id: 3 });
+      const itemOrdered = generateReviewQueueWithOrderHydrationData({}, { position: 2 });
+      const itemNoPos1 = generateReviewQueueWithOrderHydrationData({}, { position: null, id: 5 });
+      const itemNoPos2 = generateReviewQueueWithOrderHydrationData({}, { position: null, id: 3 });
       const rows = [itemNoPos1, itemOrdered, itemNoPos2];
 
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.getEffectiveOrder();
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: 'pending', not_before: { lte: frozenNow } },
+        where: { status: { in: ['pending', 'retriggered'] } },
         include: { queueOrder: true },
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
-      expect(result).toStrictEqual(rows.map(toExpectedItem));
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 3, eligibleOnly: true }, 'Fetched effective order');
-    });
-
-    it('only returns pending items with not_before <= now', async () => {
-      const eligible = makeRow({ not_before: new Date(Date.now() - 60_000) });
-      const rows = [eligible];
-
-      const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
-
-      const result = await sut.getEffectiveOrder();
-
-      expect(result).toStrictEqual([toExpectedItem(eligible)]);
+      expect(result).toStrictEqual(rows.map((row) => mapper.fromReviewQueue(row)));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 3 }, 'Fetched effective order');
     });
 
     it('returns empty array when nothing eligible', async () => {
       const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock([]) } });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.getEffectiveOrder();
 
@@ -130,45 +54,55 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('filters out rows with null pull_request_id and logs a warning', async () => {
-      const valid = makeRow();
-      const nullPR = { ...makeRow(), pull_request_id: null };
+      const valid = generateReviewQueueWithOrderHydrationData();
+      const nullPR = { ...generateReviewQueueWithOrderHydrationData(), pull_request_id: null };
       const rows = [valid, nullPR];
 
       const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.getEffectiveOrder();
 
-      expect(result).toStrictEqual([toExpectedItem(valid)]);
+      expect(result).toStrictEqual([mapper.fromReviewQueue(valid)]);
       expect(logger.warn).toHaveBeenCalledWith(
         { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', total: 2, valid: 1 },
         'Filtered out rows with null pull_request_id',
       );
     });
 
-    it('returns all pending items regardless of not_before when eligibleOnly is false', async () => {
-      const rows = [makeRow({ not_before: new Date(Date.now() + 3600_000) })];
+    it('returns all pending items', async () => {
+      const rows = [generateReviewQueueWithOrderHydrationData(), generateReviewQueueWithOrderHydrationData()];
+      const { prisma } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
+
+      const result = await sut.getEffectiveOrder();
+
+      expect(result).toStrictEqual(rows.map((row) => mapper.fromReviewQueue(row)));
+    });
+
+    it('returns all effective-order items sorted by position', async () => {
+      const itemA = generateReviewQueueWithOrderHydrationData({ status: 'pending' });
+      const itemB = generateReviewQueueWithOrderHydrationData({ status: 'retriggered' }, { position: null, id: getUniqueInt() });
+      const rows = [itemA, itemB];
 
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
-      const result = await sut.getEffectiveOrder({ eligibleOnly: false });
+      const result = await sut.getEffectiveOrder();
 
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
-        where: { status: 'pending' },
+        where: { status: { in: ['pending', 'retriggered'] } },
         include: { queueOrder: true },
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
-      expect(result).toStrictEqual(rows.map(toExpectedItem));
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 1, eligibleOnly: false },
-        'Fetched effective order',
-      );
+      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemB)]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: 2 }, 'Fetched effective order');
     });
   });
 
   describe('moveItems', () => {
-    const makeMoveRow = (id: number, position?: number | null) => makeRow({ id }, { position: position ?? null, id: getUniqueInt() });
+    const makeMoveRow = (id: number, position?: number | null) =>
+      generateReviewQueueWithOrderHydrationData({ id, status: 'pending' }, { position: position ?? null, id: getUniqueInt() });
 
     const setupMoveMocks = (mockItems: ReturnType<typeof makeMoveRow>[], finalItems: ReturnType<typeof makeMoveRow>[]) => {
       const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
@@ -187,7 +121,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemC = makeMoveRow(3, 3);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC], [itemA, itemC, itemB]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemC.uuid], 'up');
 
@@ -199,7 +133,7 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemC.queueOrder.id }, data: { position: 2 } });
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
 
-      expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemC), toExpectedItem(itemB)]);
+      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemC), mapper.fromReviewQueue(itemB)]);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: [itemC.uuid], direction: 'up' }, 'Moved items in queue order');
     });
 
@@ -209,7 +143,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemC = makeMoveRow(3, 3);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC], [itemB, itemA, itemC]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemA.uuid], 'down');
 
@@ -221,7 +155,7 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: 3 } });
 
-      expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemA), toExpectedItem(itemC)]);
+      expect(result).toStrictEqual([mapper.fromReviewQueue(itemB), mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemC)]);
     });
 
     it('moves multi-select adjacent items as a block (up)', async () => {
@@ -231,7 +165,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemD = makeMoveRow(4, 4);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC, itemD], [itemB, itemC, itemA, itemD]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemB.uuid, itemC.uuid], 'up');
 
@@ -244,7 +178,12 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemA.queueOrder.id }, data: { position: 3 } });
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemD.queueOrder.id }, data: { position: 4 } });
 
-      expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemC), toExpectedItem(itemA), toExpectedItem(itemD)]);
+      expect(result).toStrictEqual([
+        mapper.fromReviewQueue(itemB),
+        mapper.fromReviewQueue(itemC),
+        mapper.fromReviewQueue(itemA),
+        mapper.fromReviewQueue(itemD),
+      ]);
     });
 
     it('moves multi-select adjacent items as a block (down)', async () => {
@@ -254,7 +193,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemD = makeMoveRow(4, 4);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC, itemD], [itemA, itemD, itemB, itemC]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemB.uuid, itemC.uuid], 'down');
 
@@ -267,7 +206,12 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemC.queueOrder.id }, data: { position: 4 } });
 
-      expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemD), toExpectedItem(itemB), toExpectedItem(itemC)]);
+      expect(result).toStrictEqual([
+        mapper.fromReviewQueue(itemA),
+        mapper.fromReviewQueue(itemD),
+        mapper.fromReviewQueue(itemB),
+        mapper.fromReviewQueue(itemC),
+      ]);
     });
 
     it('skips selected item IDs not found in effective order', async () => {
@@ -275,7 +219,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemB = makeMoveRow(2, 2);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB], [itemA, itemB]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       await sut.moveItems([itemA.uuid, '00000000-0000-0000-0000-000000000999'], 'up');
 
@@ -293,11 +237,11 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemC = makeMoveRow(3, 3);
 
       const { prisma } = setupMoveMocks([itemA, itemB, itemC], [itemB, itemA, itemC]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemC.uuid, itemC.uuid], 'up');
 
-      expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemA), toExpectedItem(itemC)]);
+      expect(result).toStrictEqual([mapper.fromReviewQueue(itemB), mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemC)]);
     });
 
     it('does not swap when the neighbor is also selected (blocks at boundary)', async () => {
@@ -306,7 +250,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemC = makeMoveRow(3, 3);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC], [itemA, itemB, itemC]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemA.uuid, itemB.uuid], 'up');
 
@@ -317,7 +261,7 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: 3 } });
-      expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemB), toExpectedItem(itemC)]);
+      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemB), mapper.fromReviewQueue(itemC)]);
     });
 
     it('keeps item at the top when moving up', async () => {
@@ -325,7 +269,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemB = makeMoveRow(2, 2);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB], [itemA, itemB]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemA.uuid], 'up');
 
@@ -335,7 +279,7 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
-      expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemB)]);
+      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemB)]);
     });
 
     it('keeps item at the bottom when moving down', async () => {
@@ -343,7 +287,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemB = makeMoveRow(2, 2);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB], [itemA, itemB]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemB.uuid], 'down');
 
@@ -353,7 +297,7 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
-      expect(result).toStrictEqual([toExpectedItem(itemA), toExpectedItem(itemB)]);
+      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemB)]);
     });
 
     it('normalize-all assigns positions 1, 2, 3... after a move', async () => {
@@ -362,7 +306,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const itemC = makeMoveRow(3, 3);
 
       const { prisma, queueOrderMock } = setupMoveMocks([itemA, itemB, itemC], [itemA, itemC, itemB]);
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       await sut.moveItems([itemC.uuid], 'up');
 
@@ -376,8 +320,13 @@ describe('QueueOrderRepositoryImpl', () => {
     });
 
     it('creates queue_order rows for items that lack them (pre-migration backfill)', async () => {
-      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
-      const itemB = { ...makeRow({ id: 2 }), queueOrder: null as unknown as ReturnType<typeof makeRow>['queueOrder'] };
+      const idA = getUniqueInt();
+      const idB = getUniqueInt();
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: idA, status: 'pending' }, { position: 1, id: getUniqueInt() });
+      const itemB = {
+        ...generateReviewQueueWithOrderHydrationData({ id: idB, status: 'pending' }),
+        queueOrder: null as unknown as ReviewQueueWithOrder['queueOrder'],
+      };
 
       const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
         reviewQueue: {
@@ -386,9 +335,9 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       queueOrderMock.update = jest.fn<any>().mockResolvedValue({});
       queueOrderMock.updateMany = jest.fn<any>().mockResolvedValue({ count: 0 });
-      queueOrderMock.create = jest.fn<any>().mockResolvedValue({ id: getUniqueInt(), position: 2, queue_item_id: 2 });
+      queueOrderMock.create = jest.fn<any>().mockResolvedValue({ id: getUniqueInt(), position: 2, queue_item_id: idB });
 
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveItems([itemB.uuid], 'up');
 
@@ -396,17 +345,88 @@ describe('QueueOrderRepositoryImpl', () => {
         where: { id: { in: [itemA.queueOrder!.id] } },
         data: { position: null },
       });
-      expect(queueOrderMock.create).toHaveBeenCalledWith({ data: { queue_item_id: 2, position: 1 } });
+      expect(queueOrderMock.create).toHaveBeenCalledWith({ data: { queue_item_id: idB, position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder!.id }, data: { position: 2 } });
-      expect(result).toStrictEqual([toExpectedItem(itemB), toExpectedItem(itemA)]);
+      expect(result).toStrictEqual([mapper.fromReviewQueue(itemB), mapper.fromReviewQueue(itemA)]);
+    });
+
+    it('moves retriggered items alongside pending ones', async () => {
+      const pending = makeMoveRow(1, 1);
+      const retriggeredId = getUniqueInt();
+      const retriggered = generateReviewQueueWithOrderHydrationData({ id: retriggeredId, status: 'retriggered' }, { position: 2, id: getUniqueInt() });
+      const allItems = [pending, retriggered];
+
+      const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
+        reviewQueue: {
+          findMany: jest.fn<any>().mockResolvedValueOnce(allItems).mockResolvedValueOnce(allItems).mockResolvedValueOnce(allItems),
+        },
+      });
+      queueOrderMock.update = jest.fn<any>().mockResolvedValue({});
+      queueOrderMock.updateMany = jest.fn<any>().mockResolvedValue({ count: 0 });
+
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
+
+      await sut.moveItems([retriggered.uuid], 'up');
+
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [pending.queueOrder.id, retriggered.queueOrder.id] } },
+        data: { position: null },
+      });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(1, { where: { id: retriggered.queueOrder.id }, data: { position: 1 } });
+      expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: pending.queueOrder.id }, data: { position: 2 } });
+    });
+
+    it('normalizes positions even when all selected items are retriggered', async () => {
+      const retriggeredId = getUniqueInt();
+      const retriggered = generateReviewQueueWithOrderHydrationData({ id: retriggeredId, status: 'retriggered' }, { position: 1, id: getUniqueInt() });
+      const allItems = [retriggered];
+
+      const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
+        reviewQueue: {
+          findMany: jest.fn<any>().mockResolvedValueOnce(allItems).mockResolvedValueOnce(allItems).mockResolvedValueOnce(allItems),
+        },
+      });
+      queueOrderMock.update = jest.fn<any>().mockResolvedValue({});
+      queueOrderMock.updateMany = jest.fn<any>().mockResolvedValue({ count: 0 });
+
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
+
+      const result = await sut.moveItems([retriggered.uuid], 'up');
+
+      expect(result).toStrictEqual([mapper.fromReviewQueue(retriggered)]);
+      expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [retriggered.queueOrder.id] } },
+        data: { position: null },
+      });
+      expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: retriggered.queueOrder.id }, data: { position: 1 } });
+    });
+
+    it('returns effective order unchanged when no items match given UUIDs', async () => {
+      const pending = generateReviewQueueWithOrderHydrationData({ id: 1, status: 'pending' }, { position: 1, id: getUniqueInt() });
+      const allItems = [pending];
+
+      const { prisma, queueOrder: queueOrderMock } = createMockPrismaClient({
+        reviewQueue: {
+          findMany: jest.fn<any>().mockResolvedValueOnce(allItems),
+        },
+      });
+
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
+      const nonExistentUuid = getUuid();
+
+      const result = await sut.moveItems([nonExistentUuid], 'up');
+
+      expect(result).toStrictEqual([mapper.fromReviewQueue(pending)]);
+      expect(queueOrderMock.updateMany).not.toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveItems' }, 'No items to move; returning effective order unchanged');
     });
   });
 
   describe('moveToTop', () => {
     it('moves item to top from middle of the queue', async () => {
-      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
-      const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
-      const itemC = makeRow({ id: 3 }, { position: 3, id: getUniqueInt() });
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const itemB = generateReviewQueueWithOrderHydrationData({ id: 2 }, { position: 2, id: getUniqueInt() });
+      const itemC = generateReviewQueueWithOrderHydrationData({ id: 3 }, { position: 3, id: getUniqueInt() });
 
       const { prisma, queueOrder } = createMockPrismaClient({
         reviewQueue: {
@@ -422,7 +442,7 @@ describe('QueueOrderRepositoryImpl', () => {
           update: jest.fn<any>().mockResolvedValue({}),
         },
       });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveToTop(itemB.uuid);
 
@@ -434,13 +454,13 @@ describe('QueueOrderRepositoryImpl', () => {
       expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
       expect(queueOrder.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: 3 } });
 
-      expect(result).toStrictEqual(toExpectedItem(itemB));
+      expect(result).toStrictEqual(mapper.fromReviewQueue(itemB));
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid: itemB.uuid }, 'Moved item to top');
     });
 
     it('keeps item at position 1 when already at top', async () => {
-      const itemA = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
-      const itemB = makeRow({ id: 2 }, { position: 2, id: getUniqueInt() });
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const itemB = generateReviewQueueWithOrderHydrationData({ id: 2 }, { position: 2, id: getUniqueInt() });
 
       const { prisma, queueOrder } = createMockPrismaClient({
         reviewQueue: {
@@ -452,7 +472,7 @@ describe('QueueOrderRepositoryImpl', () => {
           update: jest.fn<any>().mockResolvedValue({}),
         },
       });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       const result = await sut.moveToTop(itemA.uuid);
 
@@ -462,36 +482,7 @@ describe('QueueOrderRepositoryImpl', () => {
       });
       expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: 2 } });
-      expect(result).toStrictEqual(toExpectedItem(itemA));
-    });
-
-    it('does not update not_before or trigger_source (position-only reorder)', async () => {
-      const itemA = makeRow({ id: 1, not_before: new Date('2026-06-01'), trigger_source: null }, { position: 1, id: getUniqueInt() });
-      const itemB = makeRow({ id: 2, not_before: new Date('2026-06-15'), trigger_source: null }, { position: 2, id: getUniqueInt() });
-
-      const ORIGINAL_NOT_BEFORE = itemB.not_before;
-      const ORIGINAL_TRIGGER_SOURCE = itemB.trigger_source;
-
-      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
-        reviewQueue: {
-          findUnique: jest.fn<any>().mockResolvedValue({ id: itemB.id, status: 'pending' }),
-          findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemB, itemA]),
-        },
-        queueOrder: {
-          updateMany: jest.fn<any>().mockResolvedValue({ count: 0 }),
-          update: jest.fn<any>().mockResolvedValue({}),
-        },
-      });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
-
-      const result = await sut.moveToTop(itemB.uuid);
-
-      expect(reviewQueue.update).not.toHaveBeenCalled();
-      expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemB.queueOrder.id }, data: { position: 1 } });
-      expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
-      expect(result.not_before).toStrictEqual(ORIGINAL_NOT_BEFORE);
-      expect(result.trigger_source).toBe(ORIGINAL_TRIGGER_SOURCE);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid: itemB.uuid }, 'Moved item to top');
+      expect(result).toStrictEqual(mapper.fromReviewQueue(itemA));
     });
 
     it('throws when item is not found', async () => {
@@ -500,7 +491,7 @@ describe('QueueOrderRepositoryImpl', () => {
           findUnique: jest.fn<any>().mockResolvedValue(null),
         },
       });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       await expect(sut.moveToTop('00000000-0000-0000-0000-000000000999')).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'reviewQueue'",
@@ -509,26 +500,49 @@ describe('QueueOrderRepositoryImpl', () => {
       });
     });
 
-    it('throws when item is not pending', async () => {
-      const itemA = makeRow({ id: 1, status: 'reviewed' }, { position: 1, id: getUniqueInt() });
+    it('throws when item is resolved', async () => {
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: 1, status: 'resolved' }, { position: 1, id: getUniqueInt() });
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
           findUnique: jest.fn<any>().mockResolvedValue({ id: itemA.id, status: itemA.status }),
         },
       });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       await expect(sut.moveToTop(itemA.uuid)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_PENDING', {
-        message: `Queue item ${itemA.uuid} is not pending`,
+        message: `Queue item ${itemA.uuid} is already resolved`,
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
-        details: { uuid: itemA.uuid, status: 'reviewed' },
+        details: { uuid: itemA.uuid, status: 'resolved' },
       });
+    });
+
+    it('moves retriggered item to top successfully', async () => {
+      const itemId = getUniqueInt();
+      const itemA = generateReviewQueueWithOrderHydrationData({ id: itemId, status: 'retriggered' }, { position: 1, id: getUniqueInt() });
+      const itemB = generateReviewQueueWithOrderHydrationData({ id: itemId + 1, status: 'pending' }, { position: 2, id: getUniqueInt() });
+
+      const { prisma } = createMockPrismaClient({
+        reviewQueue: {
+          findUnique: jest.fn<any>().mockResolvedValue({ id: itemA.id, status: itemA.status }),
+          findMany: jest.fn<any>().mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]).mockResolvedValueOnce([itemA, itemB]),
+        },
+        queueOrder: {
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 0 }),
+          update: jest.fn<any>().mockResolvedValue({}),
+        },
+      });
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
+
+      const result = await sut.moveToTop(itemA.uuid);
+
+      expect(result).toStrictEqual(mapper.fromReviewQueue(itemA));
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid: itemA.uuid }, 'Moved item to top');
     });
 
     it('throws when findUnique succeeds but the item is absent from the effective order', async () => {
       const UUID = '00000000-0000-0000-0000-000000000999';
-      const otherItem = makeRow({ id: 1 }, { position: 1, id: getUniqueInt() });
+      const otherItem = generateReviewQueueWithOrderHydrationData({ id: 1 }, { position: 1, id: getUniqueInt() });
 
       const { prisma } = createMockPrismaClient({
         reviewQueue: {
@@ -536,7 +550,7 @@ describe('QueueOrderRepositoryImpl', () => {
           findMany: jest.fn<any>().mockResolvedValueOnce([otherItem]),
         },
       });
-      const sut = new QueueOrderRepositoryImpl(prisma, logger);
+      const sut = new QueueOrderRepositoryImpl(prisma, mapper, logger);
 
       await expect(sut.moveToTop(UUID)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'reviewQueue'",
@@ -552,6 +566,7 @@ describe('QueueOrderRepositoryImpl', () => {
       const container = new Container();
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
+      container.bind(TYPES.ReviewQueueToQueueItemMapper).to(ReviewQueueToQueueItemMapper);
       container.bind<QueueOrderRepository>(TYPES.QueueOrderRepository).to(QueueOrderRepositoryImpl);
       expect(container.get<QueueOrderRepository>(TYPES.QueueOrderRepository)).toBeInstanceOf(QueueOrderRepositoryImpl);
     });

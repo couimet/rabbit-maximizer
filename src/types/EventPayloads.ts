@@ -1,3 +1,8 @@
+import type { DismissalReason } from '../DismissalReason.js';
+import type { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
+
+import type { CoderabbitReviewVerdictState } from './CoderabbitReviewVerdict.js';
+
 /**
  * Type-specific payloads for each event type. These are persisted as the JSON
  * `payload` column on the events table; the envelope columns live on
@@ -7,12 +12,11 @@
 export interface DetectedPayload {
   readonly source_ts?: Date; // from the incoming event payload, when available
   readonly source_comment_url?: string;
+  readonly coderabbit_run_id?: string;
 }
 
-export interface EnqueuedPayload {
-  readonly not_before: Date;
-  readonly new_wait: number;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface EnqueuedPayload {}
 
 export interface RetriggeredPayload {
   readonly source_comment_url: string;
@@ -21,25 +25,54 @@ export interface RetriggeredPayload {
 
 export interface CoderabbitReviewApprovedPayload {
   readonly coderabbit_comment_url?: string;
+  readonly source_ts?: Date;
+  readonly verdict_state?: CoderabbitReviewVerdictState;
+  readonly detected_via?: ReviewDetectionMethod;
+  readonly coderabbit_run_id?: string;
 }
 
-export interface CoderabbitReviewChangesRequestedPayload {
+export interface CoderabbitReviewChangesSuggestedPayload {
   readonly coderabbit_comment_url?: string;
+  readonly source_ts?: Date;
+  readonly verdict_state?: CoderabbitReviewVerdictState;
+  readonly detected_via?: ReviewDetectionMethod;
+  readonly coderabbit_run_id?: string;
+}
+
+export interface CoderabbitReviewSkippedPayload {
+  readonly source_ts: Date;
+  readonly comment_url: string;
+  readonly skip_reason: string;
+  readonly coderabbit_run_id?: string;
+}
+
+export interface CoderabbitRunIdChangedPayload {
+  readonly comment_id: number;
+  readonly comment_url: string;
+  readonly previous_coderabbit_run_id: string;
+  readonly coderabbit_run_id: string;
+}
+
+export interface CoderabbitRunIdClearedPayload {
+  readonly comment_id: number;
+  readonly comment_url: string;
+  readonly previous_coderabbit_run_id: string;
+}
+
+export interface CoderabbitRunIdFirstSeenPayload {
+  readonly comment_id: number;
+  readonly comment_url: string;
+  readonly coderabbit_run_id: string;
 }
 
 export interface FailedPayload {
   readonly reason: string;
+  readonly retrigger_count?: number;
+  readonly max?: number;
 }
 
-export enum BypassReason {
-  prMerged = 'prMerged',
-  prClosedWithoutMerge = 'prClosedWithoutMerge',
-  other = 'other',
-}
-
-export interface BypassedPayload {
-  readonly reason: BypassReason;
-  readonly detail?: string;
+export interface DismissedPayload {
+  readonly reason: DismissalReason;
 }
 
 /** Rarely-queried provenance, persisted as the JSON `metadata` column. */

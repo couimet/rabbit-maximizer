@@ -1,4 +1,4 @@
-import { isCompletedReview } from '../../src/github/isCompletedReview.js';
+import { isCompletedReview } from '../../src/github/index.js';
 
 import { getRandomString } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
