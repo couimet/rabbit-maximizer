@@ -5,7 +5,7 @@ import { TrackedPrs } from '../../dashboard/src/index.js';
 import '@testing-library/jest-dom/jest-globals';
 import { getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 describe('TrackedPrs', () => {
   it('shows loading text when items is null', () => {
@@ -66,5 +66,48 @@ describe('TrackedPrs', () => {
   it('renders an h2 heading when headingLevel is h2', () => {
     render(<TrackedPrs items={[]} headingLevel="h2" />);
     expect(screen.getByRole('heading', { level: 2, name: 'Tracked PRs — 0' })).toBeInTheDocument();
+  });
+
+  describe('collapsible explanation', () => {
+    const toggleName = 'Why is this list here?';
+
+    it('shows the toggle collapsed by default with the explanation hidden', () => {
+      render(<TrackedPrs items={[]} headingLevel="h3" />);
+
+      expect(screen.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'false');
+      expect(
+        screen.queryByText(
+          "Open PRs CodeRabbit has not reviewed yet. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these are outside the queue's flow.",
+        ),
+      ).not.toBeInTheDocument();
+    });
+
+    it('expands the explanation on click', () => {
+      render(<TrackedPrs items={[]} headingLevel="h3" />);
+
+      fireEvent.click(screen.getByRole('button', { name: toggleName }));
+
+      expect(screen.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'true');
+      expect(
+        screen.getByText(
+          "Open PRs CodeRabbit has not reviewed yet. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these are outside the queue's flow.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it('collapses the explanation again on a second click', () => {
+      render(<TrackedPrs items={[]} headingLevel="h3" />);
+
+      const toggle = screen.getByRole('button', { name: toggleName });
+      fireEvent.click(toggle);
+      fireEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(
+        screen.queryByText(
+          "Open PRs CodeRabbit has not reviewed yet. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these are outside the queue's flow.",
+        ),
+      ).not.toBeInTheDocument();
+    });
   });
 });

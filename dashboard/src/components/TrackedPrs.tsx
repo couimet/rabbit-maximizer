@@ -2,15 +2,31 @@ import type { TrackedPrResponse } from '../../../src/types/index.js';
 import { prUrl } from '../githubUrl.js';
 
 import './TrackedPrs.css';
+import { useState } from 'react';
 
 const TrackedPrs = ({ items, headingLevel }: { items: TrackedPrResponse[] | null; headingLevel: 'h2' | 'h3' }) => {
   const Heading = headingLevel;
+  const [explanationOpen, setExplanationOpen] = useState(false);
 
   if (!items) return <div className="loading">Loading tracked PRs...</div>;
 
   return (
     <section>
       <Heading>Tracked PRs — {items.length}</Heading>
+      <button
+        type="button"
+        className="tracked-prs-explanation-toggle"
+        aria-expanded={explanationOpen}
+        aria-controls="tracked-prs-explanation"
+        onClick={() => setExplanationOpen((prev) => !prev)}
+      >
+        Why is this list here?
+      </button>
+      {explanationOpen && (
+        <p id="tracked-prs-explanation" className="tracked-prs-explanation">
+          Open PRs CodeRabbit has not reviewed yet. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these are outside the queue's flow.
+        </p>
+      )}
       {items.length === 0 ? (
         <p>No tracked PRs.</p>
       ) : (
