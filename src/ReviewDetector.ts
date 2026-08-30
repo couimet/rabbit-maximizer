@@ -99,6 +99,18 @@ export class ReviewDetector extends IntervalService {
               }
             }
             continue;
+          case 'adopted':
+            {
+              const adopted = await this.prisma.$transaction((tx) =>
+                this.queue.adoptRunIfStillRetriggered(item.id, item.source_comment_run_id, editOutcome.runId, tx),
+              );
+              if (!adopted) {
+                probe.runAdoptionLostRace(editOutcome.runId);
+                continue;
+              }
+              probe.runAdopted(editOutcome.runId);
+            }
+            continue;
           case 'fallback':
             break;
           default:
