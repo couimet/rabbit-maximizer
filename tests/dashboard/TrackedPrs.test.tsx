@@ -77,7 +77,7 @@ describe('TrackedPrs', () => {
       expect(screen.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'false');
       expect(
         screen.queryByText(
-          "Open PRs CodeRabbit has not reviewed yet. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these are outside the queue's flow.",
+          "Open PRs not acknowledged by CodeRabbit and without an active item. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these PRs sit outside the queue's flow; the list appears below the queue.",
         ),
       ).not.toBeInTheDocument();
     });
@@ -90,7 +90,7 @@ describe('TrackedPrs', () => {
       expect(screen.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'true');
       expect(
         screen.getByText(
-          "Open PRs CodeRabbit has not reviewed yet. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these are outside the queue's flow.",
+          "Open PRs not acknowledged by CodeRabbit and without an active item. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these PRs sit outside the queue's flow; the list appears below the queue.",
         ),
       ).toBeInTheDocument();
     });
@@ -105,7 +105,7 @@ describe('TrackedPrs', () => {
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
       expect(
         screen.queryByText(
-          "Open PRs CodeRabbit has not reviewed yet. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these are outside the queue's flow.",
+          "Open PRs not acknowledged by CodeRabbit and without an active item. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these PRs sit outside the queue's flow; the list appears below the queue.",
         ),
       ).not.toBeInTheDocument();
     });

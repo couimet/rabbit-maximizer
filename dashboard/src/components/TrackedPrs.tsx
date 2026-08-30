@@ -24,7 +24,8 @@ const TrackedPrs = ({ items, headingLevel }: { items: TrackedPrResponse[] | null
       </button>
       {explanationOpen && (
         <p id="tracked-prs-explanation" className="tracked-prs-explanation">
-          Open PRs CodeRabbit has not reviewed yet. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these are outside the queue's flow.
+          Open PRs not acknowledged by CodeRabbit and without an active item. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these PRs sit
+          outside the queue's flow; the list appears below the queue.
         </p>
       )}
       {items.length === 0 ? (
