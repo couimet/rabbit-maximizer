@@ -1,4 +1,4 @@
-import { ActivityState, CodeRabbitCommentType } from '../domain.js';
+import { ActivityState, CodeRabbitCommentType, type PrStateValue } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
 import type { ActivityStatus } from '../types/index.js';
 
@@ -14,6 +14,7 @@ interface DeriveStatusInput {
   readonly coderabbit_review_url?: string | null;
   readonly last_review_state?: string | null;
   readonly last_review_url?: string | null;
+  readonly pr_state?: PrStateValue | null;
 }
 
 export const deriveActivityStatus = (item: DeriveStatusInput): ActivityStatus => {
@@ -30,6 +31,10 @@ export const deriveActivityStatus = (item: DeriveStatusInput): ActivityStatus =>
 };
 
 const resolvedStatus = (item: DeriveStatusInput): ActivityStatus => {
+  // Merged PR is the terminal outcome even when the item resolved earlier (e.g. stale_comment)
+  if (item.pr_state === 'merged') {
+    return { state: ActivityState.prMerged, linkUrl: undefined };
+  }
   // Legacy items may have a null resolution; guard before the switch.
   if (item.resolution == null) {
     return { state: ActivityState.reviewCompleted, linkUrl: undefined };
@@ -45,6 +50,8 @@ const resolvedStatus = (item: DeriveStatusInput): ActivityStatus => {
       return { state: ActivityState.prClosed, linkUrl: undefined };
     case 'skipped':
       return { state: ActivityState.skipped, linkUrl: item.source_comment_url };
+    case 'stale_comment':
+      return { state: ActivityState.staleComment, linkUrl: item.source_comment_url };
     case 'manual_review':
       return { state: ActivityState.manualReview, linkUrl: undefined };
     default:

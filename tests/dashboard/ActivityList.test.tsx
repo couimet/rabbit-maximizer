@@ -108,12 +108,28 @@ describe('ActivityList', () => {
       await waitFor(() => expect(screen.getByText('CodeRabbit: completed analysis')).toBeInTheDocument());
     });
 
-    it('shows Pending pill for unknown resolution values (safeDeriveActivityStatus fallback)', async () => {
+    it('shows Unknown pill for unhandled resolution values (safeDeriveActivityStatus fallback)', async () => {
       const item = makeItem({ status: 'resolved', resolution: 'custom_reason' });
       mockActivityListEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
       renderActivityList();
 
-      await waitFor(() => expect(screen.getByText('Pending')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Unknown')).toBeInTheDocument());
+    });
+
+    it('shows PR merged pill when a resolved item has pr_state merged with stale_comment resolution', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'stale_comment', pr_state: 'merged' });
+      mockActivityListEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText('PR merged')).toBeInTheDocument());
+    });
+
+    it('shows Stale comment pill when a resolved item has stale_comment resolution and the PR is not merged', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'stale_comment', pr_state: 'open' });
+      mockActivityListEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText('Stale comment')).toBeInTheDocument());
     });
 
     it('shows CodeRabbit review-limited pill when status is retriggered with no acknowledge', async () => {
