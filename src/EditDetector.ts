@@ -40,6 +40,7 @@ export class EditDetectorImpl implements EditDetector {
       }
 
       const { classification: newType } = classifyCoderabbitComment(fetchResult.body);
+      const freshRunId = extractCoderabbitRunId(fetchResult.body);
 
       const updatedComment = {
         comment_id: item.source_comment_id,
@@ -49,7 +50,7 @@ export class EditDetectorImpl implements EditDetector {
         body: fetchResult.body,
         gh_created_at: matchingComment.gh_created_at,
         gh_updated_at: freshGhUpdatedAt,
-        coderabbit_run_id: extractCoderabbitRunId(fetchResult.body) ?? null,
+        coderabbit_run_id: freshRunId ?? null,
       };
 
       await this.coderabbitComments.upsert(updatedComment);
@@ -63,6 +64,11 @@ export class EditDetectorImpl implements EditDetector {
       }
 
       if (newType === CodeRabbitCommentType.review_skipped) {
+        // Per BR-6-1: a fresh run fulfills the outstanding trigger in place; only an
+        // unchanged run means the skip is terminal.
+        if (freshRunId !== undefined && freshRunId !== matchingComment.coderabbit_run_id) {
+          return RabbitResult.ok({ action: 'adopted', runId: freshRunId });
+        }
         return RabbitResult.ok({ action: 'skipped', reviewUrl: matchingComment.url });
       }
 

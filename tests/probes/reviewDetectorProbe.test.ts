@@ -167,6 +167,36 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
+  describe('runAdopted', () => {
+    it('logs info with item context and run id', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.runAdopted(runId);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.runAdopted', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, runId },
+        'Re-edited skip comment adopted a new CodeRabbit run in place',
+      );
+    });
+  });
+
+  describe('runAdoptionLostRace', () => {
+    it('logs warn with item context and run id', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.runAdoptionLostRace(runId);
+      expect(logger.warn).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.runAdoptionLostRace', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, runId },
+        'Run adoption lost the race; the item was resolved or its run changed',
+      );
+    });
+  });
+
   describe('editDetectionFailed', () => {
     it('logs warn with item context and error when edit detection fails', () => {
       const ref = generateReviewRef();

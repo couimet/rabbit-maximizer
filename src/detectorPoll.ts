@@ -1,4 +1,4 @@
-import { type PullRequestRepository, type SystemStateRepository } from './db/index.js';
+import { type CoderabbitCommentRepository, type PullRequestRepository, type SystemStateRepository } from './db/index.js';
 import {
   classifyCoderabbitComment,
   type CoderabbitGitHubClient,
@@ -38,6 +38,8 @@ export class PollDetector extends IntervalService {
     private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.SystemStateRepository)
     private readonly systemStateRepo: SystemStateRepository,
+    @inject(TYPES.CoderabbitCommentRepository)
+    private readonly coderabbitComments: CoderabbitCommentRepository,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super('poll-detector', POLL_INTERVAL_MS, log);
@@ -97,6 +99,12 @@ export class PollDetector extends IntervalService {
         const existingPr = await this.pullRequests.findByRepoAndPr(c.repoFullName, c.prNumber, undefined);
         if (!existingPr) {
           this.log.warn({ ...logCtx, repo: c.repoFullName, pr: c.prNumber }, 'PR not registered; skipping comment');
+          continue;
+        }
+
+        const stored = await this.coderabbitComments.findByCommentId(existingPr.id, c.commentId);
+        if (stored && new Date(c.updatedAt) <= stored.last_seen_at) {
+          this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment already seen');
           continue;
         }
 

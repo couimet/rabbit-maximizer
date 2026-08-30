@@ -1553,6 +1553,69 @@ describe('QueueRepositoryImpl', () => {
     });
   });
 
+  describe('adoptRunIfStillRetriggered', () => {
+    it('adopts the run in place and restarts the clock when the row still carries the expected run', async () => {
+      const id = getUniqueInt();
+      const expectedRunId = getUuid();
+      const adoptedRunId = getUuid();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 1 }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.adoptRunIfStillRetriggered(id, expectedRunId, adoptedRunId, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id, status: 'retriggered', source_comment_run_id: expectedRunId },
+        data: { source_comment_run_id: adoptedRunId, retriggered_at: frozenNow },
+      });
+      expect(result).toBe(true);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.adoptRunIfStillRetriggered', id, expectedRunId, adoptedRunId, changed: true },
+        'Adopted run on retriggered item',
+      );
+    });
+
+    it('returns false when a newer run replaced the expected run (delayed adoption)', async () => {
+      const id = getUniqueInt();
+      const expectedRunId = getUuid();
+      const adoptedRunId = getUuid();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 0 }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.adoptRunIfStillRetriggered(id, expectedRunId, adoptedRunId, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id, status: 'retriggered', source_comment_run_id: expectedRunId },
+        data: { source_comment_run_id: adoptedRunId, retriggered_at: frozenNow },
+      });
+      expect(result).toBe(false);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.adoptRunIfStillRetriggered', id, expectedRunId, adoptedRunId, changed: false },
+        'Adopted run on retriggered item',
+      );
+    });
+
+    it('matches a null stored run when no expected run is known', async () => {
+      const id = getUniqueInt();
+      const adoptedRunId = getUuid();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 1 }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+
+      const result = await sut.adoptRunIfStillRetriggered(id, undefined, adoptedRunId, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id, status: 'retriggered', source_comment_run_id: null },
+        data: { source_comment_run_id: adoptedRunId, retriggered_at: frozenNow },
+      });
+      expect(result).toBe(true);
+    });
+  });
+
   describe('markResolvedByUuid', () => {
     it('finds by UUID, marks the row resolved, and logs the event', async () => {
       const commentUrl = 'https://gh/c/retriggered-123';

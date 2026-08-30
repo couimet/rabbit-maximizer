@@ -44,6 +44,20 @@ export class ReviewDetectorProbe {
     );
   }
 
+  runAdopted(runId: string): void {
+    this.log.info(
+      { fn: 'ReviewDetectorProbe.runAdopted', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, runId },
+      'Re-edited skip comment adopted a new CodeRabbit run in place',
+    );
+  }
+
+  runAdoptionLostRace(runId: string): void {
+    this.log.warn(
+      { fn: 'ReviewDetectorProbe.runAdoptionLostRace', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, runId },
+      'Run adoption lost the race; the item was resolved or its run changed',
+    );
+  }
+
   async reviewedViaFallback(tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {
