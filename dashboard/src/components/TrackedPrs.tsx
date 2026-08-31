@@ -17,7 +17,7 @@ const TrackedPrs = ({ items, headingLevel }: { items: TrackedPrResponse[] | null
         type="button"
         className="tracked-prs-explanation-toggle"
         aria-expanded={explanationOpen}
-        aria-controls="tracked-prs-explanation"
+        aria-controls={explanationOpen ? 'tracked-prs-explanation' : undefined}
         onClick={() => setExplanationOpen((prev) => !prev)}
       >
         Why is this list here?

@@ -75,6 +75,7 @@ describe('TrackedPrs', () => {
       render(<TrackedPrs items={[]} headingLevel="h3" />);
 
       expect(screen.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByRole('button', { name: toggleName })).not.toHaveAttribute('aria-controls');
       expect(
         screen.queryByText(
           "Open PRs not acknowledged by CodeRabbit and without an active item. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these PRs sit outside the queue's flow; the list appears below the queue.",
@@ -88,6 +89,7 @@ describe('TrackedPrs', () => {
       fireEvent.click(screen.getByRole('button', { name: toggleName }));
 
       expect(screen.getByRole('button', { name: toggleName })).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByRole('button', { name: toggleName })).toHaveAttribute('aria-controls', 'tracked-prs-explanation');
       expect(
         screen.getByText(
           "Open PRs not acknowledged by CodeRabbit and without an active item. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these PRs sit outside the queue's flow; the list appears below the queue.",
@@ -103,6 +105,7 @@ describe('TrackedPrs', () => {
       fireEvent.click(toggle);
 
       expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(toggle).not.toHaveAttribute('aria-controls');
       expect(
         screen.queryByText(
           "Open PRs not acknowledged by CodeRabbit and without an active item. Rabbit Maximizer only acts once CodeRabbit acknowledges a PR, so these PRs sit outside the queue's flow; the list appears below the queue.",
