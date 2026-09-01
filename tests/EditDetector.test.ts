@@ -201,7 +201,49 @@ describe('EditDetector', () => {
     });
   });
 
-  it('returns skipped when edited comment re-classifies as review_skipped', async () => {
+  it('returns adopted when re-edited skip comment carries a new run id', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const ghCreatedAt = getUniqueDate();
+    const lastSeenAt = getUniqueDate();
+    const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+    const storedRunId = getUuid();
+    const coderabbitRunId = getUuid();
+    const fetchBody = `skip review by coderabbit.ai\n\n**Run ID**: \`${coderabbitRunId}\``;
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      url: ref.commentUrl,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      last_seen_at: lastSeenAt,
+      coderabbit_run_id: storedRunId,
+      is_not_deleted: true,
+    } as any);
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result).toBeSuccess({ action: 'adopted', runId: coderabbitRunId });
+    expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
+    expect(github.fetchComment).toHaveBeenCalledWith(ref.owner, ref.repo, commentId);
+    expect(comments.upsert).toHaveBeenCalledWith({
+      comment_id: commentId,
+      pull_request_id: item.pull_request_id,
+      url: ref.commentUrl,
+      comment_type: 'review_skipped',
+      body: fetchBody,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('returns skipped when re-edited skip comment run is unchanged', async () => {
     const comments = createMockCoderabbitCommentRepo();
     const github = createMockCoderabbitGitHubClient();
     const ref = generateReviewRef();
@@ -219,6 +261,7 @@ describe('EditDetector', () => {
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       last_seen_at: lastSeenAt,
+      coderabbit_run_id: coderabbitRunId,
       is_not_deleted: true,
     } as any);
     github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
@@ -238,6 +281,47 @@ describe('EditDetector', () => {
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('returns skipped when re-edited skip comment run is cleared', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const ghCreatedAt = getUniqueDate();
+    const lastSeenAt = getUniqueDate();
+    const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+    const storedRunId = getUuid();
+    const fetchBody = 'skip review by coderabbit.ai';
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      url: ref.commentUrl,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      last_seen_at: lastSeenAt,
+      coderabbit_run_id: storedRunId,
+      is_not_deleted: true,
+    } as any);
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result).toBeSuccess({ action: 'skipped', reviewUrl: ref.commentUrl });
+    expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
+    expect(github.fetchComment).toHaveBeenCalledWith(ref.owner, ref.repo, commentId);
+    expect(comments.upsert).toHaveBeenCalledWith({
+      comment_id: commentId,
+      pull_request_id: item.pull_request_id,
+      url: ref.commentUrl,
+      comment_type: 'review_skipped',
+      body: fetchBody,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      coderabbit_run_id: null,
     });
   });
 });

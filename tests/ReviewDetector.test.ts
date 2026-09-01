@@ -34,7 +34,12 @@ const drainMicrotasks = async (depth: number): Promise<void> => {
 };
 
 interface MockReviewDetectorDeps {
-  queue: { getRetriggeredQueue: jest.Mock<any>; markResolved: jest.Mock<any>; markResolvedIfStillRetriggered: jest.Mock<any> };
+  queue: {
+    getRetriggeredQueue: jest.Mock<any>;
+    markResolved: jest.Mock<any>;
+    markResolvedIfStillRetriggered: jest.Mock<any>;
+    adoptRunIfStillRetriggered: jest.Mock<any>;
+  };
   pullRequests: { recordReview: jest.Mock<any>; getColumnMaps: jest.Mock<any> };
   github: jest.Mocked<CoderabbitGitHubClient>;
   editDetector: jest.Mocked<EditDetector>;
@@ -681,6 +686,28 @@ describe('ReviewDetector', () => {
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
+    it('adopts the new run in place and stays retriggered when editDetector returns adopted outcome', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'adopted', runId }));
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+      expect(deps.queue.adoptRunIfStillRetriggered).toHaveBeenCalledWith(item.id, item.source_comment_run_id, runId, {});
+      expect(deps.probe.runAdopted).toHaveBeenCalledWith(runId);
+      expect(deps.queue.markResolvedIfStillRetriggered).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
     it('passes item to editDetector', async () => {
       const retriggeredAt = getUniqueDate();
       const ref = generateReviewRef();
@@ -909,6 +936,27 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.probe.resolutionLostRace).toHaveBeenCalledWith('skipped');
+    });
+
+    it('reports a lost run adoption race when the item is no longer retriggered', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.queue.adoptRunIfStillRetriggered.mockResolvedValue(false);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'adopted', runId }));
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.queue.adoptRunIfStillRetriggered).toHaveBeenCalledWith(item.id, item.source_comment_run_id, runId, {});
+      expect(deps.probe.runAdoptionLostRace).toHaveBeenCalledWith(runId);
+      expect(deps.probe.runAdopted).not.toHaveBeenCalled();
     });
 
     it('reports a lost resolution race when the fallback path loses the race', async () => {
