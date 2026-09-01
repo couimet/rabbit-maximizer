@@ -249,6 +249,39 @@ describe('SummaryStats', () => {
     });
   });
 
+  describe('section order', () => {
+    const dashboardData = {
+      lastSchedulerTickAt: null,
+      nextReviewAvailableAt: null,
+      pendingItems: [],
+      trackedPrs: [],
+      eventCounts: DEFAULT_EVENT_COUNTS,
+      paused: false,
+      schedulerStale: false,
+    };
+
+    it('renders the Summary sections top-to-bottom in a stable order', async () => {
+      mockDashboardState(dashboardData);
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Queue Order — 0 items')).toBeInTheDocument());
+
+      const sections: HTMLElement[] = [
+        screen.getByRole('button', { name: 'Pause scheduler' }),
+        screen.getByRole('heading', { level: 2, name: 'Summary' }),
+        screen.getByRole('heading', { level: 3, name: /Queue Order/ }),
+        screen.getByRole('heading', { level: 3, name: /Activity List/ }),
+        screen.getByRole('heading', { level: 3, name: /^Events/ }),
+        screen.getByRole('heading', { level: 3, name: /Tracked PRs/ }),
+      ];
+
+      for (let i = 1; i < sections.length; i += 1) {
+        const before = sections[i - 1];
+        const after = sections[i];
+        expect(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      }
+    });
+  });
+
   describe('review countdown', () => {
     const dashboardData = {
       lastSchedulerTickAt: null,
