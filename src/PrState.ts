@@ -7,6 +7,9 @@ export enum PrState {
   open = 'open',
 }
 
+// String-literal union of PrState values; used at API boundaries where pr_state arrives as a plain string
+export type PrStateValue = `${PrState}`;
+
 export const getPrStateFromGitHubValue = (value: string): PrState => {
   switch (value.toLowerCase()) {
     case PrState.closed:

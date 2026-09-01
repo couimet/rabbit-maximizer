@@ -592,3 +592,13 @@ a:hover {
   background: #fef5e7;
   color: #b86e1a;
 }
+
+.status-pill.stale {
+  background: #f3ede4;
+  color: #6b5b4d;
+}
+
+.status-pill.unknown {
+  background: #e8e8e8;
+  color: #555;
+}
