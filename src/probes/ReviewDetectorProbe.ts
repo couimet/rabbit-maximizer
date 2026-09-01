@@ -58,6 +58,13 @@ export class ReviewDetectorProbe {
     );
   }
 
+  staleRetriggeredReopened(runId: string): void {
+    this.log.info(
+      { fn: 'ReviewDetectorProbe.staleRetriggeredReopened', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, runId },
+      'Stale retriggered item reopened as pending after a post-push re-edit',
+    );
+  }
+
   async reviewedViaFallback(tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {

@@ -28,7 +28,7 @@ export class EditDetectorImpl implements EditDetector {
       const matchingComment = await this.coderabbitComments.findByCommentId(item.pull_request_id, item.source_comment_id);
 
       if (matchingComment == null) {
-        return RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound });
+        return RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound, sourceCommentType: undefined });
       }
 
       const { owner, repo } = splitRepo(item.repo_full_name);
@@ -36,7 +36,11 @@ export class EditDetectorImpl implements EditDetector {
 
       const freshGhUpdatedAt = new Date(fetchResult.updatedAt);
       if (freshGhUpdatedAt <= matchingComment.last_seen_at) {
-        return RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotEdited });
+        return RabbitResult.ok({
+          action: 'fallback',
+          reason: FallbackReason.NotEdited,
+          sourceCommentType: matchingComment.comment_type as CodeRabbitCommentType,
+        });
       }
 
       const { classification: newType } = classifyCoderabbitComment(fetchResult.body);
@@ -72,7 +76,11 @@ export class EditDetectorImpl implements EditDetector {
         return RabbitResult.ok({ action: 'skipped', reviewUrl: matchingComment.url });
       }
 
-      return RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotAReview });
+      return RabbitResult.ok({
+        action: 'fallback',
+        reason: FallbackReason.NotAReview,
+        sourceCommentType: matchingComment.comment_type as CodeRabbitCommentType,
+      });
     } catch (err: unknown) {
       return RabbitResult.err(
         new RabbitMaximizerError({

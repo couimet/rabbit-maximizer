@@ -1,12 +1,20 @@
-import { QueueStatus, Resolution, SkipReason, TriggerSource, TYPES } from '../domain.js';
+import type { Config } from '../config.js';
+import { CodeRabbitCommentType, QueueStatus, Resolution, SkipReason, TriggerSource, TYPES } from '../domain.js';
 import { BasePrismaRepository, PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
 import type { ProbeFactory } from '../probes/index.js';
-import { type CommentDetails, type EnqueueData, type EnqueueResult, type PaginatedResult, type QueueItem } from '../types/index.js';
-import { MS_PER_MINUTE, nullToUndefined } from '../utils/index.js';
+import {
+  type CommentDetails,
+  type EnqueueData,
+  type EnqueueResult,
+  type PaginatedResult,
+  type QueueItem,
+  type ReopenStaleRetriggeredOptions,
+} from '../types/index.js';
+import { MS_PER_MINUTE, MS_PER_SECOND, nullToUndefined, shouldReopenStaleRetriggered } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
 const COMPLETED_GUARD_WINDOW_MS = 5 * MS_PER_MINUTE;
@@ -27,6 +35,7 @@ export interface QueueRepository {
   markResolved(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<QueueItem>;
   markResolvedIfStillRetriggered(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<boolean>;
   adoptRunIfStillRetriggered(id: number, expectedRunId: string | undefined, adoptedRunId: string, tx: Prisma.TransactionClient): Promise<boolean>;
+  reopenStaleRetriggered(id: number, opts: ReopenStaleRetriggeredOptions, tx: Prisma.TransactionClient): Promise<boolean>;
   markResolvedByUuid(uuid: string, resolution: Resolution, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
   reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
   backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
@@ -51,6 +60,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     @inject(TYPES.PrismaClient) prisma: PrismaClient,
     @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.ReviewQueueToQueueItemMapper) private readonly mapper: ReviewQueueToQueueItemMapper,
+    @inject(TYPES.Config) private readonly config: Config,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super(prisma, Prisma.ModelName.ReviewQueue, log);
@@ -85,6 +95,10 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       return undefined;
     }
     if (recentRetriggered.source_comment_id === sourceCommentId) {
+      const reopened = await this.tryReopenStaleRetriggered(data, db, probe, recentRetriggered);
+      if (reopened) {
+        return reopened;
+      }
       // Same comment: no-op unless the comment carries a NEW run — then the in-flight
       // run fulfills the outstanding trigger, so adopt it in place and restart the clock.
       if (data.coderabbitRunId !== undefined && recentRetriggered.source_comment_run_id !== data.coderabbitRunId) {
@@ -181,6 +195,52 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         retriggered_at: new Date(),
       }),
       created: false,
+    };
+  }
+
+  private async tryReopenStaleRetriggered(
+    data: EnqueueData,
+    db: Prisma.TransactionClient,
+    probe: ReturnType<ProbeFactory['createEnqueueProbe']>,
+    recentRetriggered: ReviewQueue,
+  ): Promise<EnqueueResult | undefined> {
+    if (data.sourceCommentType !== CodeRabbitCommentType.review_skipped) {
+      return undefined;
+    }
+    // A push following a triggered review re-edits the same skip comment; if the head
+    // is still unreviewed and the trigger is stale, reopen as pending so the scheduler
+    // re-triggers instead of adopting the edit in place and deadlocking the item.
+    const pullRequest = await db.pullRequest.findUnique({ where: { id: data.pullRequestId } });
+    if (
+      !pullRequest ||
+      !shouldReopenStaleRetriggered(
+        recentRetriggered,
+        pullRequest.head_sha ?? undefined,
+        pullRequest.reviewed_head_sha ?? undefined,
+        this.config.REVIEW_DETECTION_LOOKBACK_SEC * MS_PER_SECOND,
+        new Date(),
+      )
+    ) {
+      return undefined;
+    }
+    const reopened = await this.reopenStaleRetriggered(
+      recentRetriggered.id,
+      { prTitle: data.prTitle, coderabbitRunId: data.coderabbitRunId, cooldownUntil: data.cooldownUntil },
+      db,
+    );
+    if (!reopened) {
+      return undefined;
+    }
+    probe.staleRetriggeredReopened(data.repo, data.pr, recentRetriggered.id, data.coderabbitRunId);
+    return {
+      item: this.mapper.fromReviewQueue({
+        ...recentRetriggered,
+        status: QueueStatus.pending,
+        pr_title: data.prTitle,
+        source_comment_run_id: data.coderabbitRunId ?? null,
+        cooldown_until: data.cooldownUntil ?? null,
+      }),
+      created: true,
     };
   }
 
@@ -397,6 +457,35 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     const changed = result.count === 1;
     this.log.debug({ fn: 'QueueRepositoryImpl.adoptRunIfStillRetriggered', id, expectedRunId, adoptedRunId, changed }, 'Adopted run on retriggered item');
     return changed;
+  }
+
+  // Reopens a stale, unreviewed retriggered item as pending so the scheduler re-triggers the new head.
+  async reopenStaleRetriggered(id: number, opts: ReopenStaleRetriggeredOptions, tx: Prisma.TransactionClient): Promise<boolean> {
+    const db = this.client(tx);
+    const { count } = await db.reviewQueue.updateMany({
+      where: { id, status: QueueStatus.retriggered },
+      data: {
+        status: QueueStatus.pending,
+        resolution: null,
+        resolved_at: null,
+        pr_title: opts.prTitle,
+        source_comment_run_id: opts.coderabbitRunId ?? null,
+        cooldown_until: opts.cooldownUntil ?? null,
+        last_skipped_at: null,
+        last_skip_reason: null,
+        retrigger_skip_count: 0,
+      },
+    });
+    if (count === 0) {
+      this.log.debug({ fn: 'QueueRepositoryImpl.reopenStaleRetriggered', id, changed: false }, 'Stale retriggered item already moved on; skipping reopen');
+      return false;
+    }
+    const existingOrder = await db.queueOrder.findUnique({ where: { queue_item_id: id } });
+    if (!existingOrder) {
+      await db.queueOrder.create({ data: { queue_item_id: id } });
+    }
+    this.log.debug({ fn: 'QueueRepositoryImpl.reopenStaleRetriggered', id, changed: true }, 'Reopened stale retriggered item as pending');
+    return true;
   }
 
   // eslint-disable-next-line require-await

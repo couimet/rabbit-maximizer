@@ -2,7 +2,7 @@ import type { PullRequestRepository, QueueRepository } from './db/index.js';
 import { RabbitMaximizerError } from './errors/index.js';
 import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
-import { MS_PER_SECOND } from './utils/index.js';
+import { expectedHeadShaForSourceCommentType, MS_PER_SECOND, shouldReopenStaleRetriggered } from './utils/index.js';
 import type { Config } from './config.js';
 import { CodeRabbitCommentType, IntervalService, PrState, Resolution, ReviewDetectionMethod, TYPES } from './domain.js';
 import type { EditDetector } from './EditDetector.js';
@@ -50,7 +50,8 @@ export class ReviewDetector extends IntervalService {
       pr_state: prStateMap,
       last_coderabbit_review_at: lastCoderabbitReviewAtMap,
       head_sha: headShaMap,
-    } = await this.pullRequests.getColumnMaps(prIds, ['pr_state', 'last_coderabbit_review_at', 'head_sha']);
+      reviewed_head_sha: reviewedHeadShaMap,
+    } = await this.pullRequests.getColumnMaps(prIds, ['pr_state', 'last_coderabbit_review_at', 'head_sha', 'reviewed_head_sha']);
     for (const item of retriggeredItems) {
       probe.withItem(item);
       try {
@@ -74,6 +75,7 @@ export class ReviewDetector extends IntervalService {
           continue;
         }
         const editOutcome = result.value;
+        let sourceCommentType: CodeRabbitCommentType | undefined;
         switch (editOutcome.action) {
           case 'resolved':
             {
@@ -101,6 +103,22 @@ export class ReviewDetector extends IntervalService {
             continue;
           case 'adopted':
             {
+              const headSha = headShaMap.get(item.pull_request_id) ?? undefined;
+              const reviewedHeadSha = reviewedHeadShaMap.get(item.pull_request_id) ?? undefined;
+              if (shouldReopenStaleRetriggered(item, headSha, reviewedHeadSha, this.lookbackMs, new Date())) {
+                // A push re-edited the trigger comment with a new run; when the head is still
+                // unreviewed and the trigger is stale, reopen as pending so the scheduler
+                // re-triggers instead of adopting the edit in place and deadlocking the item.
+                const reopened = await this.prisma.$transaction((tx) =>
+                  this.queue.reopenStaleRetriggered(item.id, { prTitle: item.pr_title, coderabbitRunId: editOutcome.runId, cooldownUntil: undefined }, tx),
+                );
+                if (!reopened) {
+                  probe.runAdoptionLostRace(editOutcome.runId);
+                  continue;
+                }
+                probe.staleRetriggeredReopened(editOutcome.runId);
+                continue;
+              }
               const adopted = await this.prisma.$transaction((tx) =>
                 this.queue.adoptRunIfStillRetriggered(item.id, item.source_comment_run_id, editOutcome.runId, tx),
               );
@@ -112,6 +130,7 @@ export class ReviewDetector extends IntervalService {
             }
             continue;
           case 'fallback':
+            sourceCommentType = editOutcome.sourceCommentType;
             break;
           default:
             throw RabbitMaximizerError.forUnexpectedSwitchDefault(
@@ -123,6 +142,10 @@ export class ReviewDetector extends IntervalService {
 
         const lookbackSince = new Date(item.retriggered_at.getTime() - this.lookbackMs);
 
+        // Commit-primary acceptance is scoped to the review_skipped flow (see isReviewForRun);
+        // other flows keep run-only matching so a commit-matched review from another run isn't accepted.
+        const expectedHeadSha = expectedHeadShaForSourceCommentType(sourceCommentType, headShaMap.get(item.pull_request_id) ?? undefined);
+
         const { owner, repo } = splitRepo(item.repo_full_name);
         const completedReview = await this.github.findCompletedReview(
           owner,
@@ -130,7 +153,7 @@ export class ReviewDetector extends IntervalService {
           item.pr_number,
           lookbackSince,
           item.source_comment_run_id ?? undefined,
-          headShaMap.get(item.pull_request_id) ?? undefined,
+          expectedHeadSha,
         );
 
         if (!completedReview) {

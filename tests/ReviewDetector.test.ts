@@ -39,6 +39,7 @@ interface MockReviewDetectorDeps {
     markResolved: jest.Mock<any>;
     markResolvedIfStillRetriggered: jest.Mock<any>;
     adoptRunIfStillRetriggered: jest.Mock<any>;
+    reopenStaleRetriggered: jest.Mock<any>;
   };
   pullRequests: { recordReview: jest.Mock<any>; getColumnMaps: jest.Mock<any> };
   github: jest.Mocked<CoderabbitGitHubClient>;
@@ -56,11 +57,13 @@ const setup = (): MockReviewDetectorDeps => {
   const queue = createMockQueueRepo() as unknown as MockReviewDetectorDeps['queue'];
   const pullRequests = {
     recordReview: jest.fn<any>(),
-    getColumnMaps: jest.fn<any>().mockResolvedValue({ pr_state: new Map(), last_coderabbit_review_at: new Map(), head_sha: new Map() }),
+    getColumnMaps: jest
+      .fn<any>()
+      .mockResolvedValue({ pr_state: new Map(), last_coderabbit_review_at: new Map(), head_sha: new Map(), reviewed_head_sha: new Map() }),
   };
   const github = createMockCoderabbitGitHubClient();
   const editDetector = createMockEditDetector({
-    detectEdit: jest.fn<any>().mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound })),
+    detectEdit: jest.fn<any>().mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound, sourceCommentType: undefined })),
   });
   const probe = createMockReviewDetectorProbe();
   const probeFactory = createMockProbeFactory({ createReviewDetectorProbe: jest.fn<any>().mockReturnValue(probe) });
@@ -254,7 +257,10 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at', 'head_sha']);
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith(
+        [item.pull_request_id],
+        ['pr_state', 'last_coderabbit_review_at', 'head_sha', 'reviewed_head_sha'],
+      );
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
       expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'pr_merged', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('merged');
@@ -277,7 +283,10 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at', 'head_sha']);
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith(
+        [item.pull_request_id],
+        ['pr_state', 'last_coderabbit_review_at', 'head_sha', 'reviewed_head_sha'],
+      );
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
       expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'pr_closed_without_merge', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('closed');
@@ -304,7 +313,10 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at', 'head_sha']);
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith(
+        [item.pull_request_id],
+        ['pr_state', 'last_coderabbit_review_at', 'head_sha', 'reviewed_head_sha'],
+      );
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince, undefined, undefined);
       expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith(reviewUrl, 'review_approved', 'github_reviews_api', {});
@@ -353,7 +365,10 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at', 'head_sha']);
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith(
+        [item.pull_request_id],
+        ['pr_state', 'last_coderabbit_review_at', 'head_sha', 'reviewed_head_sha'],
+      );
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
       expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'pr_merged', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('merged');
@@ -376,7 +391,10 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at', 'head_sha']);
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith(
+        [item.pull_request_id],
+        ['pr_state', 'last_coderabbit_review_at', 'head_sha', 'reviewed_head_sha'],
+      );
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
       expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'pr_closed_without_merge', {});
       expect(deps.probe.prClosedResolved).toHaveBeenCalledWith('closed');
@@ -403,7 +421,10 @@ describe('ReviewDetector', () => {
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], ['pr_state', 'last_coderabbit_review_at', 'head_sha']);
+      expect(deps.pullRequests.getColumnMaps).toHaveBeenCalledWith(
+        [item.pull_request_id],
+        ['pr_state', 'last_coderabbit_review_at', 'head_sha', 'reviewed_head_sha'],
+      );
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince, undefined, undefined);
       expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'review_completed', {});
       expect(deps.probe.reviewed).toHaveBeenCalledWith(reviewUrl, 'review_approved', 'github_reviews_api', {});
@@ -629,7 +650,7 @@ describe('ReviewDetector', () => {
       const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound }));
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound, sourceCommentType: undefined }));
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
@@ -708,13 +729,123 @@ describe('ReviewDetector', () => {
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
+    it('reopens a stale retriggered item as pending instead of adopting when a push re-edited the comment', async () => {
+      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - 1000);
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.queue.reopenStaleRetriggered.mockResolvedValue(true);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'adopted', runId }));
+      deps.pullRequests.getColumnMaps.mockResolvedValue({
+        pr_state: new Map([[item.pull_request_id, PrState.open]]),
+        last_coderabbit_review_at: new Map(),
+        head_sha: new Map([[item.pull_request_id, 'sha-new']]),
+        reviewed_head_sha: new Map([[item.pull_request_id, 'sha-old']]),
+      });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.queue.reopenStaleRetriggered).toHaveBeenCalledWith(item.id, { prTitle: item.pr_title, coderabbitRunId: runId, cooldownUntil: undefined }, {});
+      expect(deps.probe.staleRetriggeredReopened).toHaveBeenCalledWith(runId);
+      expect(deps.queue.adoptRunIfStillRetriggered).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('reports a lost reopen race and skips adoption when the item is no longer retriggered', async () => {
+      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - 1000);
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.queue.reopenStaleRetriggered.mockResolvedValue(false);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'adopted', runId }));
+      deps.pullRequests.getColumnMaps.mockResolvedValue({
+        pr_state: new Map([[item.pull_request_id, PrState.open]]),
+        last_coderabbit_review_at: new Map(),
+        head_sha: new Map([[item.pull_request_id, 'sha-new']]),
+        reviewed_head_sha: new Map([[item.pull_request_id, 'sha-old']]),
+      });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.queue.reopenStaleRetriggered).toHaveBeenCalledWith(item.id, { prTitle: item.pr_title, coderabbitRunId: runId, cooldownUntil: undefined }, {});
+      expect(deps.probe.runAdoptionLostRace).toHaveBeenCalledWith(runId);
+      expect(deps.probe.staleRetriggeredReopened).not.toHaveBeenCalled();
+      expect(deps.queue.adoptRunIfStillRetriggered).not.toHaveBeenCalled();
+    });
+
+    it('still adopts when the PR head already matches the reviewed head', async () => {
+      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - 1000);
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.queue.adoptRunIfStillRetriggered.mockResolvedValue(true);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'adopted', runId }));
+      deps.pullRequests.getColumnMaps.mockResolvedValue({
+        pr_state: new Map([[item.pull_request_id, PrState.open]]),
+        last_coderabbit_review_at: new Map(),
+        head_sha: new Map([[item.pull_request_id, 'sha-same']]),
+        reviewed_head_sha: new Map([[item.pull_request_id, 'sha-same']]),
+      });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.queue.reopenStaleRetriggered).not.toHaveBeenCalled();
+      expect(deps.queue.adoptRunIfStillRetriggered).toHaveBeenCalledWith(item.id, item.source_comment_run_id, runId, {});
+      expect(deps.probe.runAdopted).toHaveBeenCalledWith(runId);
+    });
+
+    it('still adopts when the trigger is recent even though the head is unreviewed', async () => {
+      const retriggeredAt = new Date();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.queue.adoptRunIfStillRetriggered.mockResolvedValue(true);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'adopted', runId }));
+      deps.pullRequests.getColumnMaps.mockResolvedValue({
+        pr_state: new Map([[item.pull_request_id, PrState.open]]),
+        last_coderabbit_review_at: new Map(),
+        head_sha: new Map([[item.pull_request_id, 'sha-new']]),
+        reviewed_head_sha: new Map([[item.pull_request_id, 'sha-old']]),
+      });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.queue.reopenStaleRetriggered).not.toHaveBeenCalled();
+      expect(deps.queue.adoptRunIfStillRetriggered).toHaveBeenCalledWith(item.id, item.source_comment_run_id, runId, {});
+      expect(deps.probe.runAdopted).toHaveBeenCalledWith(runId);
+    });
+
     it('passes item to editDetector', async () => {
       const retriggeredAt = getUniqueDate();
       const ref = generateReviewRef();
       const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
-      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound }));
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound, sourceCommentType: undefined }));
       deps.github.findCompletedReview.mockResolvedValue(undefined);
 
       const detector = createDetector();
@@ -801,7 +932,7 @@ describe('ReviewDetector', () => {
       expect(deps.queue.markResolvedIfStillRetriggered).not.toHaveBeenCalled();
     });
 
-    it('passes the adopted run ID and PR head SHA to findCompletedReview', async () => {
+    it('passes the adopted run ID and PR head SHA to findCompletedReview for a review_skipped fallback', async () => {
       const retriggeredAt = getUniqueDate();
       const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
       const runId = getUniqueString({ prefix: 'run-' });
@@ -815,6 +946,9 @@ describe('ReviewDetector', () => {
       });
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(
+        RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound, sourceCommentType: CodeRabbitCommentType.review_skipped }),
+      );
       deps.pullRequests.getColumnMaps.mockResolvedValue({
         pr_state: new Map([[item.pull_request_id, PrState.open]]),
         last_coderabbit_review_at: new Map([[item.pull_request_id, null]]),
@@ -828,6 +962,70 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince, runId, headSha);
+    });
+
+    it('passes no head SHA to findCompletedReview when the head sha column is absent for a review_skipped fallback', async () => {
+      const retriggeredAt = getUniqueDate();
+      const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
+      const runId = getUniqueString({ prefix: 'run-' });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({
+        retriggered_at: retriggeredAt,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_run_id: runId,
+      });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(
+        RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound, sourceCommentType: CodeRabbitCommentType.review_skipped }),
+      );
+      deps.pullRequests.getColumnMaps.mockResolvedValue({
+        pr_state: new Map([[item.pull_request_id, PrState.open]]),
+        last_coderabbit_review_at: new Map([[item.pull_request_id, null]]),
+        head_sha: new Map(),
+        reviewed_head_sha: new Map(),
+      });
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince, runId, undefined);
+    });
+
+    it('suppresses the PR head SHA for a non-review_skipped fallback', async () => {
+      const retriggeredAt = getUniqueDate();
+      const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
+      const runId = getUniqueString({ prefix: 'run-' });
+      const headSha = getUniqueString({ prefix: 'sha-' });
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({
+        retriggered_at: retriggeredAt,
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_run_id: runId,
+      });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(
+        RabbitResult.ok({ action: 'fallback', reason: FallbackReason.NotFound, sourceCommentType: CodeRabbitCommentType.review_limited }),
+      );
+      deps.pullRequests.getColumnMaps.mockResolvedValue({
+        pr_state: new Map([[item.pull_request_id, PrState.open]]),
+        last_coderabbit_review_at: new Map([[item.pull_request_id, null]]),
+        head_sha: new Map([[item.pull_request_id, headSha]]),
+      });
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince, runId, undefined);
     });
 
     it('records the review commit ID on the PR when the review carries one', async () => {
