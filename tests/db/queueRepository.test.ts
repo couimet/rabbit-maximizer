@@ -6,6 +6,7 @@ import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/co
 import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
+import { MS_PER_SECOND } from '../../src/utils/index.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
@@ -19,6 +20,8 @@ const FIVE_MINUTES_MS = 5 * 60 * 1000;
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 const THIRTY_MINUTES_MS = 30 * 60 * 1000;
 const LOOKBACK_SEC = 2 * 60 * 60;
+const LOOKBACK_MS = LOOKBACK_SEC * MS_PER_SECOND;
+const STALE_MARGIN_MS = 1_000;
 const config = { REVIEW_DETECTION_LOOKBACK_SEC: LOOKBACK_SEC } as unknown as Config;
 
 describe('QueueRepositoryImpl', () => {
@@ -1650,7 +1653,7 @@ describe('QueueRepositoryImpl', () => {
         pr_number: ref.prNumber,
         status: QueueStatus.retriggered,
         source_comment_id: ref.commentId,
-        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_SEC * 1000 - 1000),
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
       });
 
       const { prisma, reviewQueue, queueOrder, pullRequest } = createMockPrismaClient({
@@ -1726,7 +1729,7 @@ describe('QueueRepositoryImpl', () => {
         pr_number: ref.prNumber,
         status: QueueStatus.retriggered,
         source_comment_id: ref.commentId,
-        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_SEC * 1000 - 1000),
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
       });
 
       const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
@@ -1805,7 +1808,7 @@ describe('QueueRepositoryImpl', () => {
         pr_number: ref.prNumber,
         status: QueueStatus.retriggered,
         source_comment_id: ref.commentId,
-        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_SEC * 1000 - 1000),
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
       });
 
       const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
@@ -1843,7 +1846,7 @@ describe('QueueRepositoryImpl', () => {
         pr_number: ref.prNumber,
         status: QueueStatus.retriggered,
         source_comment_id: ref.commentId,
-        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_SEC * 1000 - 1000),
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
       });
 
       const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
@@ -1882,7 +1885,7 @@ describe('QueueRepositoryImpl', () => {
         pr_number: ref.prNumber,
         status: QueueStatus.retriggered,
         source_comment_id: ref.commentId,
-        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_SEC * 1000 - 1000),
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
       });
 
       const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
@@ -1923,7 +1926,7 @@ describe('QueueRepositoryImpl', () => {
         pr_number: ref.prNumber,
         status: QueueStatus.retriggered,
         source_comment_id: ref.commentId,
-        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_SEC * 1000 - 1000),
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
       });
 
       const { prisma, reviewQueue } = createMockPrismaClient({
@@ -1985,7 +1988,7 @@ describe('QueueRepositoryImpl', () => {
         pr_number: ref.prNumber,
         status: QueueStatus.retriggered,
         source_comment_id: ref.commentId,
-        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_SEC * 1000 - 1000),
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
       });
 
       const { prisma, reviewQueue, queueOrder, pullRequest } = createMockPrismaClient({

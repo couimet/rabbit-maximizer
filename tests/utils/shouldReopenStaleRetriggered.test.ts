@@ -1,9 +1,10 @@
-import { shouldReopenStaleRetriggered } from '../../src/utils/index.js';
+import { MS_PER_HOUR, shouldReopenStaleRetriggered } from '../../src/utils/index.js';
 
 import { getUniqueDate, getUniqueString } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 
-const LOOKBACK_MS = 2 * 60 * 60 * 1000;
+const LOOKBACK_HOURS = 2;
+const LOOKBACK_MS = LOOKBACK_HOURS * MS_PER_HOUR;
 
 const makeItem = (retriggeredAt: Date | undefined): { readonly retriggered_at: Date | undefined } => ({ retriggered_at: retriggeredAt });
 
@@ -16,12 +17,12 @@ describe('shouldReopenStaleRetriggered', () => {
     expect(shouldReopenStaleRetriggered(item, undefined, reviewedHeadSha, LOOKBACK_MS, now)).toBe(false);
   });
 
-  it('returns false when the reviewed head SHA is missing', () => {
+  it('returns true when the reviewed head SHA is missing', () => {
     const now = getUniqueDate();
     const headSha = getUniqueString({ prefix: 'sha-' });
     const item = makeItem(new Date(now.getTime() - LOOKBACK_MS - 1000));
 
-    expect(shouldReopenStaleRetriggered(item, headSha, undefined, LOOKBACK_MS, now)).toBe(false);
+    expect(shouldReopenStaleRetriggered(item, headSha, undefined, LOOKBACK_MS, now)).toBe(true);
   });
 
   it('returns false when the reviewed head equals the head', () => {

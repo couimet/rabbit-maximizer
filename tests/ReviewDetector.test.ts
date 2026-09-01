@@ -25,6 +25,7 @@ const POLL_INTERVAL_SEC = 90;
 const POLL_INTERVAL_MS = POLL_INTERVAL_SEC * 1000;
 const LOOKBACK_SEC = 7200;
 const LOOKBACK_MS = LOOKBACK_SEC * 1000;
+const STALE_MARGIN_MS = 1_000;
 const TICK_DEPTH = 20;
 
 const drainMicrotasks = async (depth: number): Promise<void> => {
@@ -730,7 +731,7 @@ describe('ReviewDetector', () => {
     });
 
     it('reopens a stale retriggered item as pending instead of adopting when a push re-edited the comment', async () => {
-      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - 1000);
+      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - STALE_MARGIN_MS);
       const ref = generateReviewRef();
       const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const runId = getUniqueString({ prefix: 'run-' });
@@ -758,7 +759,7 @@ describe('ReviewDetector', () => {
     });
 
     it('reports a lost reopen race and skips adoption when the item is no longer retriggered', async () => {
-      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - 1000);
+      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - STALE_MARGIN_MS);
       const ref = generateReviewRef();
       const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const runId = getUniqueString({ prefix: 'run-' });
@@ -786,7 +787,7 @@ describe('ReviewDetector', () => {
     });
 
     it('still adopts when the PR head already matches the reviewed head', async () => {
-      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - 1000);
+      const retriggeredAt = new Date(Date.now() - LOOKBACK_MS - STALE_MARGIN_MS);
       const ref = generateReviewRef();
       const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const runId = getUniqueString({ prefix: 'run-' });

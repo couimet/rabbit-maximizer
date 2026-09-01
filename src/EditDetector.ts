@@ -79,7 +79,7 @@ export class EditDetectorImpl implements EditDetector {
       return RabbitResult.ok({
         action: 'fallback',
         reason: FallbackReason.NotAReview,
-        sourceCommentType: matchingComment.comment_type as CodeRabbitCommentType,
+        sourceCommentType: newType,
       });
     } catch (err: unknown) {
       return RabbitResult.err(

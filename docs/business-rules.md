@@ -236,13 +236,13 @@ The review detector watches `retriggered` items on `POLL_INTERVAL_SEC` and resol
 
 CodeRabbit edits its comment in place per run. The detector refetches the source comment and acts only when the fresh update time is newer than the last sighting:
 
-| Fresh comment classification                                                                             | Action                                                                                                   |
-| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Verdict (`review_approved` / `review_changes_suggested`)                                                 | Resolve `review_completed`; record the review (comment, verdict, head sha at review time)                |
-| `review_skipped` with an unchanged run                                                                   | Resolve `skipped`                                                                                        |
-| `review_skipped` with a new run, head not yet reviewed and trigger stale                                 | Reopen as `pending` so the scheduler re-triggers; adopting the re-edit in place would deadlock the item  |
-| `review_skipped` with a new run, head already reviewed, head or reviewed head unknown, or trigger recent | Adopt the run in place (update `source_comment_run_id`, restart the retrigger clock); stay `retriggered` |
-| Still a rate-limit comment, or not edited since the last sighting                                        | No resolution — fall through to the reviews-API fallback                                                 |
+| Fresh comment classification                                                            | Action                                                                                                   |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Verdict (`review_approved` / `review_changes_suggested`)                                | Resolve `review_completed`; record the review (comment, verdict, head sha at review time)                |
+| `review_skipped` with an unchanged run                                                  | Resolve `skipped`                                                                                        |
+| `review_skipped` with a new run, head not yet reviewed and trigger stale                | Reopen as `pending` so the scheduler re-triggers; adopting the re-edit in place would deadlock the item  |
+| `review_skipped` with a new run, head already reviewed, head unknown, or trigger recent | Adopt the run in place (update `source_comment_run_id`, restart the retrigger clock); stay `retriggered` |
+| Still a rate-limit comment, or not edited since the last sighting                       | No resolution — fall through to the reviews-API fallback                                                 |
 
 <a id="br-6-2"></a>
 
@@ -259,8 +259,7 @@ For a `review_skipped` source comment:
 For any other source comment:
 
 1. Its body Run ID equals the item's adopted run — exclusive: a review from any other run is rejected even if its commit matches.
-2. When no run is known, its commit matches the PR head.
-3. When neither is known, any completed review is accepted.
+2. When no run is known, any completed review is accepted.
 
 The `last_coderabbit_review_at` fallback (a recorded review inside the same window also resolves the item as `review_completed`) applies only when no run is known; a known run that produced nothing must stay `retriggered` so the stale-retriggered sweep can fail it after `SCHEDULER_MAX_RETRIGGER_AGE_SEC`. If nothing matches, the item stays `retriggered` and is checked again on a later tick.
 
@@ -466,4 +465,4 @@ These rules must never be violated. Every change to the product must preserve th
 11. When GitHub's API quota is exhausted, all polling stops until the quota reset time.
 12. Resolved items never appear in the queue order and can never be reordered or retriggered.
 13. The maximizer never posts a review request except in direct response to a detected CodeRabbit comment (or a recovery synthesized from a deleted one).
-14. A review from a run other than the item's adopted run never resolves the item; when no run is known, the newest review on the current PR head does.
+14. A review from a run other than the item's adopted run never resolves the item, except when the source comment is `review_skipped` and the review's commit matches the PR head. When no run is known, a `review_skipped` item resolves only on a review matching the PR head; any other source comment resolves on the newest completed review.
