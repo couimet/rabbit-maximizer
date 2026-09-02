@@ -59,6 +59,8 @@ export type { PullRequestHeadSha } from './PullRequestHeadSha.js';
 export type { QueueItem } from './QueueItem.js';
 export type { ReEnqueueAction } from './ReEnqueueAction.js';
 export type { ReEnqueueDecision } from './ReEnqueueDecision.js';
+export type { ReopenCandidate } from './ReopenCandidate.js';
+export type { ReopenStaleRetriggeredOptions } from './ReopenStaleRetriggeredOptions.js';
 export type { RepoFilter } from './RepoFilter.js';
 export type { RetriggerDecision } from './RetriggerDecision.js';
 export type { RetriggerDiagnosis } from './RetriggerDiagnosis.js';

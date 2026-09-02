@@ -197,6 +197,21 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
+  describe('staleRetriggeredReopened', () => {
+    it('logs info with item context and run id', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const runId = getUniqueString({ prefix: 'run-' });
+      const probe = createProbe();
+      probe.withItem(item);
+      probe.staleRetriggeredReopened(runId);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.staleRetriggeredReopened', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, runId },
+        'Stale retriggered item reopened as pending after a post-push re-edit',
+      );
+    });
+  });
+
   describe('editDetectionFailed', () => {
     it('logs warn with item context and error when edit detection fails', () => {
       const ref = generateReviewRef();

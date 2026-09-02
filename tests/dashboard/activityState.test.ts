@@ -13,11 +13,19 @@ describe('safeDeriveActivityStatus', () => {
     expect(result).toStrictEqual({ state: 'pending', linkUrl: undefined });
   });
 
-  it('returns fallback when deriveActivityStatus throws', () => {
+  it('returns stale_comment state for a resolved stale_comment item', () => {
+    const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'stale_comment', source_comment_url: undefined });
+
+    const result = safeDeriveActivityStatus(item);
+
+    expect(result).toStrictEqual({ state: 'stale_comment', linkUrl: undefined });
+  });
+
+  it('returns unknown fallback when deriveActivityStatus throws', () => {
     const item = generateQueueItemResponseData({ status: 'unexpected_value' as QueueItemResponse['status'] });
 
     const result = safeDeriveActivityStatus(item);
 
-    expect(result).toStrictEqual({ state: 'pending', linkUrl: undefined });
+    expect(result).toStrictEqual({ state: 'unknown', linkUrl: undefined });
   });
 });
