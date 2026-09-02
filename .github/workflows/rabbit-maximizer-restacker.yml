@@ -1,25 +1,15 @@
 name: rabbit-maximizer-restacker
 
+# Reusable workflows cannot subscribe to events, so this file keeps the
+# pull_request_target trigger and delegates the restack logic to the shared
+# workflow in couimet/github-actions.
+
 on:
   pull_request_target:
     types: [edited]
 
-permissions:
-  contents: read
-  pull-requests: write
-
 jobs:
   restack:
-    if: github.event.changes.base != null && github.event.pull_request.base.ref == 'main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-
-      - name: Request CodeRabbit full review
-        uses: ./.github/actions/request-coderabbit-full-review
-        with:
-          pr-number: ${{ github.event.pull_request.number }}
-          trigger: base-changed-to-main
-          metadata: '{"previous_base": "${{ github.event.changes.base.ref.from }}"}'
+    permissions:
+      pull-requests: write
+    uses: couimet/github-actions/.github/workflows/rabbit-maximizer-restacker.yml@main
