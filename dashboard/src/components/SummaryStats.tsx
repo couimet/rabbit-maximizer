@@ -142,8 +142,6 @@ const SummaryStats = () => {
         />
       </div>
 
-      <TrackedPrs items={data?.trackedPrs ?? null} headingLevel="h3" />
-
       <ActivityList schedulerStale={data.schedulerStale || localStale} lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current} />
 
       <div className="section-card">
@@ -159,6 +157,8 @@ const SummaryStats = () => {
           ))}
         </div>
       </div>
+
+      <TrackedPrs items={data?.trackedPrs ?? null} headingLevel="h3" />
     </section>
   );
 };

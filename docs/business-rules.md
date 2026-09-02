@@ -122,18 +122,19 @@ A completed review only dismisses comments from runs it already saw. CodeRabbit 
 
 The enqueue decision depends on the existing item for the same PR and source comment:
 
-| Existing item | Condition                                                                                                        | Outcome                                                                                                                                                                 |
-| ------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `retriggered` | Same source comment, same run ID                                                                                 | No-op — already retriggered                                                                                                                                             |
-| `retriggered` | Same source comment, incoming run ID absent                                                                      | No-op — stored run ID preserved                                                                                                                                         |
-| `retriggered` | Same source comment, incoming run ID known and differing from (or absent in) the stored run ID                   | Adopt in place — update `source_comment_run_id` and refresh `retriggered_at`; the in-flight run fulfills the outstanding trigger; no new item, no new retrigger comment |
-| `retriggered` | Different source comment                                                                                         | Recycle — the item adopts the new source comment (and its run ID) in place; no new item is created                                                                      |
-| `resolved`    | Same source comment, resolved within the last 5 minutes                                                          | No-op — recently-resolved loop guard                                                                                                                                    |
-| `resolved`    | Same source comment, still inside the cooldown window                                                            | No-op                                                                                                                                                                   |
-| `resolved`    | Reopenable resolution (`review_completed`, `failed`, `skipped`) and the comment was updated after the resolution | Reopen as `pending`; attempts and skip bookkeeping reset; the item keeps or rejoins the queue order                                                                     |
-| `resolved`    | Comment not updated since the resolution                                                                         | No-op                                                                                                                                                                   |
-| `pending`     | Any (creation conflict)                                                                                          | No-op — already queued                                                                                                                                                  |
-| None          | —                                                                                                                | Create a `pending` item and append it to the end of the queue order                                                                                                     |
+| Existing item | Condition                                                                                                                                           | Outcome                                                                                                                                                                 |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `retriggered` | Same source comment, same run ID                                                                                                                    | No-op — already retriggered                                                                                                                                             |
+| `retriggered` | Same source comment, incoming run ID absent                                                                                                         | No-op — stored run ID preserved                                                                                                                                         |
+| `retriggered` | Same source comment, `review_skipped` comment re-edited by a push, PR head not yet reviewed, and trigger older than `REVIEW_DETECTION_LOOKBACK_SEC` | Reopen as `pending` — the scheduler re-triggers a full review; adopting the edit in place deadlocks the item because the re-edit is a skip, not a review                |
+| `retriggered` | Same source comment, incoming run ID known and differing from (or absent in) the stored run ID (and the reopen above did not apply)                 | Adopt in place — update `source_comment_run_id` and refresh `retriggered_at`; the in-flight run fulfills the outstanding trigger; no new item, no new retrigger comment |
+| `retriggered` | Different source comment                                                                                                                            | Recycle — the item adopts the new source comment (and its run ID) in place; no new item is created                                                                      |
+| `resolved`    | Same source comment, resolved within the last 5 minutes                                                                                             | No-op — recently-resolved loop guard                                                                                                                                    |
+| `resolved`    | Same source comment, still inside the cooldown window                                                                                               | No-op                                                                                                                                                                   |
+| `resolved`    | Reopenable resolution (`review_completed`, `failed`, `skipped`) and the comment was updated after the resolution                                    | Reopen as `pending`; attempts and skip bookkeeping reset; the item keeps or rejoins the queue order                                                                     |
+| `resolved`    | Comment not updated since the resolution                                                                                                            | No-op                                                                                                                                                                   |
+| `pending`     | Any (creation conflict)                                                                                                                             | No-op — already queued                                                                                                                                                  |
+| None          | —                                                                                                                                                   | Create a `pending` item and append it to the end of the queue order                                                                                                     |
 
 New items join the queue order at the end (behind every positioned item, in creation order).
 
@@ -235,24 +236,32 @@ The review detector watches `retriggered` items on `POLL_INTERVAL_SEC` and resol
 
 CodeRabbit edits its comment in place per run. The detector refetches the source comment and acts only when the fresh update time is newer than the last sighting:
 
-| Fresh comment classification                                      | Action                                                                                                   |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Verdict (`review_approved` / `review_changes_suggested`)          | Resolve `review_completed`; record the review (comment, verdict, head sha at review time)                |
-| `review_skipped` with an unchanged run                            | Resolve `skipped`                                                                                        |
-| `review_skipped` with a new run                                   | Adopt the run in place (update `source_comment_run_id`, restart the retrigger clock); stay `retriggered` |
-| Still a rate-limit comment, or not edited since the last sighting | No resolution — fall through to the reviews-API fallback                                                 |
+| Fresh comment classification                                                            | Action                                                                                                   |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Verdict (`review_approved` / `review_changes_suggested`)                                | Resolve `review_completed`; record the review (comment, verdict, head sha at review time)                |
+| `review_skipped` with an unchanged run                                                  | Resolve `skipped`                                                                                        |
+| `review_skipped` with a new run, head not yet reviewed and trigger stale                | Reopen as `pending` so the scheduler re-triggers; adopting the re-edit in place would deadlock the item  |
+| `review_skipped` with a new run, head already reviewed, head unknown, or trigger recent | Adopt the run in place (update `source_comment_run_id`, restart the retrigger clock); stay `retriggered` |
+| Still a rate-limit comment, or not edited since the last sighting                       | No resolution — fall through to the reviews-API fallback                                                 |
 
 <a id="br-6-2"></a>
 
 ### Reviews-API fallback
 
-When edit detection cannot resolve the item, the detector looks back `REVIEW_DETECTION_LOOKBACK_SEC` from the retrigger time and consults the GitHub reviews API for a completed review by the CodeRabbit bot. The API returns reviews oldest-first, so the detector scans every page and keeps the newest accepted review. A review is accepted in tier order:
+When edit detection cannot resolve the item, the detector looks back `REVIEW_DETECTION_LOOKBACK_SEC` from the retrigger time and consults the GitHub reviews API for a completed review by the CodeRabbit bot. The API returns reviews oldest-first, so the detector scans every page and keeps the newest accepted review. A review is accepted in tier order, scoped by the source comment's classification: commit matching is primary for the `review_skipped` flow (where the trigger is the only path to a review), while other flows keep run-only matching so a commit-matched review from another run is not accepted.
 
-1. Its body Run ID equals the item's adopted run (`source_comment_run_id`) — the review from the run this trigger was posted for.
-2. When no run is known, its commit matches the PR head (`head_sha`, refreshed by the scanner every `PR_SCANNER_INTERVAL_SEC` — the DB head can lag a push by up to that window).
-3. When neither a run nor a head is known (legacy rows), any completed review is accepted.
+For a `review_skipped` source comment:
 
-Tier 1 is exclusive: when a run is known, a review from any other run is rejected even if its commit matches — an earlier run's review was generated against an older push. The `last_coderabbit_review_at` fallback (a recorded review inside the same window also resolves the item as `review_completed`) applies only when no run is known; a known run that produced nothing must stay `retriggered` so the stale-retriggered sweep can fail it after `SCHEDULER_MAX_RETRIGGER_AGE_SEC`. If nothing matches, the item stays `retriggered` and is checked again on a later tick.
+1. Its commit matches the PR head (`head_sha`, refreshed by the scanner every `PR_SCANNER_INTERVAL_SEC` — the DB head can lag a push by up to that window). A matching head commit is accepted even from a different run, because on small (<10-star) repos a triggered review runs from a walkthrough that never equals the source comment's run.
+2. Its body Run ID equals the item's adopted run (`source_comment_run_id`) — accepted when the commit does not match, since a review from an earlier run was generated against an older push.
+3. When neither a head nor a run is known (legacy rows), any completed review is accepted.
+
+For any other source comment:
+
+1. Its body Run ID equals the item's adopted run — exclusive: a review from any other run is rejected even if its commit matches.
+2. When no run is known, any completed review is accepted.
+
+The `last_coderabbit_review_at` fallback (a recorded review inside the same window also resolves the item as `review_completed`) applies only when no run is known; a known run that produced nothing must stay `retriggered` so the stale-retriggered sweep can fail it after `SCHEDULER_MAX_RETRIGGER_AGE_SEC`. If nothing matches, the item stays `retriggered` and is checked again on a later tick.
 
 <a id="br-6-3"></a>
 
@@ -260,8 +269,8 @@ Tier 1 is exclusive: when a run is known, a review from any other run is rejecte
 
 The app survives downtime of minutes to days by converging through the existing sequential boot (detection and review-limit polling → review evaluation → scheduler sweep, each awaited with an immediate first tick; see `main.ts`):
 
-- A comment re-edited during downtime carries a new CodeRabbit run ID. The first detection tick re-detects it (its freshness latch has not seen the edit) and the enqueue adoption rule above rewrites the still-`retriggered` item's run tracking in place, restarting the retrigger clock.
-- The first review tick then evaluates the item run-aware: only a review from the adopted run (or, legacy, the current head) resolves it. A review from a run started before the trigger was posted can no longer resolve the item.
+- A comment re-edited during downtime carries a new CodeRabbit run ID. The first detection tick re-detects it (its freshness latch has not seen the edit); when the still-`retriggered` item's trigger is stale and its head unreviewed, detection reopens it as `pending` so the scheduler re-triggers, otherwise the enqueue adoption rule above rewrites its run tracking in place, restarting the retrigger clock.
+- The first review tick then evaluates the item under the tier order of BR-6-2: a `review_skipped` item resolves on a review whose commit matches the current head even when that review ran before the trigger was posted (a pre-trigger walkthrough), falling back to the adopted run when the commit does not match; other flows still require the adopted run, so a review from a run started before the trigger cannot resolve them.
 - The scheduler's stale-retriggered sweep resolves as `failed` only items whose adopted run genuinely produced nothing after `SCHEDULER_MAX_RETRIGGER_AGE_SEC`.
 
 No dedicated reconciliation process exists by design. The same decision logic covers boot after downtime and steady-state operation. Writers that can race the review detector are guarded: the detector resolves only via `markResolvedIfStillRetriggered` (a lost race logs `resolutionLostRace` and skips the resolution), and the scheduler's stale sweep already uses a status-guarded `updateMany`. The pruner's unguarded `markResolved` is deliberate — terminal PR states take precedence over `review_completed` (invariant 9), so its overwrite direction is safe.
@@ -456,4 +465,4 @@ These rules must never be violated. Every change to the product must preserve th
 11. When GitHub's API quota is exhausted, all polling stops until the quota reset time.
 12. Resolved items never appear in the queue order and can never be reordered or retriggered.
 13. The maximizer never posts a review request except in direct response to a detected CodeRabbit comment (or a recovery synthesized from a deleted one).
-14. A review from a run other than the item's adopted run never resolves the item; when no run is known, the newest review on the current PR head does.
+14. A review from a run other than the item's adopted run never resolves the item, except when the source comment is `review_skipped` and the review's commit matches the PR head. When no run is known, a `review_skipped` item resolves only on a review matching the PR head; any other source comment resolves on the newest completed review.

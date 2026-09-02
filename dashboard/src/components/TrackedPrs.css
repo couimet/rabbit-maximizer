@@ -1,5 +1,28 @@
 /* Tracked PRs */
 
+.tracked-prs-explanation-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0 0 8px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #8b7d6b;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tracked-prs-explanation-toggle:hover {
+  color: #472e22;
+}
+
+.tracked-prs-explanation {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: #6b5e4f;
+  max-width: 60ch;
+}
+
 .badge.reviewed {
   background: #eaf5f1;
   color: #3d6b5c;

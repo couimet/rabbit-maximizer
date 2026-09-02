@@ -256,7 +256,7 @@ export interface components {
        * @description When the item transitioned to resolved (supersedes reviewed_at/failed_at for new code)
        */
       resolved_at?: string | null;
-      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped) */
+      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment) */
       resolution?: string | null;
       /**
        * @description Outcome of the most recent CodeRabbit review for this PR
@@ -286,6 +286,7 @@ export interface components {
        */
       pr_state?: 'open' | 'merged' | 'closed' | null;
       status: components['schemas']['QueueStatus'];
+      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment) */
       resolution?: string | null;
       /** Format: date-time */
       retriggered_at?: string | null;

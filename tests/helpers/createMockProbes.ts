@@ -73,6 +73,7 @@ export interface MockReviewDetectorProbe {
   resolutionLostRace: jest.Mock<any>;
   runAdopted: jest.Mock<any>;
   runAdoptionLostRace: jest.Mock<any>;
+  staleRetriggeredReopened: jest.Mock<any>;
   caughtError: jest.Mock<any>;
   editDetectionFailed: jest.Mock<any>;
 }
@@ -86,6 +87,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   resolutionLostRace: jest.fn<any>(),
   runAdopted: jest.fn<any>(),
   runAdoptionLostRace: jest.fn<any>(),
+  staleRetriggeredReopened: jest.fn<any>(),
   caughtError: jest.fn<any>(),
   editDetectionFailed: jest.fn<any>(),
 });
@@ -96,6 +98,7 @@ export interface MockEnqueueProbe {
   recentlyResolved: jest.Mock<any>;
   alreadyQueued: jest.Mock<any>;
   retriggeredReplaced: jest.Mock<any>;
+  staleRetriggeredReopened: jest.Mock<any>;
   resolvedReEnqueued: jest.Mock<any>;
   resolvedNotEdited: jest.Mock<any>;
 }
@@ -105,6 +108,7 @@ export const createMockEnqueueProbe = (): MockEnqueueProbe => ({
   recentlyResolved: jest.fn<any>(),
   alreadyQueued: jest.fn<any>(),
   retriggeredReplaced: jest.fn<any>(),
+  staleRetriggeredReopened: jest.fn<any>(),
   resolvedReEnqueued: jest.fn<any>(),
   resolvedNotEdited: jest.fn<any>(),
 });

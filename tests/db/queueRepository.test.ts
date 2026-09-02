@@ -1,10 +1,12 @@
+import type { Config } from '../../src/config.js';
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/index.js';
-import { QueueStatus, Resolution, SkipReason, TYPES } from '../../src/domain.js';
+import { CodeRabbitCommentType, QueueStatus, Resolution, SkipReason, TYPES } from '../../src/domain.js';
 import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
+import { MS_PER_SECOND } from '../../src/utils/index.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
@@ -17,6 +19,10 @@ import { Container } from 'inversify';
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 const TEN_MINUTES_MS = 10 * 60 * 1000;
 const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+const LOOKBACK_SEC = 2 * 60 * 60;
+const LOOKBACK_MS = LOOKBACK_SEC * MS_PER_SECOND;
+const STALE_MARGIN_MS = 1_000;
+const config = { REVIEW_DETECTION_LOOKBACK_SEC: LOOKBACK_SEC } as unknown as Config;
 
 describe('QueueRepositoryImpl', () => {
   let frozenNow: Date;
@@ -54,7 +60,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(row) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -67,6 +73,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
 
             pullRequestId,
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -101,7 +108,7 @@ describe('QueueRepositoryImpl', () => {
           create: jest.fn<any>().mockRejectedValue(p2002),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -114,6 +121,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
 
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -136,7 +144,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -149,6 +157,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
 
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -176,7 +185,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -188,6 +197,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: runId,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -222,7 +232,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -234,6 +244,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: undefined,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -269,7 +280,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(recentRetriggered), updateMany: createResolvedMock({ count: 1 }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -281,6 +292,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: newRunId,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -328,7 +340,7 @@ describe('QueueRepositoryImpl', () => {
           updateMany: createResolvedMock({ count: 0 }),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -340,6 +352,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: newRunId,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -373,7 +386,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(newRow) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const pullRequestId = getUniqueInt();
       const { item: result, created } = await runInContext(() =>
@@ -386,6 +399,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: runId,
             pullRequestId,
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -426,7 +440,7 @@ describe('QueueRepositoryImpl', () => {
           updateMany: createResolvedMock({ count: 1 }),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
 
@@ -440,6 +454,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: newCommentId,
             coderabbitRunId: undefined,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -487,7 +502,7 @@ describe('QueueRepositoryImpl', () => {
           updateMany: createResolvedMock({ count: 0 }),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
 
@@ -501,6 +516,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: newCommentId,
             coderabbitRunId: undefined,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -559,7 +575,7 @@ describe('QueueRepositoryImpl', () => {
         },
         queueOrder: { findUnique: createResolvedMock({ queue_item_id: conflictingResolved.id }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
 
@@ -574,6 +590,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             commentUpdatedAt: frozenNow,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -653,7 +670,7 @@ describe('QueueRepositoryImpl', () => {
         },
         queueOrder: { findUnique: createResolvedMock(null) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
 
@@ -668,6 +685,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             commentUpdatedAt: frozenNow,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -727,7 +745,7 @@ describe('QueueRepositoryImpl', () => {
           findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered).mockResolvedValueOnce(conflictingResolved),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const newCommentUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId);
 
@@ -742,6 +760,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             commentUpdatedAt: tenMinAgo,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -770,7 +789,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(newRow) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const pullRequestId = getUniqueInt();
       const { item: result, created } = await runInContext(() =>
@@ -783,6 +802,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: undefined,
             pullRequestId,
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -824,7 +844,7 @@ describe('QueueRepositoryImpl', () => {
           findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(recentResolved),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -836,6 +856,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: undefined,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -874,7 +895,7 @@ describe('QueueRepositoryImpl', () => {
           findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(oldResolved),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { created } = await runInContext(() =>
         sut.enqueue(
@@ -887,6 +908,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             cooldownUntil: futureCooldownUntil,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -918,7 +940,7 @@ describe('QueueRepositoryImpl', () => {
           create: createResolvedMock(newRow),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const pullRequestId = getUniqueInt();
       const { created } = await runInContext(() =>
@@ -932,6 +954,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             cooldownUntil: pastCooldownUntil,
             pullRequestId,
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -964,7 +987,7 @@ describe('QueueRepositoryImpl', () => {
           create: createResolvedMock(newRow),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const pullRequestId = getUniqueInt();
       const { created } = await runInContext(() =>
@@ -977,6 +1000,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: undefined,
             pullRequestId,
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -1016,7 +1040,7 @@ describe('QueueRepositoryImpl', () => {
         },
         queueOrder: { findUnique: createResolvedMock({ queue_item_id: existingResolved.id }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -1029,6 +1053,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             commentUpdatedAt: frozenNow,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -1106,7 +1131,7 @@ describe('QueueRepositoryImpl', () => {
         },
         queueOrder: { findUnique: createResolvedMock({ queue_item_id: existingResolved.id }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { created } = await runInContext(() =>
         sut.enqueue(
@@ -1120,6 +1145,7 @@ describe('QueueRepositoryImpl', () => {
             commentUpdatedAt: frozenNow,
             cooldownUntil: futureCooldownUntil,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -1171,7 +1197,7 @@ describe('QueueRepositoryImpl', () => {
         },
         queueOrder: { findUnique: createResolvedMock({ queue_item_id: existingResolved.id }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -1184,6 +1210,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             commentUpdatedAt: frozenNow,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -1231,7 +1258,7 @@ describe('QueueRepositoryImpl', () => {
           create: jest.fn<any>().mockRejectedValue(p2002),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -1244,6 +1271,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             commentUpdatedAt,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -1287,7 +1315,7 @@ describe('QueueRepositoryImpl', () => {
         },
         queueOrder: { findUnique: createResolvedMock(null) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const { item: result, created } = await runInContext(() =>
         sut.enqueue(
@@ -1300,6 +1328,7 @@ describe('QueueRepositoryImpl', () => {
             coderabbitRunId: undefined,
             commentUpdatedAt: frozenNow,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -1333,7 +1362,7 @@ describe('QueueRepositoryImpl', () => {
       const cooldownUntil = getUniqueDate();
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient);
 
@@ -1353,7 +1382,7 @@ describe('QueueRepositoryImpl', () => {
       const runId = getUniqueString({ prefix: 'run-' });
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, runId, prisma as unknown as Prisma.TransactionClient);
 
@@ -1380,7 +1409,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(
         sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient),
@@ -1402,7 +1431,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2005) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(
         sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient),
@@ -1424,7 +1453,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: jest.fn<any>().mockRejectedValue(unrecognizedError) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow(
         unrecognizedError,
@@ -1440,7 +1469,7 @@ describe('QueueRepositoryImpl', () => {
     it('records the skip reason and increments the skip count when the row is still pending', async () => {
       const row = generateReviewQueueHydrationData();
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { updateMany: createResolvedMock({ count: 1 }) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markRetriggerSkipped(row.id, SkipReason.cooldown, prisma as unknown as Prisma.TransactionClient);
 
@@ -1458,7 +1487,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns false when the row is no longer pending (status changed after selection)', async () => {
       const row = generateReviewQueueHydrationData();
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { updateMany: createResolvedMock({ count: 0 }) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markRetriggerSkipped(row.id, SkipReason.cooldown, prisma as unknown as Prisma.TransactionClient);
 
@@ -1478,7 +1507,7 @@ describe('QueueRepositoryImpl', () => {
     it('updates the row to resolved', async () => {
       const row = generateReviewQueueHydrationData({ status: QueueStatus.resolved });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const result = await sut.markResolved(row.id, Resolution.Failed, prisma as unknown as Prisma.TransactionClient);
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
@@ -1493,7 +1522,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(sut.markResolved(getUniqueInt(), Resolution.Failed, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_RECORD_NOT_FOUND_P2025',
@@ -1517,7 +1546,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { updateMany: createResolvedMock({ count: 1 }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markResolvedIfStillRetriggered(id, Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
@@ -1537,7 +1566,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { updateMany: createResolvedMock({ count: 0 }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markResolvedIfStillRetriggered(id, Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
@@ -1561,7 +1590,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { updateMany: createResolvedMock({ count: 1 }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.adoptRunIfStillRetriggered(id, expectedRunId, adoptedRunId, prisma as unknown as Prisma.TransactionClient);
 
@@ -1583,7 +1612,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { updateMany: createResolvedMock({ count: 0 }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.adoptRunIfStillRetriggered(id, expectedRunId, adoptedRunId, prisma as unknown as Prisma.TransactionClient);
 
@@ -1604,7 +1633,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { updateMany: createResolvedMock({ count: 1 }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.adoptRunIfStillRetriggered(id, undefined, adoptedRunId, prisma as unknown as Prisma.TransactionClient);
 
@@ -1612,6 +1641,492 @@ describe('QueueRepositoryImpl', () => {
         where: { id, status: 'retriggered', source_comment_run_id: null },
         data: { source_comment_run_id: adoptedRunId, retriggered_at: frozenNow },
       });
+      expect(result).toBe(true);
+    });
+
+    it('reopens a stale retriggered item as pending when a push re-edits a review_skipped comment', async () => {
+      const ref = generateReviewRef();
+      const runId = getUniqueString({ prefix: 'run-' });
+      const pullRequestId = getUniqueInt();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
+      });
+
+      const { prisma, reviewQueue, queueOrder, pullRequest } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentRetriggered), updateMany: createResolvedMock({ count: 1 }) },
+        pullRequest: { findUnique: createResolvedMock({ head_sha: 'sha-new', reviewed_head_sha: 'sha-old' }) },
+        queueOrder: { findUnique: createResolvedMock(null), create: createResolvedMock({}) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle,
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: runId,
+            commentUpdatedAt: new Date(),
+            cooldownUntil: undefined,
+            sourceCommentType: CodeRabbitCommentType.review_skipped,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id: pullRequestId } });
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id: recentRetriggered.id, status: 'retriggered' },
+        data: {
+          status: 'pending',
+          resolution: null,
+          resolved_at: null,
+          pr_title: prTitle,
+          source_comment_run_id: runId,
+          cooldown_until: null,
+          last_skipped_at: null,
+          last_skip_reason: null,
+          retrigger_skip_count: 0,
+        },
+      });
+      expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: recentRetriggered.id } });
+      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: recentRetriggered.id } });
+      expect(reviewQueue.create).not.toHaveBeenCalled();
+      expect(created).toBe(true);
+      expect(result).toStrictEqual(
+        mapper.fromReviewQueue({
+          ...recentRetriggered,
+          status: QueueStatus.pending,
+          pr_title: prTitle,
+          source_comment_run_id: runId,
+          cooldown_until: null,
+        }),
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        {
+          fn: 'EnqueueProbe.staleRetriggeredReopened',
+          repo: ref.repoFullName,
+          pr: ref.prNumber,
+          queueItemId: recentRetriggered.id,
+          coderabbit_run_id: runId,
+        },
+        'Stale retriggered item reopened as pending after a post-push re-edit',
+      );
+    });
+
+    it('does not reopen when the PR head already matches the reviewed head', async () => {
+      const ref = generateReviewRef();
+      const pullRequestId = getUniqueInt();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
+      });
+
+      const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
+        pullRequest: { findUnique: createResolvedMock({ head_sha: 'sha-same', reviewed_head_sha: 'sha-same' }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle,
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            cooldownUntil: undefined,
+            sourceCommentType: CodeRabbitCommentType.review_skipped,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id: pullRequestId } });
+      expect(reviewQueue.updateMany).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+    });
+
+    it('does not reopen when the item was retriggered within the lookback window', async () => {
+      const ref = generateReviewRef();
+      const pullRequestId = getUniqueInt();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+        retriggered_at: frozenNow,
+      });
+
+      const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
+        pullRequest: { findUnique: createResolvedMock({ head_sha: 'sha-new', reviewed_head_sha: 'sha-old' }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle,
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            cooldownUntil: undefined,
+            sourceCommentType: CodeRabbitCommentType.review_skipped,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id: pullRequestId } });
+      expect(reviewQueue.updateMany).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+    });
+
+    it('does not fetch the pull request when the comment is not a review_skipped skip', async () => {
+      const ref = generateReviewRef();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
+      });
+
+      const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle,
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            cooldownUntil: undefined,
+            sourceCommentType: CodeRabbitCommentType.review_limited,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(pullRequest.findUnique).not.toHaveBeenCalled();
+      expect(reviewQueue.updateMany).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+    });
+
+    it('does not reopen when the pull request row is missing', async () => {
+      const ref = generateReviewRef();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
+      });
+
+      const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
+        pullRequest: { findUnique: createResolvedMock(null) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle,
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            cooldownUntil: undefined,
+            sourceCommentType: CodeRabbitCommentType.review_skipped,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(pullRequest.findUnique).toHaveBeenCalled();
+      expect(reviewQueue.updateMany).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+    });
+
+    it('does not reopen when the PR head shas are unknown', async () => {
+      const ref = generateReviewRef();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
+      });
+
+      const { prisma, reviewQueue, pullRequest } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentRetriggered) },
+        pullRequest: { findUnique: createResolvedMock({ head_sha: null, reviewed_head_sha: null }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle,
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            cooldownUntil: undefined,
+            sourceCommentType: CodeRabbitCommentType.review_skipped,
+            pullRequestId: getUniqueInt(),
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(pullRequest.findUnique).toHaveBeenCalled();
+      expect(reviewQueue.updateMany).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+    });
+
+    it('reopens with a null run and the provided cooldown when the re-edit carries no run', async () => {
+      const ref = generateReviewRef();
+      const pullRequestId = getUniqueInt();
+      const cooldownUntil = getUniqueDate();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
+      });
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentRetriggered), updateMany: createResolvedMock({ count: 1 }) },
+        pullRequest: { findUnique: createResolvedMock({ head_sha: 'sha-new', reviewed_head_sha: 'sha-old' }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle,
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: undefined,
+            commentUpdatedAt: new Date(),
+            cooldownUntil,
+            sourceCommentType: CodeRabbitCommentType.review_skipped,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id: recentRetriggered.id, status: 'retriggered' },
+        data: {
+          status: 'pending',
+          resolution: null,
+          resolved_at: null,
+          pr_title: prTitle,
+          source_comment_run_id: null,
+          cooldown_until: cooldownUntil,
+          last_skipped_at: null,
+          last_skip_reason: null,
+          retrigger_skip_count: 0,
+        },
+      });
+      expect(created).toBe(true);
+      expect(result).toStrictEqual(
+        mapper.fromReviewQueue({
+          ...recentRetriggered,
+          status: QueueStatus.pending,
+          pr_title: prTitle,
+          source_comment_run_id: null,
+          cooldown_until: cooldownUntil,
+        }),
+      );
+    });
+
+    it('falls back to adoption when the reopen loses the race', async () => {
+      const ref = generateReviewRef();
+      const runId = getUniqueString({ prefix: 'run-' });
+      const pullRequestId = getUniqueInt();
+      const recentRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: ref.commentId,
+        retriggered_at: new Date(frozenNow.getTime() - LOOKBACK_MS - STALE_MARGIN_MS),
+      });
+
+      const { prisma, reviewQueue, queueOrder, pullRequest } = createMockPrismaClient({
+        reviewQueue: { findFirst: createResolvedMock(recentRetriggered), updateMany: createResolvedMock({ count: 0 }) },
+        pullRequest: { findUnique: createResolvedMock({ head_sha: 'sha-new', reviewed_head_sha: 'sha-old' }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle,
+            sourceCommentUrl: ref.commentUrl,
+            sourceCommentId: ref.commentId,
+            coderabbitRunId: runId,
+            commentUpdatedAt: new Date(),
+            cooldownUntil: undefined,
+            sourceCommentType: CodeRabbitCommentType.review_skipped,
+            pullRequestId,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id: pullRequestId } });
+      expect(reviewQueue.updateMany).toHaveBeenNthCalledWith(1, {
+        where: { id: recentRetriggered.id, status: 'retriggered' },
+        data: {
+          status: 'pending',
+          resolution: null,
+          resolved_at: null,
+          pr_title: prTitle,
+          source_comment_run_id: runId,
+          cooldown_until: null,
+          last_skipped_at: null,
+          last_skip_reason: null,
+          retrigger_skip_count: 0,
+        },
+      });
+      expect(reviewQueue.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { id: recentRetriggered.id, status: 'retriggered' },
+        data: { source_comment_run_id: runId, retriggered_at: frozenNow },
+      });
+      expect(queueOrder.findUnique).not.toHaveBeenCalled();
+      expect(created).toBe(false);
+      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+    });
+  });
+
+  describe('reopenStaleRetriggered', () => {
+    it('reopens a still-retriggered item as pending and ensures a queueOrder row', async () => {
+      const id = getUniqueInt();
+      const runId = getUuid();
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 1 }) },
+        queueOrder: { findUnique: jest.fn<any>().mockResolvedValue(null), create: createResolvedMock({}) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const result = await sut.reopenStaleRetriggered(
+        id,
+        { prTitle, coderabbitRunId: runId, cooldownUntil: undefined },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id, status: 'retriggered' },
+        data: {
+          status: 'pending',
+          resolution: null,
+          resolved_at: null,
+          pr_title: prTitle,
+          source_comment_run_id: runId,
+          cooldown_until: null,
+          last_skipped_at: null,
+          last_skip_reason: null,
+          retrigger_skip_count: 0,
+        },
+      });
+      expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: id } });
+      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: id } });
+      expect(result).toBe(true);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.reopenStaleRetriggered', id, changed: true },
+        'Reopened stale retriggered item as pending',
+      );
+    });
+
+    it('returns false when the item is no longer retriggered (lost race)', async () => {
+      const id = getUniqueInt();
+      const { prisma, queueOrder } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 0 }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const result = await sut.reopenStaleRetriggered(
+        id,
+        { prTitle, coderabbitRunId: undefined, cooldownUntil: undefined },
+        prisma as unknown as Prisma.TransactionClient,
+      );
+
+      expect(result).toBe(false);
+      expect(queueOrder.findUnique).not.toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepositoryImpl.reopenStaleRetriggered', id, changed: false },
+        'Stale retriggered item already moved on; skipping reopen',
+      );
+    });
+
+    it('reuses an existing queueOrder row and clears cooldown via the provided value', async () => {
+      const id = getUniqueInt();
+      const runId = getUuid();
+      const cooldownUntil = getUniqueDate();
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 1 }) },
+        queueOrder: { findUnique: createResolvedMock({ queue_item_id: id }) },
+      });
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      const result = await sut.reopenStaleRetriggered(id, { prTitle, coderabbitRunId: runId, cooldownUntil }, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { id, status: 'retriggered' },
+        data: {
+          status: 'pending',
+          resolution: null,
+          resolved_at: null,
+          pr_title: prTitle,
+          source_comment_run_id: runId,
+          cooldown_until: cooldownUntil,
+          last_skipped_at: null,
+          last_skip_reason: null,
+          retrigger_skip_count: 0,
+        },
+      });
+      expect(queueOrder.create).not.toHaveBeenCalled();
       expect(result).toBe(true);
     });
   });
@@ -1624,7 +2139,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markResolvedByUuid(row.uuid, Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
@@ -1645,7 +2160,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markResolvedByUuid(row.uuid, Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
@@ -1658,7 +2173,7 @@ describe('QueueRepositoryImpl', () => {
           update: jest.fn<any>().mockRejectedValue(new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' })),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markResolvedByUuid('missing-uuid', Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
@@ -1674,7 +2189,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         reviewQueue: { update: jest.fn<any>().mockRejectedValue(genericError) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(sut.markResolvedByUuid('some-uuid', Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow('DB down');
     });
@@ -1685,7 +2200,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(completedRow) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.markResolvedByUuid(row.uuid, Resolution.ReviewCompleted);
 
@@ -1704,7 +2219,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const commentId = getUniqueInt();
       const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
@@ -1729,7 +2244,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const commentId = getUniqueInt();
       const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
       const originalSourceCommentUrl = getUniqueString({ prefix: 'https://github.com/' });
@@ -1756,7 +2271,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const commentId = getUniqueInt();
       const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
       const runId = getUniqueString({ prefix: 'run-' });
@@ -1782,7 +2297,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(
         sut.reschedule(
@@ -1816,7 +2331,7 @@ describe('QueueRepositoryImpl', () => {
           findFirst: createResolvedMock(existingResolved),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient);
 
@@ -1845,7 +2360,7 @@ describe('QueueRepositoryImpl', () => {
           findFirst: createResolvedMock(nonResolvedRow),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002',
@@ -1879,7 +2394,7 @@ describe('QueueRepositoryImpl', () => {
           findFirst: createResolvedMock(null),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(sut.reschedule(row.id, { commentId, commentUrl }, undefined, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError(
         'PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002',
@@ -1908,7 +2423,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: createResolvedMock(row) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.backoff(row.id, prisma as unknown as Prisma.TransactionClient);
 
@@ -1925,7 +2440,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { update: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(sut.backoff(getUniqueInt(), prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'ReviewQueue'",
@@ -1947,7 +2462,7 @@ describe('QueueRepositoryImpl', () => {
         generateReviewQueueHydrationData({ status: QueueStatus.retriggered }),
       ];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const result = await sut.getRetriggeredQueue();
       expect(reviewQueue.findMany).toHaveBeenCalledWith({
         where: { status: 'retriggered' },
@@ -1963,7 +2478,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { updateMany: createResolvedMock({ count: 2 }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const maxAgeMs = 1000;
 
       const result = await sut.resolveStaleRetriggered(maxAgeMs, prisma as unknown as Prisma.TransactionClient);
@@ -1979,7 +2494,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { updateMany: createResolvedMock({ count: 0 }) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.resolveStaleRetriggered(1000, prisma as unknown as Prisma.TransactionClient);
 
@@ -1992,7 +2507,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns the oldest pending item', async () => {
       const row = generateReviewQueueHydrationData({ status: QueueStatus.pending });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const result = await sut.getOldestPending();
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({
         where: { status: 'pending' },
@@ -2004,7 +2519,7 @@ describe('QueueRepositoryImpl', () => {
 
     it('returns undefined when no pending items exist', async () => {
       const { prisma } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const result = await sut.getOldestPending();
       expect(result).toBeUndefined();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepositoryImpl.getOldestPending', found: false }, 'Fetched oldest pending item');
@@ -2018,7 +2533,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: jest.fn<any>().mockRejectedValue(networkError) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(() =>
         sut.enqueue(
@@ -2030,6 +2545,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: undefined,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -2047,7 +2563,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue: _reviewQueue } = createMockPrismaClient({
         reviewQueue: { create: jest.fn<any>().mockRejectedValue(p2002), findFirst: createResolvedMock(null) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(() =>
         sut.enqueue(
@@ -2059,6 +2575,7 @@ describe('QueueRepositoryImpl', () => {
             sourceCommentId: ref.commentId,
             coderabbitRunId: undefined,
             pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
           },
           prisma as unknown as Prisma.TransactionClient,
         ),
@@ -2075,7 +2592,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns pending and retriggered items ordered by id', async () => {
       const rows = [generateReviewQueueHydrationData({ status: QueueStatus.pending }), generateReviewQueueHydrationData({ status: QueueStatus.retriggered })];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.getActiveQueue();
 
@@ -2089,7 +2606,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns pending items ordered by id', async () => {
       const rows = [generateReviewQueueHydrationData({ status: QueueStatus.pending }), generateReviewQueueHydrationData({ status: QueueStatus.pending })];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.getPendingQueue();
 
@@ -2105,7 +2622,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { findMany: createResolvedMock(rows), count: jest.fn<any>().mockResolvedValue(5) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.getAll(0, 10);
 
@@ -2128,7 +2645,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { groupBy: createResolvedMock(rows) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.getCountsByStatus();
 
@@ -2162,7 +2679,7 @@ describe('QueueRepositoryImpl', () => {
         generateReviewQueueHydrationData({ status: QueueStatus.resolved, resolution: Resolution.Skipped }),
       ];
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock(rows) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.getSkippedItems();
 
@@ -2177,7 +2694,7 @@ describe('QueueRepositoryImpl', () => {
 
     it('returns empty array when no skipped items exist', async () => {
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findMany: createResolvedMock([]) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.getSkippedItems();
 
@@ -2200,7 +2717,7 @@ describe('QueueRepositoryImpl', () => {
           update: createResolvedMock({}),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await sut.incrementAttempts(id, attempts, prisma as unknown as Prisma.TransactionClient);
 
@@ -2222,7 +2739,7 @@ describe('QueueRepositoryImpl', () => {
           count: createResolvedMock(2),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.getActivityList(since, 0, 50);
 
@@ -2253,7 +2770,7 @@ describe('QueueRepositoryImpl', () => {
           count: createResolvedMock(4),
         },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.getActivityList(since, 1, 2);
 
@@ -2275,7 +2792,7 @@ describe('QueueRepositoryImpl', () => {
     it('returns the QueueItem when a matching row exists', async () => {
       const row = generateReviewQueueHydrationData();
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.findBySourceCommentId(row.source_comment_id);
 
@@ -2285,7 +2802,7 @@ describe('QueueRepositoryImpl', () => {
 
     it('returns undefined when no matching row exists', async () => {
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(null) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
       const commentId = getUniqueInt();
 
       const result = await sut.findBySourceCommentId(commentId);
@@ -2297,7 +2814,7 @@ describe('QueueRepositoryImpl', () => {
     it('maps null timestamps to undefined', async () => {
       const row = generateReviewQueueHydrationData({ retriggered_at: null, failed_at: null, reviewed_at: null });
       const { prisma } = createMockPrismaClient({ reviewQueue: { findFirst: createResolvedMock(row) } });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.findBySourceCommentId(row.source_comment_id);
 
@@ -2311,7 +2828,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma, reviewQueue } = createMockPrismaClient({
         reviewQueue: { count: createResolvedMock(0) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.existsByPullRequestId(pullRequestId);
 
@@ -2328,7 +2845,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         reviewQueue: { count: createResolvedMock(1) },
       });
-      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, logger);
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       const result = await sut.existsByPullRequestId(pullRequestId);
 
@@ -2345,6 +2862,7 @@ describe('QueueRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient();
       const container = new Container();
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
+      container.bind<Config>(TYPES.Config).toConstantValue(config);
       container.bind(TYPES.EventRepository).toConstantValue({ record: jest.fn(), listForPr: jest.fn() });
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
       container.bind(TYPES.ProbeFactory).toConstantValue(probeFactory);
