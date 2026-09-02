@@ -176,4 +176,29 @@ describe('EnqueueProbe', () => {
       );
     });
   });
+
+  describe('staleRetriggeredReopened', () => {
+    it('logs info with item context and run id', () => {
+      const ref = generateReviewRef();
+      const queueItemId = getUniqueInt();
+      const runId = getUniqueString({ prefix: 'run-' });
+      const probe = createProbe(createMockTx());
+      probe.staleRetriggeredReopened(ref.repoFullName, ref.prNumber, queueItemId, runId);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'EnqueueProbe.staleRetriggeredReopened', repo: ref.repoFullName, pr: ref.prNumber, queueItemId, coderabbit_run_id: runId },
+        'Stale retriggered item reopened as pending after a post-push re-edit',
+      );
+    });
+
+    it('logs info without a run id when none is known', () => {
+      const ref = generateReviewRef();
+      const queueItemId = getUniqueInt();
+      const probe = createProbe(createMockTx());
+      probe.staleRetriggeredReopened(ref.repoFullName, ref.prNumber, queueItemId, undefined);
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'EnqueueProbe.staleRetriggeredReopened', repo: ref.repoFullName, pr: ref.prNumber, queueItemId },
+        'Stale retriggered item reopened as pending after a post-push re-edit',
+      );
+    });
+  });
 });

@@ -19,7 +19,7 @@ describe('EditDetector', () => {
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_found' });
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_found', sourceCommentType: undefined });
     expect(comments.findByCommentId).toHaveBeenCalledWith(item.pull_request_id, commentId);
     expect(github.fetchComment).not.toHaveBeenCalled();
   });
@@ -33,6 +33,7 @@ describe('EditDetector', () => {
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
+      comment_type: 'review_skipped',
       gh_updated_at: new Date(lastSeenAt.getTime() - ONE_MINUTE_MS),
       last_seen_at: lastSeenAt,
       is_not_deleted: true,
@@ -43,7 +44,7 @@ describe('EditDetector', () => {
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_edited' });
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_edited', sourceCommentType: 'review_skipped' });
     expect(github.fetchComment).toHaveBeenCalled();
   });
 
@@ -145,6 +146,7 @@ describe('EditDetector', () => {
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
+      comment_type: 'review_skipped',
       url: ref.commentUrl,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
@@ -156,12 +158,50 @@ describe('EditDetector', () => {
     const detector = new EditDetectorImpl(comments, github);
     const result = await detector.detectEdit(item);
 
-    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_a_review' });
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_a_review', sourceCommentType: 'review_limited' });
     expect(comments.upsert).toHaveBeenCalledWith({
       comment_id: commentId,
       pull_request_id: item.pull_request_id,
       url: ref.commentUrl,
       comment_type: 'review_limited',
+      body: fetchBody,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      coderabbit_run_id: null,
+    });
+  });
+
+  it('upserts timestamps and returns fallback with the reclassified type when an edited skip comment becomes unknown', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const ghCreatedAt = getUniqueDate();
+    const lastSeenAt = getUniqueDate();
+    const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
+    const fetchBody = 'This comment matches no known marker.';
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      comment_type: 'review_skipped',
+      url: ref.commentUrl,
+      gh_created_at: ghCreatedAt,
+      gh_updated_at: ghUpdatedAt,
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+    github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
+
+    const detector = new EditDetectorImpl(comments, github);
+    const result = await detector.detectEdit(item);
+
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_a_review', sourceCommentType: 'unknown' });
+    expect(comments.upsert).toHaveBeenCalledWith({
+      comment_id: commentId,
+      pull_request_id: item.pull_request_id,
+      url: ref.commentUrl,
+      comment_type: 'unknown',
       body: fetchBody,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,

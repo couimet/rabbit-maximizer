@@ -68,6 +68,19 @@ export class EnqueueProbe {
     );
   }
 
+  staleRetriggeredReopened(repo: string, pr: number, queueItemId: number, runId: string | undefined): void {
+    this.log.info(
+      {
+        fn: 'EnqueueProbe.staleRetriggeredReopened',
+        repo,
+        pr,
+        queueItemId,
+        ...(runId !== undefined ? { coderabbit_run_id: runId } : {}),
+      },
+      'Stale retriggered item reopened as pending after a post-push re-edit',
+    );
+  }
+
   resolvedReEnqueued(repo: string, pr: number, sourceCommentId: number): void {
     this.log.info({ fn: 'EnqueueProbe.resolvedReEnqueued', repo, pr, sourceCommentId }, 'Resolved item re-enqueued after comment edit');
   }
