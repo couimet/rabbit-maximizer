@@ -94,6 +94,17 @@ describe('SchedulerProbe', () => {
     });
   });
 
+  describe('scanBudgetExhausted', () => {
+    it('logs debug', () => {
+      const probe = createProbe();
+      probe.scanBudgetExhausted();
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'SchedulerProbe.scanBudgetExhausted' },
+        'PR-state scan budget exhausted; deferring remaining candidates to a later tick',
+      );
+    });
+  });
+
   describe('withItem', () => {
     it('switches item context for subsequent probe calls', async () => {
       const firstRef = generateReviewRef();

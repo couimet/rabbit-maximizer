@@ -167,6 +167,8 @@ Candidates come from the effective order (pending and retriggered), restricted t
 
 A skip is only recorded if the item is still `pending` — a concurrently resolved item is not re-skipped.
 
+A single tick fetches at most `SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK` candidate PR states (default 5). Once a tick has made that many state fetches without finding an open PR, the scan stops and the remaining candidates are reconsidered on the next tick. Cooldown and settling skips do not count toward the cap, so a run of cooled-down items at the front of the queue cannot starve the scan.
+
 <a id="br-4-2"></a>
 
 ### Attempts and backoff
@@ -433,6 +435,7 @@ All keys are environment variables. Defaults are stated; validation invariants f
 | `REVIEW_LIMIT_BUFFER_SEC`                                                        | Extra wait added when rescheduling onto a replacement comment                                                     | 60                                |
 | `MAX_RETRIGGER_ATTEMPTS`                                                         | Attempt cap per item; the item resolves as failed at the cap                                                      | 10                                |
 | `SCHEDULER_MAX_RETRIGGER_AGE_SEC`                                                | Age at which a retriggered item resolves as failed                                                                | 259200                            |
+| `SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK`                                        | Max candidate PR-state lookups per tick while scanning for the next due item                                      | 5                                 |
 | `SCHEDULER_RETRY_BACKOFF_BASE_SEC`                                               | Base of the exponential failure backoff                                                                           | 60                                |
 | `SCHEDULER_RETRY_BACKOFF_MAX_SEC`                                                | Cap of the exponential failure backoff                                                                            | 3600                              |
 | `REVIEW_DETECTION_LOOKBACK_SEC`                                                  | Lookback window for the reviews-API fallback                                                                      | 7200                              |

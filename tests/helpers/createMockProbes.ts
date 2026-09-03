@@ -149,6 +149,7 @@ export interface MockSchedulerProbe {
   tickSkippedCooldown: jest.Mock<any>;
   retriggerSkipped: jest.Mock<any>;
   noItemsDue: jest.Mock<any>;
+  scanBudgetExhausted: jest.Mock<any>;
   staleRetriggeredResolved: jest.Mock<any>;
   tickFailed: jest.Mock<any>;
   rescheduled: jest.Mock<any>;
@@ -169,6 +170,7 @@ export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
   tickSkippedCooldown: jest.fn<any>(),
   retriggerSkipped: jest.fn<any>(),
   noItemsDue: jest.fn<any>(),
+  scanBudgetExhausted: jest.fn<any>(),
   tickFailed: jest.fn<any>(),
   rescheduled: jest.fn<any>(),
   skipped: jest.fn<any>(),

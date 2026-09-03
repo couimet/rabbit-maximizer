@@ -31,6 +31,7 @@ export const ConfigSchema = z
         { error: 'REPO_FILTER is required' },
       )
       .min(1, 'REPO_FILTER must have at least one entry'),
+    SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: z.coerce.number().int().positive('SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK must be a positive integer').default(5),
     SCHEDULER_MAX_RETRIGGER_AGE_SEC: z.coerce.number().int().positive('SCHEDULER_MAX_RETRIGGER_AGE_SEC must be a positive integer').default(259200),
     SCHEDULER_RETRIGGER_SPACING_SEC: z.coerce.number().int().positive('SCHEDULER_RETRIGGER_SPACING_SEC must be a positive integer').default(180),
     SCHEDULER_RETRY_BACKOFF_BASE_SEC: z.coerce.number().int().positive('SCHEDULER_RETRY_BACKOFF_BASE_SEC must be a positive integer').default(60),

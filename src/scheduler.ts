@@ -12,6 +12,8 @@ import type { Logger } from '@couimet/logger-contract';
 import { type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
+type SelectNextEligibleOutcome = { readonly kind: 'candidate'; readonly item: QueueItem } | { readonly kind: 'deferred' } | { readonly kind: 'none' };
+
 @injectable()
 export class Scheduler extends IntervalService {
   private readonly baseBackoff: number;
@@ -19,6 +21,7 @@ export class Scheduler extends IntervalService {
   private readonly maxRetriggerAttempts: number;
   private readonly retriggerSpacingMs: number;
   private readonly maxRetriggerAgeMs: number;
+  private readonly maxPrStateFetchesPerTick: number;
 
   /* c8 ignore start — decorator emit branches */
   constructor(
@@ -49,6 +52,7 @@ export class Scheduler extends IntervalService {
     this.maxRetriggerAttempts = cfg.MAX_RETRIGGER_ATTEMPTS;
     this.retriggerSpacingMs = cfg.SCHEDULER_RETRIGGER_SPACING_SEC * MS_PER_SECOND;
     this.maxRetriggerAgeMs = cfg.SCHEDULER_MAX_RETRIGGER_AGE_SEC * MS_PER_SECOND;
+    this.maxPrStateFetchesPerTick = cfg.SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK;
   }
   /* c8 ignore stop */
 
@@ -98,11 +102,16 @@ export class Scheduler extends IntervalService {
         return;
       }
 
-      item = await this.selectNextEligibleItem(probe);
-      if (!item) {
+      const selection = await this.selectNextEligibleItem(probe);
+      if (selection.kind === 'deferred') {
+        probe.scanBudgetExhausted();
+        return;
+      }
+      if (selection.kind === 'none') {
         probe.noItemsDue();
         return;
       }
+      item = selection.item;
 
       const item_ = item;
       probe.withItem(item_);
@@ -188,8 +197,9 @@ export class Scheduler extends IntervalService {
     }
   }
 
-  private async selectNextEligibleItem(probe: SchedulerProbe): Promise<QueueItem | undefined> {
+  private async selectNextEligibleItem(probe: SchedulerProbe): Promise<SelectNextEligibleOutcome> {
     const eligible = (await this.queueOrder.getEffectiveOrder()).filter((item) => item.status === QueueStatus.pending);
+    let fetches = 0;
 
     for (const candidate of eligible) {
       if (candidate.cooldown_until !== undefined && candidate.cooldown_until.getTime() > Date.now()) {
@@ -201,21 +211,31 @@ export class Scheduler extends IntervalService {
         continue;
       }
       const prState = await this.prStateFetcher.fetch(candidate.repo_full_name, candidate.pr_number, 'Scheduler.selectNextEligibleItem');
+      fetches += 1;
       if (prState === undefined) {
+        if (fetches >= this.maxPrStateFetchesPerTick) {
+          return { kind: 'deferred' };
+        }
         continue;
       }
       if (isPRMerged(prState)) {
         await this.resolveTerminalCandidate(candidate, Resolution.PrMerged, PrState.merged, probe);
+        if (fetches >= this.maxPrStateFetchesPerTick) {
+          return { kind: 'deferred' };
+        }
         continue;
       }
       if (isPRClosedWithoutMerge(prState)) {
         await this.resolveTerminalCandidate(candidate, Resolution.PrClosedWithoutMerge, PrState.closed, probe);
+        if (fetches >= this.maxPrStateFetchesPerTick) {
+          return { kind: 'deferred' };
+        }
         continue;
       }
-      return candidate;
+      return { kind: 'candidate', item: candidate };
     }
 
-    return undefined;
+    return { kind: 'none' };
   }
 
   private async skipCandidate(candidate: QueueItem, reason: SkipReason, probe: SchedulerProbe): Promise<void> {
