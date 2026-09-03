@@ -8,6 +8,7 @@ const DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC = 900;
 const DEFAULT_MAX_RETRIGGER_ATTEMPTS = 10;
 const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
 const DEFAULT_MAX_RETRIGGER_AGE_SEC = 259200;
+const DEFAULT_MAX_PR_STATE_FETCHES_PER_TICK = 5;
 const ACCOUNT_COOLDOWN_SEC = 3600;
 
 describe('ConfigSchema', () => {
@@ -35,6 +36,7 @@ describe('ConfigSchema', () => {
       REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
       DATABASE_URL: 'file:./data/rabbit-maximizer.db',
       REPO_FILTER: [{ pattern: 'couimet/*', scope: 'user' as const }],
+      SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: DEFAULT_MAX_PR_STATE_FETCHES_PER_TICK,
       SCHEDULER_MAX_RETRIGGER_AGE_SEC: DEFAULT_MAX_RETRIGGER_AGE_SEC,
       SCHEDULER_RETRIGGER_SPACING_SEC: 180,
       SCHEDULER_RETRY_BACKOFF_BASE_SEC: 60,
@@ -161,6 +163,15 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('applies default SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK when missing', () => {
+    const { SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK).toBe(DEFAULT_MAX_PR_STATE_FETCHES_PER_TICK);
+    }
+  });
+
   it('coerces numeric REVIEW_DETECTION_LOOKBACK_SEC from a string', () => {
     const customLookbackSec = 3600;
     const result = ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: String(customLookbackSec) });
@@ -257,6 +268,14 @@ describe('ConfigSchema', () => {
 
   it('rejects negative SCHEDULER_MAX_RETRIGGER_AGE_SEC', () => {
     expect(ConfigSchema.safeParse({ ...BASE, SCHEDULER_MAX_RETRIGGER_AGE_SEC: -1 }).success).toBe(false);
+  });
+
+  it('rejects zero SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: 0 }).success).toBe(false);
+  });
+
+  it('rejects negative SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: -1 }).success).toBe(false);
   });
 
   it('rejects REVIEW_DETECTION_LOOKBACK_SEC > CODERABBIT_ACCOUNT_COOLDOWN_SEC * 2', () => {
