@@ -918,12 +918,13 @@ describe('Scheduler', () => {
         const mergedItem = pendingItem();
         const closedItem = pendingItem();
         const finalClosedItem = pendingItem();
+        const deferredItem = pendingItem();
         deps.config = generateConfigData({ SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: SCAN_FETCH_BUDGET });
         deps.prStateFetcher.fetch.mockReset();
         deps.prStateFetcher.fetch
           .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
           .mockResolvedValue({ state: 'closed', merged_at: null, closed_at: null } satisfies PRState);
-        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, closedItem, finalClosedItem]);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, closedItem, finalClosedItem, deferredItem]);
 
         const scheduler = createScheduler();
         const { stop } = await scheduler.start();
@@ -934,6 +935,8 @@ describe('Scheduler', () => {
         expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
         expect(deps.queue.markResolved).toHaveBeenCalledWith(closedItem.id, 'pr_closed_without_merge', deps.tx);
         expect(deps.queue.markResolved).toHaveBeenCalledWith(finalClosedItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.queue.markResolved).not.toHaveBeenCalledWith(deferredItem.id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).not.toHaveBeenCalledWith(deferredItem.id, 'pr_closed_without_merge', deps.tx);
         expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
         expect(deps.mockProbe.scanBudgetExhausted).toHaveBeenCalled();
         expect(deps.mockProbe.noItemsDue).not.toHaveBeenCalled();
