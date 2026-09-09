@@ -6,7 +6,6 @@ export {
   EventHistory,
   formatElapsed,
   GlobalErrorBanner,
-  Pagination,
   QueueOrder,
   ReviewCountdown,
   SummaryStats,

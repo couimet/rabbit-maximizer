@@ -1,4 +1,4 @@
-import type { CodeRabbitCommentType } from '../domain.js';
+import type { CodeRabbitCommentType, CommentDetectionMethod } from '../domain.js';
 
 import type { ReviewLimitComment } from './index.js';
 
@@ -7,4 +7,5 @@ export interface DetectedComment extends ReviewLimitComment {
   readonly prTitle: string;
   readonly body: string;
   readonly commentType: CodeRabbitCommentType;
+  readonly detectedVia: CommentDetectionMethod;
 }

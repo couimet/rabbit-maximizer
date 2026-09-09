@@ -23,3 +23,87 @@
   background-color: #856404;
   color: #fff3cd;
 }
+
+.events-card h3 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.count {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--rm-border);
+}
+
+.count.life {
+  background: var(--life-tint);
+  border-color: #cfe2db;
+}
+
+.count.fail {
+  background: var(--fail-tint);
+  border-color: #f0c9c9;
+}
+
+.count .count-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.8rem;
+}
+
+.count.life .count-label {
+  color: var(--life-text);
+}
+
+.count.fail .count-label {
+  color: var(--fail-text);
+  font-weight: 600;
+}
+
+.count .count-value {
+  font-size: 1.7rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.count.life .count-value {
+  color: var(--life-text);
+}
+
+.count.fail .count-value {
+  color: var(--fail-text);
+}
+
+.events-card .foot-note {
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: var(--rm-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.foot-note .families {
+  display: inline-flex;
+  gap: 12px;
+  margin-left: 2px;
+}
+
+.foot-note .families span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}

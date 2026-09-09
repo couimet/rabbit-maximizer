@@ -66,6 +66,27 @@ describe('parseEventRow', () => {
     });
   });
 
+  it('parses a detected event with detected_via', () => {
+    const sourceTs = getUniqueDate();
+    const sourceCommentUrl = getUniqueString();
+    const row = generateEventHydrationData({
+      type: 'detected',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        source_comment_url: sourceCommentUrl,
+        detected_via: 'search',
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      source_comment_url: sourceCommentUrl,
+      detected_via: 'search',
+    });
+  });
+
   it('parses an enqueued event', () => {
     const row = generateEventHydrationData({
       type: 'enqueued',

@@ -1,4 +1,4 @@
-import { CodeRabbitCommentType, DismissalReason, EventType } from '../domain.js';
+import { CodeRabbitCommentType, CommentDetectionMethod, DismissalReason, EventType } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
 import { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
 import type { EventEnvelope, EventLogEntry } from '../types/index.js';
@@ -14,6 +14,7 @@ export const DetectedPayloadSchema = z.object({
   source_ts: z.coerce.date().optional(),
   source_comment_url: COMMENT_URL_SCHEMA.optional(),
   coderabbit_run_id: z.string().max(CODERABBIT_RUN_ID_MAX_LENGTH).optional(),
+  detected_via: z.enum(CommentDetectionMethod).optional(),
 });
 
 export const EnqueuedPayloadSchema = z.object({});

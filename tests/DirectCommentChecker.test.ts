@@ -84,6 +84,7 @@ describe('DirectCommentCheckerImpl', () => {
         prTitle: ref.prTitle,
         body: REVIEW_LIMITED_BODY,
         commentType: 'review_limited',
+        detectedVia: 'direct_scan',
       },
       pullRequestId,
     );
@@ -216,6 +217,7 @@ describe('DirectCommentCheckerImpl', () => {
         prTitle: ref.prTitle,
         body: SKIPPED_COMMENT_BODY,
         commentType: 'review_skipped',
+        detectedVia: 'direct_scan',
       },
       pullRequestId,
     );
@@ -282,6 +284,7 @@ describe('DirectCommentCheckerImpl', () => {
         prTitle: ref.prTitle,
         body: SKIPPED_COMMENT_BODY,
         commentType: 'review_skipped',
+        detectedVia: 'direct_scan',
       },
       pullRequestId,
     );
@@ -501,6 +504,7 @@ describe('DirectCommentCheckerImpl', () => {
         prTitle: ref.prTitle,
         body: REVIEW_LIMITED_BODY,
         commentType: 'review_limited',
+        detectedVia: 'direct_scan',
       },
       pullRequestId,
     );
@@ -560,6 +564,7 @@ describe('DirectCommentCheckerImpl', () => {
         prTitle: ref.prTitle,
         body: APPROVED_COMMENT_BODY,
         commentType: 'review_approved',
+        detectedVia: 'direct_scan',
       },
       pullRequestId,
     );

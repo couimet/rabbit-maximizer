@@ -1,5 +1,5 @@
 import { type EventRepository, EventRepositoryImpl, type PullRequestRepository, type QueueRepository } from '../../src/db/index.js';
-import { TYPES } from '../../src/domain.js';
+import { CommentDetectionMethod, TYPES } from '../../src/domain.js';
 import {
   DetectedProbe,
   DirectCommentCheckProbe,
@@ -43,6 +43,7 @@ describe('ProbeFactory', () => {
       source_ts: getUniqueDate(),
       source_comment_url: ref.commentUrl,
       coderabbit_run_id: getUuid(),
+      detectedVia: CommentDetectionMethod.Search,
     });
     expect(probe).toBeInstanceOf(DetectedProbe);
   });

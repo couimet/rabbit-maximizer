@@ -57,6 +57,7 @@ describe('StalePrRecovererImpl', () => {
           prTitle: pr.title,
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
+          detectedVia: 'stale_recovery',
         },
         prId,
       );
@@ -101,6 +102,7 @@ describe('StalePrRecovererImpl', () => {
           prTitle: pr2.title,
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
+          detectedVia: 'stale_recovery',
         },
         pr2.id,
       );
@@ -140,6 +142,7 @@ describe('StalePrRecovererImpl', () => {
           prTitle: pr1.title,
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
+          detectedVia: 'stale_recovery',
         },
         pr1.id,
       );
@@ -154,6 +157,7 @@ describe('StalePrRecovererImpl', () => {
           prTitle: pr2.title,
           body: 'rate limited by coderabbit.ai — recovered from deleted comment',
           commentType: 'review_limited',
+          detectedVia: 'stale_recovery',
         },
         pr2.id,
       );

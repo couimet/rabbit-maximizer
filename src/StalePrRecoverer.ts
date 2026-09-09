@@ -1,7 +1,7 @@
 import type { PullRequestRepository } from './db/index.js';
 import { buildPrUrl } from './github/index.js';
 import { type OnDetectedCallback, type StaleOpenPR } from './types/index.js';
-import { CodeRabbitCommentType, TYPES } from './domain.js';
+import { CodeRabbitCommentType, CommentDetectionMethod, TYPES } from './domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -41,6 +41,7 @@ export class StalePrRecovererImpl implements StalePrRecoverer {
         prTitle: pr.title,
         body: 'rate limited by coderabbit.ai — recovered from deleted comment',
         commentType: CodeRabbitCommentType.review_limited,
+        detectedVia: CommentDetectionMethod.StaleRecovery,
       };
       try {
         await this.onDetected(syntheticComment, pr.id);

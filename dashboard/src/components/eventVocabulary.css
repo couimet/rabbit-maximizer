@@ -1,0 +1,46 @@
+/* Family tokens shared by the Events timeline and the Summary Events card. Colors live in CSS, never in TS; the metadata module only exports the class keys (life, fail, verdict, book). */
+:root {
+  --rm-card: #fff;
+  --rm-border: #e3d6c3;
+  --rm-border-soft: #d5c9b5;
+  --rm-ink: #472e22;
+  --rm-muted: #8b7d6b;
+  --rm-faint: #b3a692;
+  --rm-accent: #f38222;
+  --life-fill: #629988;
+  --life-tint: #eaf5f1;
+  --life-text: #3d6b5c;
+  --fail-fill: #d9534f;
+  --fail-tint: #fdf0f0;
+  --fail-text: #a33;
+  --verdict-fill: #b86e1a;
+  --verdict-tint: #fdf5ed;
+  --verdict-text: #8b6b3d;
+  --book-fill: #94897a;
+  --book-tint: #f0ece3;
+  --book-text: #6e6354;
+}
+
+.vocab-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.vocab-dot.life {
+  background: var(--life-fill);
+}
+
+.vocab-dot.fail {
+  background: var(--fail-fill);
+}
+
+.vocab-dot.verdict {
+  background: var(--verdict-fill);
+}
+
+.vocab-dot.book {
+  background: var(--book-fill);
+}
