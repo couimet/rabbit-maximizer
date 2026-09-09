@@ -9,15 +9,19 @@
   --rm-accent: #f38222;
   --life-fill: #629988;
   --life-tint: #eaf5f1;
+  --life-border: #cfe2db;
   --life-text: #3d6b5c;
   --fail-fill: #d9534f;
   --fail-tint: #fdf0f0;
+  --fail-border: #f0c9c9;
   --fail-text: #a33;
   --verdict-fill: #b86e1a;
   --verdict-tint: #fdf5ed;
+  --verdict-border: #e9d6bd;
   --verdict-text: #8b6b3d;
   --book-fill: #94897a;
   --book-tint: #f0ece3;
+  --book-border: #ddd3c1;
   --book-text: #6e6354;
 }
 

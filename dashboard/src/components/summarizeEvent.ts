@@ -44,11 +44,17 @@ const commentTokenFromUrl = (value: unknown, label: (id: string) => string): Rea
   return match ? link(label(match[1]), value) : undefined;
 };
 
+/** A comment id arrives as a number or as a digit-only string; any other string is a comment URL. */
+const asCommentId = (value: unknown): string | undefined => {
+  if (typeof value === 'number') return String(value);
+  return typeof value === 'string' && /^\d+$/.test(value) ? value : undefined;
+};
+
 const commentTokenFromPayload = (payload: EventPayload): ReadingToken | undefined => {
-  const raw = payload.comment_id;
-  if (typeof raw !== 'number') return commentTokenFromUrl(raw, commentLabel);
+  const id = asCommentId(payload.comment_id);
+  if (id === undefined) return commentTokenFromUrl(payload.comment_id, commentLabel);
   const url = readString(payload, 'comment_url');
-  return url !== undefined ? link(commentLabel(String(raw)), url) : text(commentLabel(String(raw)));
+  return url !== undefined ? link(commentLabel(id), url) : text(commentLabel(id));
 };
 
 const joinTokens = (parts: ReadonlyArray<ReadingToken | undefined>): ReadingToken[] => {

@@ -63,12 +63,16 @@ const EventHistory = () => {
   const handleLoadMore = () => {
     setLoading(true);
     const nextPage = page + 1;
-    setPage(nextPage);
     fetchEvents(nextPage, PAGE_SIZE)
       .then((d) => {
         dismissError('event-history');
         setTotal(d.total);
-        setItems((prev) => [...prev, ...d.data]);
+        setPage(nextPage);
+        setItems((prev) => {
+          // Newest-first offset pagination: an event written between two loads can shift onto both pages.
+          const loadedIds = new Set(prev.map((event) => event.id));
+          return [...prev, ...d.data.filter((event) => !loadedIds.has(event.id))];
+        });
         setLoading(false);
       })
       .catch((err: Error) => {

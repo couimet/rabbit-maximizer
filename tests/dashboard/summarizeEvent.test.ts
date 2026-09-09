@@ -15,6 +15,7 @@ const VERDICT_COMMENT_ID = '227098210';
 const VERDICT_COMMENT_URL = `https://github.com/couimet/my-claude-skills/pull/263#issuecomment-${VERDICT_COMMENT_ID}`;
 const CHANGES_SUGGESTED_COMMENT_ID = '227104521';
 const CHANGES_SUGGESTED_COMMENT_URL = `https://github.com/couimet/my-claude-skills/pull/263#issuecomment-${CHANGES_SUGGESTED_COMMENT_ID}`;
+const DIGIT_ONLY_COMMENT_ID = '227112900';
 const RUN_ID = '4f2e91a2';
 const OTHER_RUN_ID = 'ab12cd34';
 const PREVIOUS_RUN_ID = '7ea41c92';
@@ -175,6 +176,21 @@ describe('summarizeEvent', () => {
       comment_id: RUN_ID_COMMENT_URL,
     });
     expect(reading).toStrictEqual([linkToken(`comment ${RUN_ID_COMMENT_ID}`, RUN_ID_COMMENT_URL)]);
+  });
+
+  it('renders a linked comment token for a digit-only string comment id', () => {
+    const reading = summarizeEvent('coderabbit_run_id_first_seen', {
+      comment_id: DIGIT_ONLY_COMMENT_ID,
+      comment_url: RUN_ID_COMMENT_URL,
+    });
+    expect(reading).toStrictEqual([linkToken(`comment ${DIGIT_ONLY_COMMENT_ID}`, RUN_ID_COMMENT_URL)]);
+  });
+
+  it('renders a plain comment token for a digit-only string comment id with no url', () => {
+    const reading = summarizeEvent('coderabbit_run_id_first_seen', {
+      comment_id: DIGIT_ONLY_COMMENT_ID,
+    });
+    expect(reading).toStrictEqual([textToken(`comment ${DIGIT_ONLY_COMMENT_ID}`)]);
   });
 
   it('renders previous and new run tokens when a run id changes', () => {

@@ -259,6 +259,45 @@ describe('EventHistory', () => {
       fireEvent.click(screen.getByText('Show earlier events'));
       await screen.findByText('Event history: Internal server error');
     });
+
+    it('retries the same page after a failed load', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'enqueued' })], total: 100, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Enqueued');
+
+      createMockFetch(500, { error: 'Internal server error' });
+      fireEvent.click(screen.getByText('Show earlier events'));
+      await screen.findByText('Event history: Internal server error');
+
+      createMockFetch(200, {
+        data: [makeEvent({ id: 99, type: 'coderabbit_review_approved', ts: NEWEST_TS })],
+        total: 100,
+        page: 2,
+        pageSize: PAGE_SIZE,
+      });
+      fireEvent.click(screen.getByText('Show earlier events'));
+      await screen.findByText('Review approved');
+
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/events?page=2&pageSize=50', undefined);
+    });
+
+    it('does not append an event already loaded', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'enqueued' })], total: 100, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Enqueued');
+
+      createMockFetch(200, {
+        data: [makeEvent({ id: 1, type: 'enqueued', ts: NEWEST_TS }), makeEvent({ id: 99, type: 'coderabbit_review_approved' })],
+        total: 100,
+        page: 2,
+        pageSize: PAGE_SIZE,
+      });
+      fireEvent.click(screen.getByText('Show earlier events'));
+      await screen.findByText('Review approved');
+
+      expect(screen.getAllByText('Enqueued')).toHaveLength(1);
+      expect(screen.getByText('showing 2 of 100')).toBeInTheDocument();
+    });
   });
 
   describe('filter', () => {

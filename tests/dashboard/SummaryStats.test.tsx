@@ -119,6 +119,8 @@ describe('SummaryStats', () => {
       await waitFor(() => expect(screen.getByText('Same labels and family colors as the Events timeline:')).toBeInTheDocument());
       expect(screen.getByText('lifecycle')).toBeInTheDocument();
       expect(screen.getByText('failure')).toBeInTheDocument();
+      expect(screen.queryByText('verdict')).not.toBeInTheDocument();
+      expect(screen.queryByText('run-id bookkeeping')).not.toBeInTheDocument();
     });
 
     it('changes duration and re-fetches', async () => {
