@@ -43,6 +43,7 @@ const SETTLING_AGE_MULTIPLIER = 2;
 const OLDER_THAN_SETTLING_MULTIPLIER = 3;
 const FUTURE_COOLDOWN_MS = 60_000;
 const ONE_SECOND_MS = 1_000;
+const SCAN_FETCH_BUDGET = 3;
 
 interface MockSchedulerDeps {
   config: Config;
@@ -808,6 +809,137 @@ describe('Scheduler', () => {
 
         expect(deps.queue.markRetriggerSkipped).not.toHaveBeenCalled();
         expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(item, 'scheduler' as any);
+
+        await stop();
+      });
+
+      it('defers remaining candidates when terminal resolutions exhaust the scan budget', async () => {
+        const mergedItems = [pendingItem(), pendingItem(), pendingItem(), pendingItem(), pendingItem()];
+        deps.config = generateConfigData({ SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: SCAN_FETCH_BUDGET });
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch.mockResolvedValue({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue(mergedItems);
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(SCAN_FETCH_BUDGET);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItems[0].id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItems[1].id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItems[2].id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).not.toHaveBeenCalledWith(mergedItems[3].id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).not.toHaveBeenCalledWith(mergedItems[4].id, 'pr_merged', deps.tx);
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.scanBudgetExhausted).toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).not.toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('triggers an open PR found on the last fetch within the scan budget', async () => {
+        const mergedItem = pendingItem();
+        const closedItem = pendingItem();
+        const openItem = pendingItem();
+        deps.config = generateConfigData({ SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: SCAN_FETCH_BUDGET });
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch
+          .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
+          .mockResolvedValueOnce({ state: 'closed', merged_at: null, closed_at: null } satisfies PRState)
+          .mockResolvedValueOnce({ state: 'open', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, closedItem, openItem]);
+        deps.reviewTrigger.trigger.mockResolvedValue(makeTriggerOk());
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(SCAN_FETCH_BUDGET);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(closedItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.reviewTrigger.trigger).toHaveBeenCalledWith(openItem, 'scheduler' as any);
+        expect(deps.mockProbe.scanBudgetExhausted).not.toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).not.toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('does not count cooldown skips against the scan budget', async () => {
+        const coolingItem = pendingItem({ cooldown_until: new Date(frozenNow.getTime() + FUTURE_COOLDOWN_MS) });
+        const mergedItems = [pendingItem(), pendingItem(), pendingItem(), pendingItem()];
+        deps.config = generateConfigData({ SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: SCAN_FETCH_BUDGET });
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch.mockResolvedValue({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([coolingItem, ...mergedItems]);
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.queue.markRetriggerSkipped).toHaveBeenCalledWith(coolingItem.id, 'cooldown', deps.tx);
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(SCAN_FETCH_BUDGET);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItems[0].id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItems[1].id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItems[2].id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).not.toHaveBeenCalledWith(mergedItems[3].id, 'pr_merged', deps.tx);
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.scanBudgetExhausted).toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).not.toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('counts failed state fetches against the scan budget', async () => {
+        const openItem = pendingItem();
+        const failedItems = [pendingItem(), pendingItem(), pendingItem()];
+        deps.config = generateConfigData({ SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: SCAN_FETCH_BUDGET });
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch.mockResolvedValue(undefined);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([...failedItems, openItem]);
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(SCAN_FETCH_BUDGET);
+        expect(deps.queue.markResolved).not.toHaveBeenCalled();
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.scanBudgetExhausted).toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).not.toHaveBeenCalled();
+
+        await stop();
+      });
+
+      it('defers after resolving a closed-without-merge PR on the last fetch within the scan budget', async () => {
+        const mergedItem = pendingItem();
+        const closedItem = pendingItem();
+        const finalClosedItem = pendingItem();
+        const deferredItem = pendingItem();
+        deps.config = generateConfigData({ SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK: SCAN_FETCH_BUDGET });
+        deps.prStateFetcher.fetch.mockReset();
+        deps.prStateFetcher.fetch
+          .mockResolvedValueOnce({ state: 'closed', merged_at: '2024-01-01', closed_at: null } satisfies PRState)
+          .mockResolvedValue({ state: 'closed', merged_at: null, closed_at: null } satisfies PRState);
+        deps.queueOrder.getEffectiveOrder.mockResolvedValue([mergedItem, closedItem, finalClosedItem, deferredItem]);
+
+        const scheduler = createScheduler();
+        const { stop } = await scheduler.start();
+
+        await awaitTick(scheduler);
+
+        expect(deps.prStateFetcher.fetch).toHaveBeenCalledTimes(SCAN_FETCH_BUDGET);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(mergedItem.id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(closedItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.queue.markResolved).toHaveBeenCalledWith(finalClosedItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.queue.markResolved).not.toHaveBeenCalledWith(deferredItem.id, 'pr_merged', deps.tx);
+        expect(deps.queue.markResolved).not.toHaveBeenCalledWith(deferredItem.id, 'pr_closed_without_merge', deps.tx);
+        expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+        expect(deps.mockProbe.scanBudgetExhausted).toHaveBeenCalled();
+        expect(deps.mockProbe.noItemsDue).not.toHaveBeenCalled();
 
         await stop();
       });

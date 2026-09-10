@@ -55,6 +55,9 @@ export class SchedulerProbe {
   noItemsDue(): void {
     this.log.debug({ fn: 'SchedulerProbe.noItemsDue' }, 'No items due for retrigger');
   }
+  scanBudgetExhausted(): void {
+    this.log.debug({ fn: 'SchedulerProbe.scanBudgetExhausted' }, 'PR-state scan budget exhausted; deferring remaining candidates to a later tick');
+  }
 
   tickFailed(error: unknown): void {
     this.log.warn({ fn: 'SchedulerProbe.tickFailed', error }, 'executeTick failed before item was fetched');
