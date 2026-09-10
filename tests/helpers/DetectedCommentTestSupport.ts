@@ -1,4 +1,4 @@
-import { CodeRabbitCommentType } from '../../src/domain.js';
+import { CodeRabbitCommentType, CommentDetectionMethod } from '../../src/domain.js';
 import type { DetectedComment } from '../../src/types/index.js';
 
 import { generateReviewRef } from './ReviewRefTestSupport.js';
@@ -19,6 +19,7 @@ export const generateDetectedCommentHydrationData = (overrideValues?: Partial<De
     prTitle: getUniqueString({ prefix: 'pr-title-' }),
     body: getRandomString(),
     commentType: getRandomEnumValue(CodeRabbitCommentType),
+    detectedVia: getRandomEnumValue(CommentDetectionMethod),
     commentId: ref.commentId,
     createdAt: getUniqueDate().toISOString(),
     updatedAt: getUniqueDate().toISOString(),

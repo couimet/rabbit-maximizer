@@ -35,6 +35,7 @@ export class EnqueueService {
       source_ts: new Date(comment.createdAt),
       source_comment_url: comment.url,
       coderabbit_run_id: coderabbitRunId,
+      detectedVia: comment.detectedVia,
     });
     await probe.detected();
 

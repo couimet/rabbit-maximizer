@@ -3,9 +3,21 @@ import { DEFAULT_DURATION, type Duration } from '../../../src/utils/index.js';
 import { fetchConfig, fetchDashboardState, setPaused } from '../api.js';
 import { useErrorContext } from '../context/index.js';
 
-import { ActivityList, DurationSelect, formatElapsed, QueueOrder, ReviewCountdown, TrackedPrs, usePauseNotification } from './index.js';
+import {
+  ActivityList,
+  DurationSelect,
+  EVENT_FAMILY_LABEL,
+  formatElapsed,
+  getEventTypeMeta,
+  KNOWN_EVENT_FAMILIES,
+  QueueOrder,
+  ReviewCountdown,
+  TrackedPrs,
+  usePauseNotification,
+} from './index.js';
 
 import './SummaryStats.css';
+import './eventVocabulary.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const POLL_INTERVAL_MS = 30_000;
@@ -144,17 +156,34 @@ const SummaryStats = () => {
 
       <ActivityList schedulerStale={data.schedulerStale || localStale} lastSchedulerTickAt={data.lastSchedulerTickAt ?? lastKnownTickRef.current} />
 
-      <div className="section-card">
+      <div className="section-card events-card">
         <h3>
           Events — <DurationSelect value={duration} onChange={setDuration} aria-label="Events time range" />
         </h3>
-        <div className="summary-grid">
-          {Object.entries(data.eventCounts).map(([type, count]) => (
-            <div key={type} className="summary-card">
-              <span className="stat-label">{type}</span>
-              <span className="stat-value">{count}</span>
-            </div>
-          ))}
+        <div className="counts">
+          {Object.entries(data.eventCounts).map(([type, count]) => {
+            const meta = getEventTypeMeta(type);
+            return (
+              <div key={type} className={`count ${meta.family}`}>
+                <span className="count-label">
+                  <i className={`vocab-dot ${meta.family}`} aria-hidden="true" />
+                  {meta.label}
+                </span>
+                <span className="count-value">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="foot-note">
+          Same labels and family colors as the Events timeline:
+          <span className="families">
+            {KNOWN_EVENT_FAMILIES.filter((family) => Object.keys(data.eventCounts).some((type) => getEventTypeMeta(type).family === family)).map((family) => (
+              <span key={family}>
+                <i className={`vocab-dot ${family}`} aria-hidden="true" />
+                {EVENT_FAMILY_LABEL[family]}
+              </span>
+            ))}
+          </span>
         </div>
       </div>
 

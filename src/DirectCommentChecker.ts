@@ -12,7 +12,7 @@ import {
 import type { ProbeFactory } from './probes/index.js';
 import type { DirectCheckPR, OnDetectedCallback, ReviewLimitCandidate } from './types/index.js';
 import { extractCoderabbitRunId } from './utils/index.js';
-import { CodeRabbitCommentType, TYPES } from './domain.js';
+import { CodeRabbitCommentType, CommentDetectionMethod, TYPES } from './domain.js';
 
 import { inject, injectable } from 'inversify';
 
@@ -136,6 +136,7 @@ export class DirectCommentCheckerImpl implements DirectCommentChecker {
             prTitle: pr.prTitle,
             body: c.body,
             commentType: classification,
+            detectedVia: CommentDetectionMethod.DirectScan,
           };
 
           await this.onDetected(comment, pr.pullRequestId);

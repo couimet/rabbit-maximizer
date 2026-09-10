@@ -1,4 +1,4 @@
-import { type TriggerSource, TYPES } from '../domain.js';
+import { CommentDetectionMethod, type TriggerSource, TYPES } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, RetriggerDiagnosis, ReviewLimitComment } from '../types/index.js';
 
@@ -121,6 +121,7 @@ export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
             prTitle: item.title,
             body: rateLimitComment.body,
             commentType: classifyCoderabbitComment(rateLimitComment.body).classification,
+            detectedVia: CommentDetectionMethod.Search,
             commentId: rateLimitComment.id,
             url: rateLimitComment.html_url,
             createdAt: rateLimitComment.created_at,

@@ -1,3 +1,4 @@
+import type { CommentDetectionMethod } from '../CommentDetectionMethod.js';
 import type { DismissalReason } from '../DismissalReason.js';
 import type { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
 
@@ -13,6 +14,7 @@ export interface DetectedPayload {
   readonly source_ts?: Date; // from the incoming event payload, when available
   readonly source_comment_url?: string;
   readonly coderabbit_run_id?: string;
+  readonly detected_via?: CommentDetectionMethod;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type

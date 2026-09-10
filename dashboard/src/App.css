@@ -107,46 +107,6 @@ body {
   margin-bottom: 16px;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.summary-card {
-  background: #fff;
-  border: 1px solid #e3d6c3;
-  border-radius: 6px;
-  padding: 16px;
-  text-align: center;
-}
-
-.summary-card.status-pending {
-  border-left: 4px solid #f38222;
-}
-.summary-card.status-retriggered {
-  border-left: 4px solid #629988;
-}
-.summary-card.status-failed {
-  border-left: 4px solid #d9534f;
-}
-
-.stat-label {
-  display: block;
-  font-size: 0.8rem;
-  color: #8b7d6b;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  display: block;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #472e22;
-}
-
 /* Section headings */
 
 h2 {
@@ -228,21 +188,6 @@ h3 {
   font-weight: 600;
 }
 
-.row-event-detected {
-  border-left: 3px solid #f38222;
-}
-.row-event-enqueued {
-  border-left: 3px solid #629988;
-}
-.row-event-retriggered {
-  border-left: 3px solid #5cb85c;
-}
-.row-event-failed {
-  border-left: 4px solid #d9534f;
-  background: #fdf0f0;
-  font-weight: 600;
-}
-
 /* Event type badges */
 
 .badge {
@@ -254,31 +199,6 @@ h3 {
   text-transform: uppercase;
 }
 
-.badge.pending {
-  background: #fef5e7;
-  color: #b86e1a;
-}
-
-.badge.retriggered {
-  background: #eaf5f1;
-  color: #3d6b5c;
-}
-
-.badge.failed {
-  background: #fdf0f0;
-  color: #a33;
-}
-
-.badge.detected {
-  background: #fdf5ed;
-  color: #8b6b3d;
-}
-
-.badge.enqueued {
-  background: #eaf5f1;
-  color: #3d6b5c;
-}
-
 /* Links */
 
 a {
@@ -288,44 +208,6 @@ a {
 
 a:hover {
   text-decoration: underline;
-}
-
-/* Pagination */
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 8px;
-}
-
-.pagination button {
-  padding: 6px 16px;
-  border: 1px solid #e3d6c3;
-  background: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  color: #472e22;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #f4f0e7;
-  border-color: #f38222;
-}
-
-.pagination button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.page-info {
-  font-size: 0.85rem;
-  color: #8b7d6b;
 }
 
 /* States */

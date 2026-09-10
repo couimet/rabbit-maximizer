@@ -104,12 +104,23 @@ describe('SummaryStats', () => {
       await waitFor(() => expect(screen.getByText('Queue Order — 0 items')).toBeInTheDocument());
     });
 
-    it('renders event counts', async () => {
+    it('renders event counts with vocabulary labels and families', async () => {
       renderSummaryStats();
       await waitFor(() => expect(screen.getByText(String(DEFAULT_EVENT_COUNTS.detected))).toBeInTheDocument());
-      expect(screen.getByText('detected')).toBeInTheDocument();
+      expect(screen.getByText('Review-limit detected')).toBeInTheDocument();
       expect(screen.getByText(String(DEFAULT_EVENT_COUNTS.enqueued))).toBeInTheDocument();
-      expect(screen.getByText('enqueued')).toBeInTheDocument();
+      expect(screen.getByText('Enqueued')).toBeInTheDocument();
+      expect(screen.getByText('Retrigger posted')).toBeInTheDocument();
+      expect(screen.getByText('Failed')).toBeInTheDocument();
+    });
+
+    it('links the card families to the Events timeline in a footnote', async () => {
+      renderSummaryStats();
+      await waitFor(() => expect(screen.getByText('Same labels and family colors as the Events timeline:')).toBeInTheDocument());
+      expect(screen.getByText('lifecycle')).toBeInTheDocument();
+      expect(screen.getByText('failure')).toBeInTheDocument();
+      expect(screen.queryByText('verdict')).not.toBeInTheDocument();
+      expect(screen.queryByText('run-id bookkeeping')).not.toBeInTheDocument();
     });
 
     it('changes duration and re-fetches', async () => {

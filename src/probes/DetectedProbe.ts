@@ -1,5 +1,5 @@
 import type { EventRepository } from '../db/index.js';
-import { DismissalReason, EventType } from '../domain.js';
+import { type CommentDetectionMethod, DismissalReason, EventType } from '../domain.js';
 import type { AlreadyReviewedComment, CoderabbitReviewVerdictState, EventLogEntry } from '../types/index.js';
 import { toReviewEventType } from '../utils/index.js';
 
@@ -15,6 +15,7 @@ export interface DetectedProbeContext {
   readonly source_ts: Date;
   readonly source_comment_url: string;
   readonly coderabbit_run_id: string | undefined;
+  readonly detectedVia: CommentDetectionMethod;
 }
 
 export class DetectedProbe {
@@ -61,12 +62,13 @@ export class DetectedProbe {
           source_ts: this.context.source_ts,
           source_comment_url: this.context.source_comment_url,
           coderabbit_run_id: this.context.coderabbit_run_id,
+          detected_via: this.context.detectedVia,
         },
       },
       tx,
     );
 
-    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'Review-limit comment detected and enqueued');
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid, detectedVia: this.context.detectedVia }, 'Review-limit comment detected and enqueued');
     return event;
   }
 

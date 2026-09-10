@@ -560,6 +560,7 @@ describe('client', () => {
           prTitle,
           body: matchingBody,
           commentType: 'review_limited',
+          detectedVia: 'search',
           commentId: matchingCommentId,
           url: matchingCommentUrl,
           createdAt: matchingCreatedAt,

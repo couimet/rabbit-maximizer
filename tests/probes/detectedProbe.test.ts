@@ -1,5 +1,5 @@
 import type { EventRepository } from '../../src/db/index.js';
-import { CodeRabbitCommentType } from '../../src/domain.js';
+import { CodeRabbitCommentType, CommentDetectionMethod } from '../../src/domain.js';
 import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { DetectedProbe } from '../../src/probes/index.js';
 import type { EventLogEntry } from '../../src/types/index.js';
@@ -43,6 +43,7 @@ describe('DetectedProbe', () => {
         source_ts: sourceTs,
         source_comment_url: sourceCommentUrl,
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -61,13 +62,13 @@ describe('DetectedProbe', () => {
         correlation_id: eventTrace.correlationId,
         request_id: eventTrace.requestId,
         version: eventTrace.version,
-        payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+        payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl, detected_via: 'search' },
       },
       tx,
     );
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid },
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, detectedVia: 'search' },
       'Review-limit comment detected and enqueued',
     );
   });
@@ -90,6 +91,7 @@ describe('DetectedProbe', () => {
         source_ts: sourceTs,
         source_comment_url: sourceCommentUrl,
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -104,12 +106,12 @@ describe('DetectedProbe', () => {
         correlation_id: eventTrace.correlationId,
         request_id: eventTrace.requestId,
         version: eventTrace.version,
-        payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl },
+        payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl, detected_via: 'search' },
       },
       tx,
     );
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid },
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, detectedVia: 'search' },
       'Review-limit comment detected and enqueued',
     );
   });
@@ -130,6 +132,7 @@ describe('DetectedProbe', () => {
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -172,6 +175,7 @@ describe('DetectedProbe', () => {
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -214,6 +218,7 @@ describe('DetectedProbe', () => {
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -251,6 +256,7 @@ describe('DetectedProbe', () => {
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       {} as EventRepository,
       logger,
@@ -283,6 +289,7 @@ describe('DetectedProbe', () => {
         source_ts: sourceTs,
         source_comment_url: sourceCommentUrl,
         coderabbit_run_id: coderabbitRunId,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -333,6 +340,7 @@ describe('DetectedProbe', () => {
         source_ts: sourceTs,
         source_comment_url: sourceCommentUrl,
         coderabbit_run_id: coderabbitRunId,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -348,12 +356,12 @@ describe('DetectedProbe', () => {
         correlation_id: eventTrace.correlationId,
         request_id: eventTrace.requestId,
         version: eventTrace.version,
-        payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl, coderabbit_run_id: coderabbitRunId },
+        payload: { source_ts: sourceTs, source_comment_url: sourceCommentUrl, coderabbit_run_id: coderabbitRunId, detected_via: 'search' },
       },
       tx,
     );
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId },
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId, detectedVia: 'search' },
       'Review-limit comment detected and enqueued',
     );
   });
@@ -377,6 +385,7 @@ describe('DetectedProbe', () => {
         source_ts: sourceTs,
         source_comment_url: sourceCommentUrl,
         coderabbit_run_id: coderabbitRunId,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -413,6 +422,7 @@ describe('DetectedProbe', () => {
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       {} as EventRepository,
       logger,
@@ -437,6 +447,7 @@ describe('DetectedProbe', () => {
         source_ts: getUniqueDate(),
         source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       {} as EventRepository,
       logger,
@@ -471,6 +482,7 @@ describe('DetectedProbe', () => {
         source_ts: sourceTs,
         source_comment_url: sourceCommentUrl,
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
@@ -515,6 +527,7 @@ describe('DetectedProbe', () => {
         source_ts: sourceTs,
         source_comment_url: sourceCommentUrl,
         coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
       },
       eventRepository,
       logger,
