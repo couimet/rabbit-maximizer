@@ -1,6 +1,5 @@
-import { ExecutionContext } from '../src/external-deps/couimet/execution-context/src/index.js';
-
 import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
 import type { Logger } from '@couimet/logger-contract';
 import { describe, expect, it, jest } from '@jest/globals';
 

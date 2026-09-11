@@ -1,7 +1,6 @@
 import pkg from '../package.json' with { type: 'json' };
 
 import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
-import { ExecutionContext } from './external-deps/couimet/execution-context/src/index.js';
 import {
   type EventCountsMapper,
   type EventEntryMapper,
@@ -20,6 +19,7 @@ import { type PollDetector, type ReviewDetector, ReviewTrigger, type Scheduler }
 import { validateGitHubToken } from './validateGitHubToken.js';
 
 import 'reflect-metadata';
+import { ExecutionContext } from '@couimet/execution-context';
 import { getLogger, type Logger } from '@couimet/logger-contract';
 import type { Octokit } from '@octokit/rest';
 import type { PrismaClient } from '@prisma/client';

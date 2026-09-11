@@ -1,6 +1,7 @@
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
-import { ExecutionContext } from '../external-deps/couimet/execution-context/src/index.js';
 import type { EventTraceAttributes } from '../types/index.js';
+
+import { ExecutionContext } from '@couimet/execution-context';
 
 export const getEventTraceAttributes = (): EventTraceAttributes => {
   const correlationId = ExecutionContext.correlationId.toString();

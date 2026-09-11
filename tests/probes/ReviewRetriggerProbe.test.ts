@@ -1,12 +1,12 @@
 import type { EventRepository } from '../../src/db/index.js';
 import { EventType } from '../../src/domain.js';
-import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { ReviewRetriggerProbe } from '../../src/probes/index.js';
 import { type QueueItem } from '../../src/types/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 

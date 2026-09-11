@@ -1,10 +1,10 @@
 import { CodeRabbitCommentType, PrState, Resolution, ReviewDetectionMethod } from '../../src/domain.js';
-import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { ReviewDetectorProbe } from '../../src/probes/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 

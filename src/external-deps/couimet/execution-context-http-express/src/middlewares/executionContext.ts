@@ -1,7 +1,7 @@
-import { CorrelationId, ExecutionContext, RequestId } from '../../../execution-context/src/index.js';
-import { HttpHeaders } from '../../../execution-context-http/src/index.js';
 import type { LabeledMiddleware } from '../../../express-tools/index.js';
 
+import { CorrelationId, ExecutionContext, RequestId } from '@couimet/execution-context';
+import { HttpHeaders } from '@couimet/execution-context-http';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 
 /**

@@ -1,11 +1,14 @@
-import { ExecutionContext } from '../../execution-context/src/index.js';
-import { BLANK_VALUE, UUID_V4_PATTERN, WHITESPACE_VALUE } from '../../execution-context/tests/idTestValues.js';
-import { HttpHeaders } from '../../execution-context-http/src/index.js';
 import { executionContext, useExecutionContext } from '../src/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
+import { HttpHeaders } from '@couimet/execution-context-http';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Application, NextFunction, Request, RequestHandler, Response } from 'express';
+
+const BLANK_VALUE = '';
+const WHITESPACE_VALUE = '   ';
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const createReqResNext = () => {
   const headerSpy = jest.fn<(name: string) => string | undefined>();

@@ -1,7 +1,7 @@
-import { ExecutionContext } from '../../execution-context/src/index.js';
 import { createExpressAppWithExecutionContext } from '../src/index.js';
 
 import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import type { RequestHandler } from 'express';

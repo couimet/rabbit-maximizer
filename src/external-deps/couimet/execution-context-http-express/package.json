@@ -5,8 +5,8 @@
   "type": "module",
   "main": "./src/index.js",
   "peerDependencies": {
-    "@couimet/execution-context": ">=1.0.0",
-    "@couimet/execution-context-http": ">=1.0.0",
+    "@couimet/execution-context": ">=0.1.0",
+    "@couimet/execution-context-http": ">=0.1.0",
     "@couimet/express-tools": ">=1.0.0",
     "express": ">=5.2.1"
   }

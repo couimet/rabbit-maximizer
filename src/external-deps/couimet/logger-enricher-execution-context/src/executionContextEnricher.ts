@@ -1,6 +1,6 @@
-import { ExecutionContext } from '../../execution-context/src/index.js';
 import type { LoggerEnricher } from '../../logger-enricher-contract/src/index.js';
 
+import { ExecutionContext } from '@couimet/execution-context';
 import type { LoggingContext } from '@couimet/logger-contract';
 
 const CORRELATION_ID_KEY = 'correlation_id';
