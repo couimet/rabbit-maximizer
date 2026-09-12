@@ -1,9 +1,9 @@
-import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { DirectCommentCheckProbe } from '../../src/probes/index.js';
 import type { EventLogEntry } from '../../src/types/index.js';
 import { createMockEventRepo, generateEventTraceContext, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 

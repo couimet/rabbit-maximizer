@@ -1,6 +1,6 @@
 import { IntervalService } from '../src/domain.js';
-import { ExecutionContext } from '../src/external-deps/couimet/execution-context/src/index.js';
 
+import { ExecutionContext } from '@couimet/execution-context';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it, jest } from '@jest/globals';

@@ -1,7 +1,7 @@
-import { ExecutionContext } from '../../execution-context/src/index.js';
 import { executionContextEnricher } from '../src/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
 import type { LoggingContext } from '@couimet/logger-contract';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 

@@ -1,7 +1,6 @@
 import type { Config } from '../../src/config.js';
 import { type QueueRepository, QueueRepositoryImpl } from '../../src/db/index.js';
 import { CodeRabbitCommentType, QueueStatus, Resolution, SkipReason, TYPES } from '../../src/domain.js';
-import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
@@ -10,6 +9,7 @@ import { MS_PER_SECOND } from '../../src/utils/index.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';

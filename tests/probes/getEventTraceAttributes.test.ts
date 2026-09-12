@@ -1,7 +1,7 @@
-import { ExecutionContext } from '../../src/external-deps/couimet/execution-context/src/index.js';
 import { getEventTraceAttributes } from '../../src/probes/index.js';
 
 import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
+import { ExecutionContext } from '@couimet/execution-context';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('getEventTraceAttributes', () => {

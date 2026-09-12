@@ -1,5 +1,4 @@
-import { ExecutionContext, RequestId } from './external-deps/couimet/execution-context/src/index.js';
-
+import { ExecutionContext, RequestId } from '@couimet/execution-context';
 import type { Logger } from '@couimet/logger-contract';
 
 /**
