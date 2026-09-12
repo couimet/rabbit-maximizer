@@ -148,6 +148,13 @@ paths:
             minimum: 1
             maximum: 100
             default: 50
+        - name: runId
+          in: query
+          description: |
+            Only return events carrying this run id. Accepts the bare UUID or the
+            `run=<uuid>` token as printed in a posted retrigger comment footer.
+          schema:
+            type: string
       responses:
         '200':
           description: Paginated events
@@ -155,6 +162,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedEvents'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -508,6 +521,10 @@ components:
         retrigger_comment_url:
           type: string
           nullable: true
+        run_id:
+          type: string
+          nullable: true
+          description: Run id of the latest retrigger, printed as `run=<uuid>` in the posted comment footer
         source_comment_url:
           type: string
         last_review_url:
@@ -577,6 +594,9 @@ components:
           type: string
         request_id:
           type: string
+        run_id:
+          type: string
+          description: Run id of the retrigger that produced this event, printed as `run=<uuid>` in the posted comment footer
         version:
           type: string
         metadata:

@@ -26,6 +26,7 @@ interface NewEventBase {
   readonly pr_number: number;
   readonly correlation_id: string;
   readonly request_id?: string;
+  readonly run_id?: string;
   readonly version: string;
   readonly metadata?: EventMetadata;
 }
@@ -46,7 +47,7 @@ export type NewEvent =
 export interface EventRepository {
   record(input: NewEvent, tx: Prisma.TransactionClient | undefined): Promise<EventLogEntry>;
   listForPr(repo: string, pr: number): Promise<EventLogEntry[]>;
-  listRecent(skip: number, take: number): Promise<PaginatedResult<EventLogEntry>>;
+  listRecent(skip: number, take: number, runId: string | undefined): Promise<PaginatedResult<EventLogEntry>>;
   countByType(since: Date): Promise<Record<EventType, number>>;
 }
 
@@ -68,6 +69,7 @@ export class EventRepositoryImpl implements EventRepository {
         pr_number: input.pr_number,
         correlation_id: input.correlation_id,
         request_id: input.request_id ?? null,
+        run_id: input.run_id ?? null,
         version: input.version,
         payload: JSON.stringify(input.payload),
         metadata: input.metadata ? JSON.stringify(input.metadata) : null,
@@ -97,10 +99,13 @@ export class EventRepositoryImpl implements EventRepository {
     return rows.map((row) => parseEventRow(row));
   }
 
-  async listRecent(skip: number, take: number): Promise<PaginatedResult<EventLogEntry>> {
-    const [rows, total] = await Promise.all([this.prisma.event.findMany({ orderBy: { ts: 'desc' }, skip, take }), this.prisma.event.count()]);
+  async listRecent(skip: number, take: number, runId: string | undefined): Promise<PaginatedResult<EventLogEntry>> {
+    // The filter must reach the count too, or a filtered page reports the unfiltered total.
+    const where: Prisma.EventWhereInput | undefined = runId !== undefined ? { run_id: runId } : undefined;
 
-    this.log.debug({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total }, 'Listed recent events');
+    const [rows, total] = await Promise.all([this.prisma.event.findMany({ where, orderBy: { ts: 'desc' }, skip, take }), this.prisma.event.count({ where })]);
+
+    this.log.debug({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total, runId }, 'Listed recent events');
     return { items: rows.map((row) => parseEventRow(row)), total };
   }
 

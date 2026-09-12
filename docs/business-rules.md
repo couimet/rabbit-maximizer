@@ -192,6 +192,8 @@ Only `pending` items can be triggered. Both the scheduler and the dashboard call
 
 The trigger posts one comment containing the full-review command (`@coderabbitai full review`) plus metadata: a generated run id, the trigger source, and — for scheduler triggers — the diagnosis (source comment state, stated wait). It is posted as a reply to the source comment when one exists and is still actionable, or with no reply target when the source comment is gone.
 
+One run id is generated per posted request, so every retrigger of the same item gets its own. It is printed in the comment footer as `run=<uuid>`, and the same value is recorded on the retriggered event and on the queue item, so a run id copied from a comment identifies both the event and the item behind it. This run id is unrelated to the CodeRabbit Run ID the poll loop observes on CodeRabbit's own comments.
+
 <a id="br-5-2"></a>
 
 ### Source comment decision
@@ -372,6 +374,8 @@ When GitHub responds with a quota-exhausted status (403 or 429 with zero quota r
 
 - Tracked PRs: open PRs never acknowledged by CodeRabbit and with no active item — the "awaiting acknowledgement" view. PRs CodeRabbit never touched appear too, sorted by last review time. When a walkthrough-summary comment (`review_stack_entry_start`) appears on such a PR, its comment time is recorded as `last_coderabbit_review_at` — evidence of the walkthrough without classifying it as a verdict.
 - Skipped items: the most recent items the scheduler skipped for cooldown or settling.
+- Events: every recorded event, newest first, each entry rendered with the same plain-language reading the probes record. Repo and PR chips narrow the events loaded so far; a run id copied from a posted comment footer can be pasted into the Run box, which refetches the timeline filtered by that run and reports the filtered total. The filter is server-side, so it reaches events beyond the loaded pages.
+- Activity list: recent items with their status and last activity. Each item links the repo name to the repository and the title to the PR, and shows the run id of its latest retrigger beside the PR link, so the run a comment names can be matched to the item that posted it.
 
 ## 10. Fewer-than-10-stars behavior
 

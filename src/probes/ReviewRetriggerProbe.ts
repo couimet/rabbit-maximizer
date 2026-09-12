@@ -35,19 +35,20 @@ export class ReviewRetriggerProbe {
     );
   }
 
-  async reviewRetriggered(retriggeredCommentUrl: string, tx: Prisma.TransactionClient): Promise<void> {
+  async reviewRetriggered(runId: string, retriggeredCommentUrl: string, tx: Prisma.TransactionClient): Promise<void> {
     await this.events.record(
       {
         type: EventType.retriggered,
         repo_full_name: this.item.repo_full_name,
         pr_number: this.item.pr_number,
         ...getEventTraceAttributes(),
+        run_id: runId,
         payload: { source_comment_url: this.item.source_comment_url, retriggered_comment_url: retriggeredCommentUrl },
       },
       tx,
     );
     this.log.info(
-      { fn: 'ReviewRetriggerProbe.reviewRetriggered', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id },
+      { fn: 'ReviewRetriggerProbe.reviewRetriggered', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, runId },
       'Review retriggered',
     );
   }

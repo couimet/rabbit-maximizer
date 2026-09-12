@@ -3,7 +3,7 @@ import { type Duration, formatRelativeTime, resolveDurationSince } from '../../.
 import { safeDeriveActivityStatus } from '../activityState.js';
 import { fetchActivityList, markResolved } from '../api.js';
 import { useErrorContext } from '../context/index.js';
-import { prUrl } from '../githubUrl.js';
+import { prUrl, repoUrl } from '../githubUrl.js';
 
 import { DurationSelect, formatElapsed, STATE_CLASS, STATE_LABEL } from './index.js';
 
@@ -146,10 +146,15 @@ const ActivityList = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale:
               {items.map((item) => (
                 <tr key={item.uuid}>
                   <td>
+                    <a className="repo-link" href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
+                      {item.repo_full_name}
+                    </a>
+                    <span className="link-sep" aria-hidden="true" />
                     <a href={item.retrigger_comment_url ?? prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noreferrer">
                       {item.pr_title} (#{item.pr_number})
                     </a>{' '}
                     by {item.author_login}
+                    {item.run_id && <span className="run-token">{`run=${item.run_id}`}</span>}
                   </td>
                   <td>{formatActivityTime(item)}</td>
                   <td>{renderStatusPill(item)}</td>

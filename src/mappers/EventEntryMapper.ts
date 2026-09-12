@@ -14,6 +14,7 @@ export class EventEntryMapper {
       pr_number: input.pr_number,
       correlation_id: input.correlation_id,
       request_id: input.request_id,
+      run_id: input.run_id,
       version: input.version,
       metadata: input.metadata as EventEntryResponse['metadata'],
       payload: input.payload as EventEntryResponse['payload'],

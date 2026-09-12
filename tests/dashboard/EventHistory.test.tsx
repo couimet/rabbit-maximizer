@@ -21,6 +21,7 @@ const renderEventHistory = () =>
 
 const PAGE_SIZE = 50;
 const MAIN_REPO = 'couimet/rabbit-maximizer';
+const RUN_ID = getUuid();
 const OTHER_REPO = 'couimet/other';
 const MAIN_PR = getUniqueInt();
 const OTHER_PR = getUniqueInt();
@@ -443,6 +444,147 @@ describe('EventHistory', () => {
       renderEventHistory();
       await screen.findByText('showing 4 of 4');
       expect(screen.getByRole('button', { name: MAIN_REPO })).toHaveAttribute('aria-pressed', 'false');
+    });
+  });
+
+  describe('run id', () => {
+    it('shows the run token on entries that carry one', async () => {
+      createMockFetch(200, {
+        data: [makeEvent({ id: 1, type: 'retriggered', run_id: RUN_ID })],
+        total: 1,
+        page: 1,
+        pageSize: PAGE_SIZE,
+      });
+      renderEventHistory();
+
+      await screen.findByText('Retrigger posted');
+      expect(screen.getByText(`run=${RUN_ID}`)).toBeInTheDocument();
+    });
+
+    it('omits the run token when an entry has no run id', async () => {
+      createMockFetch(200, {
+        data: [makeEvent({ id: 1, type: 'retriggered' })],
+        total: 1,
+        page: 1,
+        pageSize: PAGE_SIZE,
+      });
+      renderEventHistory();
+
+      await screen.findByText('Retrigger posted');
+      expect(screen.queryByText(/^run=/)).not.toBeInTheDocument();
+    });
+
+    it('refetches page 1 filtered by the typed run id', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'retriggered' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Retrigger posted');
+
+      createMockFetch(200, {
+        data: [makeEvent({ id: 7, type: 'failed', run_id: RUN_ID })],
+        total: 1,
+        page: 1,
+        pageSize: PAGE_SIZE,
+      });
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Find a run' }), { target: { value: RUN_ID } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+
+      await screen.findByText('Failed');
+      expect(globalThis.fetch).toHaveBeenCalledWith(`/api/events?page=1&pageSize=50&runId=${RUN_ID}`, undefined);
+      expect(screen.getByText('showing 1 of 1')).toBeInTheDocument();
+      expect(screen.queryByText('Retrigger posted')).not.toBeInTheDocument();
+    });
+
+    it('passes a pasted run= token through untouched', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'retriggered' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Retrigger posted');
+
+      createMockFetch(200, { data: [makeEvent({ id: 7, type: 'failed', run_id: RUN_ID })], total: 1, page: 1, pageSize: PAGE_SIZE });
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Find a run' }), { target: { value: `run=${RUN_ID}` } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+
+      await screen.findByText('Failed');
+      expect(globalThis.fetch).toHaveBeenCalledWith(`/api/events?page=1&pageSize=50&runId=run%3D${RUN_ID}`, undefined);
+    });
+
+    it('keeps paging inside the run filter', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'retriggered' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Retrigger posted');
+
+      createMockFetch(200, { data: [makeEvent({ id: 7, type: 'failed', run_id: RUN_ID })], total: 3, page: 1, pageSize: PAGE_SIZE });
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Find a run' }), { target: { value: RUN_ID } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+      await screen.findByText('Failed');
+
+      createMockFetch(200, { data: [makeEvent({ id: 8, type: 'dismissed', run_id: RUN_ID })], total: 3, page: 2, pageSize: PAGE_SIZE });
+      fireEvent.click(screen.getByText('Show earlier events'));
+
+      await screen.findByText('Dismissed');
+      expect(globalThis.fetch).toHaveBeenCalledWith(`/api/events?page=2&pageSize=50&runId=${RUN_ID}`, undefined);
+    });
+
+    it('keeps the filter bar and names the run when it matches nothing', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'retriggered' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Retrigger posted');
+
+      createMockFetch(200, { data: [], total: 0, page: 1, pageSize: PAGE_SIZE });
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Find a run' }), { target: { value: RUN_ID } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+
+      await screen.findByText(`No events for run ${RUN_ID}`);
+      expect(screen.getByRole('searchbox', { name: 'Find a run' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+    });
+
+    it('restores the unfiltered timeline when the filter is cleared', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'retriggered' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Retrigger posted');
+
+      createMockFetch(200, { data: [makeEvent({ id: 7, type: 'failed', run_id: RUN_ID })], total: 1, page: 1, pageSize: PAGE_SIZE });
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Find a run' }), { target: { value: RUN_ID } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+      await screen.findByText('Failed');
+
+      createMockFetch(200, { data: [makeEvent({ id: 9, type: 'enqueued' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+      await screen.findByText('Enqueued');
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/events?page=1&pageSize=50', undefined);
+      expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+    });
+
+    it('clears the filter when Find is pressed on an emptied input', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'retriggered' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Retrigger posted');
+
+      createMockFetch(200, { data: [makeEvent({ id: 7, type: 'failed', run_id: RUN_ID })], total: 1, page: 1, pageSize: PAGE_SIZE });
+      const search = screen.getByRole('searchbox', { name: 'Find a run' });
+      fireEvent.change(search, { target: { value: RUN_ID } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+      await screen.findByText('Failed');
+
+      createMockFetch(200, { data: [makeEvent({ id: 9, type: 'enqueued' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      fireEvent.change(search, { target: { value: '   ' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+
+      await screen.findByText('Enqueued');
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/events?page=1&pageSize=50', undefined);
+    });
+
+    it('shows the server rejection when the typed run id is not a UUID', async () => {
+      createMockFetch(200, { data: [makeEvent({ id: 1, type: 'retriggered' })], total: 2, page: 1, pageSize: PAGE_SIZE });
+      renderEventHistory();
+      await screen.findByText('Retrigger posted');
+
+      createMockFetch(400, { error: 'runId must be a valid UUID v4' });
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Find a run' }), { target: { value: 'not-a-uuid' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+
+      await screen.findByText('Event history: runId must be a valid UUID v4');
     });
   });
 

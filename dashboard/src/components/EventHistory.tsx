@@ -35,12 +35,16 @@ const EventHistory = () => {
   const [selectedRepos, setSelectedRepos] = useState<ReadonlySet<string>>(new Set());
   const [selectedPrs, setSelectedPrs] = useState<ReadonlySet<string>>(new Set());
   const [prQuery, setPrQuery] = useState('');
+  const [runQuery, setRunQuery] = useState('');
+  const [runFilter, setRunFilter] = useState<string | null>(null);
   const { timezone } = useTimezone();
   const { reportError, dismissError } = useErrorContext();
 
   useEffect(() => {
     let cancelled = false;
-    fetchEvents(1, PAGE_SIZE)
+    setLoading(true);
+    setPage(1);
+    fetchEvents(1, PAGE_SIZE, runFilter ?? undefined)
       .then((d) => {
         /* c8 ignore next 2 — cleanup guard: unmount mid-flight leaves state untouched */
         if (cancelled) return;
@@ -58,12 +62,12 @@ const EventHistory = () => {
     return () => {
       cancelled = true;
     };
-  }, [dismissError, reportError]);
+  }, [dismissError, reportError, runFilter]);
 
   const handleLoadMore = () => {
     setLoading(true);
     const nextPage = page + 1;
-    fetchEvents(nextPage, PAGE_SIZE)
+    fetchEvents(nextPage, PAGE_SIZE, runFilter ?? undefined)
       .then((d) => {
         dismissError('event-history');
         setTotal(d.total);
@@ -82,7 +86,7 @@ const EventHistory = () => {
   };
 
   if (loading && items.length === 0) return <div className="loading">Loading events…</div>;
-  if (items.length === 0) return <p>No events.</p>;
+  if (items.length === 0 && runFilter === null) return <p>No events.</p>;
 
   const options = deriveEventFilterOptions(items);
   const filterActive = selectedRepos.size > 0 || selectedPrs.size > 0;
@@ -97,9 +101,17 @@ const EventHistory = () => {
   const togglePr = (prLabel: string) => {
     setSelectedPrs((prev) => toggleSetValue(prev, prLabel));
   };
+  const applyRunFilter = () => {
+    const trimmed = runQuery.trim();
+    setRunFilter(trimmed === '' ? null : trimmed);
+  };
+  const clearRunFilter = () => {
+    setRunQuery('');
+    setRunFilter(null);
+  };
 
   const hasMore = total !== null && items.length < total;
-  const newestDay = dayOf(items[0].ts, timezone);
+  const newestDay = items.length > 0 ? dayOf(items[0].ts, timezone) : '';
 
   const renderChip = (key: string, label: string, selected: boolean, onClick: () => void) => (
     <button key={key} type="button" aria-pressed={selected} className={`filter-chip${selected ? ' selected' : ''}`} onClick={onClick}>
@@ -158,9 +170,26 @@ const EventHistory = () => {
             {visiblePrOptions.map((prLabel) => renderChip(prLabel, prLabel, selectedPrs.has(prLabel), () => togglePr(prLabel)))}
           </div>
         </div>
+        <div className="filter-group">
+          <span className="filter-group-label">Run</span>
+          <input
+            type="search"
+            className="filter-search"
+            aria-label="Find a run"
+            placeholder="Find run…"
+            value={runQuery}
+            onChange={(event) => setRunQuery(event.target.value)}
+          />
+          <div className="filter-chips">
+            {renderChip('find-run', 'Find', false, applyRunFilter)}
+            {runFilter !== null && renderChip('clear-run', 'Clear', true, clearRunFilter)}
+          </div>
+        </div>
       </div>
 
-      {contradiction === null ? (
+      {items.length === 0 ? (
+        <p className="filter-empty">No events for run {runFilter}</p>
+      ) : contradiction === null ? (
         <div className="timeline">
           {filteredEvents.map((event) => {
             const meta = getEventTypeMeta(event.type);
@@ -181,7 +210,7 @@ const EventHistory = () => {
                     {event.repo_full_name}#{event.pr_number}
                   </a>
                   <div className="tl-phrase">{meta.label}</div>
-                  {(reading.length > 0 || showCorrelation) && (
+                  {(reading.length > 0 || showCorrelation || event.run_id) && (
                     <div className="tl-meta">
                       {reading.map((token, index) =>
                         token.kind === 'link' ? (
@@ -193,6 +222,7 @@ const EventHistory = () => {
                         ),
                       )}
                       {showCorrelation && event.correlation_id}
+                      {event.run_id && <span className="run-token">{`run=${event.run_id}`}</span>}
                     </div>
                   )}
                 </div>

@@ -452,17 +452,46 @@ a:hover {
   background: #d4edda;
 }
 
-/* Queue Order PR title */
-
-.pr-title {
-  display: block;
+/* The repo is the PR's address, not its peer. It drops to the muted text tone and a hairline
+   rule marks where the address ends, so a row reads as `repo | title` the way the `Repo / PR`
+   header already promises. The dotted underline keeps it legibly clickable at this quieter
+   tone; hover restores the link green. */
+.data-table .repo-link {
   font-size: 0.82rem;
   color: #8b7d6b;
-  max-width: 360px;
+  text-decoration: underline dotted;
+  text-decoration-color: #c3b7a3;
+  text-underline-offset: 3px;
+}
+
+.data-table .repo-link:hover {
+  color: #629988;
+  text-decoration-style: solid;
+  text-decoration-color: currentColor;
+}
+
+.data-table .link-sep {
+  display: inline-block;
+  width: 1px;
+  height: 0.9em;
+  margin: 0 9px;
+  background: #d5c9b5;
+  vertical-align: -0.08em;
+}
+
+/* Run id token, printable as `run=<uuid>` in a posted comment footer. Shared by the activity
+   table and the events timeline so a run copied from GitHub reads the same on both. */
+.run-token {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid #e3d6c3;
+  border-radius: 999px;
+  background: #f4f0e7;
+  color: #8b7d6b;
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 2px;
 }
 
 .status-pill.eligible {

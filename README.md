@@ -66,7 +66,7 @@ The dashboard shows current system status across three tabs:
 
 - **Summary** — queue counts by status, event counts from the last 24 hours, and the oldest pending PR
 - **Queue** — paginated table of all queue items with status, repo, PR number, scheduled time, and attempt count
-- **Events** — newest-first timeline of every event, one entry each, color-coded by event family with a plain-language reading of each event's payload; client-side repo and PR filters narrow the events loaded so far
+- **Events** — newest-first timeline of every event, one entry each, color-coded by event family with a plain-language reading of each event's payload; client-side repo and PR filters narrow the events loaded so far, and pasting a `run=<uuid>` token copied from a posted retrigger comment into the **Run** box refetches the timeline filtered to that run
 
 ### PAT Setup
 

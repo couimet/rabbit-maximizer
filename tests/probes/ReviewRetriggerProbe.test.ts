@@ -32,10 +32,11 @@ describe('ReviewRetriggerProbe', () => {
 
   it('records event, and logs on reviewRetriggered', async () => {
     const item = generateQueueItemHydrationData();
+    const runId = getUniqueString({ prefix: 'run-' });
     const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
     const probe = createProbe(item);
-    await runInContext(() => probe.reviewRetriggered(retriggeredCommentUrl, tx));
+    await runInContext(() => probe.reviewRetriggered(runId, retriggeredCommentUrl, tx));
 
     expect(events.record).toHaveBeenCalledWith(
       {
@@ -44,6 +45,7 @@ describe('ReviewRetriggerProbe', () => {
         pr_number: item.pr_number,
         correlation_id: eventTrace.correlationId,
         request_id: eventTrace.requestId,
+        run_id: runId,
         version: eventTrace.version,
         payload: {
           source_comment_url: item.source_comment_url,
@@ -52,7 +54,7 @@ describe('ReviewRetriggerProbe', () => {
       },
       tx,
     );
-    expect(logger.info).toHaveBeenCalledWith(loggingCtx(item)('ReviewRetriggerProbe.reviewRetriggered'), 'Review retriggered');
+    expect(logger.info).toHaveBeenCalledWith({ ...loggingCtx(item)('ReviewRetriggerProbe.reviewRetriggered'), runId }, 'Review retriggered');
   });
 
   it('logs on staleCommentRescheduled', () => {

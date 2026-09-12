@@ -21,6 +21,7 @@ export const generateEventHydrationData = (overrideValues?: Partial<Event>): Eve
     pr_number: ref.prNumber,
     correlation_id: getUuid(),
     request_id: getUuid(),
+    run_id: getUuid(),
     version: getUniqueString(),
     payload: JSON.stringify({ source_ts: getUniqueDate().toISOString(), source_comment_url: getUniqueString() }),
     metadata: JSON.stringify({ git_sha: getUniqueString() }),

@@ -5,7 +5,10 @@ import { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
 import { getUniqueString } from '@couimet/dynamic-testing';
 
 export const generateQueueItemResponseData = (overrides?: Partial<QueueItemResponse>): QueueItemResponse => {
-  const base = generateQueueItemHydrationData();
+  const base = generateQueueItemHydrationData({
+    repo_full_name: overrides?.repo_full_name,
+    pr_number: overrides?.pr_number,
+  });
   return {
     id: base.id,
     uuid: base.uuid,

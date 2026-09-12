@@ -134,6 +134,8 @@ model ReviewQueue {
   original_source_comment_url String?
   /// Max 512 (GitHub comment URL). Set by markRetriggered when the retrigger comment is posted.
   retrigger_comment_url String?
+  /// Max 36 (UUID v4). Our own run id, printed as `run=` in the posted comment footer; distinct from source_comment_run_id, which is CodeRabbit's. CHECK in the 20260910 migration.
+  run_id         String?
   retriggered_at DateTime?
   /// Set by enqueue() from the source comment wait; scheduler skips pending candidates whose cooldown is active.
   cooldown_until DateTime?
@@ -183,6 +185,8 @@ model Event {
   correlation_id String
   /// Max 73 (two UUID v4 of 36 + 1 delimiter).
   request_id     String?
+  /// Max 36 (UUID v4). Our own run id, printed as `run=` in the posted retrigger comment footer; distinct from the CodeRabbit run ids carried in payloads. Populated by retriggered events only, indexed for lookup. CHECK in the 20260910 migration.
+  run_id         String?
   /// Max 32 (semver, incl. prerelease/build metadata).
   version        String
   /// JSON blob; max 16384. Type-specific fields validated by Zod in src/schemas/events.ts.
@@ -193,6 +197,7 @@ model Event {
   pullRequest     PullRequest? @relation(fields: [pull_request_id], references: [id])
 
   @@index([repo_full_name, pr_number, ts], map: "events_repo_pr_ts_idx")
+  @@index([run_id], map: "events_run_id_idx")
   @@index([pull_request_id])
   @@map("events")
 }

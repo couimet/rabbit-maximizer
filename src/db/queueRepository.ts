@@ -28,6 +28,7 @@ export interface QueueRepository {
     id: number,
     cooldownUntil: Date,
     retriggerCommentUrl: string,
+    runId: string,
     coderabbitRunId: string | undefined,
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem>;
@@ -387,6 +388,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     id: number,
     cooldownUntil: Date,
     retriggerCommentUrl: string,
+    runId: string,
     coderabbitRunId: string | undefined,
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem> {
@@ -398,6 +400,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             status: QueueStatus.retriggered,
             retriggered_at: new Date(),
             retrigger_comment_url: retriggerCommentUrl,
+            run_id: runId,
             // Snapshot the run the comment carries at trigger time; undefined preserves
             // the adopted run (deleted source comment path) instead of wiping it.
             source_comment_run_id: coderabbitRunId,
@@ -406,7 +409,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         }),
       'QueueRepositoryImpl.markRetriggered',
     );
-    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil, retriggerCommentUrl, coderabbitRunId }, 'Marked review retriggered');
+    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil, retriggerCommentUrl, runId, coderabbitRunId }, 'Marked review retriggered');
     return this.mapper.fromReviewQueue(row);
   }
 

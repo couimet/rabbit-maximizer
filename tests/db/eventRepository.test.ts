@@ -32,6 +32,7 @@ describe('EventRepositoryImpl', () => {
         pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: requestId,
+        run_id: null,
         version,
         payload: JSON.stringify({ source_comment_url: sourceCommentUrl }),
         metadata: null,
@@ -61,6 +62,7 @@ describe('EventRepositoryImpl', () => {
           pr_number: ref.prNumber,
           correlation_id: correlationId,
           request_id: requestId,
+          run_id: null,
           version,
           payload: JSON.stringify({ source_comment_url: sourceCommentUrl }),
           metadata: null,
@@ -75,6 +77,7 @@ describe('EventRepositoryImpl', () => {
         pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: requestId,
+        run_id: undefined,
         version,
         metadata: undefined,
         payload: { source_comment_url: sourceCommentUrl },
@@ -88,6 +91,7 @@ describe('EventRepositoryImpl', () => {
     it('writes through the transaction client and serializes metadata', async () => {
       const ref = generateReviewRef();
       const correlationId = getUuid();
+      const runId = getUniqueString({ prefix: 'run-' });
       const version = getUniqueString({ prefix: 'v' });
       const reason = getUniqueString({ prefix: 'reason-' });
       const metadata = {
@@ -105,6 +109,7 @@ describe('EventRepositoryImpl', () => {
         pr_number: ref.prNumber,
         correlation_id: correlationId,
         request_id: null,
+        run_id: runId,
         version,
         payload: JSON.stringify({ reason }),
         metadata: JSON.stringify(metadata),
@@ -123,6 +128,7 @@ describe('EventRepositoryImpl', () => {
           repo_full_name: ref.repoFullName,
           pr_number: ref.prNumber,
           correlation_id: correlationId,
+          run_id: runId,
           version,
           metadata,
           payload: { reason },
@@ -137,6 +143,7 @@ describe('EventRepositoryImpl', () => {
           pr_number: ref.prNumber,
           correlation_id: correlationId,
           request_id: null,
+          run_id: runId,
           version,
           payload: JSON.stringify({ reason }),
           metadata: JSON.stringify(metadata),
@@ -145,6 +152,7 @@ describe('EventRepositoryImpl', () => {
       expect(base.event.create).not.toHaveBeenCalled();
       expect(result.metadata).toStrictEqual(metadata);
       expect(result.request_id).toBeUndefined();
+      expect(result.run_id).toBe(runId);
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'EventRepositoryImpl.record', type: 'failed', repo: ref.repoFullName, pr: ref.prNumber },
         'Event recorded',
@@ -166,6 +174,7 @@ describe('EventRepositoryImpl', () => {
         pr_number: ref.prNumber,
         correlation_id: getUuid(),
         request_id: null,
+        run_id: null,
         version: getUniqueString(),
         payload: JSON.stringify({ source_comment_url: detectedUrl }),
         metadata: null,
@@ -179,6 +188,7 @@ describe('EventRepositoryImpl', () => {
         pr_number: ref.prNumber,
         correlation_id: getUuid(),
         request_id: null,
+        run_id: null,
         version: getUniqueString(),
         payload: JSON.stringify({}),
         metadata: null,
@@ -205,6 +215,7 @@ describe('EventRepositoryImpl', () => {
           pr_number: ref.prNumber,
           correlation_id: detectedRow.correlation_id,
           request_id: undefined,
+          run_id: undefined,
           version: detectedRow.version,
           metadata: undefined,
           type: 'detected',
@@ -218,6 +229,7 @@ describe('EventRepositoryImpl', () => {
           pr_number: ref.prNumber,
           correlation_id: enqueuedRow.correlation_id,
           request_id: undefined,
+          run_id: undefined,
           version: enqueuedRow.version,
           metadata: undefined,
           type: 'enqueued',
@@ -253,6 +265,7 @@ describe('EventRepositoryImpl', () => {
           pr_number: ref.prNumber,
           correlation_id: getUuid(),
           request_id: null,
+          run_id: null,
           version: getUniqueString(),
           payload: JSON.stringify({ source_comment_url: sourceCommentUrl, retriggered_comment_url: retriggeredCommentUrl }),
           metadata: null,
@@ -266,14 +279,15 @@ describe('EventRepositoryImpl', () => {
       const logger = createMockLogger();
       const sut = new EventRepositoryImpl(prisma, logger);
 
-      const result = await sut.listRecent(skip, take);
+      const result = await sut.listRecent(skip, take, undefined);
 
       expect(event.findMany).toHaveBeenCalledWith({
+        where: undefined,
         orderBy: { ts: 'desc' },
         skip,
         take,
       });
-      expect(event.count).toHaveBeenCalledWith();
+      expect(event.count).toHaveBeenCalledWith({ where: undefined });
       expect(result.items).toStrictEqual([
         {
           id: rows[0].id,
@@ -283,6 +297,7 @@ describe('EventRepositoryImpl', () => {
           pr_number: ref.prNumber,
           correlation_id: rows[0].correlation_id,
           request_id: undefined,
+          run_id: undefined,
           version: rows[0].version,
           metadata: undefined,
           type: 'retriggered',
@@ -290,7 +305,40 @@ describe('EventRepositoryImpl', () => {
         },
       ]);
       expect(result.total).toBe(total);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total }, 'Listed recent events');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total, runId: undefined }, 'Listed recent events');
+    });
+
+    it('applies the run id filter to both the page and the total count', async () => {
+      const skip = 0;
+      const take = 10;
+      const runId = getUuid();
+      const row = {
+        id: getUniqueInt(),
+        uuid: getUuid(),
+        ts: getUniqueDate(),
+        type: 'retriggered',
+        repo_full_name: 'o/r',
+        pr_number: getUniqueInt(),
+        correlation_id: getUuid(),
+        request_id: null,
+        run_id: runId,
+        version: getUniqueString(),
+        payload: JSON.stringify({ source_comment_url: getUniqueString(), retriggered_comment_url: getUniqueString() }),
+        metadata: null,
+      };
+
+      const { prisma, event } = createMockPrismaClient({
+        event: { findMany: createResolvedMock([row]), count: createResolvedMock(1) },
+      });
+      const logger = createMockLogger();
+      const sut = new EventRepositoryImpl(prisma, logger);
+
+      const result = await sut.listRecent(skip, take, runId);
+
+      expect(event.findMany).toHaveBeenCalledWith({ where: { run_id: runId }, orderBy: { ts: 'desc' }, skip, take });
+      expect(event.count).toHaveBeenCalledWith({ where: { run_id: runId } });
+      expect(result.total).toBe(1);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.listRecent', count: 1, total: 1, runId }, 'Listed recent events');
     });
   });
 

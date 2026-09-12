@@ -1,5 +1,5 @@
 import type { TrackedPrResponse } from '../../../src/types/index.js';
-import { prUrl } from '../githubUrl.js';
+import { prUrl, repoUrl } from '../githubUrl.js';
 
 import './TrackedPrs.css';
 import { useState } from 'react';
@@ -43,8 +43,12 @@ const TrackedPrs = ({ items, headingLevel }: { items: TrackedPrResponse[] | null
             {items.map((item) => (
               <tr key={`${item.repo_full_name}#${item.pr_number}`}>
                 <td>
+                  <a className="repo-link" href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
+                    {item.repo_full_name}
+                  </a>
+                  <span className="link-sep" aria-hidden="true" />
                   <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
-                    {item.repo_full_name} — {item.title} (#{item.pr_number})
+                    {item.title} (#{item.pr_number})
                   </a>
                 </td>
                 <td>{item.author_login}</td>

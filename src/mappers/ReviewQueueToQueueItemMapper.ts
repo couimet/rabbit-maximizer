@@ -26,6 +26,7 @@ export class ReviewQueueToQueueItemMapper {
       original_source_comment_url: nullToUndefined(row.original_source_comment_url),
       trigger_source: row.trigger_source as TriggerSource,
       retrigger_comment_url: nullToUndefined(row.retrigger_comment_url),
+      run_id: nullToUndefined(row.run_id),
       retriggered_at: sqlDateToDate(row.retriggered_at),
       cooldown_until: sqlDateToDate(row.cooldown_until),
       last_skipped_at: sqlDateToDate(row.last_skipped_at),

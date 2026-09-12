@@ -82,6 +82,8 @@ describe('QueueOrder', () => {
 
       expect(screen.getByText('1')).toBeInTheDocument();
       expect(screen.getByText('2')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: item1.repo_full_name })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: item2.repo_full_name })).toBeInTheDocument();
       expect(screen.getByText(`${item1.pr_title} (#${item1.pr_number})`)).toBeInTheDocument();
       expect(screen.getByText(`${item2.pr_title} (#${item2.pr_number})`)).toBeInTheDocument();
       expect(screen.getByText(`by ${item1.author_login}`)).toBeInTheDocument();
@@ -100,6 +102,21 @@ describe('QueueOrder', () => {
       const link = screen.getByText(`${item1.pr_title} (#${item1.pr_number})`).closest('a');
       expect(link).toHaveAttribute('href', `https://github.com/${item1.repo_full_name}/pull/${item1.pr_number}`);
       expect(link).toHaveAttribute('target', '_blank');
+    });
+
+    it('renders the repo as its own link to the repository', () => {
+      renderQueueOrder({
+        items: [item1, item2],
+        onMoveComplete: defaultOnMoveComplete,
+        paused: false,
+        schedulerStale: false,
+        lastUpdatedAt: null,
+        lastSchedulerTickAt: null,
+      });
+
+      const repoLink = screen.getByRole('link', { name: item1.repo_full_name });
+      expect(repoLink).toHaveAttribute('href', `https://github.com/${item1.repo_full_name}`);
+      expect(repoLink).toHaveAttribute('target', '_blank');
     });
 
     it('shows heading with total count', () => {
