@@ -11,6 +11,7 @@ import {
   REQUEST_ID_MAX_LENGTH,
   REVIEW_STATE_MAX_LENGTH,
   REVIEW_URL_MAX_LENGTH,
+  RUN_ID_MAX_LENGTH,
   SOURCE_COMMENT_RUN_ID_MAX_LENGTH,
   SOURCE_COMMENT_URL_MAX_LENGTH,
   STATUS_MAX_LENGTH,
@@ -55,6 +56,11 @@ describe('lengths', () => {
   describe('column limits', () => {
     it('UUID_MAX_LENGTH is 36', () => {
       expect(UUID_MAX_LENGTH).toBe(36);
+    });
+
+    it('RUN_ID_MAX_LENGTH is 36, same as UUID_MAX_LENGTH', () => {
+      expect(RUN_ID_MAX_LENGTH).toBe(36);
+      expect(RUN_ID_MAX_LENGTH).toBe(UUID_MAX_LENGTH);
     });
 
     it('STATUS_MAX_LENGTH is 25', () => {

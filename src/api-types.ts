@@ -297,6 +297,8 @@ export interface components {
       /** Format: date-time */
       created_at: string;
       retrigger_comment_url?: string | null;
+      /** @description Run id of the latest retrigger, printed as `run=<uuid>` in the posted comment footer */
+      run_id?: string | null;
       source_comment_url: string;
       last_review_url?: string | null;
       /** @enum {string|null} */
@@ -331,6 +333,8 @@ export interface components {
       pr_number: number;
       correlation_id: string;
       request_id?: string;
+      /** @description Run id of the retrigger that produced this event, printed as `run=<uuid>` in the posted comment footer */
+      run_id?: string;
       version: string;
       metadata?: {
         [key: string]: unknown;
@@ -608,6 +612,11 @@ export interface operations {
       query?: {
         page?: number;
         pageSize?: number;
+        /**
+         * @description Only return events carrying this run id. Accepts the bare UUID or the
+         *     `run=<uuid>` token as printed in a posted retrigger comment footer.
+         */
+        runId?: string;
       };
       header?: never;
       path?: never;
@@ -622,6 +631,15 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['PaginatedEvents'];
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
         };
       };
       500: components['responses']['InternalError'];

@@ -1,5 +1,6 @@
 import type { PullRequestRepository, QueueRepository, SystemStateRepository } from './db/index.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from './errors/index.js';
+import { withAttributes } from './external-deps/couimet/execution-context/src/index.js';
 import {
   classifyCoderabbitComment,
   type CoderabbitGitHubClient,
@@ -256,28 +257,33 @@ export class ReviewTrigger {
     sourceRunId: string | undefined,
   ): Promise<RabbitResult<TriggerDetails>> {
     const runId = generateRunId();
-    this.log.info({ fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId }, 'Posting retrigger');
 
-    const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(
-      item.repo_full_name,
-      item.pr_number,
-      replyToCommentUrl,
-      runId,
-      triggerSource,
-      diagnosis,
-    );
+    // Scoped to this run: a scheduler tick retriggers several items in one context,
+    // and an inherited run_id would tag the next item's logs with the wrong run.
+    return await withAttributes({ run_id: runId }, async () => {
+      this.log.info({ fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId }, 'Posting retrigger');
 
-    const cooldownUntil = new Date(Date.now() + this.postCooldownMs);
+      const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(
+        item.repo_full_name,
+        item.pr_number,
+        replyToCommentUrl,
+        runId,
+        triggerSource,
+        diagnosis,
+      );
 
-    await this.prisma.$transaction(async (tx) => {
-      await this.queue.markRetriggered(item.id, cooldownUntil, retriggeredCommentUrl, sourceRunId, tx);
-      await this.pullRequests.incrementRetriggerCount(item.pull_request_id, tx);
-      await probe.reviewRetriggered(retriggeredCommentUrl, tx);
-      const existing = await this.systemState.getNextReviewAvailableAt(tx);
-      const nextAvailable = existing !== undefined && existing > cooldownUntil ? existing : cooldownUntil;
-      await this.systemState.setNextReviewAvailableAt(nextAvailable, tx);
+      const cooldownUntil = new Date(Date.now() + this.postCooldownMs);
+
+      await this.prisma.$transaction(async (tx) => {
+        await this.queue.markRetriggered(item.id, cooldownUntil, retriggeredCommentUrl, runId, sourceRunId, tx);
+        await this.pullRequests.incrementRetriggerCount(item.pull_request_id, tx);
+        await probe.reviewRetriggered(runId, retriggeredCommentUrl, tx);
+        const existing = await this.systemState.getNextReviewAvailableAt(tx);
+        const nextAvailable = existing !== undefined && existing > cooldownUntil ? existing : cooldownUntil;
+        await this.systemState.setNextReviewAvailableAt(nextAvailable, tx);
+      });
+
+      return RabbitResult.ok({ retriggeredCommentUrl });
     });
-
-    return RabbitResult.ok({ retriggeredCommentUrl });
   }
 }

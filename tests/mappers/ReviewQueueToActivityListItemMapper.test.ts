@@ -2,7 +2,7 @@ import { PrState, QueueStatus } from '../../src/domain.js';
 import { ReviewQueueToActivityListItemMapper } from '../../src/mappers/index.js';
 import { generateQueueItemHydrationData } from '../helpers/index.js';
 
-import { getUniqueDate } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUuid } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const ONE_DAY_MS = 86_400_000;
@@ -12,8 +12,10 @@ const REVIEW_STATE = 'review_approved';
 describe('ReviewQueueToActivityListItemMapper', () => {
   let enricher: { enrich: jest.Mock<any> };
   let mapper: ReviewQueueToActivityListItemMapper;
+  let runId: string;
 
   beforeEach(() => {
+    runId = getUuid();
     enricher = {
       enrich: jest.fn<any>().mockImplementation((items: any[]) =>
         Promise.resolve(
@@ -42,6 +44,7 @@ describe('ReviewQueueToActivityListItemMapper', () => {
       status: QueueStatus.pending,
       resolution: undefined,
       retrigger_comment_url: undefined,
+      run_id: runId,
       retriggered_at: undefined,
       resolved_at: undefined,
       failed_at: undefined,
@@ -62,6 +65,7 @@ describe('ReviewQueueToActivityListItemMapper', () => {
       failed_at: null,
       created_at: createdIso,
       retrigger_comment_url: null,
+      run_id: runId,
       source_comment_url: 'https://gh/c/1',
       last_review_url: null,
       last_review_state: null,
@@ -71,6 +75,14 @@ describe('ReviewQueueToActivityListItemMapper', () => {
       pr_state: 'open',
       last_activity_at: createdIso,
     });
+  });
+
+  it('maps an absent run id to null', async () => {
+    const item = generateQueueItemHydrationData({ run_id: undefined });
+
+    const [result] = await mapper.mapToList([item]);
+
+    expect(result.run_id).toBeNull();
   });
 
   it('computes last_activity_at from the most recent timestamp', async () => {

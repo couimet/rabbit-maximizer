@@ -14,6 +14,7 @@ export interface QueueItem {
   readonly original_source_comment_url?: string;
   readonly trigger_source: TriggerSource;
   readonly retrigger_comment_url?: string;
+  readonly run_id?: string;
   readonly retriggered_at?: Date;
   readonly cooldown_until?: Date;
   readonly last_skipped_at?: Date;

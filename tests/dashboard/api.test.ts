@@ -9,6 +9,7 @@ import {
   moveToTop,
 } from '../../dashboard/src/api.js';
 
+import { getUuid } from '@couimet/dynamic-testing';
 import { describe, expect, it, jest } from '@jest/globals';
 
 describe('api', () => {
@@ -58,8 +59,16 @@ describe('api', () => {
     it('returns parsed JSON on success', async () => {
       const data = { data: [], total: 0, page: 1, pageSize: 50 };
       globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;
-      await expect(fetchEvents(1, 50)).resolves.toStrictEqual(data);
+      await expect(fetchEvents(1, 50, undefined)).resolves.toStrictEqual(data);
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/events?page=1&pageSize=50', undefined);
+    });
+
+    it('appends the runId query param when provided', async () => {
+      const runId = getUuid();
+      const data = { data: [], total: 0, page: 1, pageSize: 50 };
+      globalThis.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) } as Response)) as unknown as typeof fetch;
+      await fetchEvents(1, 50, runId);
+      expect(globalThis.fetch).toHaveBeenCalledWith(`/api/events?page=1&pageSize=50&runId=${runId}`, undefined);
     });
   });
 

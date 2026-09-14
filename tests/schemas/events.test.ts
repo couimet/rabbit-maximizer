@@ -37,6 +37,7 @@ describe('parseEventRow', () => {
       pr_number: row.pr_number,
       correlation_id: row.correlation_id,
       request_id: requestId,
+      run_id: row.run_id,
       version: row.version,
       metadata,
       type: 'detected',
@@ -106,8 +107,10 @@ describe('parseEventRow', () => {
   it('parses a retriggered event', () => {
     const sourceCommentUrl = getUniqueString();
     const retriggeredCommentUrl = getUniqueString();
+    const runId = getUuid();
     const row = generateEventHydrationData({
       type: 'retriggered',
+      run_id: runId,
       payload: JSON.stringify({
         source_comment_url: sourceCommentUrl,
         retriggered_comment_url: retriggeredCommentUrl,
@@ -117,10 +120,19 @@ describe('parseEventRow', () => {
     const result = parseEventRow(row);
 
     expect(result.type).toBe('retriggered');
+    expect(result.run_id).toBe(runId);
     expect(result.payload).toStrictEqual({
       source_comment_url: sourceCommentUrl,
       retriggered_comment_url: retriggeredCommentUrl,
     });
+  });
+
+  it('parses an event with a null run_id as undefined', () => {
+    const row = generateEventHydrationData({ run_id: null });
+
+    const result = parseEventRow(row);
+
+    expect(result.run_id).toBeUndefined();
   });
 
   it('parses a dismissed event', () => {

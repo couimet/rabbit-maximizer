@@ -55,7 +55,12 @@ describe('QueueRepositoryImpl', () => {
     it('creates a pending row, records enqueued event, inserts queue_order, and returns it', async () => {
       const ref = generateReviewRef();
       const pullRequestId = getUniqueInt();
-      const row = generateReviewQueueHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber, source_comment_url: ref.commentUrl });
+      const row = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_url: ref.commentUrl,
+        source_comment_id: ref.commentId,
+      });
 
       const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
         reviewQueue: { findFirst: createResolvedMock(null), create: createResolvedMock(row) },
@@ -94,6 +99,8 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: row.id } });
       expect(created).toBe(true);
+      expect(result.source_comment_url).toBe(ref.commentUrl);
+      expect(result.source_comment_id).toBe(ref.commentId);
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
     });
 
@@ -1360,19 +1367,20 @@ describe('QueueRepositoryImpl', () => {
 
     it('updates the row to retriggered with cooldown', async () => {
       const cooldownUntil = getUniqueDate();
+      const runId = getUniqueString({ prefix: 'run-' });
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
-      const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, runId, undefined, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
-        data: { status: 'retriggered', retriggered_at: frozenNow, retrigger_comment_url: COMMENT_URL, cooldown_until: cooldownUntil },
+        data: { status: 'retriggered', retriggered_at: frozenNow, retrigger_comment_url: COMMENT_URL, run_id: runId, cooldown_until: cooldownUntil },
       });
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, coderabbitRunId: undefined },
+        { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, runId, coderabbitRunId: undefined },
         'Marked review retriggered',
       );
     });
@@ -1380,11 +1388,12 @@ describe('QueueRepositoryImpl', () => {
     it('stores the run ID snapshot on the update when provided', async () => {
       const cooldownUntil = getUniqueDate();
       const runId = getUniqueString({ prefix: 'run-' });
+      const coderabbitRunId = getUniqueString({ prefix: 'coderabbit-run-' });
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
-      const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, runId, prisma as unknown as Prisma.TransactionClient);
+      const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, runId, coderabbitRunId, prisma as unknown as Prisma.TransactionClient);
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
@@ -1392,13 +1401,14 @@ describe('QueueRepositoryImpl', () => {
           status: 'retriggered',
           retriggered_at: frozenNow,
           retrigger_comment_url: COMMENT_URL,
-          source_comment_run_id: runId,
+          run_id: runId,
+          source_comment_run_id: coderabbitRunId,
           cooldown_until: cooldownUntil,
         },
       });
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, coderabbitRunId: runId },
+        { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, runId, coderabbitRunId },
         'Marked review retriggered',
       );
     });
@@ -1412,7 +1422,14 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(
-        sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient),
+        sut.markRetriggered(
+          getUniqueInt(),
+          cooldownUntil,
+          COMMENT_URL,
+          getUniqueString({ prefix: 'run-' }),
+          undefined,
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       ).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'ReviewQueue'",
         functionName: 'QueueRepositoryImpl.markRetriggered',
@@ -1434,7 +1451,14 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(
-        sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient),
+        sut.markRetriggered(
+          getUniqueInt(),
+          cooldownUntil,
+          COMMENT_URL,
+          getUniqueString({ prefix: 'run-' }),
+          undefined,
+          prisma as unknown as Prisma.TransactionClient,
+        ),
       ).rejects.toBeDetailedError('PRISMA_FIELD_TYPE_MISMATCH_P2005', {
         message: "Field type mismatch in table 'ReviewQueue'",
         functionName: 'QueueRepositoryImpl.markRetriggered',
@@ -1455,9 +1479,16 @@ describe('QueueRepositoryImpl', () => {
       });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
-      await expect(sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient)).rejects.toThrow(
-        unrecognizedError,
-      );
+      await expect(
+        sut.markRetriggered(
+          getUniqueInt(),
+          cooldownUntil,
+          COMMENT_URL,
+          getUniqueString({ prefix: 'run-' }),
+          undefined,
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      ).rejects.toThrow(unrecognizedError);
       expect(logger.warn).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.markRetriggered', modelName: 'ReviewQueue', prismaCode: 'P9999', error: unrecognizedError },
         'Unrecognized Prisma error code, rethrowing original',

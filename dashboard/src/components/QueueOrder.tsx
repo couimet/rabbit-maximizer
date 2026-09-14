@@ -2,7 +2,7 @@ import type { QueueItemResponse } from '../../../src/types/index.js';
 import { formatRelativeTime } from '../../../src/utils/index.js';
 import { safeDeriveActivityStatus } from '../activityState.js';
 import { moveQueueItems, moveToTop, retriggerNow } from '../api.js';
-import { prUrl } from '../githubUrl.js';
+import { prUrl, repoUrl } from '../githubUrl.js';
 
 import { ConfirmDialog, formatElapsed, STATE_CLASS, STATE_LABEL } from './index.js';
 
@@ -247,6 +247,10 @@ const QueueOrder = ({
                     </td>
                     <td className="col-position">{index + 1}</td>
                     <td>
+                      <a className="repo-link" href={repoUrl(item.repo_full_name)} target="_blank" rel="noopener noreferrer">
+                        {item.repo_full_name}
+                      </a>
+                      <span className="link-sep" aria-hidden="true" />
                       <a href={prUrl(item.repo_full_name, item.pr_number)} target="_blank" rel="noopener noreferrer">
                         {item.pr_title} (#{item.pr_number})
                       </a>{' '}

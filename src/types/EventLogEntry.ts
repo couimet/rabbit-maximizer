@@ -24,6 +24,7 @@ export interface EventEnvelope {
   readonly pr_number: number;
   readonly correlation_id: string;
   readonly request_id?: string;
+  readonly run_id?: string;
   readonly version: string;
   readonly metadata?: EventMetadata;
 }

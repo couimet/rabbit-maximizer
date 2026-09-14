@@ -93,6 +93,7 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
     pr_number: row.pr_number,
     correlation_id: row.correlation_id,
     request_id: row.request_id ?? undefined,
+    run_id: row.run_id ?? undefined,
     version: row.version,
     metadata: row.metadata ? EventMetadataSchema.parse(JSON.parse(row.metadata)) : undefined,
   };

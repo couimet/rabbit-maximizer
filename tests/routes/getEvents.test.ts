@@ -3,8 +3,9 @@ import { EventEntryMapper } from '../../src/mappers/index.js';
 import { createGetEventsHandler } from '../../src/routes/index.js';
 import { apiJson, createMockEventRepo, fetchResponse, generateEventLogEntryHydrationData, getJson } from '../helpers/index.js';
 
+import { getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'node:http';
 
@@ -12,6 +13,11 @@ describe('getEvents', () => {
   let server: Server;
   let port: number;
   let logger: ReturnType<typeof createMockLogger>;
+  let runId: string;
+
+  beforeEach(() => {
+    runId = getUuid();
+  });
 
   afterEach(async () => {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -47,7 +53,54 @@ describe('getEvents', () => {
     const listRecent = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
     startServer({ listRecent });
     await getJson(port, '/api/events?page=2&pageSize=10');
-    expect(listRecent).toHaveBeenCalledWith(10, 10);
+    expect(listRecent).toHaveBeenCalledWith(10, 10, undefined);
+  });
+
+  it('filters by a bare runId query param', async () => {
+    const listRecent = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
+    startServer({ listRecent });
+
+    await getJson(port, `/api/events?runId=${runId}`);
+
+    expect(listRecent).toHaveBeenCalledWith(0, 50, runId);
+  });
+
+  it('accepts the run= token as it appears in a posted comment footer', async () => {
+    const listRecent = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
+    startServer({ listRecent });
+
+    await getJson(port, `/api/events?runId=${encodeURIComponent(`run=${runId}`)}`);
+
+    expect(listRecent).toHaveBeenCalledWith(0, 50, runId);
+  });
+
+  it('trims surrounding whitespace from the runId query param', async () => {
+    const listRecent = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
+    startServer({ listRecent });
+
+    await getJson(port, `/api/events?runId=${encodeURIComponent(`  ${runId}  `)}`);
+
+    expect(listRecent).toHaveBeenCalledWith(0, 50, runId);
+  });
+
+  it('drops a blank runId query param', async () => {
+    const listRecent = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
+    startServer({ listRecent });
+
+    await getJson(port, '/api/events?runId=%20');
+
+    expect(listRecent).toHaveBeenCalledWith(0, 50, undefined);
+  });
+
+  it('returns 400 when runId is not a UUID', async () => {
+    const listRecent = jest.fn<any>().mockResolvedValue({ items: [], total: 0 });
+    startServer({ listRecent });
+
+    const res = await fetchResponse(port, '/api/events?runId=not-a-uuid');
+
+    expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+    expect(await res.json()).toStrictEqual({ error: 'runId must be a valid UUID v4' });
+    expect(listRecent).not.toHaveBeenCalled();
   });
 
   it('custom pageSize query param still works', async () => {

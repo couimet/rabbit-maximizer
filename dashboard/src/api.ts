@@ -46,8 +46,8 @@ export const fetchQueue = (page: number, pageSize: number): Promise<PaginatedRes
 export const fetchActivityList = (since: Date, page: number, pageSize: number): Promise<PaginatedResponse<ActivityListItemResponse>> =>
   fetchJson<PaginatedResponse<ActivityListItemResponse>>(`${API_BASE}/activity-list${buildQueryString({ since, page, pageSize })}`);
 
-export const fetchEvents = (page: number, pageSize: number): Promise<PaginatedResponse<EventEntryResponse>> =>
-  fetchJson<PaginatedResponse<EventEntryResponse>>(`${API_BASE}/events${buildQueryString({ page, pageSize })}`);
+export const fetchEvents = (page: number, pageSize: number, runId: string | undefined): Promise<PaginatedResponse<EventEntryResponse>> =>
+  fetchJson<PaginatedResponse<EventEntryResponse>>(`${API_BASE}/events${buildQueryString({ page, pageSize, runId })}`);
 
 export const fetchQueueOrder = (): Promise<{ data: QueueItemResponse[] }> => fetchJson<{ data: QueueItemResponse[] }>(`${API_BASE}/queue/order`);
 

@@ -14,6 +14,7 @@ describe('EventEntryMapper', () => {
   let correlationId: string;
   let ts: Date;
   let requestId: string;
+  let runId: string;
   let version: string;
 
   beforeEach(() => {
@@ -21,6 +22,7 @@ describe('EventEntryMapper', () => {
     correlationId = getUuid();
     ts = getUniqueDate();
     requestId = getUniqueString({ prefix: 'req-' });
+    runId = getUuid();
     version = getUniqueString({ prefix: 'version-' });
   });
 
@@ -35,7 +37,7 @@ describe('EventEntryMapper', () => {
     });
 
   const makeDetectedEntry = (): EventLogEntry =>
-    makeEntry({ type: EventType.detected, request_id: requestId, payload: { source_comment_url: 'https://gh/c/1' } as DetectedPayload });
+    makeEntry({ type: EventType.detected, request_id: requestId, run_id: runId, payload: { source_comment_url: 'https://gh/c/1' } as DetectedPayload });
 
   const makeEnqueuedEntry = (): EventLogEntry => makeEntry({ type: EventType.enqueued, payload: {} as EnqueuedPayload });
 
@@ -60,6 +62,7 @@ describe('EventEntryMapper', () => {
       expect(result.pr_number).toBe(ref.prNumber);
       expect(result.correlation_id).toBe(correlationId);
       expect(result.request_id).toBe(requestId);
+      expect(result.run_id).toBe(runId);
       expect(result.version).toBe(version);
     });
 
@@ -92,13 +95,14 @@ describe('EventEntryMapper', () => {
       expect(result.metadata).toStrictEqual(metadata);
     });
 
-    it('passes undefined metadata and request_id through', () => {
+    it('passes undefined metadata, request_id and run_id through', () => {
       const input = makeDetectedEntry();
-      const { metadata: _metadata, request_id: _request_id, ...entryWithoutOptionals } = input;
+      const { metadata: _metadata, request_id: _requestId, run_id: _runId, ...entryWithoutOptionals } = input;
       const result = mapper.mapToEventEntryResponse(entryWithoutOptionals as EventLogEntry);
 
       expect(result.metadata).toBeUndefined();
       expect(result.request_id).toBeUndefined();
+      expect(result.run_id).toBeUndefined();
     });
 
     it('handles enqueued event type', () => {

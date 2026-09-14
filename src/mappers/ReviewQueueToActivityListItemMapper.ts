@@ -29,6 +29,7 @@ export class ReviewQueueToActivityListItemMapper {
       failed_at: nullableDateToISOString(item.failed_at),
       created_at: item.created_at.toISOString(),
       retrigger_comment_url: nullableString(item.retrigger_comment_url),
+      run_id: nullableString(item.run_id),
       source_comment_url: item.source_comment_url,
       last_review_url: nullableString(item.coderabbitReview?.htmlUrl),
       last_review_state: nullableString(item.coderabbitReview?.state) as ActivityListItemResponse['last_review_state'],

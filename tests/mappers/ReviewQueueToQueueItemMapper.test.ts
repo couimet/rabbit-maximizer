@@ -4,7 +4,7 @@ import type { QueueItem } from '../../src/types/index.js';
 import { sqlDateToDate } from '../../src/utils/index.js';
 import { generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { describe, expect, it } from '@jest/globals';
 
 describe('ReviewQueueToQueueItemMapper', () => {
@@ -49,6 +49,7 @@ describe('ReviewQueueToQueueItemMapper', () => {
         resolved_at: null as unknown as Date,
         resolution: null as unknown as string,
         source_comment_run_id: null as unknown as string,
+        run_id: null as unknown as string,
       });
 
       const result = mapper.fromReviewQueue(row);
@@ -59,6 +60,7 @@ describe('ReviewQueueToQueueItemMapper', () => {
       expect(result.resolved_at).toBeUndefined();
       expect(result.resolution).toBeUndefined();
       expect(result.source_comment_run_id).toBeUndefined();
+      expect(result.run_id).toBeUndefined();
     });
 
     it('preserves non-null timestamps as Date objects', () => {
@@ -88,6 +90,14 @@ describe('ReviewQueueToQueueItemMapper', () => {
       const result = mapper.fromReviewQueue(row);
 
       expect(result.retrigger_comment_url).toBeUndefined();
+    });
+
+    it('preserves non-null run_id', () => {
+      const runId = getUniqueString({ prefix: 'run-' });
+      const row = generateReviewQueueHydrationData({ run_id: runId });
+      const result = mapper.fromReviewQueue(row);
+
+      expect(result.run_id).toBe(runId);
     });
 
     it('preserves non-null retrigger_comment_url', () => {
@@ -141,6 +151,7 @@ describe('ReviewQueueToQueueItemMapper', () => {
         original_source_comment_url: row.original_source_comment_url ?? undefined,
         trigger_source: row.trigger_source as TriggerSource,
         retrigger_comment_url: row.retrigger_comment_url ?? undefined,
+        run_id: row.run_id ?? undefined,
         retriggered_at: sqlDateToDate(row.retriggered_at),
         cooldown_until: sqlDateToDate(row.cooldown_until),
         last_skipped_at: sqlDateToDate(row.last_skipped_at),

@@ -4,6 +4,7 @@ import { ActivityList, ErrorProvider, GlobalErrorBanner } from '../../dashboard/
 import { generateQueueItemResponseData, generateReviewRef } from '../helpers/index.js';
 
 import '@testing-library/jest-dom/jest-globals';
+import { getUuid } from '@couimet/dynamic-testing';
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StatusCodes } from 'http-status-codes';
@@ -12,6 +13,7 @@ import { type ReactElement, StrictMode } from 'react';
 const EMPTY_TOTAL = 0;
 const FIRST_PAGE = 1;
 const PAGE_SIZE = 50;
+const RUN_ID = getUuid();
 const ACTIVITY_LIST_RESPONSE = { data: [], total: EMPTY_TOTAL, page: FIRST_PAGE, pageSize: PAGE_SIZE };
 
 const mockActivityListEndpoint = (data: Record<string, unknown> = ACTIVITY_LIST_RESPONSE) => {
@@ -90,6 +92,34 @@ describe('ActivityList', () => {
       await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
       const link = screen.getByText(item.pr_title + ' (#' + item.pr_number + ')').closest('a');
       expect(link).toHaveAttribute('href', `https://github.com/${item.repo_full_name}/pull/${item.pr_number}`);
+    });
+
+    it('renders the repo as its own link to the repository', async () => {
+      const item = makeItem();
+      mockActivityListEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+      const repoLink = screen.getByRole('link', { name: item.repo_full_name });
+      expect(repoLink).toHaveAttribute('href', `https://github.com/${item.repo_full_name}`);
+      expect(repoLink).toHaveAttribute('target', '_blank');
+    });
+
+    it('shows the run token next to the PR link when the item carries a run id', async () => {
+      const item = makeItem({ run_id: RUN_ID });
+      mockActivityListEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText(`run=${RUN_ID}`)).toBeInTheDocument());
+    });
+
+    it('omits the run token when the item has no run id', async () => {
+      const item = makeItem({ run_id: null });
+      mockActivityListEndpoint({ data: [item], total: 1, page: 1, pageSize: PAGE_SIZE });
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText('by ' + item.author_login)).toBeInTheDocument());
+      expect(screen.queryByText(/^run=/)).not.toBeInTheDocument();
     });
 
     it('shows CodeRabbit: completed analysis pill when status is resolved with review_completed resolution', async () => {

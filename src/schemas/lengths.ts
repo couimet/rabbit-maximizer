@@ -9,6 +9,9 @@
 
 // Column limits (mirrored in the init migration's CHECK constraints).
 export const UUID_MAX_LENGTH = 36;
+
+// Column limit for run_id on events and review_queue — our own run id (generateRunId in ReviewTrigger), printed as `run=` in the posted comment footer. CHECK in the 20260910 migration.
+export const RUN_ID_MAX_LENGTH = UUID_MAX_LENGTH;
 export const STATUS_MAX_LENGTH = 25;
 export const EVENT_TYPE_MAX_LENGTH = 25;
 export const CORRELATION_ID_MAX_LENGTH = 73;
