@@ -56,19 +56,31 @@ const makeEvent = (over: Record<string, unknown> = {}) => ({
 // Enough hops to settle fetch → fetchJson resume → res.json() → .then; extra ticks are inert.
 const STALE_RESPONSE_DRAIN = 10;
 
-/** Holds every response open so a test can resolve requests out of order. Returns a resolver keyed by request URL. */
-const createDeferredFetch = (): ((url: string, body: unknown) => void) => {
-  const pending = new Map<string, (body: unknown) => void>();
+interface DeferredFetch {
+  resolve: (url: string, body: unknown) => void;
+  reject: (url: string, error: Error) => void;
+}
+
+/** Holds every response open so a test can settle requests out of order. Returns a settler keyed by request URL. */
+const createDeferredFetch = (): DeferredFetch => {
+  const pending = new Map<string, { resolve: (body: unknown) => void; reject: (error: Error) => void }>();
   globalThis.fetch = jest.fn((url: string) => {
-    return new Promise<Response>((resolve) => {
-      pending.set(url, (body) => resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response));
+    return new Promise<Response>((resolve, reject) => {
+      pending.set(url, {
+        resolve: (body) => resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response),
+        reject,
+      });
     });
   }) as unknown as typeof fetch;
-  return (url, body) => {
-    const resolve = pending.get(url);
-    if (!resolve) throw new Error(`No pending request for ${url}`);
+  const take = (url: string) => {
+    const deferred = pending.get(url);
+    if (!deferred) throw new Error(`No pending request for ${url}`);
     pending.delete(url);
-    resolve(body);
+    return deferred;
+  };
+  return {
+    resolve: (url, body) => take(url).resolve(body),
+    reject: (url, error) => take(url).reject(error),
   };
 };
 
@@ -545,7 +557,7 @@ describe('EventHistory', () => {
     });
 
     it('discards a page response that belongs to the previous run filter', async () => {
-      const resolvePending = createDeferredFetch();
+      const { resolve: resolvePending } = createDeferredFetch();
       const unfilteredUrl = '/api/events?page=1&pageSize=50';
       const runPage1Url = `/api/events?page=1&pageSize=50&runId=${RUN_ID}`;
       const runPage2Url = `/api/events?page=2&pageSize=50&runId=${RUN_ID}`;
@@ -585,6 +597,35 @@ describe('EventHistory', () => {
 
       fireEvent.click(screen.getByText('Show earlier events'));
       expect(globalThis.fetch).toHaveBeenCalledWith(`/api/events?page=2&pageSize=50&runId=${OTHER_RUN_ID}`, undefined);
+    });
+
+    it('discards a failed request that belongs to the previous run filter', async () => {
+      const { reject, resolve } = createDeferredFetch();
+      const unfilteredUrl = '/api/events?page=1&pageSize=50';
+      const runPage1Url = `/api/events?page=1&pageSize=50&runId=${RUN_ID}`;
+      const otherRunPage1Url = `/api/events?page=1&pageSize=50&runId=${OTHER_RUN_ID}`;
+
+      renderEventHistory();
+      resolve(unfilteredUrl, { data: [makeEvent({ id: 1, type: 'enqueued' })], total: 3, page: 1, pageSize: PAGE_SIZE });
+      await screen.findByText('Enqueued');
+
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Find a run' }), { target: { value: RUN_ID } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+      fireEvent.change(screen.getByRole('searchbox', { name: 'Find a run' }), { target: { value: OTHER_RUN_ID } });
+      fireEvent.click(screen.getByRole('button', { name: 'Find' }));
+
+      resolve(otherRunPage1Url, { data: [makeEvent({ id: 3, type: 'failed', run_id: OTHER_RUN_ID })], total: 5, page: 1, pageSize: PAGE_SIZE });
+      await screen.findByText('Failed');
+
+      await act(async () => {
+        reject(runPage1Url, new Error('Superseded request failed'));
+        await drainMicrotasks(STALE_RESPONSE_DRAIN);
+      });
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.getByText('Failed')).toBeInTheDocument();
+      expect(screen.queryByText('Retrigger posted')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Show earlier events' })).toBeInTheDocument();
     });
 
     it('keeps the filter bar and names the run when it matches nothing', async () => {
