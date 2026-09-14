@@ -10,7 +10,7 @@ import { EVENT_FAMILY_LABEL, getEventTypeMeta, KNOWN_EVENT_FAMILIES, summarizeEv
 
 import './EventHistory.css';
 import './eventVocabulary.css';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const PAGE_SIZE = 50;
 
@@ -40,52 +40,63 @@ const EventHistory = () => {
   const { timezone } = useTimezone();
   const { reportError, dismissError } = useErrorContext();
 
+  const mountedRef = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setPage(1);
-    fetchEvents(1, PAGE_SIZE, runFilter ?? undefined)
-      .then((d) => {
-        /* c8 ignore next 2 — cleanup guard: unmount mid-flight leaves state untouched */
-        if (cancelled) return;
-        dismissError('event-history');
-        setTotal(d.total);
-        setItems(d.data);
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        /* c8 ignore next 2 — cleanup guard: unmount mid-flight leaves state untouched */
-        if (cancelled) return;
-        reportError('event-history', 'Event history', err.message);
-        setLoading(false);
-      });
+    mountedRef.current = true;
     return () => {
-      cancelled = true;
+      mountedRef.current = false;
     };
-  }, [dismissError, reportError, runFilter]);
+  }, []);
+
+  const requestIdRef = useRef(0);
+
+  const fetchData = useCallback(
+    (pageNum: number, append: boolean) => {
+      requestIdRef.current += 1;
+      const requestId = requestIdRef.current;
+      setLoading(true);
+      fetchEvents(pageNum, PAGE_SIZE, runFilter ?? undefined)
+        .then((d) => {
+          /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
+          if (!mountedRef.current) return;
+          if (requestId !== requestIdRef.current) return;
+          dismissError('event-history');
+          setTotal(d.total);
+          if (append) {
+            setPage(pageNum);
+            setItems((prev) => {
+              // Newest-first offset pagination: an event written between two loads can shift onto both pages.
+              const loadedIds = new Set(prev.map((event) => event.id));
+              return [...prev, ...d.data.filter((event) => !loadedIds.has(event.id))];
+            });
+          } else {
+            setItems(d.data);
+          }
+          setLoading(false);
+        })
+        .catch((err: Error) => {
+          /* c8 ignore next 2 — cleanup guards: unmount and stale request detection */
+          if (!mountedRef.current) return;
+          if (requestId !== requestIdRef.current) return;
+          reportError('event-history', 'Event history', err.message);
+          setLoading(false);
+        });
+    },
+    [runFilter, reportError, dismissError],
+  );
+
+  useEffect(() => {
+    setPage(1);
+    setItems([]);
+    setTotal(null);
+    fetchData(1, false);
+  }, [fetchData]);
 
   const handleLoadMore = () => {
-    setLoading(true);
-    const nextPage = page + 1;
-    fetchEvents(nextPage, PAGE_SIZE, runFilter ?? undefined)
-      .then((d) => {
-        dismissError('event-history');
-        setTotal(d.total);
-        setPage(nextPage);
-        setItems((prev) => {
-          // Newest-first offset pagination: an event written between two loads can shift onto both pages.
-          const loadedIds = new Set(prev.map((event) => event.id));
-          return [...prev, ...d.data.filter((event) => !loadedIds.has(event.id))];
-        });
-        setLoading(false);
-      })
-      .catch((err: Error) => {
-        reportError('event-history', 'Event history', err.message);
-        setLoading(false);
-      });
+    fetchData(page + 1, true);
   };
 
-  if (loading && items.length === 0) return <div className="loading">Loading events…</div>;
+  if (loading && items.length === 0 && runFilter === null) return <div className="loading">Loading events…</div>;
   if (items.length === 0 && runFilter === null) return <p>No events.</p>;
 
   const options = deriveEventFilterOptions(items);
@@ -187,7 +198,9 @@ const EventHistory = () => {
         </div>
       </div>
 
-      {items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <div className="loading">Loading events…</div>
+      ) : items.length === 0 ? (
         <p className="filter-empty">No events for run {runFilter}</p>
       ) : contradiction === null ? (
         <div className="timeline">
