@@ -1,4 +1,5 @@
 import { MORGAN_DEFAULT_FORMAT } from '../../src/external-deps/couimet/express-tools/createMorganMiddleware.js';
+import { EXPECTED_CSP_WITHOUT_UPGRADE_INSECURE_REQUESTS } from '../helpers/index.js';
 
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { RequestHandler } from 'express';
@@ -81,6 +82,19 @@ describe('createExpressApp', () => {
 
     const headers = await getHeaders(server, '/smoke');
     expect(headers.get('x-content-type-options')).toBeNull();
+  });
+
+  it('applies the given helmet options and keeps the remaining default directives', async () => {
+    const app = createExpressApp({
+      logger: mockLogger,
+      helmetOptions: { contentSecurityPolicy: { directives: { 'upgrade-insecure-requests': null } } },
+    });
+    app.get('/smoke', (_req, res) => res.send('ok'));
+
+    server = app.listen(0);
+    const headers = await getHeaders(server, '/smoke');
+    expect(headers.get('content-security-policy')).toBe(EXPECTED_CSP_WITHOUT_UPGRADE_INSECURE_REQUESTS);
+    expect(mockLogger.info).toHaveBeenCalledWith({ fn: 'createExpressApp' }, 'Express app created');
   });
 
   it('works with no options and with explicit undefined values', async () => {

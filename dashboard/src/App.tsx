@@ -19,7 +19,7 @@ const AppContent = () => {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <img src="/icon_256.png" alt="Rabbit Maximizer" className="logo" />
+        <img src="/logo.png" alt="Rabbit Maximizer" className="logo" width="256" height="256" />
         <h1>Rabbit Maximizer</h1>
         <div className="timezone-selector">
           <label htmlFor="timezone-select">Timezone:</label>

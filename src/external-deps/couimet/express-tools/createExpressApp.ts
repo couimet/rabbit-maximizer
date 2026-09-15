@@ -5,13 +5,19 @@ import type { LabeledMiddleware } from './labeledMiddleware.js';
 
 import { getLogger, type Logger } from '@couimet/logger-contract';
 import express, { type Application, type RequestHandler } from 'express';
-import helmet from 'helmet';
+import helmet, { type HelmetOptions } from 'helmet';
 
 export type MiddlewareEntry = RequestHandler | LabeledMiddleware;
 
 export interface CreateExpressOptions {
   /** Whether to add Helmet security headers. Defaults to true. */
   helmet: boolean;
+  /**
+   * Options passed to `helmet()`. Ignored when `helmet` is false. Defaults to
+   * an empty object, which applies Helmet's own defaults. Set one directive to
+   * `null` to drop that directive while the rest of the policy stays in place.
+   */
+  helmetOptions: HelmetOptions;
   logger: Logger;
   /**
    * Middleware entries registered immediately after app creation, before helmet
@@ -68,6 +74,7 @@ const applyMiddleware = (logger: Logger, app: Application, entry: MiddlewareEntr
 
 const BASE_DEFAULTS: Omit<CreateExpressOptions, 'middlewares'> = {
   helmet: true,
+  helmetOptions: {},
   logger: getLogger(),
   beforeMiddlewares: [],
   morganFormat: MORGAN_DEFAULT_FORMAT,
@@ -99,7 +106,7 @@ export const createExpressApp = (options?: Partial<CreateExpressOptions>): Appli
   }
 
   if (opts.helmet) {
-    app.use(helmet());
+    app.use(helmet(opts.helmetOptions));
   }
 
   for (const [index, entry] of opts.middlewares.entries()) {

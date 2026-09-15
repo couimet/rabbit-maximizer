@@ -12,7 +12,7 @@ import { describeDatabaseUrl } from './utils/index.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
 import { TYPES } from './domain.js';
-import { setupExpress } from './express.js';
+import { DASHBOARD_DIR, setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { initLogger } from './logger.js';
 import { type PollDetector, type ReviewDetector, ReviewTrigger, type Scheduler } from './services.js';
@@ -76,6 +76,7 @@ await ExecutionContext.run({ correlationId: 'rabbit-maximizer-init', requestId: 
   const { stop: stopServer } = await setupExpress({
     activityListMapper,
     config,
+    dashboardDir: DASHBOARD_DIR,
     eventCountsMapper,
     eventEntryMapper,
     eventRepo,

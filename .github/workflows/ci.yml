@@ -70,6 +70,9 @@ jobs:
       - uses: couimet/github-actions/setup-node-pnpm@main
       - run: cp .env.ci .env
       - uses: couimet/github-actions/install-deps@main
+      # The suite loads the server from source and asserts the Vite output, so
+      # this job needs the dashboard build only, not the full server compile.
+      - run: pnpm build:dashboard
       - run: pnpm ci:test:integration
 
   validate-migrations:
