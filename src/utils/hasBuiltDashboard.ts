@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import path from 'node:path';
 
 /**
@@ -6,4 +6,11 @@ import path from 'node:path';
  * serves that directory, and a missing `index.html` leaves every page at 404
  * with no other signal.
  */
-export const hasBuiltDashboard = (servedDir: string): boolean => existsSync(path.join(servedDir, 'index.html'));
+export const hasBuiltDashboard = (servedDir: string): boolean => {
+  const indexPath = path.join(servedDir, 'index.html');
+  try {
+    return statSync(indexPath).isFile();
+  } catch {
+    return false;
+  }
+};
