@@ -17,20 +17,39 @@ import {
   createSetPausedHandler,
   trySetupVite,
 } from './routes/index.js';
+// The `utils` barrel is shared with the dashboard bundle. Re-exporting this
+// util from it puts a `node:fs` import in the browser module graph and breaks
+// `pnpm dev`, so this one import stays pointed at the source file.
+// eslint-disable-next-line barrel-boundary/enforce-barrel-files
+import { hasBuiltDashboard } from './utils/hasBuiltDashboard.js';
 import type { Config } from './config.js';
 import { isProduction } from './domain.js';
 import type { ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
-import express, { type Request, type Response } from 'express';
+import express from 'express';
+import type { HelmetOptions } from 'helmet';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const DASHBOARD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
+export const DASHBOARD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
+
+// Helmet's default policy sets upgrade-insecure-requests, which rewrites every
+// asset URL to HTTPS. The dashboard is reachable on plain HTTP LAN addresses, so
+// that one directive breaks every asset load. A null value drops it alone and
+// keeps the rest of the default policy.
+const HELMET_OPTIONS: HelmetOptions = {
+  contentSecurityPolicy: { directives: { 'upgrade-insecure-requests': null } },
+};
 
 export interface ExpressDeps {
   config: Config;
+  /**
+   * Dashboard project root, which is also the Vite dev root. The production
+   * mount serves the `dist` child of this directory.
+   */
+  dashboardDir: string;
   eventCountsMapper: EventCountsMapper;
   eventEntryMapper: EventEntryMapper;
   eventRepo: EventRepository;
@@ -56,6 +75,7 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   const {
     activityListMapper,
     config,
+    dashboardDir,
     eventCountsMapper,
     eventEntryMapper,
     eventRepo,
@@ -71,7 +91,16 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
     port,
   } = deps;
   const production = isProduction();
-  const app = createExpressAppWithExecutionContext({ logger, helmet: production });
+  const builtDashboardDir = path.join(dashboardDir, 'dist');
+
+  // Without this check the server starts and answers every dashboard request
+  // with 404, which looks like a routing bug instead of a missing build.
+  if (production && !hasBuiltDashboard(builtDashboardDir)) {
+    logger.error({ fn: 'setupExpress', builtDashboardDir }, 'The built dashboard is missing. Run `pnpm build` first.');
+    process.exit(1);
+  }
+
+  const app = createExpressAppWithExecutionContext({ logger, helmet: production, helmetOptions: HELMET_OPTIONS });
 
   app.use(express.json());
   app.get('/api/summary', createGetSummaryHandler(queueRepo, eventRepo, queueItemMapper, eventCountsMapper, logger));
@@ -101,13 +130,10 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, eventEntryMapper, logger));
 
-  app.get('/icon.png', (_req: Request, res: Response) => res.sendFile('assets/icon.png', { root: '.' }));
-  app.get('/icon_256.png', (_req: Request, res: Response) => res.sendFile('assets/icon_256.png', { root: '.' }));
-
   if (production) {
-    app.use(express.static(path.join(DASHBOARD_DIR, 'dist')));
+    app.use(express.static(builtDashboardDir));
   } else {
-    trySetupVite(app, logger, port, DASHBOARD_DIR);
+    trySetupVite(app, logger, port, dashboardDir);
   }
 
   let server: ReturnType<typeof app.listen>;

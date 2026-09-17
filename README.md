@@ -60,6 +60,18 @@ pnpm dev
 
 `pnpm dev` starts the poll detector, scheduler, and a local web server on port 3000. Open `http://localhost:3000` for the dashboard — Vite provides hot reload in development, so changes to `dashboard/` appear immediately.
 
+### Production run
+
+```bash
+# Build the server and the dashboard
+pnpm build
+
+# Serve the built dashboard
+pnpm start
+```
+
+`pnpm build` compiles the server with `tsc` and bundles the dashboard into `dist/dashboard/dist`. `pnpm start` runs the compiled server with `NODE_ENV=production`, which mounts that directory at `/`. Run `pnpm build` first: the server logs an error and exits when the build output is absent. `pnpm build:dashboard` rebuilds only the dashboard, which is useful after a change under `dashboard/`.
+
 ### Dashboard
 
 The dashboard shows current system status across three tabs:

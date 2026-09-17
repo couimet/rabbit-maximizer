@@ -59,6 +59,7 @@ export { createMockStalePrRecoverer } from './createMockStalePrRecoverer.js';
 export { createMockSystemStateRepository } from './createMockSystemStateRepository.js';
 export { createMockVite } from './createMockVite.js';
 export { createResolvedMock } from './createResolvedMock.js';
+export { EXPECTED_CSP_WITHOUT_UPGRADE_INSECURE_REQUESTS } from './CspTestSupport.js';
 export { generateDetectedCommentHydrationData } from './DetectedCommentTestSupport.js';
 export { drainMicrotasks } from './drainMicrotasks.js';
 export { generateEnrichedQueueItemData } from './EnrichedQueueItemTestSupport.js';
