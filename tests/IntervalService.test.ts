@@ -1,5 +1,7 @@
 import { IntervalService } from '../src/domain.js';
 
+import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
+
 import { ExecutionContext } from '@couimet/execution-context';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -165,7 +167,7 @@ describe('IntervalService', () => {
     const log = createMockLogger();
     const svc = new CapturingService(log);
 
-    await ExecutionContext.run({ correlationId: OUTER_CORRELATION_ID, requestId: OUTER_REQUEST_ID, attributes: { version: OUTER_VERSION } }, async () => {
+    await withTestExecutionContext({ correlationId: OUTER_CORRELATION_ID, requestId: OUTER_REQUEST_ID, attributes: { version: OUTER_VERSION } }, async () => {
       await svc.start();
       await svc['stop']();
     });

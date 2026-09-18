@@ -41,6 +41,7 @@ import {
   PrunerImpl,
   ReviewDetector,
   ReviewTrigger,
+  RunIdGenerator,
   Scheduler,
   type StalePrRecoverer,
   StalePrRecovererImpl,
@@ -111,6 +112,8 @@ container
   .inSingletonScope();
 
 container.bind<PollDetector>(TYPES.PollDetector).to(PollDetector).inSingletonScope();
+
+container.bind<RunIdGenerator>(TYPES.RunIdGenerator).to(RunIdGenerator).inSingletonScope();
 
 container.bind<ReviewTrigger>(TYPES.ReviewTrigger).to(ReviewTrigger).inSingletonScope();
 container.bind<Scheduler>(TYPES.Scheduler).to(Scheduler).inSingletonScope();

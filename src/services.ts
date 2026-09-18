@@ -12,6 +12,7 @@ export { type PruneEvaluator, PruneEvaluatorImpl } from './PruneEvaluator.js';
 export { type Pruner, PrunerImpl } from './Pruner.js';
 export { ReviewDetector } from './ReviewDetector.js';
 export { ReviewTrigger } from './ReviewTrigger.js';
+export { RunIdGenerator } from './RunIdGenerator.js';
 export { Scheduler } from './scheduler.js';
 export type { StalePrRecoverer } from './StalePrRecoverer.js';
 export { StalePrRecovererImpl } from './StalePrRecoverer.js';
