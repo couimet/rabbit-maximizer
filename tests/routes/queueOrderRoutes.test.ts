@@ -28,20 +28,23 @@ import express from 'express';
 import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'node:http';
 
-const UUID_A = getUuid();
-const UUID_B = getUuid();
-const UUID_C = getUuid();
-const UUID_D = getUuid();
-
 describe('queueOrderRoutes', () => {
   let server: Server;
   let logger: ReturnType<typeof createMockLogger>;
   let port: number;
   let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
+  let uuidA: string;
+  let uuidB: string;
+  let uuidC: string;
+  let uuidD: string;
 
   beforeEach(() => {
     logger = createMockLogger();
     queueItemMapper = createMockQueueItemMapper();
+    uuidA = getUuid();
+    uuidB = getUuid();
+    uuidC = getUuid();
+    uuidD = getUuid();
   });
 
   afterEach(async () => {
@@ -97,121 +100,121 @@ describe('queueOrderRoutes', () => {
 
     it('moves single item up and returns updated order', async () => {
       const items = [
-        generateQueueItemHydrationData({ uuid: UUID_A }),
-        generateQueueItemHydrationData({ uuid: UUID_B }),
-        generateQueueItemHydrationData({ uuid: UUID_C }),
+        generateQueueItemHydrationData({ uuid: uuidA }),
+        generateQueueItemHydrationData({ uuid: uuidB }),
+        generateQueueItemHydrationData({ uuid: uuidC }),
       ];
       const moved = [
-        generateQueueItemHydrationData({ uuid: UUID_B }),
-        generateQueueItemHydrationData({ uuid: UUID_A }),
-        generateQueueItemHydrationData({ uuid: UUID_C }),
+        generateQueueItemHydrationData({ uuid: uuidB }),
+        generateQueueItemHydrationData({ uuid: uuidA }),
+        generateQueueItemHydrationData({ uuid: uuidC }),
       ];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
       });
 
-      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'up' });
+      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [uuidB], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(moved)) });
     });
 
     it('moves single item down and returns updated order', async () => {
       const items = [
-        generateQueueItemHydrationData({ uuid: UUID_A }),
-        generateQueueItemHydrationData({ uuid: UUID_B }),
-        generateQueueItemHydrationData({ uuid: UUID_C }),
+        generateQueueItemHydrationData({ uuid: uuidA }),
+        generateQueueItemHydrationData({ uuid: uuidB }),
+        generateQueueItemHydrationData({ uuid: uuidC }),
       ];
       const moved = [
-        generateQueueItemHydrationData({ uuid: UUID_A }),
-        generateQueueItemHydrationData({ uuid: UUID_C }),
-        generateQueueItemHydrationData({ uuid: UUID_B }),
+        generateQueueItemHydrationData({ uuid: uuidA }),
+        generateQueueItemHydrationData({ uuid: uuidC }),
+        generateQueueItemHydrationData({ uuid: uuidB }),
       ];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
       });
 
-      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'down' });
+      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [uuidB], direction: 'down' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(moved)) });
     });
 
     it('no-ops when moving item at top up', async () => {
-      const items = [generateQueueItemHydrationData({ uuid: UUID_A }), generateQueueItemHydrationData({ uuid: UUID_B })];
+      const items = [generateQueueItemHydrationData({ uuid: uuidA }), generateQueueItemHydrationData({ uuid: uuidB })];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(items),
       });
 
-      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'up' });
+      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [uuidA], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)) });
     });
 
     it('no-ops when moving item at bottom down', async () => {
-      const items = [generateQueueItemHydrationData({ uuid: UUID_A }), generateQueueItemHydrationData({ uuid: UUID_B })];
+      const items = [generateQueueItemHydrationData({ uuid: uuidA }), generateQueueItemHydrationData({ uuid: uuidB })];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(items),
       });
 
-      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_B], direction: 'down' });
+      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [uuidB], direction: 'down' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(items)) });
     });
 
     it('moves non-adjacent items up past their respective neighbors', async () => {
       const items = [
-        generateQueueItemHydrationData({ uuid: UUID_A }),
-        generateQueueItemHydrationData({ uuid: UUID_B }),
-        generateQueueItemHydrationData({ uuid: UUID_C }),
-        generateQueueItemHydrationData({ uuid: UUID_D }),
+        generateQueueItemHydrationData({ uuid: uuidA }),
+        generateQueueItemHydrationData({ uuid: uuidB }),
+        generateQueueItemHydrationData({ uuid: uuidC }),
+        generateQueueItemHydrationData({ uuid: uuidD }),
       ];
       const moved = [
-        generateQueueItemHydrationData({ uuid: UUID_C }),
-        generateQueueItemHydrationData({ uuid: UUID_A }),
-        generateQueueItemHydrationData({ uuid: UUID_D }),
-        generateQueueItemHydrationData({ uuid: UUID_B }),
+        generateQueueItemHydrationData({ uuid: uuidC }),
+        generateQueueItemHydrationData({ uuid: uuidA }),
+        generateQueueItemHydrationData({ uuid: uuidD }),
+        generateQueueItemHydrationData({ uuid: uuidB }),
       ];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
       });
 
-      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_C, UUID_D], direction: 'up' });
+      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [uuidC, uuidD], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(moved)) });
     });
 
     it('moves adjacent items as a block up', async () => {
       const items = [
-        generateQueueItemHydrationData({ uuid: UUID_A }),
-        generateQueueItemHydrationData({ uuid: UUID_B }),
-        generateQueueItemHydrationData({ uuid: UUID_C }),
-        generateQueueItemHydrationData({ uuid: UUID_D }),
+        generateQueueItemHydrationData({ uuid: uuidA }),
+        generateQueueItemHydrationData({ uuid: uuidB }),
+        generateQueueItemHydrationData({ uuid: uuidC }),
+        generateQueueItemHydrationData({ uuid: uuidD }),
       ];
       const moved = [
-        generateQueueItemHydrationData({ uuid: UUID_B }),
-        generateQueueItemHydrationData({ uuid: UUID_C }),
-        generateQueueItemHydrationData({ uuid: UUID_A }),
-        generateQueueItemHydrationData({ uuid: UUID_D }),
+        generateQueueItemHydrationData({ uuid: uuidB }),
+        generateQueueItemHydrationData({ uuid: uuidC }),
+        generateQueueItemHydrationData({ uuid: uuidA }),
+        generateQueueItemHydrationData({ uuid: uuidD }),
       ];
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockResolvedValue(moved),
       });
 
-      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_B, UUID_C], direction: 'up' });
+      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [uuidB, uuidC], direction: 'up' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ data: apiJson(await queueItemMapper.mapToQueueItemResponseList(moved)) });
     });
 
     it('returns 400 when direction is invalid', async () => {
-      const items = [generateQueueItemHydrationData({ uuid: UUID_A })];
+      const items = [generateQueueItemHydrationData({ uuid: uuidA })];
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
-      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'left' });
+      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [uuidA], direction: 'left' });
       expect(res.status).toBe(StatusCodes.BAD_REQUEST);
       expect(await res.json()).toStrictEqual({ error: 'direction must be "up" or "down"' });
     });
@@ -240,7 +243,7 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 404 when a queueItemUuid does not exist', async () => {
-      const items = [generateQueueItemHydrationData({ uuid: UUID_A })];
+      const items = [generateQueueItemHydrationData({ uuid: uuidA })];
       startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue(items) });
 
       const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: ['99999999-9999-9999-9999-999999999999'], direction: 'up' });
@@ -249,14 +252,14 @@ describe('queueOrderRoutes', () => {
     });
 
     it('returns 500 and logs error on repository failure (transaction rolls back)', async () => {
-      const items = [generateQueueItemHydrationData({ uuid: UUID_A })];
+      const items = [generateQueueItemHydrationData({ uuid: uuidA })];
       const repoError = new Error('DB down');
       startServer({
         getEffectiveOrder: jest.fn<any>().mockResolvedValue(items),
         moveItems: jest.fn<any>().mockRejectedValue(repoError),
       });
 
-      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [UUID_A], direction: 'up' });
+      const res = await postJson(port, '/api/queue/order/move', { queueItemUuids: [uuidA], direction: 'up' });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to move queue items' });
       expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.move', error: repoError }, 'Failed to move queue items');
@@ -288,40 +291,40 @@ describe('queueOrderRoutes', () => {
     it('returns 409 when scheduler is paused', async () => {
       startServer({}, { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) });
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
       expect(await res.json()).toStrictEqual({ error: 'Maximizer is paused; resume it before retriggering' });
-      expect(logger.info).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A }, 'Retrigger blocked: scheduler is paused');
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: uuidA }, 'Retrigger blocked: scheduler is paused');
     });
 
     it('allows retrigger when paused if overridePause=true is passed', async () => {
       startServer(
-        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'pending' }]) },
+        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: uuidA }), status: 'pending' }]) },
         { isSchedulerPaused: jest.fn<any>().mockResolvedValue(true) },
       );
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now?overridePause=true`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now?overridePause=true`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NO_CONTENT);
       expect(logger.info).toHaveBeenCalledWith(
-        { fn: 'api.queueOrder.retriggerNow', uuid: UUID_A },
+        { fn: 'api.queueOrder.retriggerNow', uuid: uuidA },
         'Retriggering while scheduler is paused (overridePause=true)',
       );
     });
 
     it('proceeds normally when schedulerStatus is running', async () => {
       startServer(
-        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'pending' }]) },
+        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: uuidA }), status: 'pending' }]) },
         { isSchedulerPaused: jest.fn<any>().mockResolvedValue(false) },
       );
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NO_CONTENT);
     });
 
     it('returns 204', async () => {
-      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'pending' }]) });
+      startServer({ getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: uuidA }), status: 'pending' }]) });
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NO_CONTENT);
     });
 
@@ -334,15 +337,15 @@ describe('queueOrderRoutes', () => {
         }),
       );
       startServer(
-        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'pending' }]) },
+        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: uuidA }), status: 'pending' }]) },
         {},
         triggerErr,
       );
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
       expect(await res.json()).toStrictEqual({ error: 'Failed to retrigger now' });
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, error: triggerErr.error }, 'Failed to retrigger now');
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: uuidA, error: triggerErr.error }, 'Failed to retrigger now');
     });
 
     it('returns 400 for non-UUID id', async () => {
@@ -355,9 +358,7 @@ describe('queueOrderRoutes', () => {
 
     it('returns 404 when item not found', async () => {
       startServer({
-        getEffectiveOrder: jest
-          .fn<any>()
-          .mockResolvedValue([generateQueueItemHydrationData({ uuid: UUID_A }), generateQueueItemHydrationData({ uuid: UUID_B })]),
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([generateQueueItemHydrationData({ uuid: uuidA }), generateQueueItemHydrationData({ uuid: uuidB })]),
       });
 
       const res = await fetch(`http://[::1]:${port}/api/queue/99999999-9999-9999-9999-999999999999/retrigger-now`, { method: 'POST' });
@@ -368,25 +369,25 @@ describe('queueOrderRoutes', () => {
 
     it('returns 409 when item is already resolved', async () => {
       startServer({
-        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'resolved' }]),
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: uuidA }), status: 'resolved' }]),
       });
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
       expect(await res.json()).toStrictEqual({ error: 'Queue item is already resolved' });
-      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'resolved' }, 'Queue item is already resolved');
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: uuidA, status: 'resolved' }, 'Queue item is already resolved');
     });
 
     it('returns 409 when item is in retrigger cooldown', async () => {
       startServer({
-        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: UUID_A }), status: 'retriggered' }]),
+        getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: uuidA }), status: 'retriggered' }]),
       });
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
       expect(await res.json()).toStrictEqual({ error: 'Queue item is in retrigger cooldown' });
       expect(logger.warn).toHaveBeenCalledWith(
-        { fn: 'api.queueOrder.retriggerNow', uuid: UUID_A, status: 'retriggered' },
+        { fn: 'api.queueOrder.retriggerNow', uuid: uuidA, status: 'retriggered' },
         'Queue item is in retrigger cooldown',
       );
     });
@@ -397,7 +398,7 @@ describe('queueOrderRoutes', () => {
         getEffectiveOrder: jest.fn<any>().mockRejectedValue(repoError),
       });
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/retrigger-now`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to retrigger now' });
       expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', error: repoError }, 'Failed to retrigger now');
@@ -420,7 +421,7 @@ describe('queueOrderRoutes', () => {
         moveToTop: jest.fn<any>().mockResolvedValue({}),
       });
 
-      const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: UUID_C });
+      const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: uuidC });
       expect(res.status).toBe(StatusCodes.NO_CONTENT);
       expect(await res.text()).toBe('');
     });
@@ -430,7 +431,7 @@ describe('queueOrderRoutes', () => {
         moveToTop: jest.fn<any>().mockResolvedValue({}),
       });
 
-      const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: UUID_A });
+      const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: uuidA });
       expect(res.status).toBe(StatusCodes.NO_CONTENT);
       expect(await res.text()).toBe('');
     });
@@ -465,21 +466,21 @@ describe('queueOrderRoutes', () => {
     it('returns 409 when item is already resolved', async () => {
       const notPendingError = new RabbitMaximizerError({
         code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
-        message: `Queue item ${UUID_A} is already resolved`,
+        message: `Queue item ${uuidA} is already resolved`,
         functionName: 'QueueOrderRepositoryImpl.moveToTop',
       });
       startServer({ moveToTop: jest.fn<any>().mockRejectedValue(notPendingError) });
 
-      const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: UUID_A });
+      const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: uuidA });
       expect(res.status).toBe(StatusCodes.CONFLICT);
-      expect(await res.json()).toStrictEqual({ error: `Queue item ${UUID_A} is already resolved` });
+      expect(await res.json()).toStrictEqual({ error: `Queue item ${uuidA} is already resolved` });
     });
 
     it('returns 500 and logs error on unexpected failure', async () => {
       const repoError = new Error('DB down');
       startServer({ moveToTop: jest.fn<any>().mockRejectedValue(repoError) });
 
-      const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: UUID_A });
+      const res = await postJson(port, '/api/queue/order/move-to-top', { queueItemUuid: uuidA });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to move item to top' });
       expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.moveToTop', error: repoError }, 'Failed to move item to top');
@@ -500,16 +501,16 @@ describe('queueOrderRoutes', () => {
 
     it('returns 200 with { ok: true }', async () => {
       const sentinelTx = { __sentinel: true };
-      const item = generateQueueItemHydrationData({ uuid: UUID_A });
+      const item = generateQueueItemHydrationData({ uuid: uuidA });
       const markResolvedByUuid = jest.fn<any>().mockResolvedValue(item);
       const $transaction = jest.fn<any>().mockImplementation((fn: any) => fn(sentinelTx));
       startServer({ markResolvedByUuid }, { $transaction, sentinelTx });
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.OK);
       expect(await res.json()).toStrictEqual({ ok: true });
       expect($transaction).toHaveBeenCalled();
-      expect(markResolvedByUuid).toHaveBeenCalledWith(UUID_A, 'manual_review', sentinelTx);
+      expect(markResolvedByUuid).toHaveBeenCalledWith(uuidA, 'manual_review', sentinelTx);
     });
 
     it('returns 400 for non-UUID id', async () => {
@@ -523,16 +524,16 @@ describe('queueOrderRoutes', () => {
     it('returns 404 when item not found', async () => {
       startServer({ markResolvedByUuid: jest.fn<any>().mockResolvedValue(undefined) });
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.NOT_FOUND);
-      expect(await res.json()).toStrictEqual({ error: `Queue item not found: ${UUID_A}` });
+      expect(await res.json()).toStrictEqual({ error: `Queue item not found: ${uuidA}` });
     });
 
     it('returns 500 on repository error', async () => {
       const repoError = new Error('DB down');
       startServer({ markResolvedByUuid: jest.fn<any>().mockRejectedValue(repoError) });
 
-      const res = await fetch(`http://[::1]:${port}/api/queue/${UUID_A}/mark-reviewed`, { method: 'POST' });
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/mark-reviewed`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to mark item reviewed' });
       expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.markResolved', error: repoError }, 'Failed to mark item resolved');

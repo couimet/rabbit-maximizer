@@ -3,11 +3,13 @@ import { StaleCommentRescheduledError } from '../src/errors/index.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import { ReviewTrigger } from '../src/services.js';
 
+import { spyOnAttributeAdditions, withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 import {
   createMockProbeFactory,
   createMockPullRequestRepo,
   createMockQueueRepo,
   createMockReviewRetriggerProbe,
+  createMockRunIdGenerator,
   createMockSystemStateRepository,
   generateQueueItemHydrationData,
   generateReviewRef,
@@ -25,10 +27,8 @@ const ACCOUNT_COOLDOWN_MS = ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
 const SKIP_COMMENT_BODY =
   '## Review available on request\n\nThis repository has fewer than 10 stars. To request a review, comment "@coderabbitai full review".\n\n<details>\n<summary>skip review by coderabbit.ai</summary>\n</details>';
 
-// ReviewTrigger generates its run id internally (see the open issue about mocking generateRunId),
-// so tests read it off the postRetrigger call and assert the same value reaches the queue and the probe.
-let generatedRunId: string | undefined;
-let postRetriggerAttributes: Record<string, unknown> | undefined;
+let generatedRunId: string;
+
 let postedCommentUrl: string | undefined;
 
 const setup = () => {
@@ -36,11 +36,7 @@ const setup = () => {
     fetchComment: jest.fn(),
     fetchCommentByUrl: jest.fn(),
     findLatestReviewLimitComment: jest.fn(),
-    postRetrigger: jest.fn((_repo: string, _pr: number, _commentUrl: string | undefined, runId: string) => {
-      generatedRunId = runId;
-      postRetriggerAttributes = ExecutionContext.getAttributes();
-      return Promise.resolve({ htmlUrl: postedCommentUrl! });
-    }),
+    postRetrigger: jest.fn(() => Promise.resolve({ htmlUrl: postedCommentUrl! })),
   } as unknown as jest.Mocked<CoderabbitGitHubClient>;
   const probeFactory = createMockProbeFactory({ createReviewRetriggerProbe: jest.fn() });
   const queue = createMockQueueRepo();
@@ -48,22 +44,25 @@ const setup = () => {
   const systemState = createMockSystemStateRepository();
   const tx = {} as Prisma.TransactionClient;
   const prisma = { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)) } as unknown as PrismaClient;
+  const runIdGenerator = createMockRunIdGenerator();
   const logger = createMockLogger();
   const cfg = { CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC, REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600, REVIEW_LIMIT_BUFFER_SEC: 60 } as any;
 
-  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, systemState, cfg, logger);
+  runIdGenerator.generate.mockReturnValue(generatedRunId);
 
-  return { github, probeFactory, prisma, tx, logger, reviewTrigger, queue, pullRequests, systemState };
+  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, systemState, runIdGenerator, cfg, logger);
+
+  return { github, probeFactory, prisma, tx, logger, reviewTrigger, queue, pullRequests, runIdGenerator, systemState };
 };
 
 const makeFetchResult = (body: string) => ({ body, createdAt: getUniqueDate().toISOString(), updatedAt: getUniqueDate().toISOString() });
 
 // trigger always runs inside a primed context in production: IntervalService forks one per tick and
 // the express middleware primes one per request. withAttributes fails loud rather than minting one.
-const inExecutionContext = <T>(fn: () => T): T =>
-  ExecutionContext.run({ correlationId: getUniqueString({ prefix: 'correlation-' }), requestId: getUniqueString({ prefix: 'request-' }), attributes: {} }, fn);
+const inExecutionContext = <T>(fn: () => T): T => withTestExecutionContext(undefined, fn);
 
 describe('ReviewTrigger', () => {
+  let addAttributes: ReturnType<typeof spyOnAttributeAdditions>;
   let commentUrl: string;
   let staleCommentId: number;
   let newCommentId: number;
@@ -71,12 +70,12 @@ describe('ReviewTrigger', () => {
   let frozenNow: Date;
 
   beforeEach(() => {
+    generatedRunId = getUniqueString({ prefix: 'run-' });
+    addAttributes = spyOnAttributeAdditions();
     commentUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
     staleCommentId = getUniqueInt();
     newCommentId = getUniqueInt();
     newCommentUrl = getUniqueString({ prefix: 'https://gh/c/new-comment-' });
-    generatedRunId = undefined;
-    postRetriggerAttributes = undefined;
     postedCommentUrl = undefined;
     frozenNow = getUniqueDate();
     jest.useFakeTimers();
@@ -94,11 +93,11 @@ describe('ReviewTrigger', () => {
     const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now));
 
     expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
-    expect(probe.reviewRetriggered).toHaveBeenCalledWith(generatedRunId, commentUrl, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
+    expect(probe.reviewRetriggered).toHaveBeenCalledWith(commentUrl, tx);
     expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: generatedRunId },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'Posting retrigger',
     );
     expect(github.postRetrigger).toHaveBeenCalledWith(
@@ -124,10 +123,10 @@ describe('ReviewTrigger', () => {
     const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now));
 
     expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, runId, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
     expect(pullRequests.incrementRetriggerCount).toHaveBeenCalledWith(item.pull_request_id, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: generatedRunId },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'Posting retrigger',
     );
     expect(systemState.setNextReviewAvailableAt).toHaveBeenCalledWith(new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), tx);
@@ -141,11 +140,9 @@ describe('ReviewTrigger', () => {
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
 
-    await ExecutionContext.run({ correlationId: getUniqueString(), requestId: getUniqueString(), attributes: {} }, () =>
-      reviewTrigger.trigger(item, TriggerSource.scheduler),
-    );
+    await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler));
 
-    expect(postRetriggerAttributes).toStrictEqual({ run_id: generatedRunId });
+    expect(addAttributes).toHaveBeenCalledWith({ run_id: generatedRunId });
   });
 
   it('scopes the run id to the retrigger instead of leaking it into the surrounding context', async () => {
@@ -159,10 +156,10 @@ describe('ReviewTrigger', () => {
     const probe = createMockReviewRetriggerProbe();
     probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
 
-    await ExecutionContext.run({ correlationId: outerCorrelationId, requestId: outerRequestId, attributes: outerAttributes }, async () => {
+    await withTestExecutionContext({ correlationId: outerCorrelationId, requestId: outerRequestId, attributes: outerAttributes }, async () => {
       await reviewTrigger.trigger(item, TriggerSource.scheduler);
 
-      expect(postRetriggerAttributes).toStrictEqual({ ...outerAttributes, run_id: generatedRunId });
+      expect(addAttributes).toHaveBeenCalledWith({ run_id: generatedRunId });
       expect(ExecutionContext.getAttributes()).toStrictEqual(outerAttributes);
       expect(ExecutionContext.correlationId.toString()).toBe(outerCorrelationId);
       expect(ExecutionContext.requestId.toString()).toBe(outerRequestId);
@@ -193,9 +190,9 @@ describe('ReviewTrigger', () => {
       waitSeconds: undefined,
       decision: 'source',
     });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: generatedRunId },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'Posting retrigger',
     );
   });
@@ -226,9 +223,9 @@ describe('ReviewTrigger', () => {
       waitSeconds: undefined,
       decision: 'source',
     });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, runId, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: generatedRunId },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'Posting retrigger',
     );
   });
@@ -253,9 +250,9 @@ describe('ReviewTrigger', () => {
       'dashboard_retrigger_now',
       undefined,
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: generatedRunId },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'Posting retrigger',
     );
   });
@@ -275,27 +272,20 @@ describe('ReviewTrigger', () => {
 
     expect(result.success).toBe(true);
     expect(github.findLatestReviewLimitComment).not.toHaveBeenCalled();
-    expect(github.postRetrigger).toHaveBeenCalledWith(
-      item.repo_full_name,
-      item.pr_number,
-      item.source_comment_url,
-      expect.any(String) as unknown as string,
-      'scheduler',
-      {
-        sourceComment: {
-          url: item.source_comment_url,
-          createdAt,
-          updatedAt,
-          classification: 'review_skipped',
-          matchedMarker: 'skip review by coderabbit.ai',
-        },
-        waitSeconds: undefined,
-        decision: 'source',
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, generatedRunId, 'scheduler', {
+      sourceComment: {
+        url: item.source_comment_url,
+        createdAt,
+        updatedAt,
+        classification: 'review_skipped',
+        matchedMarker: 'skip review by coderabbit.ai',
       },
-    );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, runId, tx);
+      waitSeconds: undefined,
+      decision: 'source',
+    });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'Posting retrigger',
     );
   });
@@ -316,11 +306,11 @@ describe('ReviewTrigger', () => {
       item.repo_full_name,
       item.pr_number,
       item.source_comment_url,
-      expect.any(String) as unknown as string,
+      generatedRunId,
       'dashboard_retrigger_now',
       undefined,
     );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found and source body is non-empty', async () => {
@@ -370,12 +360,12 @@ describe('ReviewTrigger', () => {
     const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler));
 
     expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'No review-limit comment found; posting retrigger without a reply target',
     );
-    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, undefined, expect.any(String) as unknown as string, 'scheduler', {
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, undefined, generatedRunId, 'scheduler', {
       sourceComment: {
         url: item.source_comment_url,
         createdAt: '',
@@ -400,15 +390,8 @@ describe('ReviewTrigger', () => {
     const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now));
 
     expect(result.success).toBe(true);
-    expect(github.postRetrigger).toHaveBeenCalledWith(
-      item.repo_full_name,
-      item.pr_number,
-      undefined,
-      expect.any(String) as unknown as string,
-      'dashboard_retrigger_now',
-      undefined,
-    );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, undefined, generatedRunId, 'dashboard_retrigger_now', undefined);
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_REPLACEMENT_DELETED when replacement is deleted', async () => {
@@ -589,34 +572,27 @@ describe('ReviewTrigger', () => {
     const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler));
 
     expect(result.success).toBe(true);
-    expect(github.postRetrigger).toHaveBeenCalledWith(
-      item.repo_full_name,
-      item.pr_number,
-      item.source_comment_url,
-      expect.any(String) as unknown as string,
-      'scheduler',
-      {
-        sourceComment: {
-          url: item.original_source_comment_url,
-          createdAt: originalCreatedAt,
-          updatedAt: originalUpdatedAt,
-          classification: 'review_limited',
-          matchedMarker: 'rate limited by coderabbit.ai',
-        },
-        replacementComment: {
-          url: item.source_comment_url,
-          createdAt: replacementCreatedAt,
-          updatedAt: replacementUpdatedAt,
-          classification: 'review_limited',
-          matchedMarker: 'rate limited by coderabbit.ai',
-        },
-        waitSeconds: 600,
-        decision: 'replacement',
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, generatedRunId, 'scheduler', {
+      sourceComment: {
+        url: item.original_source_comment_url,
+        createdAt: originalCreatedAt,
+        updatedAt: originalUpdatedAt,
+        classification: 'review_limited',
+        matchedMarker: 'rate limited by coderabbit.ai',
       },
-    );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
+      replacementComment: {
+        url: item.source_comment_url,
+        createdAt: replacementCreatedAt,
+        updatedAt: replacementUpdatedAt,
+        classification: 'review_limited',
+        matchedMarker: 'rate limited by coderabbit.ai',
+      },
+      waitSeconds: 600,
+      decision: 'replacement',
+    });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'Posting retrigger',
     );
   });
@@ -643,34 +619,27 @@ describe('ReviewTrigger', () => {
     const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler));
 
     expect(result.success).toBe(true);
-    expect(github.postRetrigger).toHaveBeenCalledWith(
-      item.repo_full_name,
-      item.pr_number,
-      item.source_comment_url,
-      expect.any(String) as unknown as string,
-      'scheduler',
-      {
-        sourceComment: {
-          url: item.original_source_comment_url,
-          createdAt: '',
-          updatedAt: '',
-          classification: 'unknown',
-          matchedMarker: undefined,
-        },
-        replacementComment: {
-          url: item.source_comment_url,
-          createdAt: replacementCreatedAt,
-          updatedAt: replacementUpdatedAt,
-          classification: 'review_limited',
-          matchedMarker: 'rate limited by coderabbit.ai',
-        },
-        waitSeconds: undefined,
-        decision: 'replacement',
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, generatedRunId, 'scheduler', {
+      sourceComment: {
+        url: item.original_source_comment_url,
+        createdAt: '',
+        updatedAt: '',
+        classification: 'unknown',
+        matchedMarker: undefined,
       },
-    );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
+      replacementComment: {
+        url: item.source_comment_url,
+        createdAt: replacementCreatedAt,
+        updatedAt: replacementUpdatedAt,
+        classification: 'review_limited',
+        matchedMarker: 'rate limited by coderabbit.ai',
+      },
+      waitSeconds: undefined,
+      decision: 'replacement',
+    });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId: expect.any(String) as unknown as string },
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
       'Posting retrigger',
     );
   });
@@ -702,32 +671,25 @@ describe('ReviewTrigger', () => {
       { fn: 'ReviewTrigger.buildReplacementDiagnosis', originalUrl: item.original_source_comment_url, error: fetchError },
       'Failed to fetch original source comment; falling back to empty diagnosis',
     );
-    expect(github.postRetrigger).toHaveBeenCalledWith(
-      item.repo_full_name,
-      item.pr_number,
-      item.source_comment_url,
-      expect.any(String) as unknown as string,
-      'scheduler',
-      {
-        sourceComment: {
-          url: item.original_source_comment_url,
-          createdAt: '',
-          updatedAt: '',
-          classification: 'unknown',
-          matchedMarker: undefined,
-        },
-        replacementComment: {
-          url: item.source_comment_url,
-          createdAt: replacementCreatedAt,
-          updatedAt: replacementUpdatedAt,
-          classification: 'review_limited',
-          matchedMarker: 'rate limited by coderabbit.ai',
-        },
-        waitSeconds: undefined,
-        decision: 'replacement',
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, generatedRunId, 'scheduler', {
+      sourceComment: {
+        url: item.original_source_comment_url,
+        createdAt: '',
+        updatedAt: '',
+        classification: 'unknown',
+        matchedMarker: undefined,
       },
-    );
-    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, generatedRunId, undefined, tx);
+      replacementComment: {
+        url: item.source_comment_url,
+        createdAt: replacementCreatedAt,
+        updatedAt: replacementUpdatedAt,
+        classification: 'review_limited',
+        matchedMarker: 'rate limited by coderabbit.ai',
+      },
+      waitSeconds: undefined,
+      decision: 'replacement',
+    });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
   });
 
   it('preserves existing later cooldown when bumping nextReviewAvailableAt', async () => {

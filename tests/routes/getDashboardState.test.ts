@@ -22,24 +22,28 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'node:http';
 
-const STALE_CONFIG = generateConfigData();
-
-const STALE_TICK_MULTIPLIER = STALE_CONFIG.SCHEDULER_STALE_TICK_MULTIPLIER;
-const TICK_INTERVAL_SEC = STALE_CONFIG.SCHEDULER_TICK_INTERVAL_SEC;
-const SCHEDULER_STALE_THRESHOLD_MS = STALE_TICK_MULTIPLIER * TICK_INTERVAL_SEC * 1000;
-const STALE_TICK_OFFSET_MS = SCHEDULER_STALE_THRESHOLD_MS + 1000;
-const RECENT_TICK_OFFSET_MS = SCHEDULER_STALE_THRESHOLD_MS - 10_000;
-
 describe('getDashboardState', () => {
   let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
   let queueItemMapper: ReturnType<typeof createMockQueueItemMapper>;
   let eventCountsMapper: EventCountsMapper;
+  let staleConfig: Config;
+  let staleTickMultiplier: number;
+  let tickIntervalSec: number;
+  let schedulerStaleThresholdMs: number;
+  let staleTickOffsetMs: number;
+  let recentTickOffsetMs: number;
 
   beforeEach(() => {
     queueItemMapper = createMockQueueItemMapper();
     eventCountsMapper = new EventCountsMapper();
+    staleConfig = generateConfigData();
+    staleTickMultiplier = staleConfig.SCHEDULER_STALE_TICK_MULTIPLIER;
+    tickIntervalSec = staleConfig.SCHEDULER_TICK_INTERVAL_SEC;
+    schedulerStaleThresholdMs = staleTickMultiplier * tickIntervalSec * 1000;
+    staleTickOffsetMs = schedulerStaleThresholdMs + 1000;
+    recentTickOffsetMs = schedulerStaleThresholdMs - 10_000;
   });
 
   afterEach(async () => {
@@ -72,7 +76,7 @@ describe('getDashboardState', () => {
           eventCountsMapper,
           new TrackedPrMapper(),
           logger,
-          config ?? STALE_CONFIG,
+          config ?? staleConfig,
         ),
       );
     });
@@ -276,7 +280,7 @@ describe('getDashboardState', () => {
     logger = createMockLogger();
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
-    const staleTick = new Date(fixedNow - STALE_TICK_OFFSET_MS);
+    const staleTick = new Date(fixedNow - staleTickOffsetMs);
     startServer(
       {},
       {},
@@ -293,7 +297,7 @@ describe('getDashboardState', () => {
     logger = createMockLogger();
     const fixedNow = 1_756_800_000_000;
     jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
-    const recentTick = new Date(fixedNow - RECENT_TICK_OFFSET_MS);
+    const recentTick = new Date(fixedNow - recentTickOffsetMs);
     startServer(
       {},
       {},

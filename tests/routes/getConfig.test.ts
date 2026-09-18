@@ -4,18 +4,23 @@ import { createGetConfigHandler } from '../../src/routes/index.js';
 import { generateConfigData } from '../helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { afterEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'node:http';
 
 const MS_PER_SECOND = 1000;
-const BASE_CONFIG = generateConfigData();
-const SCHEDULER_STALE_THRESHOLD_MS = BASE_CONFIG.SCHEDULER_STALE_TICK_MULTIPLIER * BASE_CONFIG.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND;
 
 describe('getConfig', () => {
   let logger: ReturnType<typeof createMockLogger>;
   let server: Server;
   let port: number;
+  let baseConfig: Config;
+  let schedulerStaleThresholdMs: number;
+
+  beforeEach(() => {
+    baseConfig = generateConfigData();
+    schedulerStaleThresholdMs = baseConfig.SCHEDULER_STALE_TICK_MULTIPLIER * baseConfig.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND;
+  });
 
   afterEach(async () => {
     await new Promise<void>((resolve) => server?.close(() => resolve()));
@@ -39,7 +44,7 @@ describe('getConfig', () => {
     expect(await res.json()).toStrictEqual({
       pauseNotificationInitialDelaySec: config.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       pauseNotificationRepeatIntervalSec: config.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
-      schedulerStaleThresholdMs: SCHEDULER_STALE_THRESHOLD_MS,
+      schedulerStaleThresholdMs: schedulerStaleThresholdMs,
     });
   });
 
@@ -57,7 +62,7 @@ describe('getConfig', () => {
     expect(await res.json()).toStrictEqual({
       pauseNotificationInitialDelaySec: customInitialDelaySec,
       pauseNotificationRepeatIntervalSec: customRepeatIntervalSec,
-      schedulerStaleThresholdMs: SCHEDULER_STALE_THRESHOLD_MS,
+      schedulerStaleThresholdMs: schedulerStaleThresholdMs,
     });
   });
 

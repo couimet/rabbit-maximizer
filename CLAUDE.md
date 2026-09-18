@@ -237,6 +237,62 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </good-example>
 </rule>
 
+<rule id="C015" priority="critical">
+  <title>A collaborator with one implementation is one class, not an interface plus an Impl</title>
+  <do>Export a single `@injectable()` class named after the concept, and bind it to its own type in `container.ts`: `container.bind<RunIdGenerator>(TYPES.RunIdGenerator).to(RunIdGenerator).inSingletonScope()`</do>
+  <do>Follow the self-bound classes already in the container as precedent: `EnqueueService` and `ReviewDetector` carry behaviour, the six mappers project a row into a response shape, and none of them has an interface</do>
+  <do>Give every self-bound class a reason of its own. Either it is a DI seam that a test substitutes, or it carries behaviour or a projection. `RunIdGenerator` is the seam kind: `tests/ReviewTrigger.test.ts` injects it to pin the run id, and its one method is the seam's whole surface</do>
+  <do>Define an interface only when a second implementation exists or is genuinely planned, or when the abstraction is a contract published by another package, such as `Logger` from `@couimet/logger-contract`</do>
+  <never>Create an interface that has exactly one implementation. The interface repeats the class's public members, adds a second name for one contract, and nothing can swap the implementation</never>
+  <never>Suffix a class with `Impl` when it is the only implementation — the suffix advertises a choice that does not exist</never>
+  <never>Give a class a body that only forwards to a helper with no other caller. That is the same indirection with `@injectable()` on it. Inline the helper into the class instead. `generateRunId` had one caller, `RunIdGenerator`, so the call moved into the method and the utility file was deleted</never>
+  <rationale>Inversify binds a class to its own type without an interface, and a test mocks a concrete class exactly as it mocks an interface: `jest.Mocked<TheClass>`, which `createMockActivityListMapper` already does on a self-bound class. The pair costs a `type X` import in `container.ts`, a second export line in the directory barrel, a second specifier in `services.ts`, and a declaration to keep in step with the class. A `grep -rn "implements <Name>" src tests` that returns one hit proves the interface has no second implementer. Issue 356 sweeps the pairs that predate this rule.</rationale>
+  <good-example>
+    ```typescript
+    // src/RunIdGenerator.ts — the whole file, one name, one declaration
+    import { injectable } from 'inversify';
+
+    @injectable()
+    export class RunIdGenerator {
+      generate(): string {
+        return crypto.randomUUID();
+      }
+    }
+
+    // src/container.ts
+    import { RunIdGenerator } from './services.js';
+    container.bind<RunIdGenerator>(TYPES.RunIdGenerator).to(RunIdGenerator).inSingletonScope();
+
+    // src/services.ts — one export specifier
+    export { RunIdGenerator } from './RunIdGenerator.js';
+    ```
+
+  </good-example>
+  <bad-example>
+    ```typescript
+    // src/RunIdGenerator.ts — two names and an `implements` clause for one contract
+    export interface RunIdGenerator {
+      generate(): string;
+    }
+
+    @injectable()
+    export class RunIdGeneratorImpl implements RunIdGenerator {
+      generate(): string {
+        return crypto.randomUUID();
+      }
+    }
+
+    // src/container.ts — the interface forces a second specifier into the import
+    import { type RunIdGenerator, RunIdGeneratorImpl } from './services.js';
+    container.bind<RunIdGenerator>(TYPES.RunIdGenerator).to(RunIdGeneratorImpl).inSingletonScope();
+
+    // src/services.ts — two specs to remove together when the pair collapses
+    export { type RunIdGenerator, RunIdGeneratorImpl } from './RunIdGenerator.js';
+    ```
+
+  </bad-example>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

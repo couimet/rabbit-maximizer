@@ -1,6 +1,6 @@
 import type { PullRequestRepository, QueueRepository, SystemStateRepository } from './db/index.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from './errors/index.js';
-import { withAttributes } from './external-deps/couimet/execution-context/src/index.js';
+import { validateAttributes, withAttributes } from './external-deps/couimet/execution-context/src/index.js';
 import {
   classifyCoderabbitComment,
   type CoderabbitGitHubClient,
@@ -11,9 +11,10 @@ import {
 } from './github/index.js';
 import { ProbeFactory, type ReviewRetriggerProbe } from './probes/index.js';
 import type { CommentDiagnosis, QueueItem, RetriggerDecision, RetriggerDiagnosis } from './types/index.js';
-import { extractCoderabbitRunId, generateRunId, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
+import { extractCoderabbitRunId, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { CodeRabbitCommentType, QueueStatus, RabbitResult, TriggerSource, TYPES } from './domain.js';
+import { CodeRabbitCommentType, EXECUTION_CONTEXT_ATTRIBUTES, QueueStatus, RabbitResult, TriggerSource, TYPES } from './domain.js';
+import type { RunIdGenerator } from './RunIdGenerator.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -41,6 +42,8 @@ export class ReviewTrigger {
     private readonly prisma: PrismaClient,
     @inject(TYPES.SystemStateRepository)
     private readonly systemState: SystemStateRepository,
+    @inject(TYPES.RunIdGenerator)
+    private readonly runIdGenerator: RunIdGenerator,
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {
@@ -256,12 +259,12 @@ export class ReviewTrigger {
     diagnosis: RetriggerDiagnosis | undefined,
     sourceRunId: string | undefined,
   ): Promise<RabbitResult<TriggerDetails>> {
-    const runId = generateRunId();
+    const runId = this.runIdGenerator.generate();
 
     // Scoped to this run: a scheduler tick retriggers several items in one context,
     // and an inherited run_id would tag the next item's logs with the wrong run.
-    return await withAttributes({ run_id: runId }, async () => {
-      this.log.info({ fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, runId }, 'Posting retrigger');
+    return await withAttributes(validateAttributes(EXECUTION_CONTEXT_ATTRIBUTES, { runId }), async () => {
+      this.log.info({ fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id }, 'Posting retrigger');
 
       const { htmlUrl: retriggeredCommentUrl } = await this.github.postRetrigger(
         item.repo_full_name,
@@ -275,9 +278,9 @@ export class ReviewTrigger {
       const cooldownUntil = new Date(Date.now() + this.postCooldownMs);
 
       await this.prisma.$transaction(async (tx) => {
-        await this.queue.markRetriggered(item.id, cooldownUntil, retriggeredCommentUrl, runId, sourceRunId, tx);
+        await this.queue.markRetriggered(item.id, cooldownUntil, retriggeredCommentUrl, sourceRunId, tx);
         await this.pullRequests.incrementRetriggerCount(item.pull_request_id, tx);
-        await probe.reviewRetriggered(runId, retriggeredCommentUrl, tx);
+        await probe.reviewRetriggered(retriggeredCommentUrl, tx);
         const existing = await this.systemState.getNextReviewAvailableAt(tx);
         const nextAvailable = existing !== undefined && existing > cooldownUntil ? existing : cooldownUntil;
         await this.systemState.setNextReviewAvailableAt(nextAvailable, tx);
