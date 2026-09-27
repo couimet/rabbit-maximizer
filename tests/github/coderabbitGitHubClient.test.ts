@@ -7,12 +7,13 @@ import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockRe
 import { getRandomString, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { Octokit } from '@octokit/rest';
 import { Container } from 'inversify';
 
 const VERSION = pkg.version;
 const REPO_URL = pkg.repository.url;
+const SHORT_SHA_LENGTH = 7;
 
 const MS_PER_HOUR = 60 * 60 * 1000;
 const WAIT_SECONDS = 1800;
@@ -34,8 +35,14 @@ describe('client', () => {
   let triggerCommentId: number;
   let fetchCommentId: number;
   let runId: string;
+  let gitSha: string;
+  let declaredGitSha: string | undefined;
 
   beforeEach(() => {
+    declaredGitSha = process.env.GIT_SHA;
+    gitSha = getUniqueString({ maxLength: SHORT_SHA_LENGTH });
+    process.env.GIT_SHA = gitSha;
+
     frozenDate = getUniqueDate();
     prNumber = getUniqueInt();
     triggerCommentId = getUniqueInt();
@@ -49,6 +56,14 @@ describe('client', () => {
       rest: { issues, pulls, search, repos },
     } = createMockOctokit());
     logger = createMockLogger();
+  });
+
+  afterEach(() => {
+    if (declaredGitSha === undefined) {
+      delete process.env.GIT_SHA;
+    } else {
+      process.env.GIT_SHA = declaredGitSha;
+    }
   });
 
   describe('postRetrigger', () => {
@@ -73,11 +88,12 @@ describe('client', () => {
         '',
         '---',
         '',
-        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`,
+        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} (${gitSha}) — run=${runId}`,
         '',
         `<!-- rabbit-maximizer\n${JSON.stringify(
           {
             version: VERSION,
+            gitSha,
             runId,
             triggerSource: 'scheduler',
             sourceCommentUrl: triggerUrl,
@@ -131,11 +147,12 @@ describe('client', () => {
         '',
         '---',
         '',
-        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`,
+        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} (${gitSha}) — run=${runId}`,
         '',
         `<!-- rabbit-maximizer\n${JSON.stringify(
           {
             version: VERSION,
+            gitSha,
             runId,
             triggerSource: 'dashboard_retrigger_now',
             sourceCommentUrl: null,
@@ -204,11 +221,12 @@ describe('client', () => {
         '',
         '---',
         '',
-        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`,
+        `🤖 [rabbit-maximizer](${REPO_URL}) v${VERSION} (${gitSha}) — run=${runId}`,
         '',
         `<!-- rabbit-maximizer\n${JSON.stringify(
           {
             version: VERSION,
+            gitSha,
             runId,
             triggerSource: 'scheduler',
             sourceCommentUrl: triggerUrl,

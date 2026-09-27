@@ -12,4 +12,7 @@ import { isNonBlankString } from './utils/isNonBlankString.js';
 export const EXECUTION_CONTEXT_ATTRIBUTES = {
   runId: { key: 'run_id', isValid: isNonBlankString },
   version: { key: 'version', isValid: isNonBlankString },
+  gitSha: { key: 'gitSha', isValid: isNonBlankString },
+  runKind: { key: 'runKind', isValid: isNonBlankString },
+  imageTags: { key: 'imageTags', isValid: isNonBlankString },
 } as const satisfies Record<string, ExecutionContextAttribute<unknown>>;
