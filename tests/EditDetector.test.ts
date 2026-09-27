@@ -1,4 +1,4 @@
-import { EditDetectorImpl } from '../src/EditDetector.js';
+import { EditDetector } from '../src/EditDetector.js';
 
 import { createMockCoderabbitCommentRepo, createMockCoderabbitGitHubClient, generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
 
@@ -16,7 +16,7 @@ describe('EditDetector', () => {
 
     comments.findByCommentId.mockResolvedValue(undefined);
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({ action: 'fallback', reason: 'not_found', sourceCommentType: undefined });
@@ -41,7 +41,7 @@ describe('EditDetector', () => {
     // Fresh fetch returns an updatedAt <= last_seen_at, so the NotEdited guard fires
     github.fetchComment.mockResolvedValue({ body: '', createdAt: lastSeenAt.toISOString(), updatedAt: lastSeenAt.toISOString() });
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({ action: 'fallback', reason: 'not_edited', sourceCommentType: 'review_skipped' });
@@ -69,7 +69,7 @@ describe('EditDetector', () => {
     } as any);
     github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({
@@ -112,7 +112,7 @@ describe('EditDetector', () => {
     } as any);
     github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({
@@ -155,7 +155,7 @@ describe('EditDetector', () => {
     } as any);
     github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({ action: 'fallback', reason: 'not_a_review', sourceCommentType: 'review_limited' });
@@ -193,7 +193,7 @@ describe('EditDetector', () => {
     } as any);
     github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({ action: 'fallback', reason: 'not_a_review', sourceCommentType: 'unknown' });
@@ -227,12 +227,12 @@ describe('EditDetector', () => {
     const fetchError = new Error('GitHub API error');
     github.fetchComment.mockRejectedValue(fetchError);
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toHaveDetailedError('EDIT_DETECTION_FAILED', {
       message: 'Edit detection failed',
-      functionName: 'EditDetectorImpl.detectEdit',
+      functionName: 'EditDetector.detectEdit',
       details: {
         queueItemId: item.id,
         sourceCommentId: item.source_comment_id,
@@ -265,7 +265,7 @@ describe('EditDetector', () => {
     } as any);
     github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({ action: 'adopted', runId: coderabbitRunId });
@@ -306,7 +306,7 @@ describe('EditDetector', () => {
     } as any);
     github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({ action: 'skipped', reviewUrl: ref.commentUrl });
@@ -347,7 +347,7 @@ describe('EditDetector', () => {
     } as any);
     github.fetchComment.mockResolvedValue({ body: fetchBody, createdAt: ghUpdatedAt.toISOString(), updatedAt: ghUpdatedAt.toISOString() });
 
-    const detector = new EditDetectorImpl(comments, github);
+    const detector = new EditDetector(comments, github);
     const result = await detector.detectEdit(item);
 
     expect(result).toBeSuccess({ action: 'skipped', reviewUrl: ref.commentUrl });

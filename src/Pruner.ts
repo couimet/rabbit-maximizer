@@ -8,12 +8,8 @@ import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
-export interface Pruner {
-  prune(): Promise<void>;
-}
-
 @injectable()
-export class PrunerImpl implements Pruner {
+export class Pruner {
   /* c8 ignore start */
   constructor(
     @inject(TYPES.QueueRepository) private readonly queue: QueueRepository,
@@ -50,7 +46,7 @@ export class PrunerImpl implements Pruner {
               await probe.prClosedWithoutMerge(tx);
               break;
             default:
-              throw RabbitMaximizerError.forUnexpectedSwitchDefault('prune outcome', e.outcome, 'PrunerImpl.prune');
+              throw RabbitMaximizerError.forUnexpectedSwitchDefault('prune outcome', e.outcome, 'Pruner.prune');
           }
         });
       } catch (err: unknown) {

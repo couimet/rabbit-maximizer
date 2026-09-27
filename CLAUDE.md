@@ -45,7 +45,7 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
         break;
       /* c8 ignore next 3 — unreachable: every StateKey maps to a handled column */
       default:
-        throw RabbitMaximizerError.forUnexpectedSwitchDefault('state column', config.column, 'SystemStateRepositoryImpl.setState');
+        throw RabbitMaximizerError.forUnexpectedSwitchDefault('state column', config.column, 'SystemStateRepository.setState');
     }
     ```
   </good-example>

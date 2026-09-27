@@ -6,12 +6,8 @@ import type { CoderabbitGitHubClient } from './index.js';
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-export interface PRStateFetcher {
-  fetch(repo: string, pr: number, fn: string): Promise<PRState | undefined>;
-}
-
 @injectable()
-export class PRStateFetcherImpl implements PRStateFetcher {
+export class PRStateFetcher {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.CoderabbitGitHubClient)

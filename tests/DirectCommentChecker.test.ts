@@ -1,6 +1,6 @@
 import { buildCommentUrl } from '../src/github/buildCommentUrl.js';
 import { DirectCommentCheckProbe } from '../src/probes/index.js';
-import { DirectCommentCheckerImpl } from '../src/services.js';
+import { DirectCommentChecker } from '../src/services.js';
 import type { EventLogEntry, OnDetectedCallback } from '../src/types/index.js';
 
 import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
@@ -29,7 +29,7 @@ const REVIEW_LIMITED_WITH_WAIT = 'rate limited by coderabbit.ai\n\n**Next review
 const ONE_MINUTE_MS = 60_000;
 const WALKTHROUGH_BODY = 'review_stack_entry_start';
 
-describe('DirectCommentCheckerImpl', () => {
+describe('DirectCommentChecker', () => {
   let github: ReturnType<typeof createMockCoderabbitGitHubClient>;
   let onDetected: jest.Mocked<OnDetectedCallback>;
   let coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
@@ -39,7 +39,7 @@ describe('DirectCommentCheckerImpl', () => {
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let probeFactory: ReturnType<typeof createMockProbeFactory>;
   let logger: ReturnType<typeof createMockLogger>;
-  let checker: DirectCommentCheckerImpl;
+  let checker: DirectCommentChecker;
 
   const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
     withTestExecutionContext({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
@@ -56,7 +56,7 @@ describe('DirectCommentCheckerImpl', () => {
     probeFactory = createMockProbeFactory({ createDirectCommentCheckProbe: jest.fn().mockReturnValue(probe) });
     queue = createMockQueueRepo();
     pullRequests = createMockPullRequestRepo();
-    checker = new DirectCommentCheckerImpl(github, onDetected, coderabbitComments, queue, pullRequests, probeFactory);
+    checker = new DirectCommentChecker(github, onDetected, coderabbitComments, queue, pullRequests, probeFactory);
   });
 
   it('fetches comments and calls onDetected for rate-limit comments', async () => {

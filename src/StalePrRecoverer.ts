@@ -6,12 +6,8 @@ import { CodeRabbitCommentType, CommentDetectionMethod, TYPES } from './domain.j
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-export interface StalePrRecoverer {
-  recover(): Promise<StaleOpenPR[]>;
-}
-
 @injectable()
-export class StalePrRecovererImpl implements StalePrRecoverer {
+export class StalePrRecoverer {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PullRequestRepository)

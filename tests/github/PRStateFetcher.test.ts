@@ -1,4 +1,4 @@
-import { type CoderabbitGitHubClient, PRStateFetcherImpl } from '../../src/github/index.js';
+import { type CoderabbitGitHubClient, PRStateFetcher } from '../../src/github/index.js';
 import type { PRState } from '../../src/types/index.js';
 import { createMockCoderabbitGitHubClient, generateReviewRef } from '../helpers/index.js';
 
@@ -15,7 +15,7 @@ describe('PRStateFetcher', () => {
     logger = createMockLogger();
   });
 
-  const createFetcher = () => new PRStateFetcherImpl(github, logger);
+  const createFetcher = () => new PRStateFetcher(github, logger);
 
   describe('fetch', () => {
     it('returns PR state on success', async () => {

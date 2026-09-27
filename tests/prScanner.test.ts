@@ -3,7 +3,7 @@ import type { PullRequestRepository, SystemStateRepository } from '../src/db/ind
 import { getUniqueStringsNamed } from '../src/external-deps/couimet/dynamic-testing/unique.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import type { ProbeFactory } from '../src/probes/index.js';
-import { PrScannerImpl } from '../src/services.js';
+import { PrScanner } from '../src/services.js';
 import type { DiscoveredPR } from '../src/types/index.js';
 
 import {
@@ -24,7 +24,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 const INTERVAL_SEC = 300;
 const MS_PER_SECOND = 1000;
 
-describe('PrScannerImpl', () => {
+describe('PrScanner', () => {
   let github: jest.Mocked<CoderabbitGitHubClient>;
   let pullRequests: jest.Mocked<PullRequestRepository>;
   let systemState: jest.Mocked<SystemStateRepository>;
@@ -48,7 +48,7 @@ describe('PrScannerImpl', () => {
     log = createMockLogger();
   });
 
-  const createScanner = () => new PrScannerImpl(github, pullRequests, probeFactory, systemState, config, log);
+  const createScanner = () => new PrScanner(github, pullRequests, probeFactory, systemState, config, log);
 
   it('discovers PRs and calls upsert with prState:open and head data for each', async () => {
     const ref1 = generateReviewRef();

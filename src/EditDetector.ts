@@ -8,12 +8,8 @@ import { RabbitResult } from './RabbitResult.js';
 
 import { inject, injectable } from 'inversify';
 
-export interface EditDetector {
-  detectEdit(item: QueueItem): Promise<RabbitResult<EditDetectionOutcome>>;
-}
-
 @injectable()
-export class EditDetectorImpl implements EditDetector {
+export class EditDetector {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.CoderabbitCommentRepository)
@@ -86,7 +82,7 @@ export class EditDetectorImpl implements EditDetector {
         new RabbitMaximizerError({
           code: RabbitMaximizerErrorCodes.EDIT_DETECTION_FAILED,
           message: 'Edit detection failed',
-          functionName: 'EditDetectorImpl.detectEdit',
+          functionName: 'EditDetector.detectEdit',
           details: { queueItemId: item.id, sourceCommentId: item.source_comment_id, error: err },
         }),
       );

@@ -34,45 +34,8 @@ const OPEN_PR_SEARCH_PER_PAGE = 100;
 const OPEN_PR_SEARCH_MAX_PAGES = 3;
 const UNKNOWN_USER = '<unknown>';
 
-export interface CoderabbitGitHubClient {
-  searchReviewLimitComments(repoFilter: readonly RepoFilter[]): Promise<DetectedComment[]>;
-
-  fetchComment(owner: string, repo: string, commentId: number): Promise<FetchCommentResult>;
-  fetchCommentByUrl(url: string): Promise<FetchCommentResult>;
-
-  listComments(owner: string, repo: string, issueNumber: number): Promise<ListedComment[]>;
-
-  listOpenPRs(repoFilter: readonly RepoFilter[]): Promise<DiscoveredPR[]>;
-
-  postRetrigger(
-    repo: string,
-    pr: number,
-    sourceCommentUrl: string | undefined,
-    runId: string,
-    triggerSource: TriggerSource,
-    diagnosis: RetriggerDiagnosis | undefined,
-  ): Promise<RetriggerComment>;
-
-  getPRState(repo: string, pr: number): Promise<PRState>;
-  getPRHeadSha(owner: string, repo: string, prNumber: number): Promise<string>;
-  getCommitCommittedAt(owner: string, repo: string, sha: string): Promise<string>;
-
-  findCompletedReview(
-    owner: string,
-    repo: string,
-    pr: number,
-    since: Date,
-    expectedRunId: string | undefined,
-    expectedHeadSha: string | undefined,
-  ): Promise<CompletedReview | undefined>;
-
-  findLatestReviewLimitComment(owner: string, repo: string, pr: number): Promise<ReviewLimitComment | undefined>;
-
-  findAcknowledgement(owner: string, repo: string, pr: number, since: Date): Promise<AcknowledgementResult | undefined>;
-}
-
 @injectable()
-export class CoderabbitGitHubClientImpl implements CoderabbitGitHubClient {
+export class CoderabbitGitHubClient {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.Octokit) private readonly octokit: Octokit,

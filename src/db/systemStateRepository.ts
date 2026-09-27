@@ -59,23 +59,8 @@ export const VALUE_SETTER: Record<ValueColumn, (base: SystemStateRow, value: unk
   value_datetime: (b, v) => ({ ...b, value_datetime: (v as Date).toISOString() }),
 };
 
-export interface SystemStateRepository {
-  getDashboardSystemState(): Promise<DashboardSystemState>;
-  isSchedulerPaused(tx: Prisma.TransactionClient | undefined): Promise<boolean>;
-  pauseScheduler(tx: Prisma.TransactionClient | undefined): Promise<void>;
-  resumeScheduler(tx: Prisma.TransactionClient | undefined): Promise<void>;
-  getNextReviewAvailableAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined>;
-  setNextReviewAvailableAt(earliest: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
-  setNextReviewAvailableAtIfLater(earliest: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
-  getLastSchedulerTickAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined>;
-  setLastSchedulerTickAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
-  getLastScanCompletedAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined>;
-  setLastScanCompletedAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
-  setLastScanStartedAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void>;
-}
-
 @injectable()
-export class SystemStateRepositoryImpl extends BasePrismaRepository implements SystemStateRepository {
+export class SystemStateRepository extends BasePrismaRepository {
   constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
     super(prisma, Prisma.ModelName.SystemState, log);
   }
@@ -131,10 +116,10 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
             create: data as Prisma.SystemStateCreateInput,
             update: data as Prisma.SystemStateUpdateInput,
           }),
-        'SystemStateRepositoryImpl.setState',
+        'SystemStateRepository.setState',
       );
 
-      this.log.debug({ fn: 'SystemStateRepositoryImpl.setState', key }, 'System state updated');
+      this.log.debug({ fn: 'SystemStateRepository.setState', key }, 'System state updated');
     });
   }
 
@@ -203,7 +188,7 @@ export class SystemStateRepositoryImpl extends BasePrismaRepository implements S
               value_datetime = CASE WHEN system_state.value_datetime IS NULL OR system_state.value_datetime < excluded.value_datetime THEN excluded.value_datetime ELSE system_state.value_datetime END,
               updated_at = excluded.updated_at
           `,
-        'SystemStateRepositoryImpl.setNextReviewAvailableAtIfLater',
+        'SystemStateRepository.setNextReviewAvailableAtIfLater',
       );
     });
 

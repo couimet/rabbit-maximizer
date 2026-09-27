@@ -13,14 +13,8 @@ export type MoveDirection = 'up' | 'down';
 
 const EFFECTIVE_ORDER_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
 
-export interface QueueOrderRepository {
-  getEffectiveOrder(): Promise<QueueItem[]>;
-  moveItems(queueItemUuids: string[], direction: MoveDirection): Promise<QueueItem[]>;
-  moveToTop(uuid: string): Promise<QueueItem>;
-}
-
 @injectable()
-export class QueueOrderRepositoryImpl extends BasePrismaRepository implements QueueOrderRepository {
+export class QueueOrderRepository extends BasePrismaRepository {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PrismaClient) prisma: PrismaClient,
@@ -50,11 +44,11 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       const validRows = rows.filter((row) => row.pull_request_id !== null);
       if (validRows.length < rows.length) {
         this.log.warn(
-          { fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', total: rows.length, valid: validRows.length },
+          { fn: 'QueueOrderRepository.readEffectiveOrder', total: rows.length, valid: validRows.length },
           'Filtered out rows with null pull_request_id',
         );
       }
-      this.log.debug({ fn: 'QueueOrderRepositoryImpl.readEffectiveOrder', count: validRows.length }, 'Fetched effective order');
+      this.log.debug({ fn: 'QueueOrderRepository.readEffectiveOrder', count: validRows.length }, 'Fetched effective order');
       return validRows.map((row) => this.mapper.fromReviewQueue(row));
     });
   }
@@ -66,7 +60,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       const selectedIds = resolveUuidsToIds(ordered, [...new Set(queueItemUuids)]);
 
       if (selectedIds.length === 0) {
-        this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems' }, 'No items to move; returning effective order unchanged');
+        this.log.debug({ fn: 'QueueOrderRepository.moveItems' }, 'No items to move; returning effective order unchanged');
         return ordered;
       }
 
@@ -88,7 +82,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
 
       await this.normalizePositionsToOrder(tx, newOrder);
 
-      this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveItems', ids: queueItemUuids, direction }, 'Moved items in queue order');
+      this.log.debug({ fn: 'QueueOrderRepository.moveItems', ids: queueItemUuids, direction }, 'Moved items in queue order');
 
       return this.readEffectiveOrder(tx);
     });
@@ -104,7 +98,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       if (!rawItem) {
         throw new PrismaRecordNotFoundError({
           tableName: 'reviewQueue',
-          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          functionName: 'QueueOrderRepository.moveToTop',
           details: { uuid },
         });
       }
@@ -113,7 +107,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
         throw new RabbitMaximizerError({
           code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
           message: `Queue item ${uuid} is already resolved`,
-          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          functionName: 'QueueOrderRepository.moveToTop',
           details: { uuid, status: rawItem.status },
         });
       }
@@ -124,7 +118,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       if (!item) {
         throw new PrismaRecordNotFoundError({
           tableName: 'reviewQueue',
-          functionName: 'QueueOrderRepositoryImpl.moveToTop',
+          functionName: 'QueueOrderRepository.moveToTop',
           details: { uuid },
         });
       }
@@ -135,7 +129,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       const newOrder = [numericId, ...orderedIds.filter((oid) => oid !== numericId)];
       await this.normalizePositionsToOrder(tx, newOrder);
 
-      this.log.debug({ fn: 'QueueOrderRepositoryImpl.moveToTop', uuid }, 'Moved item to top');
+      this.log.debug({ fn: 'QueueOrderRepository.moveToTop', uuid }, 'Moved item to top');
 
       const updatedList = await this.readEffectiveOrder(tx);
       return updatedList.find((i) => i.uuid === uuid)!;
@@ -170,7 +164,7 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
               where: { id: item.queueOrder!.id },
               data: { position: i + 1 },
             }),
-          'QueueOrderRepositoryImpl.normalizePositionsToOrder',
+          'QueueOrderRepository.normalizePositionsToOrder',
         );
       } else {
         await db.queueOrder.create({
@@ -179,6 +173,6 @@ export class QueueOrderRepositoryImpl extends BasePrismaRepository implements Qu
       }
     }
 
-    this.log.debug({ fn: 'QueueOrderRepositoryImpl.normalizePositionsToOrder', count: orderedIds.length }, 'Normalized queue positions');
+    this.log.debug({ fn: 'QueueOrderRepository.normalizePositionsToOrder', count: orderedIds.length }, 'Normalized queue positions');
   }
 }

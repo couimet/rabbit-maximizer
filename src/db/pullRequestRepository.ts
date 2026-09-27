@@ -56,34 +56,8 @@ const FIND_TRACKED_PRS_SQL = `
 /** Wire format of FIND_TRACKED_PRS_SQL; kept private so the repository absorbs the driver's string dates. */
 type TrackedPrRawRow = Omit<TrackedPrRow, 'last_coderabbit_review_at'> & { readonly last_coderabbit_review_at: string | null };
 
-export interface PullRequestRepository {
-  upsert(repoFullName: string, prNumber: number, data: UpsertPullRequestData, tx?: Prisma.TransactionClient): Promise<{ id: number; created: boolean }>;
-  findByRepoAndPr(repoFullName: string, prNumber: number, tx: Prisma.TransactionClient | undefined): Promise<PullRequestHeadSha | null>;
-  findByPrState(prState: string, tx?: Prisma.TransactionClient): Promise<Array<{ id: number; repo_full_name: string; pr_number: number }>>;
-  findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined>;
-  findStaleOpenPRs(): Promise<StaleOpenPR[]>;
-  findTrackedPRs(): Promise<TrackedPrRow[]>;
-  getColumnMaps<C extends keyof PullRequestColumnTypes>(
-    ids: number[],
-    columns: readonly C[],
-    tx?: Prisma.TransactionClient,
-  ): Promise<{ [K in C]: Map<number, PullRequestColumnTypes[K]> }>;
-  incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void>;
-  recordAcknowledgement(id: number, tx?: Prisma.TransactionClient): Promise<void>;
-  recordReview(
-    id: number,
-    reviewUrl: string,
-    reviewState: CodeRabbitCommentType,
-    reviewedHeadSha: string | undefined,
-    tx: Prisma.TransactionClient,
-  ): Promise<void>;
-  recordReviewLimitDetection(id: number, reviewLimitAt: Date, tx: Prisma.TransactionClient): Promise<void>;
-  recordWalkthroughReview(id: number, reviewedAt: Date): Promise<void>;
-  updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void>;
-}
-
 @injectable()
-export class PullRequestRepositoryImpl extends BasePrismaRepository implements PullRequestRepository {
+export class PullRequestRepository extends BasePrismaRepository {
   /* c8 ignore start — decorator emit branches */
   constructor(@inject(TYPES.PrismaClient) prisma: PrismaClient, @inject(TYPES.Logger) log: Logger) {
     super(prisma, Prisma.ModelName.PullRequest, log);
@@ -122,10 +96,10 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
           updateData.head_committed_at = data.headCommittedAt;
         }
         if (Object.keys(updateData).length > 0) {
-          await this.withPrismaErrorHandling(() => db.pullRequest.update({ where: { id: existing.id }, data: updateData }), 'PullRequestRepositoryImpl.upsert');
+          await this.withPrismaErrorHandling(() => db.pullRequest.update({ where: { id: existing.id }, data: updateData }), 'PullRequestRepository.upsert');
         }
         await this.recordShaObservation(db, existing.id, data);
-        this.log.debug({ fn: 'PullRequestRepositoryImpl.upsert', repoFullName, prNumber, id: existing.id }, 'PullRequest already exists');
+        this.log.debug({ fn: 'PullRequestRepository.upsert', repoFullName, prNumber, id: existing.id }, 'PullRequest already exists');
         return { id: existing.id, created: false };
       }
 
@@ -144,7 +118,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
         },
       });
       await this.recordShaObservation(db, row.id, data);
-      this.log.debug({ fn: 'PullRequestRepositoryImpl.upsert', repoFullName, prNumber, id: row.id }, 'Created PullRequest');
+      this.log.debug({ fn: 'PullRequestRepository.upsert', repoFullName, prNumber, id: row.id }, 'Created PullRequest');
       return { id: row.id, created: true };
     });
   }
@@ -170,13 +144,13 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
           update: { last_observed_at: new Date() },
           create: { pull_request_id: pullRequestId, sha: data.headSha! },
         }),
-      'PullRequestRepositoryImpl.recordShaObservation',
+      'PullRequestRepository.recordShaObservation',
     );
   }
 
   async updateTitle(id: number, title: string, tx: Prisma.TransactionClient): Promise<void> {
-    await this.withPrismaErrorHandling(() => this.client(tx).pullRequest.update({ where: { id }, data: { title } }), 'PullRequestRepositoryImpl.updateTitle');
-    this.log.debug({ fn: 'PullRequestRepositoryImpl.updateTitle', id }, 'Updated PullRequest title');
+    await this.withPrismaErrorHandling(() => this.client(tx).pullRequest.update({ where: { id }, data: { title } }), 'PullRequestRepository.updateTitle');
+    this.log.debug({ fn: 'PullRequestRepository.updateTitle', id }, 'Updated PullRequest title');
   }
 
   async incrementRetriggerCount(id: number, tx: Prisma.TransactionClient): Promise<void> {
@@ -189,9 +163,9 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
             last_review_requested_at: new Date(),
           },
         }),
-      'PullRequestRepositoryImpl.incrementRetriggerCount',
+      'PullRequestRepository.incrementRetriggerCount',
     );
-    this.log.debug({ fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
+    this.log.debug({ fn: 'PullRequestRepository.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
   }
 
   async recordReview(
@@ -215,9 +189,9 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
             reviewed_head_sha: reviewedHeadSha ?? existing?.head_sha ?? null,
           },
         }),
-      'PullRequestRepositoryImpl.recordReview',
+      'PullRequestRepository.recordReview',
     );
-    this.log.debug({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+    this.log.debug({ fn: 'PullRequestRepository.recordReview', id }, 'Recorded review on PullRequest');
   }
 
   async recordWalkthroughReview(id: number, reviewedAt: Date): Promise<void> {
@@ -228,9 +202,9 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
           where: { id },
           data: { last_coderabbit_review_at: reviewedAt },
         }),
-      'PullRequestRepositoryImpl.recordWalkthroughReview',
+      'PullRequestRepository.recordWalkthroughReview',
     );
-    this.log.debug({ fn: 'PullRequestRepositoryImpl.recordWalkthroughReview', id }, 'Recorded walkthrough review on PullRequest');
+    this.log.debug({ fn: 'PullRequestRepository.recordWalkthroughReview', id }, 'Recorded walkthrough review on PullRequest');
   }
 
   async findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined> {
@@ -256,7 +230,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       await db.$queryRawUnsafe<Array<{ id: number; repo_full_name: string; pr_number: number; title: string; last_review_requested_at: string }>>(
         FIND_STALE_OPEN_PRS_SQL,
       );
-    this.log.debug({ fn: 'PullRequestRepositoryImpl.findStaleOpenPRs', count: rows.length }, 'Found stale open PRs');
+    this.log.debug({ fn: 'PullRequestRepository.findStaleOpenPRs', count: rows.length }, 'Found stale open PRs');
     return rows.map((row) => ({
       id: row.id,
       repoFullName: row.repo_full_name,
@@ -269,7 +243,7 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
   async findTrackedPRs(): Promise<TrackedPrRow[]> {
     const db = this.client();
     const rows = await db.$queryRawUnsafe<TrackedPrRawRow[]>(FIND_TRACKED_PRS_SQL);
-    this.log.debug({ fn: 'PullRequestRepositoryImpl.findTrackedPRs', count: rows.length }, 'Found tracked open PRs');
+    this.log.debug({ fn: 'PullRequestRepository.findTrackedPRs', count: rows.length }, 'Found tracked open PRs');
     return rows.map(({ last_coderabbit_review_at, ...rest }) => ({
       ...rest,
       last_coderabbit_review_at: last_coderabbit_review_at === null ? null : new Date(last_coderabbit_review_at),
@@ -280,9 +254,9 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
     await this.enforceTx(tx, async (db) => {
       await this.withPrismaErrorHandling(
         () => db.pullRequest.update({ where: { id }, data: { last_coderabbit_acknowledged_at: new Date() } }),
-        'PullRequestRepositoryImpl.recordAcknowledgement',
+        'PullRequestRepository.recordAcknowledgement',
       );
-      this.log.debug({ fn: 'PullRequestRepositoryImpl.recordAcknowledgement', id }, 'Recorded CodeRabbit acknowledgement on PullRequest');
+      this.log.debug({ fn: 'PullRequestRepository.recordAcknowledgement', id }, 'Recorded CodeRabbit acknowledgement on PullRequest');
     });
   }
 
@@ -345,11 +319,8 @@ export class PullRequestRepositoryImpl extends BasePrismaRepository implements P
       if (existing && existing.first_review_limit_at === null) {
         updateData.first_review_limit_at = reviewLimitAt;
       }
-      await this.withPrismaErrorHandling(
-        () => db.pullRequest.update({ where: { id }, data: updateData }),
-        'PullRequestRepositoryImpl.recordReviewLimitDetection',
-      );
+      await this.withPrismaErrorHandling(() => db.pullRequest.update({ where: { id }, data: updateData }), 'PullRequestRepository.recordReviewLimitDetection');
     });
-    this.log.debug({ fn: 'PullRequestRepositoryImpl.recordReviewLimitDetection', id }, 'Recorded review limit detection on PullRequest');
+    this.log.debug({ fn: 'PullRequestRepository.recordReviewLimitDetection', id }, 'Recorded review limit detection on PullRequest');
   }
 }

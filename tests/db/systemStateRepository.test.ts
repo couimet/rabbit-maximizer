@@ -1,4 +1,4 @@
-import { StateKey, type SystemStateRepository, SystemStateRepositoryImpl } from '../../src/db/index.js';
+import { StateKey, SystemStateRepository } from '../../src/db/index.js';
 import { VALUE_SETTER } from '../../src/db/systemStateRepository.js';
 import { TYPES } from '../../src/domain.js';
 import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma, type PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
-describe('SystemStateRepositoryImpl', () => {
+describe('SystemStateRepository', () => {
   let logger: ReturnType<typeof createMockLogger>;
 
   beforeEach(() => {
@@ -32,7 +32,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(row) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getState(StateKey.lastPollStartedAt, undefined);
 
@@ -55,7 +55,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(row) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getState(StateKey.lastPollOutcome, undefined);
 
@@ -76,7 +76,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(row) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getState(StateKey.lastPollStartedAt, undefined);
 
@@ -87,7 +87,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(null) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getState(StateKey.schedulerStatus, undefined);
 
@@ -103,7 +103,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setState(StateKey.nextReviewAvailableAt, now, undefined);
 
@@ -126,14 +126,14 @@ describe('SystemStateRepositoryImpl', () => {
           updated_at: expect.any(String),
         },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'SystemStateRepositoryImpl.setState', key: 'next_review_available_at' }, 'System state updated');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'SystemStateRepository.setState', key: 'next_review_available_at' }, 'System state updated');
     });
 
     it('upserts a new row for text values', async () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setState(StateKey.schedulerStatus, 'running', undefined);
 
@@ -162,7 +162,7 @@ describe('SystemStateRepositoryImpl', () => {
       const tx = { systemState: { upsert: jest.fn<any>().mockResolvedValue({}) } };
 
       const { prisma } = createMockPrismaClient();
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setState(StateKey.lastPollOutcome, 'failed', tx as unknown as Prisma.TransactionClient);
 
@@ -193,7 +193,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setState(StateKey.lastPollCompletedAt, now, undefined);
 
@@ -279,7 +279,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(row) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.isSchedulerPaused(undefined);
 
@@ -299,7 +299,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(row) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.isSchedulerPaused(undefined);
 
@@ -310,7 +310,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(null) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.isSchedulerPaused(undefined);
 
@@ -323,7 +323,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.pauseScheduler(undefined);
 
@@ -346,7 +346,7 @@ describe('SystemStateRepositoryImpl', () => {
           updated_at: expect.any(String),
         },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'SystemStateRepositoryImpl.setState', key: 'scheduler_status' }, 'System state updated');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'SystemStateRepository.setState', key: 'scheduler_status' }, 'System state updated');
     });
   });
 
@@ -355,7 +355,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.resumeScheduler(undefined);
 
@@ -395,7 +395,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setLastSchedulerTickAt(tickAt, undefined);
 
@@ -437,7 +437,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(row) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getLastSchedulerTickAt(undefined);
 
@@ -450,7 +450,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(null) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getLastSchedulerTickAt(undefined);
 
@@ -474,7 +474,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(row) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getNextReviewAvailableAt(undefined);
 
@@ -497,7 +497,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setNextReviewAvailableAt(now, undefined);
 
@@ -546,7 +546,7 @@ describe('SystemStateRepositoryImpl', () => {
       const earliest = getUniqueDate();
       const $executeRaw = jest.fn<any>();
       const { prisma, systemState } = createMockPrismaClient({ $executeRaw });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setNextReviewAvailableAtIfLater(earliest, undefined);
 
@@ -561,7 +561,7 @@ describe('SystemStateRepositoryImpl', () => {
       const earliest = getUniqueDate();
       const $executeRaw = jest.fn<any>();
       const { prisma } = createMockPrismaClient({ $executeRaw });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setNextReviewAvailableAtIfLater(earliest, undefined);
 
@@ -574,7 +574,7 @@ describe('SystemStateRepositoryImpl', () => {
       const earliest = getUniqueDate();
       const $executeRaw = jest.fn<any>();
       const { prisma } = createMockPrismaClient({ $executeRaw });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setNextReviewAvailableAtIfLater(earliest, undefined);
 
@@ -599,7 +599,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         systemState: { findUnique: createResolvedMock(row) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getLastScanCompletedAt(undefined);
 
@@ -622,7 +622,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setLastScanCompletedAt(now, undefined);
 
@@ -663,7 +663,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { upsert: jest.fn<any>() },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       await sut.setLastScanStartedAt(now, undefined);
 
@@ -724,7 +724,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { findMany: createResolvedMock(rows) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getDashboardSystemState();
 
@@ -742,7 +742,7 @@ describe('SystemStateRepositoryImpl', () => {
       const { prisma, systemState } = createMockPrismaClient({
         systemState: { findMany: createResolvedMock([]) },
       });
-      const sut = new SystemStateRepositoryImpl(prisma, logger);
+      const sut = new SystemStateRepository(prisma, logger);
 
       const result = await sut.getDashboardSystemState();
 
@@ -763,8 +763,8 @@ describe('SystemStateRepositoryImpl', () => {
       const container = new Container();
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
-      container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStateRepositoryImpl);
-      expect(container.get<SystemStateRepository>(TYPES.SystemStateRepository)).toBeInstanceOf(SystemStateRepositoryImpl);
+      container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStateRepository);
+      expect(container.get<SystemStateRepository>(TYPES.SystemStateRepository)).toBeInstanceOf(SystemStateRepository);
     });
   });
 });

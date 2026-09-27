@@ -18,12 +18,8 @@ import { inject, injectable } from 'inversify';
 
 const MAX_DIRECT_CHECK_PRS = 125;
 
-export interface DirectCommentChecker {
-  check(prs: readonly DirectCheckPR[]): Promise<ReviewLimitCandidate[]>;
-}
-
 @injectable()
-export class DirectCommentCheckerImpl implements DirectCommentChecker {
+export class DirectCommentChecker {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.CoderabbitGitHubClient)

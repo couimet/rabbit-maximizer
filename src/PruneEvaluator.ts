@@ -7,12 +7,8 @@ import { inject, injectable } from 'inversify';
 
 const MAX_CONCURRENT_FETCHES = 5;
 
-export interface PruneEvaluator {
-  evaluate(items: readonly QueueItem[]): Promise<EnrichedItem[]>;
-}
-
 @injectable()
-export class PruneEvaluatorImpl implements PruneEvaluator {
+export class PruneEvaluator {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PRStateFetcher)
