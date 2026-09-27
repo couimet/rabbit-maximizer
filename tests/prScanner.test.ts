@@ -1,6 +1,5 @@
 import type { Config } from '../src/config.js';
 import type { PullRequestRepository, SystemStateRepository } from '../src/db/index.js';
-import { getUniqueStringsNamed } from '../src/external-deps/couimet/dynamic-testing/unique.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import type { ProbeFactory } from '../src/probes/index.js';
 import { PrScanner } from '../src/services.js';
@@ -16,7 +15,7 @@ import {
   type MockPrScannerProbe,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUniqueStringsNamed } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
