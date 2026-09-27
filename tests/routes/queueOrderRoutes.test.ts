@@ -454,7 +454,7 @@ describe('queueOrderRoutes', () => {
     it('returns 404 when queueItemUuid does not exist', async () => {
       const notFoundError = new PrismaRecordNotFoundError({
         tableName: 'reviewQueue',
-        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+        functionName: 'QueueOrderRepository.moveToTop',
       });
       startServer({ moveToTop: jest.fn<any>().mockRejectedValue(notFoundError) });
 
@@ -467,7 +467,7 @@ describe('queueOrderRoutes', () => {
       const notPendingError = new RabbitMaximizerError({
         code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PENDING,
         message: `Queue item ${uuidA} is already resolved`,
-        functionName: 'QueueOrderRepositoryImpl.moveToTop',
+        functionName: 'QueueOrderRepository.moveToTop',
       });
       startServer({ moveToTop: jest.fn<any>().mockRejectedValue(notPendingError) });
 

@@ -1,4 +1,4 @@
-import { PullRequestRepositoryImpl } from '../../src/db/index.js';
+import { PullRequestRepository } from '../../src/db/index.js';
 import { CodeRabbitCommentType, PrState } from '../../src/domain.js';
 import { createMockPrismaClient, createResolvedMock, generatePullRequestHydrationData, generateReviewRef } from '../helpers/index.js';
 
@@ -7,7 +7,7 @@ import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 
-describe('PullRequestRepositoryImpl', () => {
+describe('PullRequestRepository', () => {
   let frozenNow: Date;
   let logger: ReturnType<typeof createMockLogger>;
   let ref: ReturnType<typeof generateReviewRef>;
@@ -32,13 +32,13 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: createResolvedMock(row) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.upsert(ref.repoFullName, ref.prNumber, { prTitle: 'Test PR', prState: PrState.open });
 
       expect(result).toStrictEqual({ id: row.id, created: true });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
     });
@@ -54,7 +54,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: createResolvedMock(row) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open });
 
@@ -67,7 +67,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open });
 
@@ -79,7 +79,7 @@ describe('PullRequestRepositoryImpl', () => {
       });
       expect(result).toStrictEqual({ id: existing.id, created: false });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -91,7 +91,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prTitle, prState: PrState.open });
 
@@ -107,19 +107,19 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: jest.fn<any>().mockResolvedValue(existing), update: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await expect(sut.upsert(ref.repoFullName, ref.prNumber, { prTitle: 'Test', prState: PrState.open })).rejects.toBeDetailedError(
         'PRISMA_RECORD_NOT_FOUND_P2025',
         {
           message: "Record not found in table 'PullRequest'",
-          functionName: 'PullRequestRepositoryImpl.upsert',
+          functionName: 'PullRequestRepository.upsert',
           details: { tableName: 'PullRequest' },
           cause: p2025,
         },
       );
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', modelName: 'PullRequest', prismaCode: 'P2025' },
+        { fn: 'PullRequestRepository.upsert', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
       );
     });
@@ -131,7 +131,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: mockCreate },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.closed });
 
@@ -150,7 +150,7 @@ describe('PullRequestRepositoryImpl', () => {
         },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
     });
@@ -163,7 +163,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: mockCreate },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open, authorLogin });
 
@@ -182,7 +182,7 @@ describe('PullRequestRepositoryImpl', () => {
         },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
     });
@@ -195,7 +195,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: mockCreate },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.merged, mergedAt });
 
@@ -214,7 +214,7 @@ describe('PullRequestRepositoryImpl', () => {
         },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
     });
@@ -224,7 +224,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.merged });
 
@@ -233,7 +233,7 @@ describe('PullRequestRepositoryImpl', () => {
         data: { pr_state: 'merged' },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -244,7 +244,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.merged, mergedAt });
 
@@ -253,7 +253,7 @@ describe('PullRequestRepositoryImpl', () => {
         data: { pr_state: 'merged', merged_at: mergedAt },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -264,7 +264,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.closed, closedAt });
 
@@ -273,7 +273,7 @@ describe('PullRequestRepositoryImpl', () => {
         data: { pr_state: 'closed', closed_at: closedAt },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -284,7 +284,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open, authorLogin });
 
@@ -293,7 +293,7 @@ describe('PullRequestRepositoryImpl', () => {
         data: { pr_state: 'open', author_login: authorLogin },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -304,7 +304,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest, pullRequestSha } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null), create: createResolvedMock(row) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open, headSha, headCommittedAt });
 
@@ -328,7 +328,7 @@ describe('PullRequestRepositoryImpl', () => {
         create: { pull_request_id: row.id, sha: headSha },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: row.id },
         'Created PullRequest',
       );
     });
@@ -340,7 +340,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest, pullRequestSha } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open, headSha, headCommittedAt });
 
@@ -354,7 +354,7 @@ describe('PullRequestRepositoryImpl', () => {
         create: { pull_request_id: existing.id, sha: headSha },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
+        { fn: 'PullRequestRepository.upsert', repoFullName: ref.repoFullName, prNumber: ref.prNumber, id: existing.id },
         'PullRequest already exists',
       );
     });
@@ -364,7 +364,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequestSha } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.upsert(ref.repoFullName, ref.prNumber, { prState: PrState.open });
 
@@ -379,7 +379,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(row) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber, undefined);
 
@@ -390,7 +390,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(null) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.findByRepoAndPr(ref.repoFullName, ref.prNumber, undefined);
 
@@ -403,12 +403,12 @@ describe('PullRequestRepositoryImpl', () => {
       const id = getUniqueInt();
       const title = 'Updated PR title';
       const { prisma, pullRequest } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.updateTitle(id, title, prisma);
 
       expect(pullRequest.update).toHaveBeenCalledWith({ where: { id }, data: { title } });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.updateTitle', id }, 'Updated PullRequest title');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.updateTitle', id }, 'Updated PullRequest title');
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
@@ -416,16 +416,16 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
         pullRequest: { update: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await expect(sut.updateTitle(getUniqueInt(), 'title', prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'PullRequest'",
-        functionName: 'PullRequestRepositoryImpl.updateTitle',
+        functionName: 'PullRequestRepository.updateTitle',
         details: { tableName: 'PullRequest' },
         cause: p2025,
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.updateTitle', modelName: 'PullRequest', prismaCode: 'P2025' },
+        { fn: 'PullRequestRepository.updateTitle', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
       );
     });
@@ -435,7 +435,7 @@ describe('PullRequestRepositoryImpl', () => {
     it('increments retrigger_count and sets last_review_requested_at', async () => {
       const id = getUniqueInt();
       const { prisma, pullRequest } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.incrementRetriggerCount(id, prisma);
 
@@ -446,7 +446,7 @@ describe('PullRequestRepositoryImpl', () => {
           last_review_requested_at: frozenNow,
         },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
@@ -454,16 +454,16 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
         pullRequest: { update: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await expect(sut.incrementRetriggerCount(getUniqueInt(), prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'PullRequest'",
-        functionName: 'PullRequestRepositoryImpl.incrementRetriggerCount',
+        functionName: 'PullRequestRepository.incrementRetriggerCount',
         details: { tableName: 'PullRequest' },
         cause: p2025,
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.incrementRetriggerCount', modelName: 'PullRequest', prismaCode: 'P2025' },
+        { fn: 'PullRequestRepository.incrementRetriggerCount', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
       );
     });
@@ -481,7 +481,7 @@ describe('PullRequestRepositoryImpl', () => {
       };
       const queryRawUnsafe = jest.fn<any>().mockResolvedValue([pr]);
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
       const result = await sut.findPendingAcknowledgement();
       expect(queryRawUnsafe).toHaveBeenCalledWith(
         expect.toEqualIgnoringWhitespace(
@@ -498,7 +498,7 @@ describe('PullRequestRepositoryImpl', () => {
 
     it('returns undefined when no PRs have a pending acknowledgement', async () => {
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
       const result = await sut.findPendingAcknowledgement();
       expect(result).toBeUndefined();
     });
@@ -508,11 +508,11 @@ describe('PullRequestRepositoryImpl', () => {
     it('sets last_coderabbit_acknowledged_at on the pull_request row', async () => {
       const id = getUniqueInt();
       const { prisma, pullRequest: _pullRequest } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
       await sut.recordAcknowledgement(id);
       expect(_pullRequest.update).toHaveBeenCalledWith({ where: { id }, data: { last_coderabbit_acknowledged_at: frozenNow } });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.recordAcknowledgement', id },
+        { fn: 'PullRequestRepository.recordAcknowledgement', id },
         'Recorded CodeRabbit acknowledgement on PullRequest',
       );
     });
@@ -524,7 +524,7 @@ describe('PullRequestRepositoryImpl', () => {
       const reviewUrl = generateReviewRef().commentUrl;
       const reviewState = CodeRabbitCommentType.review_approved;
       const { prisma, pullRequest } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.recordReview(id, reviewUrl, reviewState, undefined, prisma);
 
@@ -538,7 +538,7 @@ describe('PullRequestRepositoryImpl', () => {
           reviewed_head_sha: null,
         },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.recordReview', id }, 'Recorded review on PullRequest');
     });
 
     it('snapshots the current head sha as reviewed_head_sha', async () => {
@@ -548,7 +548,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock({ id, head_sha: headSha }) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_approved, undefined, prisma);
 
@@ -563,7 +563,7 @@ describe('PullRequestRepositoryImpl', () => {
           reviewed_head_sha: headSha,
         },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.recordReview', id }, 'Recorded review on PullRequest');
     });
 
     it('prefers the supplied reviewed head sha over the findUnique head_sha fallback', async () => {
@@ -574,7 +574,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock({ id, head_sha: currentHeadSha }) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_approved, suppliedSha, prisma);
 
@@ -589,14 +589,14 @@ describe('PullRequestRepositoryImpl', () => {
           reviewed_head_sha: suppliedSha,
         },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.recordReview', id }, 'Recorded review on PullRequest');
     });
 
     it('stores review_changes_suggested verdict state', async () => {
       const id = getUniqueInt();
       const reviewUrl = generateReviewRef().commentUrl;
       const { prisma, pullRequest } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.recordReview(id, reviewUrl, CodeRabbitCommentType.review_changes_suggested, undefined, prisma);
 
@@ -610,7 +610,7 @@ describe('PullRequestRepositoryImpl', () => {
           reviewed_head_sha: null,
         },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordReview', id }, 'Recorded review on PullRequest');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.recordReview', id }, 'Recorded review on PullRequest');
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
@@ -618,18 +618,18 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
         pullRequest: { update: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await expect(
         sut.recordReview(getUniqueInt(), generateReviewRef().commentUrl, CodeRabbitCommentType.review_approved, undefined, prisma),
       ).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'PullRequest'",
-        functionName: 'PullRequestRepositoryImpl.recordReview',
+        functionName: 'PullRequestRepository.recordReview',
         details: { tableName: 'PullRequest' },
         cause: p2025,
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.recordReview', modelName: 'PullRequest', prismaCode: 'P2025' },
+        { fn: 'PullRequestRepository.recordReview', modelName: 'PullRequest', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
       );
     });
@@ -645,7 +645,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.findByPrState(PrState.open);
 
@@ -656,7 +656,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock([]) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.findByPrState(PrState.merged);
 
@@ -667,7 +667,7 @@ describe('PullRequestRepositoryImpl', () => {
   describe('getColumnMaps', () => {
     it('returns empty result when ids array is empty', async () => {
       const { prisma } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.getColumnMaps([], ['pr_state']);
 
@@ -676,7 +676,7 @@ describe('PullRequestRepositoryImpl', () => {
 
     it('returns empty result when columns array is empty', async () => {
       const { prisma } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.getColumnMaps([1], []);
 
@@ -693,7 +693,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.getColumnMaps([id1, id2], ['pr_state']);
 
@@ -720,7 +720,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         pullRequest: { findMany: createResolvedMock(rows) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.getColumnMaps([id1, id2], ['pr_state', 'last_coderabbit_acknowledged_at']);
 
@@ -764,7 +764,7 @@ describe('PullRequestRepositoryImpl', () => {
       ];
       const queryRawUnsafe = jest.fn<any>().mockResolvedValue(rows);
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.findStaleOpenPRs();
 
@@ -782,17 +782,17 @@ describe('PullRequestRepositoryImpl', () => {
           lastReviewRequestedAt: new Date(row.last_review_requested_at),
         })),
       );
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findStaleOpenPRs', count: rows.length }, 'Found stale open PRs');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.findStaleOpenPRs', count: rows.length }, 'Found stale open PRs');
     });
 
     it('returns empty array when no stale PRs exist', async () => {
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.findStaleOpenPRs();
 
       expect(result).toStrictEqual([]);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findStaleOpenPRs', count: 0 }, 'Found stale open PRs');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.findStaleOpenPRs', count: 0 }, 'Found stale open PRs');
     });
   });
 
@@ -822,7 +822,7 @@ describe('PullRequestRepositoryImpl', () => {
       const rows = [rowWithReview, neverEnqueuedRow];
       const queryRawUnsafe = jest.fn<any>().mockResolvedValue(rows);
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.findTrackedPRs();
 
@@ -835,17 +835,17 @@ describe('PullRequestRepositoryImpl', () => {
         { ...rowWithReview, last_coderabbit_review_at: new Date(rowWithReview.last_coderabbit_review_at) },
         { ...neverEnqueuedRow, last_coderabbit_review_at: null },
       ]);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findTrackedPRs', count: rows.length }, 'Found tracked open PRs');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.findTrackedPRs', count: rows.length }, 'Found tracked open PRs');
     });
 
     it('returns empty array when no tracked PRs exist', async () => {
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       const result = await sut.findTrackedPRs();
 
       expect(result).toStrictEqual([]);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.findTrackedPRs', count: 0 }, 'Found tracked open PRs');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.findTrackedPRs', count: 0 }, 'Found tracked open PRs');
     });
   });
 
@@ -857,7 +857,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.recordReviewLimitDetection(id, reviewLimitAt, prisma);
 
@@ -866,7 +866,7 @@ describe('PullRequestRepositoryImpl', () => {
         data: { first_review_limit_at: reviewLimitAt, last_review_limit_at: reviewLimitAt },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.recordReviewLimitDetection', id },
+        { fn: 'PullRequestRepository.recordReviewLimitDetection', id },
         'Recorded review limit detection on PullRequest',
       );
     });
@@ -878,7 +878,7 @@ describe('PullRequestRepositoryImpl', () => {
       const { prisma, pullRequest } = createMockPrismaClient({
         pullRequest: { findUnique: createResolvedMock(existing) },
       });
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.recordReviewLimitDetection(id, reviewLimitAt, prisma);
 
@@ -887,7 +887,7 @@ describe('PullRequestRepositoryImpl', () => {
         data: { last_review_limit_at: reviewLimitAt },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'PullRequestRepositoryImpl.recordReviewLimitDetection', id },
+        { fn: 'PullRequestRepository.recordReviewLimitDetection', id },
         'Recorded review limit detection on PullRequest',
       );
     });
@@ -898,7 +898,7 @@ describe('PullRequestRepositoryImpl', () => {
       const id = getUniqueInt();
       const reviewedAt = getUniqueDate();
       const { prisma, pullRequest } = createMockPrismaClient();
-      const sut = new PullRequestRepositoryImpl(prisma, logger);
+      const sut = new PullRequestRepository(prisma, logger);
 
       await sut.recordWalkthroughReview(id, reviewedAt);
 
@@ -906,7 +906,7 @@ describe('PullRequestRepositoryImpl', () => {
         where: { id },
         data: { last_coderabbit_review_at: reviewedAt },
       });
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepositoryImpl.recordWalkthroughReview', id }, 'Recorded walkthrough review on PullRequest');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.recordWalkthroughReview', id }, 'Recorded walkthrough review on PullRequest');
     });
   });
 });

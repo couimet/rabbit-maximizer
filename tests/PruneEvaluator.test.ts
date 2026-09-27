@@ -1,5 +1,5 @@
 import type { PRStateFetcher } from '../src/github/index.js';
-import { PruneEvaluatorImpl } from '../src/services.js';
+import { PruneEvaluator } from '../src/services.js';
 
 import { generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
 
@@ -19,7 +19,7 @@ describe('PruneEvaluator', () => {
     logger = createMockLogger();
   });
 
-  const createEvaluator = () => new PruneEvaluatorImpl(fetcher, logger);
+  const createEvaluator = () => new PruneEvaluator(fetcher, logger);
 
   describe('evaluate', () => {
     it('returns merged outcome for merged PRs', async () => {

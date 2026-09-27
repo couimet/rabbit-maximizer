@@ -22,39 +22,8 @@ const MAX_SKIPPED_ITEMS = 50;
 const REOPENABLE_RESOLUTIONS: readonly Resolution[] = [Resolution.ReviewCompleted, Resolution.Failed, Resolution.Skipped] as const;
 const ACTIVE_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
 
-export interface QueueRepository {
-  enqueue(data: EnqueueData, tx: Prisma.TransactionClient): Promise<EnqueueResult>;
-  markRetriggered(
-    id: number,
-    cooldownUntil: Date,
-    retriggerCommentUrl: string,
-    coderabbitRunId: string | undefined,
-    tx: Prisma.TransactionClient,
-  ): Promise<QueueItem>;
-  markRetriggerSkipped(id: number, reason: SkipReason, tx: Prisma.TransactionClient): Promise<boolean>;
-  markResolved(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  markResolvedIfStillRetriggered(id: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<boolean>;
-  adoptRunIfStillRetriggered(id: number, expectedRunId: string | undefined, adoptedRunId: string, tx: Prisma.TransactionClient): Promise<boolean>;
-  reopenStaleRetriggered(id: number, opts: ReopenStaleRetriggeredOptions, tx: Prisma.TransactionClient): Promise<boolean>;
-  markResolvedByUuid(uuid: string, resolution: Resolution, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
-  reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  backoff(id: number, tx: Prisma.TransactionClient): Promise<QueueItem>;
-  findBySourceCommentId(commentId: number, tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
-  existsByPullRequestId(pullRequestId: number): Promise<boolean>;
-  resolveStaleRetriggered(maxAgeMs: number, tx: Prisma.TransactionClient): Promise<number>;
-  getPendingQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getRetriggeredQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getActiveQueue(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  getActivityList(since: Date, skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
-  getOldestPending(tx?: Prisma.TransactionClient): Promise<QueueItem | undefined>;
-  getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>>;
-  getCountsByStatus(tx?: Prisma.TransactionClient): Promise<Record<QueueStatus, number>>;
-  getSkippedItems(tx?: Prisma.TransactionClient): Promise<QueueItem[]>;
-  incrementAttempts(id: number, attempts: number, tx: Prisma.TransactionClient): Promise<void>;
-}
-
 @injectable()
-export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRepository {
+export class QueueRepository extends BasePrismaRepository {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PrismaClient) prisma: PrismaClient,
@@ -308,7 +277,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               cooldown_until: data.cooldownUntil ?? null,
             },
           }),
-        'QueueRepositoryImpl.enqueue',
+        'QueueRepository.enqueue',
       );
 
       await db.queueOrder.create({ data: { queue_item_id: row.id } });
@@ -379,7 +348,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         return { item: this.mapper.fromReviewQueue(existingResolved), created: false };
       }
     }
-    this.log.warn({ fn: 'QueueRepositoryImpl.enqueue', repo, pr, error: err }, 'Enqueue failed; rethrowing');
+    this.log.warn({ fn: 'QueueRepository.enqueue', repo, pr, error: err }, 'Enqueue failed; rethrowing');
     throw err;
   }
 
@@ -406,9 +375,9 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             cooldown_until: cooldownUntil,
           },
         }),
-      'QueueRepositoryImpl.markRetriggered',
+      'QueueRepository.markRetriggered',
     );
-    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil, retriggerCommentUrl, coderabbitRunId }, 'Marked review retriggered');
+    this.log.debug({ fn: 'QueueRepository.markRetriggered', id, cooldownUntil, retriggerCommentUrl, coderabbitRunId }, 'Marked review retriggered');
     return this.mapper.fromReviewQueue(row);
   }
 
@@ -422,7 +391,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       },
     });
     const changed = result.count === 1;
-    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggerSkipped', id, reason, changed }, 'Marked review retrigger skipped');
+    this.log.debug({ fn: 'QueueRepository.markRetriggerSkipped', id, reason, changed }, 'Marked review retrigger skipped');
     return changed;
   }
 
@@ -433,9 +402,9 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
           where: { id },
           data: { status: QueueStatus.resolved, resolution, resolved_at: new Date() },
         }),
-      'QueueRepositoryImpl.markResolved',
+      'QueueRepository.markResolved',
     );
-    this.log.debug({ fn: 'QueueRepositoryImpl.markResolved', id, resolution }, 'Marked review resolved');
+    this.log.debug({ fn: 'QueueRepository.markResolved', id, resolution }, 'Marked review resolved');
     return this.mapper.fromReviewQueue(row);
   }
 
@@ -445,7 +414,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       data: { status: QueueStatus.resolved, resolution, resolved_at: new Date() },
     });
     const changed = result.count === 1;
-    this.log.debug({ fn: 'QueueRepositoryImpl.markResolvedIfStillRetriggered', id, resolution, changed }, 'Marked review resolved if still retriggered');
+    this.log.debug({ fn: 'QueueRepository.markResolvedIfStillRetriggered', id, resolution, changed }, 'Marked review resolved if still retriggered');
     return changed;
   }
 
@@ -457,7 +426,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       data: { source_comment_run_id: adoptedRunId, retriggered_at: new Date() },
     });
     const changed = result.count === 1;
-    this.log.debug({ fn: 'QueueRepositoryImpl.adoptRunIfStillRetriggered', id, expectedRunId, adoptedRunId, changed }, 'Adopted run on retriggered item');
+    this.log.debug({ fn: 'QueueRepository.adoptRunIfStillRetriggered', id, expectedRunId, adoptedRunId, changed }, 'Adopted run on retriggered item');
     return changed;
   }
 
@@ -479,14 +448,14 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       },
     });
     if (count === 0) {
-      this.log.debug({ fn: 'QueueRepositoryImpl.reopenStaleRetriggered', id, changed: false }, 'Stale retriggered item already moved on; skipping reopen');
+      this.log.debug({ fn: 'QueueRepository.reopenStaleRetriggered', id, changed: false }, 'Stale retriggered item already moved on; skipping reopen');
       return false;
     }
     const existingOrder = await db.queueOrder.findUnique({ where: { queue_item_id: id } });
     if (!existingOrder) {
       await db.queueOrder.create({ data: { queue_item_id: id } });
     }
-    this.log.debug({ fn: 'QueueRepositoryImpl.reopenStaleRetriggered', id, changed: true }, 'Reopened stale retriggered item as pending');
+    this.log.debug({ fn: 'QueueRepository.reopenStaleRetriggered', id, changed: true }, 'Reopened stale retriggered item as pending');
     return true;
   }
 
@@ -502,7 +471,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               where: { uuid },
               data: { status: QueueStatus.resolved, resolution, resolved_at: new Date() },
             }),
-          'QueueRepositoryImpl.markResolvedByUuid',
+          'QueueRepository.markResolvedByUuid',
         );
         probe.queueItemMarkedReviewed(updated);
         return this.mapper.fromReviewQueue(updated);
@@ -531,9 +500,9 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
               retriggered_at: new Date(),
             },
           }),
-        'QueueRepositoryImpl.reschedule',
+        'QueueRepository.reschedule',
       );
-      this.log.debug({ fn: 'QueueRepositoryImpl.reschedule', id }, 'Rescheduled review');
+      this.log.debug({ fn: 'QueueRepository.reschedule', id }, 'Rescheduled review');
       return this.mapper.fromReviewQueue(row);
     } catch (err) {
       if (err instanceof PrismaUniqueConstraintViolationError) {
@@ -547,14 +516,14 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             data: { status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted, resolved_at: new Date() },
           });
           this.log.info(
-            { fn: 'QueueRepositoryImpl.reschedule', id, existingId: existing.id, sourceCommentId: sourceComment.commentId },
+            { fn: 'QueueRepository.reschedule', id, existingId: existing.id, sourceCommentId: sourceComment.commentId },
             'Reschedule collision: source_comment_id already exists on a resolved row; marking current item as resolved',
           );
           return this.mapper.fromReviewQueue(existing);
         }
       }
       this.log.error(
-        { fn: 'QueueRepositoryImpl.reschedule', id, sourceCommentId: sourceComment.commentId, error: err },
+        { fn: 'QueueRepository.reschedule', id, sourceCommentId: sourceComment.commentId, error: err },
         'Reschedule failed with no existing row to recover; rethrowing',
       );
       throw err;
@@ -572,9 +541,9 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
             retriggered_at: new Date(),
           },
         }),
-      'QueueRepositoryImpl.backoff',
+      'QueueRepository.backoff',
     );
-    this.log.debug({ fn: 'QueueRepositoryImpl.backoff', id }, 'Backoff applied');
+    this.log.debug({ fn: 'QueueRepository.backoff', id }, 'Backoff applied');
     return this.mapper.fromReviewQueue(row);
   }
 
@@ -584,7 +553,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       const row = await db.reviewQueue.findFirst({
         where: { source_comment_id: commentId },
       });
-      this.log.debug({ fn: 'QueueRepositoryImpl.findBySourceCommentId', commentId, found: row !== null }, 'Searched by source comment ID');
+      this.log.debug({ fn: 'QueueRepository.findBySourceCommentId', commentId, found: row !== null }, 'Searched by source comment ID');
       return row ? this.mapper.fromReviewQueue(row) : undefined;
     });
   }
@@ -593,7 +562,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     const db = this.client();
     const count = await db.reviewQueue.count({ where: { pull_request_id: pullRequestId } });
     const exists = count > 0;
-    this.log.debug({ fn: 'QueueRepositoryImpl.existsByPullRequestId', pullRequestId, exists }, 'Checked queue existence by pull request');
+    this.log.debug({ fn: 'QueueRepository.existsByPullRequestId', pullRequestId, exists }, 'Checked queue existence by pull request');
     return exists;
   }
 
@@ -621,7 +590,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         where: { status: QueueStatus.pending },
         orderBy: { id: 'asc' },
       });
-      this.log.debug({ fn: 'QueueRepositoryImpl.getPendingQueue', count: rows.length }, 'Fetched pending queue');
+      this.log.debug({ fn: 'QueueRepository.getPendingQueue', count: rows.length }, 'Fetched pending queue');
       return rows.map((row) => this.mapper.fromReviewQueue(row));
     });
   }
@@ -633,7 +602,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         where: { status: QueueStatus.retriggered },
         orderBy: { retriggered_at: 'asc' },
       });
-      this.log.debug({ fn: 'QueueRepositoryImpl.getRetriggeredQueue', count: rows.length }, 'Fetched retriggered queue');
+      this.log.debug({ fn: 'QueueRepository.getRetriggeredQueue', count: rows.length }, 'Fetched retriggered queue');
       return rows.map((row) => this.mapper.fromReviewQueue(row));
     });
   }
@@ -645,7 +614,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         where: { status: { in: [...ACTIVE_STATUSES] } },
         orderBy: { id: 'asc' },
       });
-      this.log.debug({ fn: 'QueueRepositoryImpl.getActiveQueue', count: rows.length }, 'Fetched active queue');
+      this.log.debug({ fn: 'QueueRepository.getActiveQueue', count: rows.length }, 'Fetched active queue');
       return rows.map((row) => this.mapper.fromReviewQueue(row));
     });
   }
@@ -664,7 +633,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         db.reviewQueue.count({ where }),
       ]);
 
-      this.log.debug({ fn: 'QueueRepositoryImpl.getActivityList', since, skip, take, count: rows.length, total }, 'Fetched activity list');
+      this.log.debug({ fn: 'QueueRepository.getActivityList', since, skip, take, count: rows.length, total }, 'Fetched activity list');
       return {
         items: rows.map((row) => this.mapper.fromReviewQueue(row)),
         total,
@@ -679,7 +648,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         where: { status: QueueStatus.pending },
         orderBy: { id: 'asc' },
       });
-      this.log.debug({ fn: 'QueueRepositoryImpl.getOldestPending', found: row !== null }, 'Fetched oldest pending item');
+      this.log.debug({ fn: 'QueueRepository.getOldestPending', found: row !== null }, 'Fetched oldest pending item');
       return row ? this.mapper.fromReviewQueue(row) : undefined;
     });
   }
@@ -688,7 +657,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
   async getAll(skip: number, take: number, tx?: Prisma.TransactionClient): Promise<PaginatedResult<QueueItem>> {
     return this.enforceTx(tx, async (db) => {
       const [rows, total] = await Promise.all([db.reviewQueue.findMany({ orderBy: { id: 'asc' }, skip, take }), db.reviewQueue.count()]);
-      this.log.debug({ fn: 'QueueRepositoryImpl.getAll', count: rows.length, total }, 'Fetched all queue items');
+      this.log.debug({ fn: 'QueueRepository.getAll', count: rows.length, total }, 'Fetched all queue items');
       return { items: rows.map((row) => this.mapper.fromReviewQueue(row)), total };
     });
   }
@@ -704,7 +673,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
       for (const row of rows) {
         counts[row.status as QueueStatus] = row._count.status;
       }
-      this.log.debug({ fn: 'QueueRepositoryImpl.getCountsByStatus', counts }, 'Fetched queue counts by status');
+      this.log.debug({ fn: 'QueueRepository.getCountsByStatus', counts }, 'Fetched queue counts by status');
       return counts;
     });
   }
@@ -717,7 +686,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         orderBy: { created_at: 'desc' },
         take: MAX_SKIPPED_ITEMS,
       });
-      this.log.debug({ fn: 'QueueRepositoryImpl.getSkippedItems', count: rows.length }, 'Fetched skipped items');
+      this.log.debug({ fn: 'QueueRepository.getSkippedItems', count: rows.length }, 'Fetched skipped items');
       return rows.map((row) => this.mapper.fromReviewQueue(row));
     });
   }

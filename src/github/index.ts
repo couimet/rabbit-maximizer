@@ -19,8 +19,7 @@ export {
   REVIEW_BOT_SKIP_SEARCH_TEXTS,
   REVIEW_STACK_MARKER,
 } from './coderabbitConstants.js';
-export type { CoderabbitGitHubClient } from './coderabbitGitHubClient.js';
-export { CoderabbitGitHubClientImpl } from './coderabbitGitHubClient.js';
+export { CoderabbitGitHubClient } from './coderabbitGitHubClient.js';
 export { extractRepoFullName } from './extractRepoFullName.js';
 export { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
 export { hasRateLimitMarker } from './hasRateLimitMarker.js';
@@ -34,8 +33,7 @@ export { normalizeCommentBody } from './normalizeCommentBody.js';
 export { parseCommentUrl } from './parseCommentUrl.js';
 export { parseGitHubRateLimitError } from './parseGitHubRateLimitError.js';
 export { parseWaitSeconds } from './parseWaitSeconds.js';
-export type { PRStateFetcher } from './PRStateFetcher.js';
-export { PRStateFetcherImpl } from './PRStateFetcher.js';
+export { PRStateFetcher } from './PRStateFetcher.js';
 export { isPRClosedWithoutMerge, isPRMerged } from './prStateUtils.js';
 export { splitRepo } from './splitRepo.js';
 export { SubmittedComment } from './SubmittedComment.js';

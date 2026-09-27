@@ -33,7 +33,7 @@ A probe MUST NOT be reused across business processes. Each probe is tied to exac
 
 ### Single-entity callers
 
-Each repository should deal with exactly one entity. `QueueRepositoryImpl` only touches `reviewQueue` rows. Cross-entity concerns (event recording, execution-context ids) live in probes.
+Each repository should deal with exactly one entity. `QueueRepository` only touches `reviewQueue` rows. Cross-entity concerns (event recording, execution-context ids) live in probes.
 
 ### Construction and wiring
 
@@ -51,7 +51,7 @@ A probe never mutates the entity it observes. It records what happened and logs 
 ### What stays in the caller
 
 - **Operational decisions** — pruning, pausing, skipping. These describe the caller's control flow, not a business outcome.
-- **Entity mutations** — all of them. The caller owns state changes (`queue.markRetriggered`, `queue.markFailed`, `queue.markCompleted`). The probe records what happened and logs the outcome; it never touches the entity. `QueueRepositoryImpl.markReviewedByUuid` shows the pattern: update the row, then tell the probe.
+- **Entity mutations** — all of them. The caller owns state changes (`queue.markRetriggered`, `queue.markFailed`, `queue.markCompleted`). The probe records what happened and logs the outcome; it never touches the entity. `QueueRepository.markReviewedByUuid` shows the pattern: update the row, then tell the probe.
 - **Control flow** — if/switch/try-catch branches. The probe receives the outcome of each branch; it does not decide which branch to take.
 
 ### Naming

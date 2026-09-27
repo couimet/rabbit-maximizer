@@ -12,7 +12,7 @@ const { octokit, rest: { search, issues } } = createMockOctokit();
 issues.createComment.mockResolvedValue({ data: { html_url: "..." } });
 search.issuesAndPullRequests.mockResolvedValue({ data: { items: [] } });
 
-const client = new CoderabbitGitHubClientImpl(octokit, logger);
+const client = new CoderabbitGitHubClient(octokit, logger);
 // ...
 expect(issues.createComment).toHaveBeenCalledWith({...});
 ```

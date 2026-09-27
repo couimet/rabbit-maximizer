@@ -9,12 +9,8 @@ import { getPrStateFromGitHubValue, PrState, TYPES } from './domain.js';
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
-export interface PrScanner {
-  scan(): Promise<ScanResult>;
-}
-
 @injectable()
-export class PrScannerImpl implements PrScanner {
+export class PrScanner {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.CoderabbitGitHubClient)

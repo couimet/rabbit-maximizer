@@ -1,4 +1,4 @@
-import { CoderabbitCommentRepositoryImpl } from '../../src/db/index.js';
+import { CoderabbitCommentRepository } from '../../src/db/index.js';
 import { CodeRabbitCommentType } from '../../src/domain.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { createMockPrismaClient, generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from '../helpers/index.js';
@@ -10,7 +10,7 @@ import { Prisma } from '@prisma/client';
 
 const EXPECTED_BODY_PREVIEW_MAX_LENGTH = 1024;
 
-describe('CoderabbitCommentRepositoryImpl', () => {
+describe('CoderabbitCommentRepository', () => {
   let frozenNow: Date;
   let logger: ReturnType<typeof createMockLogger>;
 
@@ -28,7 +28,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(created) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.upsert(data);
 
@@ -49,7 +49,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       });
       expect(result.id).toBe(created.id);
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: created.id },
+        { fn: 'CoderabbitCommentRepository.upsert', commentId: data.comment_id, id: created.id },
         'Created CoderabbitComment',
       );
     });
@@ -64,7 +64,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           updateMany: jest.fn<any>().mockResolvedValue({ count: 1 }),
         },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.upsert(data);
 
@@ -81,7 +81,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       });
       expect(result).toStrictEqual(updated);
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: existing.id },
+        { fn: 'CoderabbitCommentRepository.upsert', commentId: data.comment_id, id: existing.id },
         'Updated CoderabbitComment',
       );
     });
@@ -96,7 +96,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           updateMany: jest.fn<any>().mockResolvedValue({ count: 0 }),
         },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.upsert(data);
 
@@ -115,7 +115,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       expect(result.coderabbit_run_id).toBe(newer.coderabbit_run_id);
       expect(result.gh_updated_at).toBe(newer.gh_updated_at);
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: existing.id },
+        { fn: 'CoderabbitCommentRepository.upsert', commentId: data.comment_id, id: existing.id },
         'Updated CoderabbitComment',
       );
     });
@@ -126,7 +126,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(createdRow) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       await sut.upsert(data);
 
@@ -146,7 +146,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: createdRow.id },
+        { fn: 'CoderabbitCommentRepository.upsert', commentId: data.comment_id, id: createdRow.id },
         'Created CoderabbitComment',
       );
     });
@@ -157,7 +157,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(createdRow) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       await sut.upsert(data);
 
@@ -177,7 +177,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
         },
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: createdRow.id },
+        { fn: 'CoderabbitCommentRepository.upsert', commentId: data.comment_id, id: createdRow.id },
         'Created CoderabbitComment',
       );
     });
@@ -189,7 +189,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(created) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       await sut.upsert(data);
 
@@ -217,16 +217,16 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(existing), updateMany: jest.fn<any>().mockRejectedValue(p2025) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       await expect(sut.upsert(data)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'CoderabbitComment'",
-        functionName: 'CoderabbitCommentRepositoryImpl.upsert',
+        functionName: 'CoderabbitCommentRepository.upsert',
         details: { tableName: 'CoderabbitComment' },
         cause: p2025,
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'CoderabbitCommentRepositoryImpl.upsert', modelName: 'CoderabbitComment', prismaCode: 'P2025' },
+        { fn: 'CoderabbitCommentRepository.upsert', modelName: 'CoderabbitComment', prismaCode: 'P2025' },
         'Prisma record not found, throwing typed error',
       );
     });
@@ -243,7 +243,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           updateMany: jest.fn<any>().mockResolvedValue({ count: 1 }),
         },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.upsert(data);
 
@@ -260,7 +260,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       });
       expect(result).toStrictEqual(updated);
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'CoderabbitCommentRepositoryImpl.upsert', commentId: data.comment_id, id: winningRow.id },
+        { fn: 'CoderabbitCommentRepository.upsert', commentId: data.comment_id, id: winningRow.id },
         'Updated CoderabbitComment (race recovery)',
       );
     });
@@ -274,16 +274,16 @@ describe('CoderabbitCommentRepositoryImpl', () => {
           create: jest.fn<any>().mockRejectedValue(p2002),
         },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       await expect(sut.upsert(data)).rejects.toBeDetailedError('PRISMA_UNIQUE_CONSTRAINT_VIOLATION_P2002', {
         message: "Unique constraint violation in table 'CoderabbitComment'",
-        functionName: 'CoderabbitCommentRepositoryImpl.upsert',
+        functionName: 'CoderabbitCommentRepository.upsert',
         details: { tableName: 'CoderabbitComment' },
         cause: p2002,
       });
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'CoderabbitCommentRepositoryImpl.upsert', modelName: 'CoderabbitComment', prismaCode: 'P2002' },
+        { fn: 'CoderabbitCommentRepository.upsert', modelName: 'CoderabbitComment', prismaCode: 'P2002' },
         'Unique constraint violation, throwing typed error',
       );
     });
@@ -293,7 +293,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
     it('sets is_not_deleted = null and deleted_at on the active row', async () => {
       const commentId = getUniqueInt();
       const { prisma, coderabbitComment } = createMockPrismaClient();
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       await sut.deactivate(commentId);
 
@@ -312,7 +312,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findMany: jest.fn<any>().mockResolvedValue(rows) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.findByPr(pullRequestId);
 
@@ -327,7 +327,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         coderabbitComment: { findMany: jest.fn<any>().mockResolvedValue([]) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.findByPr(getUniqueInt());
 
@@ -343,7 +343,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(row) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.findByCommentId(pullRequestId, commentId);
 
@@ -357,7 +357,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.findByCommentId(getUniqueInt(), getUniqueInt());
 
@@ -373,7 +373,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(row) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.findByType(pullRequestId, commentType);
 
@@ -388,7 +388,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.findByType(getUniqueInt(), getRandomEnumValue(CodeRabbitCommentType));
 
@@ -403,7 +403,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma, coderabbitComment } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(row) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.findCompletedReview(pullRequestId);
 
@@ -421,7 +421,7 @@ describe('CoderabbitCommentRepositoryImpl', () => {
       const { prisma } = createMockPrismaClient({
         coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null) },
       });
-      const sut = new CoderabbitCommentRepositoryImpl(prisma, logger);
+      const sut = new CoderabbitCommentRepository(prisma, logger);
 
       const result = await sut.findCompletedReview(getUniqueInt());
 

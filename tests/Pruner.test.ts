@@ -1,5 +1,5 @@
 import { RabbitMaximizerError } from '../src/errors/index.js';
-import { PrunerImpl } from '../src/services.js';
+import { Pruner } from '../src/services.js';
 
 import {
   createMockProbeFactory,
@@ -34,7 +34,7 @@ describe('Pruner', () => {
     probeFactory = createMockProbeFactory({ createPrunerProbe: jest.fn<any>().mockReturnValue(mockProbe) });
   });
 
-  const createPruner = () => new PrunerImpl(queue, pruneEvaluator, probeFactory, prisma, log);
+  const createPruner = () => new Pruner(queue, pruneEvaluator, probeFactory, prisma, log);
 
   describe('prune', () => {
     it('evaluates active items and applies prune decisions in a transaction', async () => {
@@ -108,7 +108,7 @@ describe('Pruner', () => {
       pruneEvaluator.evaluate.mockResolvedValue([{ item, outcome: 'bad' as any }]);
       await createPruner().prune();
       expect(mockProbe.caughtError).toHaveBeenCalledTimes(1);
-      expect(mockProbe.caughtError).toHaveBeenCalledWith(RabbitMaximizerError.forUnexpectedSwitchDefault('prune outcome', 'bad', 'PrunerImpl.prune'));
+      expect(mockProbe.caughtError).toHaveBeenCalledWith(RabbitMaximizerError.forUnexpectedSwitchDefault('prune outcome', 'bad', 'Pruner.prune'));
     });
   });
 });

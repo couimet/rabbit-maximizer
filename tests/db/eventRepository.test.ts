@@ -1,4 +1,4 @@
-import { type EventRepository, EventRepositoryImpl, type NewEvent } from '../../src/db/index.js';
+import { EventRepository, type NewEvent } from '../../src/db/index.js';
 import { EventType, TYPES } from '../../src/domain.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewRef } from '../helpers/index.js';
 
@@ -9,7 +9,7 @@ import { describe, expect, it } from '@jest/globals';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { Container } from 'inversify';
 
-describe('EventRepositoryImpl', () => {
+describe('EventRepository', () => {
   const EXPECTED_EVENT_COUNT = 2;
 
   describe('record', () => {
@@ -42,7 +42,7 @@ describe('EventRepositoryImpl', () => {
         event: { create: createResolvedMock(storedRow) },
       });
       const logger = createMockLogger();
-      const sut = new EventRepositoryImpl(prisma, logger);
+      const sut = new EventRepository(prisma, logger);
 
       const input: NewEvent = {
         type: EventType.detected,
@@ -82,10 +82,7 @@ describe('EventRepositoryImpl', () => {
         metadata: undefined,
         payload: { source_comment_url: sourceCommentUrl },
       });
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'EventRepositoryImpl.record', type: 'detected', repo: ref.repoFullName, pr: ref.prNumber },
-        'Event recorded',
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepository.record', type: 'detected', repo: ref.repoFullName, pr: ref.prNumber }, 'Event recorded');
     });
 
     it('writes through the transaction client and serializes metadata', async () => {
@@ -120,7 +117,7 @@ describe('EventRepositoryImpl', () => {
       });
       const base = createMockPrismaClient();
       const logger = createMockLogger();
-      const sut = new EventRepositoryImpl(base.prisma, logger);
+      const sut = new EventRepository(base.prisma, logger);
 
       const result = await sut.record(
         {
@@ -153,10 +150,7 @@ describe('EventRepositoryImpl', () => {
       expect(result.metadata).toStrictEqual(metadata);
       expect(result.request_id).toBeUndefined();
       expect(result.run_id).toBe(runId);
-      expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'EventRepositoryImpl.record', type: 'failed', repo: ref.repoFullName, pr: ref.prNumber },
-        'Event recorded',
-      );
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepository.record', type: 'failed', repo: ref.repoFullName, pr: ref.prNumber }, 'Event recorded');
     });
   });
 
@@ -198,7 +192,7 @@ describe('EventRepositoryImpl', () => {
         event: { findMany: createResolvedMock([detectedRow, enqueuedRow]) },
       });
       const logger = createMockLogger();
-      const sut = new EventRepositoryImpl(prisma, logger);
+      const sut = new EventRepository(prisma, logger);
 
       const result = await sut.listForPr(ref.repoFullName, ref.prNumber);
 
@@ -238,7 +232,7 @@ describe('EventRepositoryImpl', () => {
       ]);
       expect(logger.debug).toHaveBeenCalledWith(
         {
-          fn: 'EventRepositoryImpl.listForPr',
+          fn: 'EventRepository.listForPr',
           repo: ref.repoFullName,
           pr: ref.prNumber,
           count: EXPECTED_EVENT_COUNT,
@@ -277,7 +271,7 @@ describe('EventRepositoryImpl', () => {
         event: { findMany: createResolvedMock(rows), count: createResolvedMock(total) },
       });
       const logger = createMockLogger();
-      const sut = new EventRepositoryImpl(prisma, logger);
+      const sut = new EventRepository(prisma, logger);
 
       const result = await sut.listRecent(skip, take, undefined);
 
@@ -305,7 +299,7 @@ describe('EventRepositoryImpl', () => {
         },
       ]);
       expect(result.total).toBe(total);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total, runId: undefined }, 'Listed recent events');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepository.listRecent', count: rows.length, total, runId: undefined }, 'Listed recent events');
     });
 
     it('applies the run id filter to both the page and the total count', async () => {
@@ -331,14 +325,14 @@ describe('EventRepositoryImpl', () => {
         event: { findMany: createResolvedMock([row]), count: createResolvedMock(1) },
       });
       const logger = createMockLogger();
-      const sut = new EventRepositoryImpl(prisma, logger);
+      const sut = new EventRepository(prisma, logger);
 
       const result = await sut.listRecent(skip, take, runId);
 
       expect(event.findMany).toHaveBeenCalledWith({ where: { run_id: runId }, orderBy: { ts: 'desc' }, skip, take });
       expect(event.count).toHaveBeenCalledWith({ where: { run_id: runId } });
       expect(result.total).toBe(1);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.listRecent', count: 1, total: 1, runId }, 'Listed recent events');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepository.listRecent', count: 1, total: 1, runId }, 'Listed recent events');
     });
   });
 
@@ -388,7 +382,7 @@ describe('EventRepositoryImpl', () => {
         event: { groupBy: createResolvedMock(rows) },
       });
       const logger = createMockLogger();
-      const sut = new EventRepositoryImpl(prisma, logger);
+      const sut = new EventRepository(prisma, logger);
 
       const result = await sut.countByType(since);
 
@@ -412,7 +406,7 @@ describe('EventRepositoryImpl', () => {
       });
       expect(logger.debug).toHaveBeenCalledWith(
         {
-          fn: 'EventRepositoryImpl.countByType',
+          fn: 'EventRepository.countByType',
           counts: {
             dismissed: dismissedCnt,
             coderabbit_review_approved: approvedCnt,
@@ -458,12 +452,12 @@ describe('EventRepositoryImpl', () => {
         event: { groupBy: createResolvedMock(rows) },
       });
       const logger = createMockLogger();
-      const sut = new EventRepositoryImpl(prisma, logger);
+      const sut = new EventRepository(prisma, logger);
 
       const result = await sut.countByType(since);
 
       expect(result).toStrictEqual(expectedCounts);
-      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepositoryImpl.countByType', counts: expectedCounts }, 'Counted events by type');
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'EventRepository.countByType', counts: expectedCounts }, 'Counted events by type');
     });
   });
 
@@ -475,10 +469,10 @@ describe('EventRepositoryImpl', () => {
 
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
-      container.bind<EventRepository>(TYPES.EventRepository).to(EventRepositoryImpl);
+      container.bind<EventRepository>(TYPES.EventRepository).to(EventRepository);
 
       const repo = container.get<EventRepository>(TYPES.EventRepository);
-      expect(repo).toBeInstanceOf(EventRepositoryImpl);
+      expect(repo).toBeInstanceOf(EventRepository);
     });
   });
 });

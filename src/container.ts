@@ -1,20 +1,14 @@
 import {
-  type CoderabbitCommentRepository,
-  CoderabbitCommentRepositoryImpl,
+  CoderabbitCommentRepository,
   createPrismaClient,
-  type EventRepository,
-  EventRepositoryImpl,
-  type PullRequestRepository,
-  PullRequestRepositoryImpl,
-  type QueueOrderRepository,
-  QueueOrderRepositoryImpl,
-  type QueueRepository,
-  QueueRepositoryImpl,
-  type SystemStateRepository,
-  SystemStateRepositoryImpl,
+  EventRepository,
+  PullRequestRepository,
+  QueueOrderRepository,
+  QueueRepository,
+  SystemStateRepository,
 } from './db/index.js';
 import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/index.js';
-import { type CoderabbitGitHubClient, CoderabbitGitHubClientImpl, type PRStateFetcher, PRStateFetcherImpl } from './github/index.js';
+import { CoderabbitGitHubClient, PRStateFetcher } from './github/index.js';
 import {
   EventCountsMapper,
   EventEntryMapper,
@@ -27,24 +21,20 @@ import { ProbeFactory } from './probes/index.js';
 import type { OnDetectedCallback } from './types/index.js';
 import { MS_PER_SECOND, QueueItemEnricher } from './utils/index.js';
 import { type Config, config } from './config.js';
-import { type DirectCommentChecker, DirectCommentCheckerImpl } from './DirectCommentChecker.js';
+import { DirectCommentChecker } from './DirectCommentChecker.js';
 import { TYPES } from './domain.js';
-import { type EditDetector, EditDetectorImpl } from './EditDetector.js';
+import { EditDetector } from './EditDetector.js';
 import {
   EnqueueService,
   PollDetector,
-  type PrScanner,
-  PrScannerImpl,
-  type PruneEvaluator,
-  PruneEvaluatorImpl,
-  type Pruner,
-  PrunerImpl,
+  PrScanner,
+  PruneEvaluator,
+  Pruner,
   ReviewDetector,
   ReviewTrigger,
   RunIdGenerator,
   Scheduler,
-  type StalePrRecoverer,
-  StalePrRecovererImpl,
+  StalePrRecoverer,
 } from './services.js';
 
 import 'reflect-metadata';
@@ -72,37 +62,37 @@ container
   .toDynamicValue(() => createPrismaClient().$extends(softDeleteExtension({ models: { CoderabbitComment: true } })) as unknown as PrismaClient)
   .inSingletonScope();
 
-container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClientImpl).inSingletonScope();
+container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClient).inSingletonScope();
 
 container.bind<ReviewDetector>(TYPES.ReviewDetector).to(ReviewDetector).inSingletonScope();
 
-container.bind<PRStateFetcher>(TYPES.PRStateFetcher).to(PRStateFetcherImpl).inSingletonScope();
+container.bind<PRStateFetcher>(TYPES.PRStateFetcher).to(PRStateFetcher).inSingletonScope();
 
-container.bind<EventRepository>(TYPES.EventRepository).to(EventRepositoryImpl).inSingletonScope();
+container.bind<EventRepository>(TYPES.EventRepository).to(EventRepository).inSingletonScope();
 
-container.bind<QueueOrderRepository>(TYPES.QueueOrderRepository).to(QueueOrderRepositoryImpl).inSingletonScope();
+container.bind<QueueOrderRepository>(TYPES.QueueOrderRepository).to(QueueOrderRepository).inSingletonScope();
 
-container.bind<QueueRepository>(TYPES.QueueRepository).to(QueueRepositoryImpl).inSingletonScope();
+container.bind<QueueRepository>(TYPES.QueueRepository).to(QueueRepository).inSingletonScope();
 
-container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStateRepositoryImpl).inSingletonScope();
+container.bind<SystemStateRepository>(TYPES.SystemStateRepository).to(SystemStateRepository).inSingletonScope();
 
 container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory).inSingletonScope();
 
-container.bind<CoderabbitCommentRepository>(TYPES.CoderabbitCommentRepository).to(CoderabbitCommentRepositoryImpl).inSingletonScope();
+container.bind<CoderabbitCommentRepository>(TYPES.CoderabbitCommentRepository).to(CoderabbitCommentRepository).inSingletonScope();
 
-container.bind<PullRequestRepository>(TYPES.PullRequestRepository).to(PullRequestRepositoryImpl).inSingletonScope();
+container.bind<PullRequestRepository>(TYPES.PullRequestRepository).to(PullRequestRepository).inSingletonScope();
 
-container.bind<PruneEvaluator>(TYPES.PruneEvaluator).to(PruneEvaluatorImpl).inSingletonScope();
+container.bind<PruneEvaluator>(TYPES.PruneEvaluator).to(PruneEvaluator).inSingletonScope();
 
-container.bind<Pruner>(TYPES.Pruner).to(PrunerImpl).inSingletonScope();
+container.bind<Pruner>(TYPES.Pruner).to(Pruner).inSingletonScope();
 
-container.bind<PrScanner>(TYPES.PrScanner).to(PrScannerImpl).inSingletonScope();
+container.bind<PrScanner>(TYPES.PrScanner).to(PrScanner).inSingletonScope();
 
-container.bind<StalePrRecoverer>(TYPES.StalePrRecoverer).to(StalePrRecovererImpl).inSingletonScope();
+container.bind<StalePrRecoverer>(TYPES.StalePrRecoverer).to(StalePrRecoverer).inSingletonScope();
 
-container.bind<DirectCommentChecker>(TYPES.DirectCommentChecker).to(DirectCommentCheckerImpl).inSingletonScope();
+container.bind<DirectCommentChecker>(TYPES.DirectCommentChecker).to(DirectCommentChecker).inSingletonScope();
 
-container.bind<EditDetector>(TYPES.EditDetector).to(EditDetectorImpl).inSingletonScope();
+container.bind<EditDetector>(TYPES.EditDetector).to(EditDetector).inSingletonScope();
 
 container.bind<EnqueueService>(TYPES.EnqueueService).to(EnqueueService).inSingletonScope();
 

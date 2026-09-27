@@ -1,4 +1,4 @@
-import { type EventRepository, EventRepositoryImpl, type PullRequestRepository, type QueueRepository } from '../../src/db/index.js';
+import { EventRepository, type PullRequestRepository, type QueueRepository } from '../../src/db/index.js';
 import { CommentDetectionMethod, TYPES } from '../../src/domain.js';
 import {
   DetectedProbe,
@@ -118,7 +118,7 @@ describe('ProbeFactory', () => {
       const container = new Container();
       container.bind<PrismaClient>(TYPES.PrismaClient).toConstantValue(prisma);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
-      container.bind<EventRepository>(TYPES.EventRepository).to(EventRepositoryImpl);
+      container.bind<EventRepository>(TYPES.EventRepository).to(EventRepository);
       container.bind<QueueRepository>(TYPES.QueueRepository).toConstantValue({} as unknown as QueueRepository);
       container.bind<PullRequestRepository>(TYPES.PullRequestRepository).toConstantValue({} as unknown as PullRequestRepository);
       container.bind<ProbeFactory>(TYPES.ProbeFactory).to(ProbeFactory);

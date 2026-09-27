@@ -1,5 +1,5 @@
 import { buildPrUrl } from '../src/github/index.js';
-import { StalePrRecovererImpl } from '../src/services.js';
+import { StalePrRecoverer } from '../src/services.js';
 import type { OnDetectedCallback } from '../src/types/index.js';
 
 import { createMockOnDetectedCallback, createMockPullRequestRepo, generateReviewRef } from './helpers/index.js';
@@ -8,18 +8,18 @@ import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-describe('StalePrRecovererImpl', () => {
+describe('StalePrRecoverer', () => {
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let onDetected: jest.Mocked<OnDetectedCallback>;
   let logger: ReturnType<typeof createMockLogger>;
-  let recoverer: StalePrRecovererImpl;
+  let recoverer: StalePrRecoverer;
   let frozenNow: Date;
 
   beforeEach(() => {
     pullRequests = createMockPullRequestRepo();
     onDetected = createMockOnDetectedCallback();
     logger = createMockLogger();
-    recoverer = new StalePrRecovererImpl(pullRequests, onDetected, logger);
+    recoverer = new StalePrRecoverer(pullRequests, onDetected, logger);
     frozenNow = getUniqueDate();
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);

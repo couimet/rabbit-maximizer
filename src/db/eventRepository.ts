@@ -44,15 +44,8 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.coderabbit_run_id_first_seen; payload: CoderabbitRunIdFirstSeenPayload })
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
-export interface EventRepository {
-  record(input: NewEvent, tx: Prisma.TransactionClient | undefined): Promise<EventLogEntry>;
-  listForPr(repo: string, pr: number): Promise<EventLogEntry[]>;
-  listRecent(skip: number, take: number, runId: string | undefined): Promise<PaginatedResult<EventLogEntry>>;
-  countByType(since: Date): Promise<Record<EventType, number>>;
-}
-
 @injectable()
-export class EventRepositoryImpl implements EventRepository {
+export class EventRepository {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
@@ -79,7 +72,7 @@ export class EventRepositoryImpl implements EventRepository {
     const entry = parseEventRow(row);
     this.log.debug(
       {
-        fn: 'EventRepositoryImpl.record',
+        fn: 'EventRepository.record',
         type: input.type,
         repo: input.repo_full_name,
         pr: input.pr_number,
@@ -95,7 +88,7 @@ export class EventRepositoryImpl implements EventRepository {
       orderBy: { ts: 'asc' },
     });
 
-    this.log.debug({ fn: 'EventRepositoryImpl.listForPr', repo, pr, count: rows.length }, 'Listed events for PR');
+    this.log.debug({ fn: 'EventRepository.listForPr', repo, pr, count: rows.length }, 'Listed events for PR');
     return rows.map((row) => parseEventRow(row));
   }
 
@@ -105,7 +98,7 @@ export class EventRepositoryImpl implements EventRepository {
 
     const [rows, total] = await Promise.all([this.prisma.event.findMany({ where, orderBy: { ts: 'desc' }, skip, take }), this.prisma.event.count({ where })]);
 
-    this.log.debug({ fn: 'EventRepositoryImpl.listRecent', count: rows.length, total, runId }, 'Listed recent events');
+    this.log.debug({ fn: 'EventRepository.listRecent', count: rows.length, total, runId }, 'Listed recent events');
     return { items: rows.map((row) => parseEventRow(row)), total };
   }
 
@@ -136,7 +129,7 @@ export class EventRepositoryImpl implements EventRepository {
       counts[row.type as EventType] = row._count.type;
     }
 
-    this.log.debug({ fn: 'EventRepositoryImpl.countByType', counts }, 'Counted events by type');
+    this.log.debug({ fn: 'EventRepository.countByType', counts }, 'Counted events by type');
     return counts;
   }
 }
