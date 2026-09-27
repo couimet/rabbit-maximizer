@@ -1,6 +1,7 @@
 import type { EventRepository } from '../db/index.js';
 import { EventType } from '../domain.js';
 import type { QueueItem } from '../types/index.js';
+import { getRunIdAttribute } from '../utils/index.js';
 
 import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
@@ -35,7 +36,8 @@ export class ReviewRetriggerProbe {
     );
   }
 
-  async reviewRetriggered(runId: string, retriggeredCommentUrl: string, tx: Prisma.TransactionClient): Promise<void> {
+  async reviewRetriggered(retriggeredCommentUrl: string, tx: Prisma.TransactionClient): Promise<void> {
+    const runId = getRunIdAttribute();
     await this.events.record(
       {
         type: EventType.retriggered,
@@ -48,7 +50,7 @@ export class ReviewRetriggerProbe {
       tx,
     );
     this.log.info(
-      { fn: 'ReviewRetriggerProbe.reviewRetriggered', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, runId },
+      { fn: 'ReviewRetriggerProbe.reviewRetriggered', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id },
       'Review retriggered',
     );
   }

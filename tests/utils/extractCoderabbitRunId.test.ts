@@ -2,18 +2,27 @@ import { CODERABBIT_RUN_ID_MAX_LENGTH } from '../../src/schemas/index.js';
 import { extractCoderabbitRunId } from '../../src/utils/index.js';
 
 import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
-import { describe, expect, it } from '@jest/globals';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
-const SKIP_TEMPLATE_RUN_ID = getUuid();
-const WALKTHROUGH_RUN_ID = getUuid();
-const CHECKBOX_ID = getUniqueString();
+let checkboxId: string;
+let skipTemplateRunId: string;
+let skipTemplateBody: string;
+let walkthroughRunId: string;
+let walkthroughBody: string;
+
 const RUN_ID_EXCEEDS_MAX_BY = 10;
 const LONG_RUN_ID = 'a'.repeat(CODERABBIT_RUN_ID_MAX_LENGTH + RUN_ID_EXCEEDS_MAX_BY);
 const LONG_RUN_ID_PREFIX = LONG_RUN_ID.slice(0, CODERABBIT_RUN_ID_MAX_LENGTH);
 
 const LONG_RUN_ID_BODY = `> **Run ID**: \`${LONG_RUN_ID}\``;
 
-const SKIP_TEMPLATE_BODY = `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+describe('extractCoderabbitRunId', () => {
+  beforeEach(() => {
+    checkboxId = getUniqueString();
+    skipTemplateRunId = getUuid();
+    walkthroughRunId = getUuid();
+
+    skipTemplateBody = `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
 <!-- review_stack_entry_start -->
 
 [![Review Change Stack](https://storage.googleapis.com/coderabbit_public_assets/review-stack-in-coderabbit-ui.svg)](https://app.coderabbit.ai/change-stack/couimet/rabbit-maximizer/pull/296?utm_source=github_walkthrough&utm_medium=github&utm_campaign=change_stack)
@@ -22,7 +31,7 @@ const SKIP_TEMPLATE_BODY = `<!-- This is an auto-generated comment: summarize by
 <!-- This is an auto-generated comment: skip review by coderabbit.ai -->
 
 > [!IMPORTANT]
-> - [ ] <!-- {"checkboxId":"${CHECKBOX_ID}"} --> 🔍 Trigger review
+> - [ ] <!-- {"checkboxId":"${checkboxId}"} --> 🔍 Trigger review
 >
 > This repository does not receive automatic reviews because it has fewer than 10 stars.
 >
@@ -35,13 +44,13 @@ const SKIP_TEMPLATE_BODY = `<!-- This is an auto-generated comment: summarize by
 >
 > **Plan**: Pro Plus
 >
-> **Run ID**: \`${SKIP_TEMPLATE_RUN_ID}\`
+> **Run ID**: \`${skipTemplateRunId}\`
 >
 > </details>
 
 <!-- end of auto-generated comment: skip review by coderabbit.ai -->`;
 
-const WALKTHROUGH_BODY = `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+    walkthroughBody = `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
 <!-- review_stack_entry_start -->
 
 [![Review Change Stack](https://storage.googleapis.com/coderabbit_public_assets/review-stack-in-coderabbit-ui.svg)](https://app.coderabbit.ai/change-stack/couimet/ts-npm-packages/pull/95?utm_source=github_walkthrough&utm_medium=github&utm_campaign=change_stack)
@@ -61,7 +70,7 @@ No actionable comments were generated in the recent review. 🎉
 
 **Plan**: Pro
 
-**Run ID**: \`${WALKTHROUGH_RUN_ID}\`
+**Run ID**: \`${walkthroughRunId}\`
 
 </details>
 
@@ -79,17 +88,17 @@ Reviewing files that changed from the base of the PR and between e7331bb15e72dca
 <details>
 <summary>✨ Finishing Touches</summary>
 
-- [ ] <!-- {"checkboxId": "${CHECKBOX_ID}", "radioGroupId": "utg-output-choice-group-4964841424"} -->   Create PR with unit tests
+- [ ] <!-- {"checkboxId": "${checkboxId}", "radioGroupId": "utg-output-choice-group-4964841424"} -->   Create PR with unit tests
 
 </details>`;
+  });
 
-describe('extractCoderabbitRunId', () => {
   it('extracts the run ID from the skip template body', () => {
-    expect(extractCoderabbitRunId(SKIP_TEMPLATE_BODY)).toBe(SKIP_TEMPLATE_RUN_ID);
+    expect(extractCoderabbitRunId(skipTemplateBody)).toBe(skipTemplateRunId);
   });
 
   it('extracts the run ID from a walkthrough-style body', () => {
-    expect(extractCoderabbitRunId(WALKTHROUGH_BODY)).toBe(WALKTHROUGH_RUN_ID);
+    expect(extractCoderabbitRunId(walkthroughBody)).toBe(walkthroughRunId);
   });
 
   it('truncates a run ID longer than the max length', () => {
@@ -104,7 +113,7 @@ describe('extractCoderabbitRunId', () => {
 
   it('returns undefined for a body containing only a checkboxId block', () => {
     const body = `Use the checkbox below for a quick retry:
-- [ ] <!-- {"checkboxId": "${CHECKBOX_ID}"} -->`;
+- [ ] <!-- {"checkboxId": "${checkboxId}"} -->`;
 
     expect(extractCoderabbitRunId(body)).toBeUndefined();
   });

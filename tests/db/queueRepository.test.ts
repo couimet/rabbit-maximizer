@@ -6,10 +6,10 @@ import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
 import { MS_PER_SECOND } from '../../src/utils/index.js';
+import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
-import { ExecutionContext } from '@couimet/execution-context';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -31,16 +31,19 @@ describe('QueueRepositoryImpl', () => {
   let probeEvents: { record: jest.Mock<any>; listForPr: jest.Mock<any> };
   let probeFactory: ProbeFactory;
   let requestId: string;
+  let runId: string;
   let mapper: ReviewQueueToQueueItemMapper;
   let version: string;
   let prTitle: string;
 
-  const runInContext = <T>(fn: () => Promise<T>): Promise<T> => ExecutionContext.run({ correlationId, requestId, attributes: { version } }, fn);
+  const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
+    withTestExecutionContext({ correlationId, requestId, attributes: { run_id: runId, version } }, fn);
 
   beforeEach(() => {
     frozenNow = getUniqueDate();
     correlationId = getUuid();
     requestId = getUuid();
+    runId = getUniqueString({ prefix: 'run-' });
     version = '1.0.0-test';
     prTitle = getUniqueString({ prefix: 'PR title' });
     logger = createMockLogger();
@@ -1367,12 +1370,13 @@ describe('QueueRepositoryImpl', () => {
 
     it('updates the row to retriggered with cooldown', async () => {
       const cooldownUntil = getUniqueDate();
-      const runId = getUniqueString({ prefix: 'run-' });
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
-      const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, runId, undefined, prisma as unknown as Prisma.TransactionClient);
+      const result = await runInContext(() =>
+        sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient),
+      );
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
@@ -1380,20 +1384,21 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, runId, coderabbitRunId: undefined },
+        { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, coderabbitRunId: undefined },
         'Marked review retriggered',
       );
     });
 
     it('stores the run ID snapshot on the update when provided', async () => {
       const cooldownUntil = getUniqueDate();
-      const runId = getUniqueString({ prefix: 'run-' });
       const coderabbitRunId = getUniqueString({ prefix: 'coderabbit-run-' });
       const row = generateReviewQueueHydrationData({ status: QueueStatus.retriggered });
       const { prisma, reviewQueue } = createMockPrismaClient({ reviewQueue: { update: createResolvedMock(row) } });
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
-      const result = await sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, runId, coderabbitRunId, prisma as unknown as Prisma.TransactionClient);
+      const result = await runInContext(() =>
+        sut.markRetriggered(row.id, cooldownUntil, COMMENT_URL, coderabbitRunId, prisma as unknown as Prisma.TransactionClient),
+      );
 
       expect(reviewQueue.update).toHaveBeenCalledWith({
         where: { id: row.id },
@@ -1408,9 +1413,23 @@ describe('QueueRepositoryImpl', () => {
       });
       expect(result).toStrictEqual(mapper.fromReviewQueue(row));
       expect(logger.debug).toHaveBeenCalledWith(
-        { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, runId, coderabbitRunId },
+        { fn: 'QueueRepositoryImpl.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, coderabbitRunId },
         'Marked review retriggered',
       );
+    });
+
+    it('throws when the context carries no run id', async () => {
+      const cooldownUntil = getUniqueDate();
+      const { prisma } = createMockPrismaClient();
+      const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
+
+      await expect(
+        sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient),
+      ).rejects.toBeDetailedError('MISSING_CONTEXT_ATTRIBUTE', {
+        message: 'Active execution context is missing the attribute',
+        functionName: 'getAttribute',
+        details: { key: 'run_id' },
+      });
     });
 
     it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
@@ -1422,14 +1441,7 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(
-        sut.markRetriggered(
-          getUniqueInt(),
-          cooldownUntil,
-          COMMENT_URL,
-          getUniqueString({ prefix: 'run-' }),
-          undefined,
-          prisma as unknown as Prisma.TransactionClient,
-        ),
+        runInContext(() => sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient)),
       ).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
         message: "Record not found in table 'ReviewQueue'",
         functionName: 'QueueRepositoryImpl.markRetriggered',
@@ -1451,14 +1463,7 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(
-        sut.markRetriggered(
-          getUniqueInt(),
-          cooldownUntil,
-          COMMENT_URL,
-          getUniqueString({ prefix: 'run-' }),
-          undefined,
-          prisma as unknown as Prisma.TransactionClient,
-        ),
+        runInContext(() => sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient)),
       ).rejects.toBeDetailedError('PRISMA_FIELD_TYPE_MISMATCH_P2005', {
         message: "Field type mismatch in table 'ReviewQueue'",
         functionName: 'QueueRepositoryImpl.markRetriggered',
@@ -1480,14 +1485,7 @@ describe('QueueRepositoryImpl', () => {
       const sut = new QueueRepositoryImpl(prisma, probeFactory, mapper, config, logger);
 
       await expect(
-        sut.markRetriggered(
-          getUniqueInt(),
-          cooldownUntil,
-          COMMENT_URL,
-          getUniqueString({ prefix: 'run-' }),
-          undefined,
-          prisma as unknown as Prisma.TransactionClient,
-        ),
+        runInContext(() => sut.markRetriggered(getUniqueInt(), cooldownUntil, COMMENT_URL, undefined, prisma as unknown as Prisma.TransactionClient)),
       ).rejects.toThrow(unrecognizedError);
       expect(logger.warn).toHaveBeenCalledWith(
         { fn: 'QueueRepositoryImpl.markRetriggered', modelName: 'ReviewQueue', prismaCode: 'P9999', error: unrecognizedError },

@@ -1,9 +1,9 @@
 import { DismissalReason } from '../../src/domain.js';
 import { recordDismissalEvent } from '../../src/probes/index.js';
+import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateEventTraceContext, generateReviewRef } from '../helpers/index.js';
 
-import { ExecutionContext } from '@couimet/execution-context';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('recordDismissalEvent', () => {
@@ -11,7 +11,7 @@ describe('recordDismissalEvent', () => {
   let eventTrace: { correlationId: string; requestId: string; version: string };
 
   const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
+    withTestExecutionContext({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
     eventTrace = generateEventTraceContext();

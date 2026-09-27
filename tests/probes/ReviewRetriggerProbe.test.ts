@@ -2,11 +2,11 @@ import type { EventRepository } from '../../src/db/index.js';
 import { EventType } from '../../src/domain.js';
 import { ReviewRetriggerProbe } from '../../src/probes/index.js';
 import { type QueueItem } from '../../src/types/index.js';
+import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
-import { ExecutionContext } from '@couimet/execution-context';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
@@ -18,25 +18,29 @@ describe('ReviewRetriggerProbe', () => {
   let events: jest.Mocked<EventRepository>;
   let eventTrace: { correlationId: string; requestId: string; version: string };
   let logger: ReturnType<typeof createMockLogger>;
+  let runId: string;
 
   const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
+    withTestExecutionContext(
+      { correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { run_id: runId, version: eventTrace.version } },
+      fn,
+    );
 
   beforeEach(() => {
     eventTrace = generateEventTraceContext();
     events = createMockEventRepo();
     logger = createMockLogger();
+    runId = getUniqueString({ prefix: 'run-' });
   });
 
   const createProbe = (item: QueueItem) => new ReviewRetriggerProbe(item, events, logger);
 
   it('records event, and logs on reviewRetriggered', async () => {
     const item = generateQueueItemHydrationData();
-    const runId = getUniqueString({ prefix: 'run-' });
     const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
 
     const probe = createProbe(item);
-    await runInContext(() => probe.reviewRetriggered(runId, retriggeredCommentUrl, tx));
+    await runInContext(() => probe.reviewRetriggered(retriggeredCommentUrl, tx));
 
     expect(events.record).toHaveBeenCalledWith(
       {
@@ -54,7 +58,21 @@ describe('ReviewRetriggerProbe', () => {
       },
       tx,
     );
-    expect(logger.info).toHaveBeenCalledWith({ ...loggingCtx(item)('ReviewRetriggerProbe.reviewRetriggered'), runId }, 'Review retriggered');
+    expect(logger.info).toHaveBeenCalledWith(loggingCtx(item)('ReviewRetriggerProbe.reviewRetriggered'), 'Review retriggered');
+  });
+
+  it('throws when the context carries no run id', async () => {
+    const item = generateQueueItemHydrationData();
+    const retriggeredCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+
+    const probe = createProbe(item);
+
+    await expect(probe.reviewRetriggered(retriggeredCommentUrl, tx)).rejects.toBeDetailedError('MISSING_CONTEXT_ATTRIBUTE', {
+      message: 'Active execution context is missing the attribute',
+      functionName: 'getAttribute',
+      details: { key: 'run_id' },
+    });
+    expect(events.record).not.toHaveBeenCalled();
   });
 
   it('logs on staleCommentRescheduled', () => {

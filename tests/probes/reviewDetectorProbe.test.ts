@@ -1,10 +1,10 @@
 import { CodeRabbitCommentType, PrState, Resolution, ReviewDetectionMethod } from '../../src/domain.js';
 import { ReviewDetectorProbe } from '../../src/probes/index.js';
+import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueString } from '@couimet/dynamic-testing';
-import { ExecutionContext } from '@couimet/execution-context';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -14,7 +14,7 @@ describe('ReviewDetectorProbe', () => {
   let logger: ReturnType<typeof createMockLogger>;
 
   const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
+    withTestExecutionContext({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
     eventTrace = generateEventTraceContext();

@@ -3,6 +3,7 @@ import { DirectCommentCheckProbe } from '../src/probes/index.js';
 import { DirectCommentCheckerImpl } from '../src/services.js';
 import type { EventLogEntry, OnDetectedCallback } from '../src/types/index.js';
 
+import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 import {
   createMockCoderabbitCommentRepo,
   createMockCoderabbitGitHubClient,
@@ -17,7 +18,6 @@ import {
 } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
-import { ExecutionContext } from '@couimet/execution-context';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -42,7 +42,7 @@ describe('DirectCommentCheckerImpl', () => {
   let checker: DirectCommentCheckerImpl;
 
   const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
-    ExecutionContext.run({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
+    withTestExecutionContext({ correlationId: eventTrace.correlationId, requestId: eventTrace.requestId, attributes: { version: eventTrace.version } }, fn);
 
   beforeEach(() => {
     eventTrace = generateEventTraceContext();

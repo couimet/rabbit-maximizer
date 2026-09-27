@@ -16,6 +16,9 @@ import { type ContextAttributes, ExecutionContext } from '@couimet/execution-con
  * layered here, die with the block; a caller that needs an attribute to outlive the block sets it
  * outside the block. Throws NO_ACTIVE_CONTEXT outside any run, and the package's own
  * INVALID_CONTEXT_ATTRIBUTES when `attrs` is not a record of string keys.
+ *
+ * This helper checks the shape of `attrs`, not its values. A caller that writes declared attributes
+ * builds the bag with `validateAttributes`, so a value that fails its rule never reaches this call.
  */
 export const withAttributes = <T>(attrs: ContextAttributes, fn: () => T): T =>
   ExecutionContext.run(

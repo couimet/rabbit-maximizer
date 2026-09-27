@@ -1,7 +1,7 @@
 import { getEventTraceAttributes } from '../../src/probes/index.js';
+import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
 
 import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
-import { ExecutionContext } from '@couimet/execution-context';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('getEventTraceAttributes', () => {
@@ -16,7 +16,7 @@ describe('getEventTraceAttributes', () => {
   });
 
   it('returns the ids and version from the active context', () => {
-    ExecutionContext.run({ correlationId, requestId, attributes: { version } }, () => {
+    withTestExecutionContext({ correlationId, requestId, attributes: { version } }, () => {
       expect(getEventTraceAttributes()).toStrictEqual({
         correlation_id: correlationId,
         request_id: requestId,
@@ -26,11 +26,23 @@ describe('getEventTraceAttributes', () => {
   });
 
   it('throws when the active context has no version attribute', () => {
-    ExecutionContext.run({ correlationId, requestId, attributes: {} }, () => {
-      expect(() => getEventTraceAttributes()).toThrowDetailedError('MISSING_VERSION_ATTRIBUTE', {
-        message: 'Active execution context is missing the "version" attribute',
-        functionName: 'getEventTraceAttributes',
-        details: { version: undefined },
+    withTestExecutionContext({ correlationId, requestId, attributes: {} }, () => {
+      expect(() => getEventTraceAttributes()).toThrowDetailedError('MISSING_CONTEXT_ATTRIBUTE', {
+        message: 'Active execution context is missing the attribute',
+        functionName: 'getAttribute',
+        details: { key: 'version' },
+      });
+    });
+  });
+
+  it('throws when the version attribute is blank', () => {
+    const blankVersion = '   ';
+
+    withTestExecutionContext({ correlationId, requestId, attributes: { version: blankVersion } }, () => {
+      expect(() => getEventTraceAttributes()).toThrowDetailedError('INVALID_ATTRIBUTE_VALUE', {
+        message: 'Attribute value failed its validation rule',
+        functionName: 'getAttribute',
+        details: { key: 'version', value: blankVersion },
       });
     });
   });

@@ -11,6 +11,7 @@ export { CodeRabbitCommentType } from './CodeRabbitCommentType.js';
 export { CommentDetectionMethod } from './CommentDetectionMethod.js';
 export { DismissalReason } from './DismissalReason.js';
 export { EventType } from './EventType.js';
+export { EXECUTION_CONTEXT_ATTRIBUTES } from './executionContextAttributes.js';
 export { FallbackReason } from './FallbackReason.js';
 export { IntervalService } from './IntervalService.js';
 export { TYPES } from './inversify-types.js';

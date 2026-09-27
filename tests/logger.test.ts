@@ -1,5 +1,6 @@
+import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
+
 import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
-import { ExecutionContext } from '@couimet/execution-context';
 import type { Logger } from '@couimet/logger-contract';
 import { describe, expect, it, jest } from '@jest/globals';
 
@@ -81,7 +82,7 @@ describe('initLogger', () => {
     initLogger();
     const registeredLogger = mockSetLogger.mock.calls[0][0] as Logger;
 
-    ExecutionContext.run({ correlationId, requestId, attributes: { version } }, () => {
+    withTestExecutionContext({ correlationId, requestId, attributes: { version } }, () => {
       registeredLogger.info({ fn: 'test', extra }, 'ambient context merged');
     });
 

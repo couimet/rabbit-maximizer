@@ -11,7 +11,7 @@ import {
   type QueueItem,
   type ReopenStaleRetriggeredOptions,
 } from '../types/index.js';
-import { MS_PER_MINUTE, MS_PER_SECOND, nullToUndefined, shouldReopenStaleRetriggered } from '../utils/index.js';
+import { getRunIdAttribute, MS_PER_MINUTE, MS_PER_SECOND, nullToUndefined, shouldReopenStaleRetriggered } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
@@ -28,7 +28,6 @@ export interface QueueRepository {
     id: number,
     cooldownUntil: Date,
     retriggerCommentUrl: string,
-    runId: string,
     coderabbitRunId: string | undefined,
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem>;
@@ -388,10 +387,10 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
     id: number,
     cooldownUntil: Date,
     retriggerCommentUrl: string,
-    runId: string,
     coderabbitRunId: string | undefined,
     tx: Prisma.TransactionClient,
   ): Promise<QueueItem> {
+    const runId = getRunIdAttribute();
     const row = await this.withPrismaErrorHandling(
       () =>
         this.client(tx).reviewQueue.update({
@@ -409,7 +408,7 @@ export class QueueRepositoryImpl extends BasePrismaRepository implements QueueRe
         }),
       'QueueRepositoryImpl.markRetriggered',
     );
-    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil, retriggerCommentUrl, runId, coderabbitRunId }, 'Marked review retriggered');
+    this.log.debug({ fn: 'QueueRepositoryImpl.markRetriggered', id, cooldownUntil, retriggerCommentUrl, coderabbitRunId }, 'Marked review retriggered');
     return this.mapper.fromReviewQueue(row);
   }
 
