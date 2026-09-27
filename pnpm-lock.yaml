@@ -103,8 +103,8 @@ importers:
         specifier: ^0.2.1
         version: 0.2.1(@couimet/detailed-error-testing@0.1.5(@couimet/detailed-error@1.0.0)(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.2.0)))(@couimet/detailed-error@1.0.0)(@couimet/detailed-result@0.1.1(@couimet/detailed-error@1.0.0))(@jest/expect@30.4.1)(@jest/globals@30.4.1)(jest@30.4.2(@types/node@26.2.0))
       '@couimet/dynamic-testing':
-        specifier: ^1.0.1
-        version: 1.0.1(@couimet/detailed-error@1.0.0)(decimal.js@10.6.0)
+        specifier: ^1.1.0
+        version: 1.1.0(@couimet/detailed-error@1.0.0)(decimal.js@10.6.0)
       '@couimet/eslint-config':
         specifier: ^1.3.0
         version: 1.3.0(@couimet/eslint-plugin-barrel-imports@0.1.0(eslint@10.8.1(jiti@2.7.0)))(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.8.1(jiti@2.7.0))(typescript@6.0.3))(eslint@10.8.1(jiti@2.7.0))(typescript@6.0.3))(@typescript-eslint/parser@8.61.1(eslint@10.8.1(jiti@2.7.0))(typescript@6.0.3))(eslint-config-prettier@10.1.8(eslint@10.8.1(jiti@2.7.0)))(eslint-plugin-barrel-boundary@1.1.1(eslint@10.8.1(jiti@2.7.0)))(eslint-plugin-prettier@5.5.6(eslint-config-prettier@10.1.8(eslint@10.8.1(jiti@2.7.0)))(eslint@10.8.1(jiti@2.7.0))(prettier@3.9.6))(eslint-plugin-simple-import-sort@13.0.0(eslint@10.8.1(jiti@2.7.0)))(eslint-plugin-unicorn@73.0.0(eslint@10.8.1(jiti@2.7.0)))(eslint-plugin-unused-imports@4.4.1(@typescript-eslint/eslint-plugin@8.61.1(@typescript-eslint/parser@8.61.1(eslint@10.8.1(jiti@2.7.0))(typescript@6.0.3))(eslint@10.8.1(jiti@2.7.0))(typescript@6.0.3))(eslint@10.8.1(jiti@2.7.0)))(eslint@10.8.1(jiti@2.7.0))(globals@17.7.0)(prettier@3.9.6)
@@ -398,8 +398,8 @@ packages:
     peerDependencies:
       '@couimet/detailed-error': '>=1.0.0'
 
-  '@couimet/dynamic-testing@1.0.1':
-    resolution: {integrity: sha512-pLj0/zuGPLPlr18GdGflHVX7BKewZimXtpzIwJjl1epTe3r6cOZNJ6Fj6k0jIso1zOfeS0DN2MBOSHFw0aG0Zg==}
+  '@couimet/dynamic-testing@1.1.0':
+    resolution: {integrity: sha512-O9WXwANTyHbRseSVzq0wMnCDHTj977R+FbOLhhStX1wBs4Xt4BWfsiDdJoW0M3HwIT6pav4ehfCWB2S/mBxqPQ==}
     engines: {node: '>=24'}
     peerDependencies:
       '@couimet/detailed-error': '>=1.0.0'
@@ -4635,7 +4635,7 @@ snapshots:
     dependencies:
       '@couimet/detailed-error': 1.0.0
 
-  '@couimet/dynamic-testing@1.0.1(@couimet/detailed-error@1.0.0)(decimal.js@10.6.0)':
+  '@couimet/dynamic-testing@1.1.0(@couimet/detailed-error@1.0.0)(decimal.js@10.6.0)':
     dependencies:
       '@couimet/detailed-error': 1.0.0
       uuid: 14.0.2
