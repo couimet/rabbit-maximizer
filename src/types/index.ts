@@ -66,6 +66,7 @@ export type { RetriggerDecision } from './RetriggerDecision.js';
 export type { RetriggerDiagnosis } from './RetriggerDiagnosis.js';
 export type { ReviewLimitCandidate } from './ReviewLimitCandidate.js';
 export type { ReviewLimitComment } from './ReviewLimitComment.js';
+export type { RunIdentity } from './RunIdentity.js';
 export type { ScannedPR } from './ScannedPR.js';
 export type { ScanResult } from './ScanResult.js';
 export type { StaleOpenPR } from './StaleOpenPR.js';

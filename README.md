@@ -72,6 +72,89 @@ pnpm start
 
 `pnpm build` compiles the server with `tsc` and bundles the dashboard into `dist/dashboard/dist`. `pnpm start` runs the compiled server with `NODE_ENV=production`, which mounts that directory at `/`. Run `pnpm build` first: the server logs an error and exits when the build output is absent. `pnpm build:dashboard` rebuilds only the dashboard, which is useful after a change under `dashboard/`.
 
+To check a container image before you publish it, build it and run the smoke test. The script starts the container against a throwaway volume, confirms the entrypoint refuses a missing data mount, waits for the dashboard, and stops the container:
+
+```bash
+docker build -t rabbit-maximizer:local .
+IMAGE_REF=rabbit-maximizer:local ENV_FILE=.env.ci bash scripts/docker/smoke-test.sh
+```
+
+### Run with Docker
+
+The published image holds the server and the dashboard. The repository ships `compose.yml`, and the same container starts with one `docker run` command when you prefer no Compose. Both forms publish port 3000, where the dashboard answers. Open `http://<host>:3000`, with the machine name or its IP address in place of `<host>`.
+
+#### With Docker Compose
+
+Copy `compose.yml` from a clone of the repository to a directory on the host, create the configuration file beside it, and start the container:
+
+```bash
+mkdir -p /opt/rabbit-maximizer/config
+cp compose.yml /opt/rabbit-maximizer/
+cp .env.example /opt/rabbit-maximizer/config/.env
+chmod 600 /opt/rabbit-maximizer/config/.env
+# Set GITHUB_PAT and REPO_FILTER in /opt/rabbit-maximizer/config/.env
+cd /opt/rabbit-maximizer
+docker compose up -d
+```
+
+Create `config/.env` before the first start. Docker creates a **directory** at a bind-mount source that does not exist on the host, so the container then stops with `GITHUB_PAT is required` and no configuration.
+
+`compose.yml` mounts the configuration file read-only at `/app/.env`, pins both volume names, turns on the file log sink, and runs the container with a read-only root filesystem.
+
+Some hosts read this file only under the name `docker-compose.yml`. Rename the copy on those hosts. Container Manager on a Synology NAS is one of them.
+
+#### Without Compose
+
+```bash
+docker run -d --name rabbit-maximizer \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -e LOG_TO_FILE=true \
+  -v "$PWD/config/.env:/app/.env:ro" \
+  -v rabbit-maximizer-data:/data \
+  -v rabbit-maximizer-logs:/logs \
+  --read-only --tmpfs /tmp \
+  ghcr.io/couimet/rabbit-maximizer:latest
+
+docker logs -f rabbit-maximizer
+```
+
+Remove the container with `docker rm -f rabbit-maximizer`.
+
+Image tags: `latest` is the newest stable release, `beta` is the newest prerelease (a beta or a release candidate), and `edge` is the newest manual-dispatch build, which can break at any time.
+
+The container runs as the non-root user `rabbit`. A named volume takes its ownership from the image, so both volumes above need no setup. A bind mount starts owned by your host user: run `chown -R 1001:1001 <host-dir>` before the first start.
+
+`--read-only` fails every write outside the mounted volumes, so the container holds no state that a replacement would lose. The entrypoint also refuses to start when `/data` is not a mount, which catches a missing `-v rabbit-maximizer-data:/data`.
+
+Logs go to stdout, so `docker logs` works without a volume. `LOG_TO_FILE=true` adds the rolling file sink at `/logs`, and the command above mounts that volume so the files survive a restart.
+
+#### Upgrading
+
+The entrypoint applies every pending migration on start. Three consequences matter before you pull a new tag.
+
+- A migration that fails stops the container. The failed record also blocks the later starts.
+- Set `SKIP_MIGRATIONS=true` to start the container against the schema the volume already holds. The app then runs on the old schema instead of refusing to start.
+- Migrations run forward only. `prisma migrate deploy` warns when the volume holds migrations the image does not know, and then continues. An older image against a newer database fails at query time when a migration dropped a column that image still reads. Treat a rollback as a database restore, not a tag change.
+
+Back up the data volume before a tag change. The image carries no `sqlite3` client and no `gzip`, so `scripts/db/backup.sh` cannot run inside it. Stop the container first, because a copy of a running SQLite file can tear while the journal changes:
+
+```bash
+docker stop rabbit-maximizer
+docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine \
+  tar czf "/backup/rabbit-maximizer-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /data .
+docker start rabbit-maximizer
+```
+
+Restore into an empty volume with the reverse command. Stop the container first, and run the extraction on the same two mounts with `<file>` replaced by the backup name:
+
+```bash
+docker stop rabbit-maximizer
+docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine \
+  sh -c 'rm -rf /data/* /data/.[!.]* && tar xzf "/backup/<file>.tar.gz" -C /data'
+docker start rabbit-maximizer
+```
+
 ### Dashboard
 
 The dashboard shows current system status across three tabs:
