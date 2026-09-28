@@ -55,6 +55,7 @@ export { createMockQueueItemEnricher } from './createMockQueueItemEnricher.js';
 export { createMockQueueItemMapper } from './createMockQueueItemMapper.js';
 export { createMockQueueOrderRepo } from './createMockQueueOrderRepo.js';
 export { createMockQueueRepo } from './createMockQueueRepo.js';
+export { createMockReviewQueueToQueueItemMapper } from './createMockReviewQueueToQueueItemMapper.js';
 export { createMockRunIdGenerator } from './createMockRunIdGenerator.js';
 export { createMockStalePrRecoverer } from './createMockStalePrRecoverer.js';
 export { createMockSystemStateRepository } from './createMockSystemStateRepository.js';

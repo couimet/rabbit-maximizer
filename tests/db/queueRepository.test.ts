@@ -7,7 +7,13 @@ import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
 import { MS_PER_SECOND } from '../../src/utils/index.js';
 import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
-import { createMockPrismaClient, createResolvedMock, generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';
+import {
+  createMockPrismaClient,
+  createMockReviewQueueToQueueItemMapper,
+  createResolvedMock,
+  generateReviewQueueHydrationData,
+  generateReviewRef,
+} from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -49,7 +55,7 @@ describe('QueueRepository', () => {
     logger = createMockLogger();
     probeEvents = { record: jest.fn<any>().mockResolvedValue({ uuid: getUuid() }), listForPr: jest.fn<any>() };
     probeFactory = new ProbeFactory(probeEvents as any, logger);
-    mapper = new ReviewQueueToQueueItemMapper();
+    mapper = createMockReviewQueueToQueueItemMapper();
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);
   });

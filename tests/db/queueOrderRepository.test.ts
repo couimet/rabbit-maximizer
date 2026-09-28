@@ -1,7 +1,13 @@
 import { QueueOrderRepository } from '../../src/db/index.js';
 import { TYPES } from '../../src/domain.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
-import { createMockPrismaClient, createResolvedMock, generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from '../helpers/index.js';
+import {
+  createMockPrismaClient,
+  createMockReviewQueueToQueueItemMapper,
+  createResolvedMock,
+  generateReviewQueueWithOrderHydrationData,
+  type ReviewQueueWithOrder,
+} from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -18,7 +24,7 @@ describe('QueueOrderRepository', () => {
   beforeEach(() => {
     frozenNow = getUniqueDate();
     logger = createMockLogger();
-    mapper = new ReviewQueueToQueueItemMapper();
+    mapper = createMockReviewQueueToQueueItemMapper();
     jest.useFakeTimers();
     jest.setSystemTime(frozenNow);
   });
