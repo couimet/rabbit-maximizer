@@ -137,22 +137,36 @@ The entrypoint applies every pending migration on start. Three consequences matt
 - Set `SKIP_MIGRATIONS=true` to start the container against the schema the volume already holds. The app then runs on the old schema instead of refusing to start.
 - Migrations run forward only. `prisma migrate deploy` warns when the volume holds migrations the image does not know, and then continues. An older image against a newer database fails at query time when a migration dropped a column that image still reads. Treat a rollback as a database restore, not a tag change.
 
-Back up the data volume before a tag change. The image carries no `sqlite3` client and no `gzip`, so `scripts/db/backup.sh` cannot run inside it. Stop the container first, because a copy of a running SQLite file can tear while the journal changes:
+Back up the data volume before a tag change. The image carries no `sqlite3` client and no `gzip`, so `scripts/db/backup.sh` cannot run inside it. Stop the container first, because a copy of a running SQLite file can tear while the journal changes. The helper command acts on the volume, so both deployment forms use the same one, and only the stop and the start differ. Run the Compose form from the directory that holds `compose.yml`. The steps are chained with `&&`, so a failed stop aborts the sequence before the helper runs:
 
 ```bash
-docker stop rabbit-maximizer
-docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine \
-  tar czf "/backup/rabbit-maximizer-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /data .
-docker start rabbit-maximizer
+# With Docker Compose
+docker compose stop rabbit-maximizer \
+  && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
+       tar czf "/backup/rabbit-maximizer-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /data . \
+  && docker compose start rabbit-maximizer
+
+# Without Compose
+docker stop rabbit-maximizer \
+  && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
+       tar czf "/backup/rabbit-maximizer-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /data . \
+  && docker start rabbit-maximizer
 ```
 
-Restore into an empty volume with the reverse command. Stop the container first, and run the extraction on the same two mounts with `<file>` replaced by the backup name:
+Restore into an empty volume with the reverse command. Replace `<file>` with the backup name. The helper extracts the archive into a temporary directory before it touches the volume, so a wrong name or an unreadable archive leaves the current database in place:
 
 ```bash
-docker stop rabbit-maximizer
-docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine \
-  sh -c 'rm -rf /data/* /data/.[!.]* && tar xzf "/backup/<file>.tar.gz" -C /data'
-docker start rabbit-maximizer
+# With Docker Compose
+docker compose stop rabbit-maximizer \
+  && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
+       sh -c 'mkdir -p /tmp/restore && tar xzf "/backup/<file>.tar.gz" -C /tmp/restore && rm -rf /data/* /data/.[!.]* && cp -a /tmp/restore/. /data/' \
+  && docker compose start rabbit-maximizer
+
+# Without Compose
+docker stop rabbit-maximizer \
+  && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
+       sh -c 'mkdir -p /tmp/restore && tar xzf "/backup/<file>.tar.gz" -C /tmp/restore && rm -rf /data/* /data/.[!.]* && cp -a /tmp/restore/. /data/' \
+  && docker start rabbit-maximizer
 ```
 
 ### Dashboard
