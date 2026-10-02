@@ -19,7 +19,7 @@ import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUu
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';
 import { Container } from 'inversify';
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
@@ -110,7 +110,8 @@ describe('QueueRepository', () => {
       expect(created).toBe(true);
       expect(result.source_comment_url).toBe(ref.commentUrl);
       expect(result.source_comment_id).toBe(ref.commentId);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
+      expect(result).toStrictEqual(row);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(row);
     });
 
     it('returns the existing pending row when the PR is already queued (P2002)', async () => {
@@ -145,7 +146,8 @@ describe('QueueRepository', () => {
 
       expect(reviewQueue.findFirst).toHaveBeenNthCalledWith(3, { where: { repo_full_name: ref.repoFullName, pr_number: ref.prNumber, status: 'pending' } });
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(existing));
+      expect(result).toStrictEqual(existing);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(existing);
     });
 
     it('returns the existing retriggered item when a recent retriggered row exists with the same source_comment_id', async () => {
@@ -184,7 +186,8 @@ describe('QueueRepository', () => {
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
     });
 
     it('does not update the item when the same comment carries the same run ID', async () => {
@@ -222,7 +225,8 @@ describe('QueueRepository', () => {
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.recentlyRetriggered',
@@ -269,7 +273,8 @@ describe('QueueRepository', () => {
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.recentlyRetriggered',
@@ -381,7 +386,8 @@ describe('QueueRepository', () => {
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(queueOrder.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.recentlyRetriggered',
@@ -436,7 +442,8 @@ describe('QueueRepository', () => {
       });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
       expect(created).toBe(true);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(newRow));
+      expect(result).toStrictEqual(newRow);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(newRow);
     });
 
     it('updates the retriggered item source comment and returns created: false when source_comment_id differs', async () => {
@@ -545,7 +552,8 @@ describe('QueueRepository', () => {
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(queueOrder.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(oldRetriggered));
+      expect(result).toStrictEqual(oldRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(oldRetriggered);
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.recentlyRetriggered',
@@ -632,7 +640,8 @@ describe('QueueRepository', () => {
       });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(true);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(reopened));
+      expect(result).toStrictEqual(reopened);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(reopened);
       expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: conflictingResolved.id } });
       expect(queueOrder.create).not.toHaveBeenCalled();
       const [recordedEvent, recordedTx] = probeEvents.record.mock.lastCall!;
@@ -729,7 +738,8 @@ describe('QueueRepository', () => {
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: conflictingResolved.id } });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(true);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(reopened));
+      expect(result).toStrictEqual(reopened);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(reopened);
       expect(logger.info).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.resolvedReEnqueued', repo: ref.repoFullName, pr: ref.prNumber, sourceCommentId: newCommentId },
         'Resolved item re-enqueued after comment edit',
@@ -786,7 +796,8 @@ describe('QueueRepository', () => {
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(oldRetriggered));
+      expect(result).toStrictEqual(oldRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(oldRetriggered);
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.recentlyRetriggered',
@@ -842,7 +853,8 @@ describe('QueueRepository', () => {
       });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: newRow.id } });
       expect(created).toBe(true);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(newRow));
+      expect(result).toStrictEqual(newRow);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(newRow);
     });
 
     it('returns the existing resolved item when the same source_comment_id was recently resolved (completed-entry guard)', async () => {
@@ -881,7 +893,8 @@ describe('QueueRepository', () => {
       expect(reviewQueue.findFirst).toHaveBeenCalledTimes(2);
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentResolved));
+      expect(result).toStrictEqual(recentResolved);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentResolved);
       expect(logger.warn).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.recentlyResolved',
@@ -1090,7 +1103,8 @@ describe('QueueRepository', () => {
         },
       });
       expect(created).toBe(true);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
+      expect(result).toStrictEqual(updatedRow);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(updatedRow);
       const [recordedEvent, recordedTx] = probeEvents.record.mock.lastCall!;
       expect(recordedEvent).toStrictEqual({
         type: 'enqueued',
@@ -1247,7 +1261,8 @@ describe('QueueRepository', () => {
         },
       });
       expect(created).toBe(true);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
+      expect(result).toStrictEqual(updatedRow);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(updatedRow);
       expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: existingResolved.id } });
       expect(queueOrder.create).not.toHaveBeenCalled();
     });
@@ -1294,7 +1309,8 @@ describe('QueueRepository', () => {
       );
 
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(existingResolved));
+      expect(result).toStrictEqual(existingResolved);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(existingResolved);
       expect(reviewQueue.update).not.toHaveBeenCalled();
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'EnqueueProbe.resolvedNotEdited', repo: ref.repoFullName, pr: ref.prNumber, sourceCommentId: commentId },
@@ -1367,7 +1383,8 @@ describe('QueueRepository', () => {
       expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: existingResolved.id } });
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: existingResolved.id } });
       expect(created).toBe(true);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
+      expect(result).toStrictEqual(updatedRow);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(updatedRow);
     });
   });
 
@@ -1388,7 +1405,8 @@ describe('QueueRepository', () => {
         where: { id: row.id },
         data: { status: 'retriggered', retriggered_at: frozenNow, retrigger_comment_url: COMMENT_URL, run_id: runId, cooldown_until: cooldownUntil },
       });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
+      expect(result).toStrictEqual(row);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(row);
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepository.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, coderabbitRunId: undefined },
         'Marked review retriggered',
@@ -1417,7 +1435,8 @@ describe('QueueRepository', () => {
           cooldown_until: cooldownUntil,
         },
       });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
+      expect(result).toStrictEqual(row);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(row);
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'QueueRepository.markRetriggered', id: row.id, cooldownUntil, retriggerCommentUrl: COMMENT_URL, coderabbitRunId },
         'Marked review retriggered',
@@ -1548,7 +1567,8 @@ describe('QueueRepository', () => {
         where: { id: row.id },
         data: { status: 'resolved', resolution: 'failed', resolved_at: frozenNow },
       });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
+      expect(result).toStrictEqual(row);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(row);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepository.markResolved', id: row.id, resolution: 'failed' }, 'Marked review resolved');
     });
 
@@ -1715,6 +1735,13 @@ describe('QueueRepository', () => {
           prisma as unknown as Prisma.TransactionClient,
         ),
       );
+      const expectedReopened: ReviewQueue = {
+        ...recentRetriggered,
+        status: QueueStatus.pending,
+        pr_title: prTitle,
+        source_comment_run_id: runId,
+        cooldown_until: null,
+      };
 
       expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id: pullRequestId } });
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
@@ -1735,15 +1762,8 @@ describe('QueueRepository', () => {
       expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: recentRetriggered.id } });
       expect(reviewQueue.create).not.toHaveBeenCalled();
       expect(created).toBe(true);
-      expect(result).toStrictEqual(
-        mapper.fromReviewQueue({
-          ...recentRetriggered,
-          status: QueueStatus.pending,
-          pr_title: prTitle,
-          source_comment_run_id: runId,
-          cooldown_until: null,
-        }),
-      );
+      expect(result).toStrictEqual(expectedReopened);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(expectedReopened);
       expect(logger.info).toHaveBeenCalledWith(
         {
           fn: 'EnqueueProbe.staleRetriggeredReopened',
@@ -1793,7 +1813,8 @@ describe('QueueRepository', () => {
       expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id: pullRequestId } });
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
     });
 
     it('does not reopen when the item was retriggered within the lookback window', async () => {
@@ -1833,7 +1854,8 @@ describe('QueueRepository', () => {
       expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id: pullRequestId } });
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
     });
 
     it('does not fetch the pull request when the comment is not a review_skipped skip', async () => {
@@ -1871,7 +1893,8 @@ describe('QueueRepository', () => {
       expect(pullRequest.findUnique).not.toHaveBeenCalled();
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
     });
 
     it('does not reopen when the pull request row is missing', async () => {
@@ -1910,7 +1933,8 @@ describe('QueueRepository', () => {
       expect(pullRequest.findUnique).toHaveBeenCalled();
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
     });
 
     it('does not reopen when the PR head shas are unknown', async () => {
@@ -1949,7 +1973,8 @@ describe('QueueRepository', () => {
       expect(pullRequest.findUnique).toHaveBeenCalled();
       expect(reviewQueue.updateMany).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
     });
 
     it('reopens with a null run and the provided cooldown when the re-edit carries no run', async () => {
@@ -1987,6 +2012,13 @@ describe('QueueRepository', () => {
           prisma as unknown as Prisma.TransactionClient,
         ),
       );
+      const expectedReopened: ReviewQueue = {
+        ...recentRetriggered,
+        status: QueueStatus.pending,
+        pr_title: prTitle,
+        source_comment_run_id: null,
+        cooldown_until: cooldownUntil,
+      };
 
       expect(reviewQueue.updateMany).toHaveBeenCalledWith({
         where: { id: recentRetriggered.id, status: 'retriggered' },
@@ -2003,15 +2035,8 @@ describe('QueueRepository', () => {
         },
       });
       expect(created).toBe(true);
-      expect(result).toStrictEqual(
-        mapper.fromReviewQueue({
-          ...recentRetriggered,
-          status: QueueStatus.pending,
-          pr_title: prTitle,
-          source_comment_run_id: null,
-          cooldown_until: cooldownUntil,
-        }),
-      );
+      expect(result).toStrictEqual(expectedReopened);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(expectedReopened);
     });
 
     it('falls back to adoption when the reopen loses the race', async () => {
@@ -2071,7 +2096,8 @@ describe('QueueRepository', () => {
       });
       expect(queueOrder.findUnique).not.toHaveBeenCalled();
       expect(created).toBe(false);
-      expect(result).toStrictEqual(mapper.fromReviewQueue(recentRetriggered));
+      expect(result).toStrictEqual(recentRetriggered);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(recentRetriggered);
     });
   });
 
@@ -2182,7 +2208,8 @@ describe('QueueRepository', () => {
         where: { uuid: row.uuid },
         data: { status: 'resolved', resolution: 'review_completed', resolved_at: frozenNow },
       });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(completedRow));
+      expect(result).toStrictEqual(completedRow);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(completedRow);
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'MarkQueueItemReviewedProbe.queueItemMarkedReviewed', uuid: row.uuid, id: row.id },
         'Marked review reviewed by UUID',
@@ -2199,7 +2226,8 @@ describe('QueueRepository', () => {
 
       const result = await sut.markResolvedByUuid(row.uuid, Resolution.ReviewCompleted, prisma as unknown as Prisma.TransactionClient);
 
-      expect(result).toStrictEqual(mapper.fromReviewQueue(completedRow));
+      expect(result).toStrictEqual(completedRow);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(completedRow);
     });
 
     it('returns undefined when UUID is not found', async () => {
@@ -2240,7 +2268,8 @@ describe('QueueRepository', () => {
       const result = await sut.markResolvedByUuid(row.uuid, Resolution.ReviewCompleted);
 
       expect(prisma.$transaction).toHaveBeenCalled();
-      expect(result).toStrictEqual(mapper.fromReviewQueue(completedRow));
+      expect(result).toStrictEqual(completedRow);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(completedRow);
       expect(logger.debug).toHaveBeenCalledWith(
         { fn: 'MarkQueueItemReviewedProbe.queueItemMarkedReviewed', uuid: row.uuid, id: row.id },
         'Marked review reviewed by UUID',
@@ -2375,7 +2404,8 @@ describe('QueueRepository', () => {
         where: { id: row.id },
         data: { status: 'resolved', resolution: 'review_completed', resolved_at: frozenNow },
       });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(existingResolved));
+      expect(result).toStrictEqual(existingResolved);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(existingResolved);
       expect(logger.info).toHaveBeenCalledWith(
         { fn: 'QueueRepository.reschedule', id: row.id, existingId: existingResolved.id, sourceCommentId: commentId },
         'Reschedule collision: source_comment_id already exists on a resolved row; marking current item as resolved',
@@ -2503,7 +2533,8 @@ describe('QueueRepository', () => {
         where: { status: 'retriggered' },
         orderBy: { retriggered_at: 'asc' },
       });
-      expect(result).toStrictEqual(rows.map((row) => mapper.fromReviewQueue(row)));
+      expect(result).toStrictEqual(rows);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledTimes(rows.length);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepository.getRetriggeredQueue', count: 2 }, 'Fetched retriggered queue');
     });
   });
@@ -2548,7 +2579,8 @@ describe('QueueRepository', () => {
         where: { status: 'pending' },
         orderBy: { id: 'asc' },
       });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
+      expect(result).toStrictEqual(row);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(row);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepository.getOldestPending', found: true }, 'Fetched oldest pending item');
     });
 
@@ -2723,7 +2755,8 @@ describe('QueueRepository', () => {
         orderBy: { created_at: 'desc' },
         take: 50,
       });
-      expect(result).toStrictEqual(rows.map((row) => mapper.fromReviewQueue(row)));
+      expect(result).toStrictEqual(rows);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledTimes(rows.length);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueRepository.getSkippedItems', count: 2 }, 'Fetched skipped items');
     });
 
@@ -2832,7 +2865,8 @@ describe('QueueRepository', () => {
       const result = await sut.findBySourceCommentId(row.source_comment_id);
 
       expect(reviewQueue.findFirst).toHaveBeenCalledWith({ where: { source_comment_id: row.source_comment_id } });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
+      expect(result).toStrictEqual(row);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(row);
     });
 
     it('returns undefined when no matching row exists', async () => {
@@ -2853,7 +2887,8 @@ describe('QueueRepository', () => {
 
       const result = await sut.findBySourceCommentId(row.source_comment_id);
 
-      expect(result).toStrictEqual(mapper.fromReviewQueue(row));
+      expect(result).toStrictEqual(row);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(row);
     });
   });
 

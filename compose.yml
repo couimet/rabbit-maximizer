@@ -1,0 +1,32 @@
+# Deployment for the published image. Copy this file to the host beside a
+# config/.env, then run `docker compose up -d`. See the "Run with Docker"
+# section of README.md.
+services:
+  rabbit-maximizer:
+    image: ghcr.io/couimet/rabbit-maximizer:latest
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - LOG_TO_FILE=true
+    secrets:
+      - source: env_file
+        target: /app/.env
+    volumes:
+      - data:/data
+      - logs:/logs
+    read_only: true
+    tmpfs:
+      - /tmp
+
+secrets:
+  env_file:
+    file: ./config/.env
+
+volumes:
+  data:
+    # The pinned names keep this path on the same volume as the plain
+    # `docker run` command in the README.
+    name: rabbit-maximizer-data
+  logs:
+    name: rabbit-maximizer-logs
