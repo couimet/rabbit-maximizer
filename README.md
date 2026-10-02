@@ -153,19 +153,19 @@ docker stop rabbit-maximizer \
   && docker start rabbit-maximizer
 ```
 
-Restore into an empty volume with the reverse command. Replace `<file>` with the backup name. The helper extracts the archive into a temporary directory before it touches the volume, so a wrong name or an unreadable archive leaves the current database in place:
+Restore into an empty volume with the reverse command. Replace `<file>` with the backup name. The helper extracts the archive into a temporary directory and checks the payload for `rabbit-maximizer.db` before it touches the volume, so a wrong name, an unreadable archive, or a payload with no database leaves the current database in place. A failed step stops the sequence, so the container stays stopped until you start it again:
 
 ```bash
 # With Docker Compose
 docker compose stop rabbit-maximizer \
   && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
-       sh -c 'mkdir -p /tmp/restore && tar xzf "/backup/<file>.tar.gz" -C /tmp/restore && rm -rf /data/* /data/.[!.]* && cp -a /tmp/restore/. /data/' \
+       sh -c 'mkdir -p /tmp/restore && tar xzf "/backup/<file>.tar.gz" -C /tmp/restore && test -f /tmp/restore/rabbit-maximizer.db && rm -rf /data/* /data/.[!.]* && cp -a /tmp/restore/. /data/' \
   && docker compose start rabbit-maximizer
 
 # Without Compose
 docker stop rabbit-maximizer \
   && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
-       sh -c 'mkdir -p /tmp/restore && tar xzf "/backup/<file>.tar.gz" -C /tmp/restore && rm -rf /data/* /data/.[!.]* && cp -a /tmp/restore/. /data/' \
+       sh -c 'mkdir -p /tmp/restore && tar xzf "/backup/<file>.tar.gz" -C /tmp/restore && test -f /tmp/restore/rabbit-maximizer.db && rm -rf /data/* /data/.[!.]* && cp -a /tmp/restore/. /data/' \
   && docker start rabbit-maximizer
 ```
 
