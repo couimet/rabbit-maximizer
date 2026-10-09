@@ -1,7 +1,7 @@
 import type { QueueStatus, Resolution, SkipReason, TriggerSource } from '../domain.js';
+import type { QueueItem } from '../types/index.js';
 import { nullToUndefined, sqlDateToDate } from '../utils/index.js';
 
-import type { QueueItem } from '../types/index.js';
 import type { ReviewQueue } from '@prisma/client';
 import { injectable } from 'inversify';
 

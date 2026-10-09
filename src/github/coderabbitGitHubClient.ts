@@ -4,7 +4,7 @@ import { readRunIdentity } from '../node-utils/index.js';
 import { TYPES } from '../server-domain.js';
 import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, RetriggerDiagnosis, ReviewLimitComment } from '../types/index.js';
 
-import type { CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
+import type { CompletedReview, FetchCommentResult, GitHubQuota, ListedComment, RetriggerComment } from './types/index.js';
 import {
   buildCommentBody,
   buildOpenPRSearchQuery,
@@ -35,6 +35,7 @@ const COMMENTS_FETCH_PER_PAGE = 100;
 const OPEN_PR_SEARCH_PER_PAGE = 100;
 const OPEN_PR_SEARCH_MAX_PAGES = 3;
 const UNKNOWN_USER = '<unknown>';
+const RATE_LIMIT_RESOURCE_CORE = 'core';
 
 @injectable()
 export class CoderabbitGitHubClient {
@@ -208,6 +209,15 @@ export class CoderabbitGitHubClient {
     });
 
     return { htmlUrl: response.data.html_url };
+  }
+
+  async getQuota(): Promise<GitHubQuota> {
+    this.log.debug({ fn: 'getQuota', resource: RATE_LIMIT_RESOURCE_CORE }, 'Fetching API quota');
+
+    const response = await this.octokit.rest.rateLimit.get();
+    const core = response.data.resources.core;
+
+    return { resource: RATE_LIMIT_RESOURCE_CORE, limit: core.limit, remaining: core.remaining, used: core.used, resetEpoch: core.reset };
   }
 
   async getPRState(repo: string, pr: number): Promise<PRState> {

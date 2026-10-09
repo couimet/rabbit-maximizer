@@ -72,6 +72,7 @@ export type { ScanResult } from './ScanResult.js';
 export type { StaleOpenPR } from './StaleOpenPR.js';
 export type { SubmittedReviewFields } from './SubmittedReviewFields.js';
 export type { SubmittedReviewRaw } from './SubmittedReviewRaw.js';
+export type { TickGuardOutcome } from './TickGuardOutcome.js';
 export type { TrackedPrRow } from './TrackedPrRow.js';
 export type { TriggerDetails } from './TriggerDetails.js';
 export type { UpsertPullRequestData } from './UpsertPullRequestData.js';

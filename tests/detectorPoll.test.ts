@@ -399,12 +399,11 @@ describe('PollDetector', () => {
       const detector = createDetector();
       const starting = detector.start();
 
-      await Promise.resolve();
+      await drainMicrotasks(TICK_DEPTH);
 
       detector['tick']();
 
-      await Promise.resolve();
-      await Promise.resolve();
+      await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
 
@@ -419,9 +418,20 @@ describe('PollDetector', () => {
       const resetEpoch = Math.ceil(frozenNow.getTime() / MS_PER_SECOND) + 120;
       const retryAfterMs = Math.max(0, resetEpoch * MS_PER_SECOND - frozenNow.getTime());
       const expectedRetryAfterSec = Math.ceil(retryAfterMs / MS_PER_SECOND);
+      const limit = getUniqueInt();
+      const used = getUniqueInt();
+      const resource = getUniqueString();
       const rateLimitError = {
         status: 403,
-        response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(resetEpoch) } },
+        response: {
+          headers: {
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': String(resetEpoch),
+            'x-ratelimit-limit': String(limit),
+            'x-ratelimit-used': String(used),
+            'x-ratelimit-resource': resource,
+          },
+        },
       };
       deps.github.searchReviewLimitComments.mockRejectedValue(rateLimitError);
 
@@ -431,7 +441,7 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
-        { fn: 'PollDetector.tick', status: 403, retryAfterSec: expectedRetryAfterSec },
+        { fn: 'PollDetector.tick', status: 403, retryAfterSec: expectedRetryAfterSec, resetEpoch, resource, limit, remaining: 0, used },
         'GitHub API rate limit exhausted; backing off until reset',
       );
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
@@ -439,6 +449,51 @@ describe('PollDetector', () => {
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
       await Promise.resolve();
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs the quota budget on every tick', async () => {
+      const quota = {
+        resource: getUniqueString(),
+        limit: getUniqueInt(),
+        remaining: getUniqueInt(),
+        used: getUniqueInt(),
+        resetEpoch: getUniqueInt(),
+      };
+      deps.github.getQuota.mockResolvedValue(quota);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      const { stop } = await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        { fn: 'PollDetector.tick', resource: quota.resource, limit: quota.limit, remaining: quota.remaining, used: quota.used, resetEpoch: quota.resetEpoch },
+        'GitHub API quota',
+      );
+
+      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.getQuota).toHaveBeenCalledTimes(2);
+
+      await stop();
+    });
+
+    it('warns and continues when the quota read fails', async () => {
+      const quotaError = new Error('rate limit endpoint unavailable');
+      deps.github.getQuota.mockRejectedValue(quotaError);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      const { stop } = await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: quotaError }, 'Quota read failed; continuing');
+      expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
+
+      await stop();
     });
 
     it('falls through to generic error log when rate limit response has non-numeric x-ratelimit-reset header', async () => {
