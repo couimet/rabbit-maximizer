@@ -1,4 +1,5 @@
-import { IntervalService } from '../src/domain.js';
+import { IntervalService, TickGuardReason } from '../src/domain.js';
+import type { TickGuardOutcome } from '../src/types/index.js';
 
 import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 
@@ -8,6 +9,9 @@ import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it, jest } from '@jest/globals';
 
 const TICK_MS = 100;
+const RETRY_AFTER_SEC = 5;
+const RETRY_AFTER_MS = RETRY_AFTER_SEC * 1000;
+const SUPPRESSION_MS = 3_000;
 const TICK_ERROR = new Error('tick failure');
 const JOB_CORRELATION_ID = 'test-job';
 const OUTER_CORRELATION_ID = 'outer-correlation';
@@ -74,6 +78,28 @@ class GatedService extends IntervalService {
   }
 }
 
+class RateLimitedService extends IntervalService {
+  executeTickCalls = 0;
+  retryAfterMs: number | undefined;
+
+  constructor(log: Logger) {
+    super(JOB_CORRELATION_ID, TICK_MS, log);
+  }
+
+  protected tickGuard(): TickGuardOutcome {
+    const base = super.tickGuard();
+    if (!base.allowed || this.retryAfterMs === undefined) {
+      return base;
+    }
+    return { allowed: false, reason: TickGuardReason.rateLimit, retryAfterMs: this.retryAfterMs };
+  }
+
+  protected executeTick(): Promise<void> {
+    this.executeTickCalls++;
+    return Promise.resolve();
+  }
+}
+
 describe('IntervalService', () => {
   it('fires ticks on the interval after bootstrap', async () => {
     jest.useFakeTimers();
@@ -96,28 +122,139 @@ describe('IntervalService', () => {
     jest.useRealTimers();
   });
 
-  it('tickGuard returns false when stopped', async () => {
+  it('tickGuard reports the stopped reason when the service is stopped', async () => {
     const log = createMockLogger();
     const svc = new StubService(log);
     await svc.start();
     await svc['stop']();
-    expect(svc['tickGuard']()).toBe(false);
+
+    expect(svc['tickGuard']()).toStrictEqual({ allowed: false, reason: 'stopped', retryAfterMs: undefined });
   });
 
-  it('tickGuard returns false when a tick is in flight', () => {
+  it('tickGuard reports the in-flight reason when a tick is in flight', () => {
     const log = createMockLogger();
     const svc = new StubService(log);
     (svc as any).tickPromise = Promise.resolve();
-    expect(svc['tickGuard']()).toBe(false);
+
+    expect(svc['tickGuard']()).toStrictEqual({ allowed: false, reason: 'tick-in-flight', retryAfterMs: undefined });
   });
 
-  it('tick returns early when tickGuard is false', async () => {
+  it('tick returns early and logs the suppression when tickGuard blocks', async () => {
     const log = createMockLogger();
     const svc = new StubService(log);
     (svc as any).tickPromise = Promise.resolve();
     const initialCalls = svc.executeTickCalls;
+
     await svc['tick']();
+
     expect(svc.executeTickCalls).toBe(initialCalls);
+    expect(log.warn).toHaveBeenCalledWith(
+      { fn: 'IntervalService.tick', guard: 'tick-in-flight', retryAfterSec: undefined, suppressedTickCount: 1 },
+      'Interval tick suppressed',
+    );
+  });
+
+  it('thins the suppressed-tick line to the powers of two', async () => {
+    jest.useFakeTimers();
+    const log = createMockLogger();
+    const svc = new RateLimitedService(log);
+    svc.retryAfterMs = RETRY_AFTER_MS;
+
+    for (let tickNumber = 0; tickNumber < 5; tickNumber++) {
+      await svc['tick']();
+    }
+
+    expect(svc.executeTickCalls).toBe(0);
+    expect(log.warn).toHaveBeenCalledTimes(3);
+    expect(log.warn).toHaveBeenNthCalledWith(
+      1,
+      { fn: 'IntervalService.tick', guard: 'rate-limit', retryAfterSec: RETRY_AFTER_SEC, suppressedTickCount: 1 },
+      'Interval tick suppressed',
+    );
+    expect(log.warn).toHaveBeenNthCalledWith(
+      2,
+      { fn: 'IntervalService.tick', guard: 'rate-limit', retryAfterSec: RETRY_AFTER_SEC, suppressedTickCount: 2 },
+      'Interval tick suppressed',
+    );
+    expect(log.warn).toHaveBeenNthCalledWith(
+      3,
+      { fn: 'IntervalService.tick', guard: 'rate-limit', retryAfterSec: RETRY_AFTER_SEC, suppressedTickCount: 4 },
+      'Interval tick suppressed',
+    );
+
+    jest.useRealTimers();
+  });
+
+  it('logs the resumption with the suppressed count and the elapsed time, then resets', async () => {
+    jest.useFakeTimers();
+    const log = createMockLogger();
+    const svc = new RateLimitedService(log);
+    svc.retryAfterMs = RETRY_AFTER_MS;
+
+    await svc['tick']();
+    await svc['tick']();
+    jest.advanceTimersByTime(SUPPRESSION_MS);
+    svc.retryAfterMs = undefined;
+    await svc['tick']();
+
+    expect(log.info).toHaveBeenCalledWith(
+      { fn: 'IntervalService.tick', guard: 'rate-limit', suppressedTickCount: 2, suppressedMs: SUPPRESSION_MS },
+      'Interval tick resumed after suppression',
+    );
+
+    await svc['tick']();
+    expect(log.info).toHaveBeenCalledTimes(1);
+
+    jest.useRealTimers();
+  });
+
+  it('writes no resumption line when no tick was suppressed', async () => {
+    const log = createMockLogger();
+    const svc = new StubService(log);
+
+    await svc['tick']();
+
+    expect(log.info).not.toHaveBeenCalled();
+  });
+
+  it('logs the wall-clock gap when the tick runs more than one interval late', async () => {
+    jest.useFakeTimers();
+    const log = createMockLogger();
+    const svc = new StubService(log);
+
+    await svc['tick']();
+    jest.advanceTimersByTime(TICK_MS * 3);
+    await svc['tick']();
+
+    expect(log.warn).toHaveBeenCalledWith(
+      { fn: 'IntervalService.tick', gapMs: TICK_MS * 2 },
+      'Interval tick ran late; the wall clock passed the expected tick time',
+    );
+
+    jest.useRealTimers();
+  });
+
+  it('writes no gap line when the tick is one interval late', async () => {
+    jest.useFakeTimers();
+    const log = createMockLogger();
+    const svc = new StubService(log);
+
+    await svc['tick']();
+    jest.advanceTimersByTime(TICK_MS * 2);
+    await svc['tick']();
+
+    expect(log.warn).not.toHaveBeenCalled();
+
+    jest.useRealTimers();
+  });
+
+  it('writes no gap line on the first tick', async () => {
+    const log = createMockLogger();
+    const svc = new StubService(log);
+
+    await svc['tick']();
+
+    expect(log.warn).not.toHaveBeenCalled();
   });
 
   it('logs a warning and continues when executeTick throws', async () => {

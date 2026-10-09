@@ -8,7 +8,15 @@ export { createMockDirectCommentChecker } from './createMockDirectCommentChecker
 export { createMockEditDetector } from './createMockEditDetector.js';
 export { createMockEventRepo } from './createMockEventRepo.js';
 export { createMockFetch } from './createMockFetch.js';
-export type { MockIssuesRest, MockOctokitOptions, MockOctokitResult, MockPullsRest, MockReposRest, MockSearchRest } from './createMockOctokit.js';
+export type {
+  MockIssuesRest,
+  MockOctokitOptions,
+  MockOctokitResult,
+  MockPullsRest,
+  MockRateLimitRest,
+  MockReposRest,
+  MockSearchRest,
+} from './createMockOctokit.js';
 export { createMockOctokit } from './createMockOctokit.js';
 export { createMockOnDetectedCallback } from './createMockOnDetectedCallback.js';
 export type {

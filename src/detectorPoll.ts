@@ -7,10 +7,10 @@ import {
   parseWaitSeconds,
   splitRepo,
 } from './github/index.js';
-import type { OnDetectedCallback } from './types/index.js';
+import type { OnDetectedCallback, TickGuardOutcome } from './types/index.js';
 import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
-import { CodeRabbitCommentType, IntervalService, TYPES } from './domain.js';
+import { CodeRabbitCommentType, IntervalService, TickGuardReason, TYPES } from './domain.js';
 import type { DirectCommentChecker, PrScanner, StalePrRecoverer } from './services.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
@@ -54,12 +54,34 @@ export class PollDetector extends IntervalService {
     this.log.info({ fn: 'PollDetector.stop' }, 'Poll detector stopped');
   }
 
-  protected tickGuard(): boolean {
-    return super.tickGuard() && Date.now() >= this.rateLimitRetryAfter;
+  protected tickGuard(): TickGuardOutcome {
+    const base = super.tickGuard();
+    if (!base.allowed) {
+      return base;
+    }
+
+    const now = Date.now();
+    if (now < this.rateLimitRetryAfter) {
+      return { allowed: false, reason: TickGuardReason.rateLimit, retryAfterMs: this.rateLimitRetryAfter - now };
+    }
+    return { allowed: true };
+  }
+
+  private async logQuota(logCtx: LoggingContext): Promise<void> {
+    try {
+      const quota = await this.github.getQuota();
+      this.log.info(
+        { ...logCtx, resource: quota.resource, limit: quota.limit, remaining: quota.remaining, used: quota.used, resetEpoch: quota.resetEpoch },
+        'GitHub API quota',
+      );
+    } catch (err: unknown) {
+      this.log.warn({ ...logCtx, error: err }, 'Quota read failed; continuing');
+    }
   }
 
   protected async executeTick(): Promise<void> {
     const logCtx: LoggingContext = { fn: 'PollDetector.tick' };
+    await this.logQuota(logCtx);
 
     try {
       const { scannedPRs } = await this.prScanner.scan();
@@ -142,7 +164,16 @@ export class PollDetector extends IntervalService {
         const retryAfterMs = Math.max(0, rateLimit.resetEpoch * MS_PER_SECOND - Date.now());
         this.rateLimitRetryAfter = Date.now() + retryAfterMs;
         this.log.warn(
-          { ...logCtx, status: rateLimit.status, retryAfterSec: Math.ceil(retryAfterMs / MS_PER_SECOND) },
+          {
+            ...logCtx,
+            status: rateLimit.status,
+            retryAfterSec: Math.ceil(retryAfterMs / MS_PER_SECOND),
+            resetEpoch: rateLimit.resetEpoch,
+            resource: rateLimit.resource,
+            limit: rateLimit.limit,
+            remaining: rateLimit.remaining,
+            used: rateLimit.used,
+          },
           'GitHub API rate limit exhausted; backing off until reset',
         );
         return;
