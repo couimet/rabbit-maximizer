@@ -1,7 +1,7 @@
 import type { QueueStatus, Resolution, SkipReason, TriggerSource } from '../domain.js';
-import type { QueueItem } from '../types/index.js';
 import { nullToUndefined, sqlDateToDate } from '../utils/index.js';
 
+import type { QueueItem } from '../types/index.js';
 import type { ReviewQueue } from '@prisma/client';
 import { injectable } from 'inversify';
 
@@ -36,7 +36,7 @@ export class ReviewQueueToQueueItemMapper {
       reviewed_at: sqlDateToDate(row.reviewed_at),
       resolved_at: sqlDateToDate(row.resolved_at),
       resolution: nullToUndefined(row.resolution as Resolution),
-      // TODO[2026-10-29]: #79 - remove ! once pull_request_id backfill is complete
+      // TODO[2026-10-31]: #79 - remove ! once pull_request_id backfill is complete
       pull_request_id: row.pull_request_id!,
       created_at: row.created_at,
       updated_at: row.updated_at,
