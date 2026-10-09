@@ -27,6 +27,7 @@ export { DEFAULT_DURATION, DURATION_OPTIONS, resolveDurationSince } from './reso
 export { shortGitSha } from './shortGitSha.js';
 export { shouldReopenStaleRetriggered } from './shouldReopenStaleRetriggered.js';
 export { sqlDateToDate } from './sqlDateToDate.js';
+export { stringToNumber } from './stringToNumber.js';
 export { toReviewEventType } from './toReviewEventType.js';
 export { truncateBodyPreview } from './truncateBodyPreview.js';
 export { findByUuid, isValidUuid, resolveUuidsToIds } from './uuidLookup.js';

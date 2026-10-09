@@ -24,4 +24,5 @@ export { Resolution } from './Resolution.js';
 export { ReviewDetectionMethod } from './ReviewDetectionMethod.js';
 export { SchedulerStatus } from './SchedulerStatus.js';
 export { SkipReason } from './SkipReason.js';
+export { TickGuardReason } from './TickGuardReason.js';
 export { TriggerSource } from './TriggerSource.js';
