@@ -1,7 +1,8 @@
-import { CommentDetectionMethod, type TriggerSource, TYPES } from '../domain.js';
+import { CommentDetectionMethod, type TriggerSource } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import { readRunIdentity } from '../node-utils/index.js';
+import { TYPES } from '../server-domain.js';
 import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, RetriggerDiagnosis, ReviewLimitComment } from '../types/index.js';
-import { readRunIdentity } from '../utils/index.js';
 
 import type { CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
 import {

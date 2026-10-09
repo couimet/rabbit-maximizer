@@ -1,5 +1,5 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { readRunIdentity } from '../../src/utils/readRunIdentity.js';
+import { readRunIdentity } from '../../src/node-utils/index.js';
 
 import { getRandomHexString, getUniqueString } from '@couimet/dynamic-testing';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';

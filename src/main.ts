@@ -7,13 +7,15 @@ import {
   ReviewQueueToActivityListItemMapper,
   type TrackedPrMapper,
 } from './mappers/index.js';
-import { describeDatabaseUrl, readRunIdentity } from './utils/index.js';
+import { readRunIdentity } from './node-utils/index.js';
+import { describeDatabaseUrl } from './utils/index.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
-import { EXECUTION_CONTEXT_ATTRIBUTES, TYPES } from './domain.js';
+import { EXECUTION_CONTEXT_ATTRIBUTES } from './domain.js';
 import { DASHBOARD_DIR, setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { initLogger } from './logger.js';
+import { TYPES } from './server-domain.js';
 import { type PollDetector, type ReviewDetector, ReviewTrigger, type Scheduler } from './services.js';
 import { validateGitHubToken } from './validateGitHubToken.js';
 
