@@ -1,8 +1,10 @@
 import type { Config } from '../config.js';
-import { CodeRabbitCommentType, QueueStatus, Resolution, SkipReason, TriggerSource, TYPES } from '../domain.js';
+import { CodeRabbitCommentType, QueueStatus, Resolution, SkipReason, TriggerSource } from '../domain.js';
 import { BasePrismaRepository, PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
+import { getRunIdAttribute } from '../node-utils/index.js';
 import type { ProbeFactory } from '../probes/index.js';
+import { TYPES } from '../server-domain.js';
 import {
   type CommentDetails,
   type EnqueueData,
@@ -11,7 +13,7 @@ import {
   type QueueItem,
   type ReopenStaleRetriggeredOptions,
 } from '../types/index.js';
-import { getRunIdAttribute, MS_PER_MINUTE, MS_PER_SECOND, nullToUndefined, shouldReopenStaleRetriggered } from '../utils/index.js';
+import { MS_PER_MINUTE, MS_PER_SECOND, nullToUndefined, shouldReopenStaleRetriggered } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient, type ReviewQueue } from '@prisma/client';

@@ -1,6 +1,6 @@
 import { setupExpress } from '../src/express.js';
 import { EventCountsMapper, EventEntryMapper, QueueItemMapper, TrackedPrMapper } from '../src/mappers/index.js';
-import { hasBuiltDashboard } from '../src/utils/hasBuiltDashboard.js';
+import { hasBuiltDashboard } from '../src/node-utils/index.js';
 
 import { fetchResponse } from './helpers/fetchResponse.js';
 import {

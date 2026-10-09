@@ -1,4 +1,4 @@
-import { IntervalService } from '../src/domain.js';
+import { IntervalService } from '../src/server-domain.js';
 
 import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 

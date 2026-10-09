@@ -1,6 +1,6 @@
 import { isPRClosedWithoutMerge, isPRMerged, type PRStateFetcher } from './github/index.js';
 import type { EnrichedItem, QueueItem } from './types/index.js';
-import { TYPES } from './domain.js';
+import { TYPES } from './server-domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';

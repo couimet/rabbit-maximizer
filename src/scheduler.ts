@@ -5,7 +5,8 @@ import type { ProbeFactory, SchedulerProbe } from './probes/index.js';
 import type { QueueItem } from './types/index.js';
 import { computeSchedulerBackoff, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { IntervalService, PrState, QueueStatus, Resolution, SkipReason, TriggerSource, TYPES } from './domain.js';
+import { PrState, QueueStatus, Resolution, SkipReason, TriggerSource } from './domain.js';
+import { IntervalService, TYPES } from './server-domain.js';
 import { type Pruner, ReviewTrigger } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';

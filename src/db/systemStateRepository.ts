@@ -1,5 +1,6 @@
-import { SchedulerStatus, TYPES } from '../domain.js';
+import { SchedulerStatus } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
+import { TYPES } from '../server-domain.js';
 import type { DashboardSystemState } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';

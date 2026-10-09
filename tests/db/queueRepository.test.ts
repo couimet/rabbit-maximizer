@@ -1,10 +1,11 @@
 import type { Config } from '../../src/config.js';
 import { QueueRepository } from '../../src/db/index.js';
-import { CodeRabbitCommentType, QueueStatus, Resolution, SkipReason, TYPES } from '../../src/domain.js';
+import { CodeRabbitCommentType, QueueStatus, Resolution, SkipReason } from '../../src/domain.js';
 import { PrismaUniqueConstraintViolationError } from '../../src/external-deps/couimet/prisma-repo/index.js';
 import { buildCommentUrl } from '../../src/github/index.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
 import { ProbeFactory } from '../../src/probes/index.js';
+import { TYPES } from '../../src/server-domain.js';
 import { MS_PER_SECOND } from '../../src/utils/index.js';
 import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewQueueHydrationData, generateReviewRef } from '../helpers/index.js';

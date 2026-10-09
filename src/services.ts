@@ -2,6 +2,10 @@
  * Barrel for injectable service classes at the src/ root.
  * These are the main application services wired together by the DI container.
  * They have internal dependencies on config, domain, and each other.
+ *
+ * The dashboard must never import this barrel. It holds no Node capability, so
+ * the resolver guard stays quiet, but a service reaches the container config
+ * and the whole server vocabulary.
  */
 export { PollDetector } from './detectorPoll.js';
 export { DirectCommentChecker } from './DirectCommentChecker.js';
@@ -10,6 +14,7 @@ export { EnqueueService } from './EnqueueService.js';
 export { PrScanner } from './prScanner.js';
 export { PruneEvaluator } from './PruneEvaluator.js';
 export { Pruner } from './Pruner.js';
+export { QueueItemEnricher } from './QueueItemEnricher.js';
 export { ReviewDetector } from './ReviewDetector.js';
 export { ReviewTrigger } from './ReviewTrigger.js';
 export { RunIdGenerator } from './RunIdGenerator.js';

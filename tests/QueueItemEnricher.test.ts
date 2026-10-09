@@ -1,5 +1,6 @@
-import { QueueItemEnricher } from '../../src/utils/QueueItemEnricher.js';
-import { createMockPullRequestRepo, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
+import { QueueItemEnricher } from '../src/services.js';
+
+import { createMockPullRequestRepo, generateQueueItemHydrationData, generateReviewRef } from './helpers/index.js';
 
 import { getUniqueDate, getUniqueInt } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';

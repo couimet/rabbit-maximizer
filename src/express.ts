@@ -2,6 +2,7 @@ import type { EventRepository, PullRequestRepository, QueueOrderRepository, Queu
 import { createExpressAppWithExecutionContext } from './external-deps/couimet/execution-context-http-express/src/index.js';
 import { startServer } from './external-deps/couimet/express-tools/index.js';
 import type { EventCountsMapper, EventEntryMapper, QueueItemMapper, ReviewQueueToActivityListItemMapper, TrackedPrMapper } from './mappers/index.js';
+import { hasBuiltDashboard } from './node-utils/index.js';
 import {
   createGetActivityListHandler,
   createGetConfigHandler,
@@ -17,11 +18,6 @@ import {
   createSetPausedHandler,
   trySetupVite,
 } from './routes/index.js';
-// The `utils` barrel is shared with the dashboard bundle. Re-exporting this
-// util from it puts a `node:fs` import in the browser module graph and breaks
-// `pnpm dev`, so this one import stays pointed at the source file.
-// eslint-disable-next-line barrel-boundary/enforce-barrel-files
-import { hasBuiltDashboard } from './utils/hasBuiltDashboard.js';
 import type { Config } from './config.js';
 import { isProduction } from './domain.js';
 import type { ReviewTrigger } from './services.js';

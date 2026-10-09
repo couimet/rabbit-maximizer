@@ -1,6 +1,7 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { CodeRabbitCommentType, MatchedMarker, TriggerSource, TYPES } from '../../src/domain.js';
+import { CodeRabbitCommentType, MatchedMarker, TriggerSource } from '../../src/domain.js';
 import { CoderabbitGitHubClient } from '../../src/github/index.js';
+import { TYPES } from '../../src/server-domain.js';
 import type { RepoFilter } from '../../src/types/index.js';
 import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockReposRest, type MockSearchRest } from '../helpers/index.js';
 

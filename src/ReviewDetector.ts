@@ -4,8 +4,9 @@ import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { expectedHeadShaForSourceCommentType, MS_PER_SECOND, shouldReopenStaleRetriggered } from './utils/index.js';
 import type { Config } from './config.js';
-import { CodeRabbitCommentType, IntervalService, PrState, Resolution, ReviewDetectionMethod, TYPES } from './domain.js';
+import { CodeRabbitCommentType, PrState, Resolution, ReviewDetectionMethod } from './domain.js';
 import type { EditDetector } from './EditDetector.js';
+import { IntervalService, TYPES } from './server-domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';

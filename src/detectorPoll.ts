@@ -10,7 +10,8 @@ import {
 import type { OnDetectedCallback } from './types/index.js';
 import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
-import { CodeRabbitCommentType, IntervalService, TYPES } from './domain.js';
+import { CodeRabbitCommentType } from './domain.js';
+import { IntervalService, TYPES } from './server-domain.js';
 import type { DirectCommentChecker, PrScanner, StalePrRecoverer } from './services.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';

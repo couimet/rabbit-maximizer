@@ -12,7 +12,8 @@ import {
 import type { ProbeFactory } from './probes/index.js';
 import type { DirectCheckPR, OnDetectedCallback, ReviewLimitCandidate } from './types/index.js';
 import { extractCoderabbitRunId } from './utils/index.js';
-import { CodeRabbitCommentType, CommentDetectionMethod, TYPES } from './domain.js';
+import { CodeRabbitCommentType, CommentDetectionMethod } from './domain.js';
+import { TYPES } from './server-domain.js';
 
 import { inject, injectable } from 'inversify';
 

@@ -4,7 +4,7 @@ import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
 import { extractCoderabbitRunId, isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
-import { TYPES } from './domain.js';
+import { TYPES } from './server-domain.js';
 
 import { type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';

@@ -1,5 +1,6 @@
-import { CodeRabbitCommentType, PrState, TYPES } from '../domain.js';
+import { CodeRabbitCommentType, PrState } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
+import { TYPES } from '../server-domain.js';
 import type { PendingAcknowledgement, PullRequestColumnTypes, PullRequestHeadSha, StaleOpenPR, TrackedPrRow, UpsertPullRequestData } from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';

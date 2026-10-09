@@ -1,6 +1,6 @@
 import { QueueOrderRepository } from '../../src/db/index.js';
-import { TYPES } from '../../src/domain.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
+import { TYPES } from '../../src/server-domain.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';

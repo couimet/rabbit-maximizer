@@ -1,9 +1,6 @@
 import pkg from '../../package.json' with { type: 'json' };
 import type { RunIdentity } from '../types/index.js';
-
-import { detectRunKind } from './detectRunKind.js';
-import { parseImageTagNames } from './parseImageTagNames.js';
-import { shortGitSha } from './shortGitSha.js';
+import { detectRunKind, parseImageTagNames, shortGitSha } from '../utils/index.js';
 
 import { existsSync } from 'node:fs';
 

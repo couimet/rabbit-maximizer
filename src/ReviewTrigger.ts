@@ -13,8 +13,9 @@ import { ProbeFactory, type ReviewRetriggerProbe } from './probes/index.js';
 import type { CommentDiagnosis, QueueItem, RetriggerDecision, RetriggerDiagnosis } from './types/index.js';
 import { extractCoderabbitRunId, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { CodeRabbitCommentType, EXECUTION_CONTEXT_ATTRIBUTES, QueueStatus, RabbitResult, TriggerSource, TYPES } from './domain.js';
+import { CodeRabbitCommentType, EXECUTION_CONTEXT_ATTRIBUTES, QueueStatus, RabbitResult, TriggerSource } from './domain.js';
 import type { RunIdGenerator } from './RunIdGenerator.js';
+import { TYPES } from './server-domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';

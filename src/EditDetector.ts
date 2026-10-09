@@ -3,8 +3,9 @@ import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.
 import { classifyCoderabbitComment, type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import { type EditDetectionOutcome, type QueueItem } from './types/index.js';
 import { extractCoderabbitRunId, isReviewVerdictState } from './utils/index.js';
-import { CodeRabbitCommentType, FallbackReason, TYPES } from './domain.js';
+import { CodeRabbitCommentType, FallbackReason } from './domain.js';
 import { RabbitResult } from './RabbitResult.js';
+import { TYPES } from './server-domain.js';
 
 import { inject, injectable } from 'inversify';
 
