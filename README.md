@@ -72,11 +72,11 @@ pnpm start
 
 `pnpm build` compiles the server with `tsc` and bundles the dashboard into `dist/dashboard/dist`. `pnpm start` runs the compiled server with `NODE_ENV=production`, which mounts that directory at `/`. Run `pnpm build` first: the server logs an error and exits when the build output is absent. `pnpm build:dashboard` rebuilds only the dashboard, which is useful after a change under `dashboard/`.
 
-To check a container image before you publish it, build it and run the smoke test. The script starts the container against a throwaway volume, confirms the entrypoint refuses a missing data mount, waits for the dashboard, and stops the container:
+To check a container image before you publish it, build it and run the smoke test. `pnpm docker:smoke-test` starts the container against a throwaway volume, confirms the entrypoint refuses a missing data mount, waits for the dashboard, and stops the container:
 
 ```bash
 docker build -t rabbit-maximizer:local .
-IMAGE_REF=rabbit-maximizer:local ENV_FILE=.env.ci bash scripts/docker/smoke-test.sh
+IMAGE_REF=rabbit-maximizer:local ENV_FILE=.env.ci pnpm docker:smoke-test
 ```
 
 ### Run with Docker
@@ -137,37 +137,96 @@ The entrypoint applies every pending migration on start. Three consequences matt
 - Set `SKIP_MIGRATIONS=true` to start the container against the schema the volume already holds. The app then runs on the old schema instead of refusing to start.
 - Migrations run forward only. `prisma migrate deploy` warns when the volume holds migrations the image does not know, and then continues. An older image against a newer database fails at query time when a migration dropped a column that image still reads. Treat a rollback as a database restore, not a tag change.
 
-Back up the data volume before a tag change. The image carries no `sqlite3` client and no `gzip`, so `scripts/db/backup.sh` cannot run inside it. Stop the container first, because a copy of a running SQLite file can tear while the journal changes. The helper command acts on the volume, so both deployment forms use the same one, and only the stop and the start differ. Run the Compose form from the directory that holds `compose.yml`. The steps are chained with `&&`, so a failed stop aborts the sequence before the helper runs:
+Back up the data volume before a tag change. The image carries no `sqlite3` client, so `pnpm db:backup` cannot run inside it. Stop the container first. A copy of a running SQLite file can tear while the journal changes. The image carries the volume helper at `/app/scripts/docker/volume.sh`, so an operator needs no clone of the repository and no separate helper image. The helper acts on the volume, so both deployment forms use the same command. Only the stop and the start differ. Run the Compose form from the directory that holds `compose.yml`. The steps are chained with `&&`, so a failed stop aborts the sequence before the helper runs:
 
 ```bash
 # With Docker Compose
 docker compose stop rabbit-maximizer \
-  && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
-       tar czf "/backup/rabbit-maximizer-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /data . \
+  && docker run --rm --user root --entrypoint /app/scripts/docker/volume.sh \
+       -v rabbit-maximizer-data:/data -v "$PWD:/backup" \
+       ghcr.io/couimet/rabbit-maximizer:latest \
+       export "/backup/rabbit-maximizer-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" \
   && docker compose start rabbit-maximizer
 
 # Without Compose
 docker stop rabbit-maximizer \
-  && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
-       tar czf "/backup/rabbit-maximizer-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" -C /data . \
+  && docker run --rm --user root --entrypoint /app/scripts/docker/volume.sh \
+       -v rabbit-maximizer-data:/data -v "$PWD:/backup" \
+       ghcr.io/couimet/rabbit-maximizer:latest \
+       export "/backup/rabbit-maximizer-data-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" \
   && docker start rabbit-maximizer
 ```
 
-Restore the volume with the reverse command. Replace `<file>` with the backup name. The helper extracts the archive into a staging directory on the data volume. It checks the payload for `rabbit-maximizer.db`, then swaps the payload into place with renames. The volume keeps the current database until the replacement is complete. A wrong name, an unreadable archive, a payload with no database, or a full volume therefore leaves that database in place. The staging directory holds a second copy of the payload while the command runs, so the volume needs that much free space. A failed run leaves the staging directories behind for the next run to remove. A failed step stops the sequence, so the container stays stopped until you start it again:
+Restore the volume with the reverse command. Replace `<file>` with the backup name. The helper extracts the archive into a staging directory inside the volume. It checks the payload for `rabbit-maximizer.db`, then swaps the payload into place with renames. The volume keeps the current database until the replacement is complete. A wrong name, an unreadable archive, a payload with no database, or a full volume therefore leaves that database in place. The staging directory holds a second copy of the payload while the command runs. The volume therefore needs that much free space. A failed step stops the sequence, so the container stays stopped until you start it again:
 
 ```bash
 # With Docker Compose
 docker compose stop rabbit-maximizer \
-  && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
-       sh -c 'rm -rf /data/.restore /data/.previous && mkdir -p /data/.restore && tar xzf "/backup/<file>.tar.gz" -C /data/.restore && test -f /data/.restore/rabbit-maximizer.db && mkdir -p /data/.previous && find /data -mindepth 1 -maxdepth 1 ! -name .restore ! -name .previous -exec mv {} /data/.previous/ \; && find /data/.restore -mindepth 1 -maxdepth 1 -exec mv {} /data/ \; && rm -rf /data/.previous /data/.restore' \
+  && docker run --rm --user root --entrypoint /app/scripts/docker/volume.sh \
+       -v rabbit-maximizer-data:/data -v "$PWD:/backup" \
+       ghcr.io/couimet/rabbit-maximizer:latest \
+       import "/backup/<file>.tar.gz" \
   && docker compose start rabbit-maximizer
 
 # Without Compose
 docker stop rabbit-maximizer \
-  && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
-       sh -c 'rm -rf /data/.restore /data/.previous && mkdir -p /data/.restore && tar xzf "/backup/<file>.tar.gz" -C /data/.restore && test -f /data/.restore/rabbit-maximizer.db && mkdir -p /data/.previous && find /data -mindepth 1 -maxdepth 1 ! -name .restore ! -name .previous -exec mv {} /data/.previous/ \; && find /data/.restore -mindepth 1 -maxdepth 1 -exec mv {} /data/ \; && rm -rf /data/.previous /data/.restore' \
+  && docker run --rm --user root --entrypoint /app/scripts/docker/volume.sh \
+       -v rabbit-maximizer-data:/data -v "$PWD:/backup" \
+       ghcr.io/couimet/rabbit-maximizer:latest \
+       import "/backup/<file>.tar.gz" \
   && docker start rabbit-maximizer
 ```
+
+A failed import removes its own staging directory, so the volume keeps the contents it had before the run. One window stays open. A command that you kill between the two swaps leaves those contents in a `.previous` directory inside the volume, and the data directory then holds no database. Check that directory before you start the container again. The next run removes it.
+
+The `docker:move-data` commands run the same helper for you, with the container name and the volume name already set. Run `pnpm docker:move-data:export <file>` on the old host and `pnpm docker:move-data:import <file>` on the new one. Both commands refuse a running container. The import refuses an archive that holds no database, asks before it replaces a volume that already holds a database, and writes a safety export first when you confirm.
+
+A local run needs the same care. `pnpm db:backup` writes a logical dump into the data directory, and `pnpm db:path` prints that directory. Stop the local process before you copy the database file. A clean stop rolls the journal back into the file, so the one file is complete and no `-wal` or `-shm` sidecar exists to copy:
+
+```bash
+pnpm db:backup
+cp "$(pnpm --silent db:path)/rabbit-maximizer.db" /path/to/rabbit-maximizer.db
+```
+
+Copy the file back to the data directory to restore it. Keep the `.sql.gz` dump as the fallback, because a logical dump survives a schema change that a raw file copy does not.
+
+#### Move your local data to a host
+
+A host that starts for the first time creates an empty database. To start it with the data from this machine instead, write a volume archive, copy it to the host, and import it.
+
+Take a logical dump first, because `pnpm db:restore` puts the data back if the move goes wrong:
+
+```bash
+pnpm db:backup
+```
+
+Write the volume archive. `pnpm db:pack` copies the database through the SQLite backup API, so the local process may keep running:
+
+```bash
+pnpm db:pack /tmp/rabbit-maximizer-data.tar.gz
+```
+
+Copy the archive to the host:
+
+```bash
+scp /tmp/rabbit-maximizer-data.tar.gz nas:/volume1/docker/rabbit-maximizer/
+```
+
+Import it on the host, from a clone of the repository. The import refuses an archive that holds no database, and it asks before it replaces a volume that already holds one:
+
+```bash
+pnpm docker:move-data:import /volume1/docker/rabbit-maximizer/rabbit-maximizer-data.tar.gz
+```
+
+Start the container after the import: `docker compose up -d`. The entrypoint applies every migration the image knows, and the archive carries the schema of the commit the local process runs, so build the image from that commit.
+
+A host without a clone runs the restore command from the "Upgrading" section instead. That command accepts this archive.
+
+#### Releasing
+
+[PUBLISHING.md](PUBLISHING.md) records how a release is cut. It holds the version rule, the image tag map, the beta path, and the stable path. Read it before you tag a release.
+
+To test an evolution that is not ready for a release, run `pnpm docker:push:adhoc:amd64`, `pnpm docker:push:adhoc:arm64`, or `pnpm docker:push:adhoc:both`. The target platform is part of the command, so no environment variable is needed. The command builds the image from the working tree, pushes it under a tag that carries the commit and a UTC timestamp, and prints the reference the other machine pulls.
 
 ### Dashboard
 
