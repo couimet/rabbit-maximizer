@@ -1,6 +1,6 @@
 import { QueueOrderRepository } from '../../src/db/index.js';
-import { TYPES } from '../../src/domain.js';
 import { ReviewQueueToQueueItemMapper } from '../../src/mappers/index.js';
+import { TYPES } from '../../src/server-domain.js';
 import {
   createMockPrismaClient,
   createMockReviewQueueToQueueItemMapper,
@@ -46,7 +46,8 @@ describe('QueueOrderRepository', () => {
         include: { queueOrder: true },
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
-      expect(result).toStrictEqual(rows.map((row) => mapper.fromReviewQueue(row)));
+      expect(result).toStrictEqual(rows);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledTimes(rows.length);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepository.readEffectiveOrder', count: 3 }, 'Fetched effective order');
     });
 
@@ -69,7 +70,8 @@ describe('QueueOrderRepository', () => {
 
       const result = await sut.getEffectiveOrder();
 
-      expect(result).toStrictEqual([mapper.fromReviewQueue(valid)]);
+      expect(result).toStrictEqual([valid]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledTimes(1);
       expect(logger.warn).toHaveBeenCalledWith(
         { fn: 'QueueOrderRepository.readEffectiveOrder', total: 2, valid: 1 },
         'Filtered out rows with null pull_request_id',
@@ -83,7 +85,8 @@ describe('QueueOrderRepository', () => {
 
       const result = await sut.getEffectiveOrder();
 
-      expect(result).toStrictEqual(rows.map((row) => mapper.fromReviewQueue(row)));
+      expect(result).toStrictEqual(rows);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledTimes(rows.length);
     });
 
     it('returns all effective-order items sorted by position', async () => {
@@ -101,7 +104,8 @@ describe('QueueOrderRepository', () => {
         include: { queueOrder: true },
         orderBy: [{ queueOrder: { position: { sort: 'asc', nulls: 'last' } } }, { queueOrder: { id: 'asc' } }],
       });
-      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemB)]);
+      expect(result).toStrictEqual([itemA, itemB]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledTimes(2);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepository.readEffectiveOrder', count: 2 }, 'Fetched effective order');
     });
   });
@@ -139,7 +143,10 @@ describe('QueueOrderRepository', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemC.queueOrder.id }, data: { position: 2 } });
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
 
-      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemC), mapper.fromReviewQueue(itemB)]);
+      expect(result).toStrictEqual([itemA, itemC, itemB]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemC);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepository.moveItems', ids: [itemC.uuid], direction: 'up' }, 'Moved items in queue order');
     });
 
@@ -161,7 +168,10 @@ describe('QueueOrderRepository', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: 3 } });
 
-      expect(result).toStrictEqual([mapper.fromReviewQueue(itemB), mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemC)]);
+      expect(result).toStrictEqual([itemB, itemA, itemC]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemC);
     });
 
     it('moves multi-select adjacent items as a block (up)', async () => {
@@ -184,12 +194,11 @@ describe('QueueOrderRepository', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemA.queueOrder.id }, data: { position: 3 } });
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemD.queueOrder.id }, data: { position: 4 } });
 
-      expect(result).toStrictEqual([
-        mapper.fromReviewQueue(itemB),
-        mapper.fromReviewQueue(itemC),
-        mapper.fromReviewQueue(itemA),
-        mapper.fromReviewQueue(itemD),
-      ]);
+      expect(result).toStrictEqual([itemB, itemC, itemA, itemD]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemC);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemD);
     });
 
     it('moves multi-select adjacent items as a block (down)', async () => {
@@ -212,12 +221,11 @@ describe('QueueOrderRepository', () => {
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(3, { where: { id: itemB.queueOrder.id }, data: { position: 3 } });
       expect(queueOrderMock.update).toHaveBeenNthCalledWith(4, { where: { id: itemC.queueOrder.id }, data: { position: 4 } });
 
-      expect(result).toStrictEqual([
-        mapper.fromReviewQueue(itemA),
-        mapper.fromReviewQueue(itemD),
-        mapper.fromReviewQueue(itemB),
-        mapper.fromReviewQueue(itemC),
-      ]);
+      expect(result).toStrictEqual([itemA, itemD, itemB, itemC]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemD);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemC);
     });
 
     it('skips selected item IDs not found in effective order', async () => {
@@ -247,7 +255,10 @@ describe('QueueOrderRepository', () => {
 
       const result = await sut.moveItems([itemC.uuid, itemC.uuid], 'up');
 
-      expect(result).toStrictEqual([mapper.fromReviewQueue(itemB), mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemC)]);
+      expect(result).toStrictEqual([itemB, itemA, itemC]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemC);
     });
 
     it('does not swap when the neighbor is also selected (blocks at boundary)', async () => {
@@ -267,7 +278,10 @@ describe('QueueOrderRepository', () => {
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemC.queueOrder.id }, data: { position: 3 } });
-      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemB), mapper.fromReviewQueue(itemC)]);
+      expect(result).toStrictEqual([itemA, itemB, itemC]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemC);
     });
 
     it('keeps item at the top when moving up', async () => {
@@ -285,7 +299,9 @@ describe('QueueOrderRepository', () => {
       });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
-      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemB)]);
+      expect(result).toStrictEqual([itemA, itemB]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
     });
 
     it('keeps item at the bottom when moving down', async () => {
@@ -303,7 +319,9 @@ describe('QueueOrderRepository', () => {
       });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemB.queueOrder.id }, data: { position: 2 } });
-      expect(result).toStrictEqual([mapper.fromReviewQueue(itemA), mapper.fromReviewQueue(itemB)]);
+      expect(result).toStrictEqual([itemA, itemB]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
     });
 
     it('normalize-all assigns positions 1, 2, 3... after a move', async () => {
@@ -353,7 +371,9 @@ describe('QueueOrderRepository', () => {
       });
       expect(queueOrderMock.create).toHaveBeenCalledWith({ data: { queue_item_id: idB, position: 1 } });
       expect(queueOrderMock.update).toHaveBeenCalledWith({ where: { id: itemA.queueOrder!.id }, data: { position: 2 } });
-      expect(result).toStrictEqual([mapper.fromReviewQueue(itemB), mapper.fromReviewQueue(itemA)]);
+      expect(result).toStrictEqual([itemB, itemA]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
     });
 
     it('moves retriggered items alongside pending ones', async () => {
@@ -399,7 +419,8 @@ describe('QueueOrderRepository', () => {
 
       const result = await sut.moveItems([retriggered.uuid], 'up');
 
-      expect(result).toStrictEqual([mapper.fromReviewQueue(retriggered)]);
+      expect(result).toStrictEqual([retriggered]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(retriggered);
       expect(queueOrderMock.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [retriggered.queueOrder.id] } },
         data: { position: null },
@@ -422,7 +443,8 @@ describe('QueueOrderRepository', () => {
 
       const result = await sut.moveItems([nonExistentUuid], 'up');
 
-      expect(result).toStrictEqual([mapper.fromReviewQueue(pending)]);
+      expect(result).toStrictEqual([pending]);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledTimes(1);
       expect(queueOrderMock.updateMany).not.toHaveBeenCalled();
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepository.moveItems' }, 'No items to move; returning effective order unchanged');
     });
@@ -460,7 +482,8 @@ describe('QueueOrderRepository', () => {
       expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemA.queueOrder.id }, data: { position: 2 } });
       expect(queueOrder.update).toHaveBeenNthCalledWith(3, { where: { id: itemC.queueOrder.id }, data: { position: 3 } });
 
-      expect(result).toStrictEqual(mapper.fromReviewQueue(itemB));
+      expect(result).toStrictEqual(itemB);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemB);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepository.moveToTop', uuid: itemB.uuid }, 'Moved item to top');
     });
 
@@ -488,7 +511,8 @@ describe('QueueOrderRepository', () => {
       });
       expect(queueOrder.update).toHaveBeenNthCalledWith(1, { where: { id: itemA.queueOrder.id }, data: { position: 1 } });
       expect(queueOrder.update).toHaveBeenNthCalledWith(2, { where: { id: itemB.queueOrder.id }, data: { position: 2 } });
-      expect(result).toStrictEqual(mapper.fromReviewQueue(itemA));
+      expect(result).toStrictEqual(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
     });
 
     it('throws when item is not found', async () => {
@@ -542,7 +566,8 @@ describe('QueueOrderRepository', () => {
 
       const result = await sut.moveToTop(itemA.uuid);
 
-      expect(result).toStrictEqual(mapper.fromReviewQueue(itemA));
+      expect(result).toStrictEqual(itemA);
+      expect(mapper.fromReviewQueue).toHaveBeenCalledWith(itemA);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'QueueOrderRepository.moveToTop', uuid: itemA.uuid }, 'Moved item to top');
     });
 

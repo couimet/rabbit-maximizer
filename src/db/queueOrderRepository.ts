@@ -1,7 +1,8 @@
-import { QueueStatus, TYPES } from '../domain.js';
+import { QueueStatus } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import { BasePrismaRepository, PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
 import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
+import { TYPES } from '../server-domain.js';
 import type { QueueItem } from '../types/index.js';
 import { findByUuid, resolveUuidsToIds } from '../utils/index.js';
 

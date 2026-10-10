@@ -1,6 +1,6 @@
 import { StateKey, SystemStateRepository } from '../../src/db/index.js';
 import { VALUE_SETTER } from '../../src/db/systemStateRepository.js';
-import { TYPES } from '../../src/domain.js';
+import { TYPES } from '../../src/server-domain.js';
 import { createMockPrismaClient, createResolvedMock } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';

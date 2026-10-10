@@ -1,0 +1,15 @@
+**/node_modules
+**/coverage
+dist
+data
+logs
+publishing-instructions
+.claude-work
+.git
+.github
+.env
+.env.*
+Dockerfile
+.dockerignore
+compose*.yml
+docker-compose*.yml

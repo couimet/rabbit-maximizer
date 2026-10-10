@@ -1,5 +1,5 @@
 import { EventRepository, type PullRequestRepository, type QueueRepository } from '../../src/db/index.js';
-import { CommentDetectionMethod, TYPES } from '../../src/domain.js';
+import { CommentDetectionMethod } from '../../src/domain.js';
 import {
   DetectedProbe,
   DirectCommentCheckProbe,
@@ -12,6 +12,7 @@ import {
   ReviewRetriggerProbe,
   SchedulerProbe,
 } from '../../src/probes/index.js';
+import { TYPES } from '../../src/server-domain.js';
 import type { QueueItem } from '../../src/types/index.js';
 import { createMockEventRepo, createMockPrismaClient, generateReviewRef } from '../helpers/index.js';
 

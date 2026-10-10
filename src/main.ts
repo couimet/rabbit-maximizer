@@ -1,5 +1,3 @@
-import pkg from '../package.json' with { type: 'json' };
-
 import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
 import { validateAttributes } from './external-deps/couimet/execution-context/src/index.js';
 import {
@@ -9,13 +7,15 @@ import {
   ReviewQueueToActivityListItemMapper,
   type TrackedPrMapper,
 } from './mappers/index.js';
+import { readRunIdentity } from './node-utils/index.js';
 import { describeDatabaseUrl } from './utils/index.js';
 import { config, describeRepoFilter } from './config.js';
 import { container } from './container.js';
-import { EXECUTION_CONTEXT_ATTRIBUTES, TYPES } from './domain.js';
+import { EXECUTION_CONTEXT_ATTRIBUTES } from './domain.js';
 import { DASHBOARD_DIR, setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { initLogger } from './logger.js';
+import { TYPES } from './server-domain.js';
 import { type PollDetector, type ReviewDetector, ReviewTrigger, type Scheduler } from './services.js';
 import { validateGitHubToken } from './validateGitHubToken.js';
 
@@ -25,7 +25,7 @@ import { getLogger, type Logger } from '@couimet/logger-contract';
 import type { Octokit } from '@octokit/rest';
 import type { PrismaClient } from '@prisma/client';
 
-const bootstrapAttributes = validateAttributes(EXECUTION_CONTEXT_ATTRIBUTES, { version: pkg.version });
+const bootstrapAttributes = validateAttributes(EXECUTION_CONTEXT_ATTRIBUTES, { ...readRunIdentity() });
 
 await ExecutionContext.run({ correlationId: 'rabbit-maximizer-init', requestId: 'init', attributes: bootstrapAttributes }, async () => {
   initLogger();

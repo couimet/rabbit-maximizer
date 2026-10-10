@@ -293,6 +293,34 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </bad-example>
 </rule>
 
+<rule id="C016" priority="critical">
+  <title>Shared barrels carry only symbols the browser can load</title>
+  <do>Keep <code>src/utils/index.ts</code> and <code>src/domain.ts</code> browser-safe. They are the two shared barrels the dashboard imports</do>
+  <do>Put a util whose module graph reaches a Node builtin in <code>src/node-utils/index.ts</code></do>
+  <do>Put a <code>src/</code> root symbol that the browser must not load in <code>src/server-domain.ts</code>. <code>IntervalService</code> and <code>TYPES</code> live there</do>
+  <do>Point every server-only importer at the source file or at the server barrel. <code>src/services.ts</code> carries <code>QueueItemEnricher</code></do>
+  <never>Re-export a Node-capable or browser-hostile module from <code>src/utils/index.ts</code> or <code>src/domain.ts</code>. Vite fetches and evaluates every module that a barrel re-exports, so the browser loads it</never>
+  <never>Treat a green <code>guard-node-builtins</code> check as proof. That guard fails on a Node builtin only. A browser-safe module that pulls inversify or the DI container passes the guard, and it must still stay out of a browser barrel</never>
+  <rationale>A helper's own imports do not show the leak. <code>getRunIdAttribute</code> reaches <code>async_hooks</code> through the OpenTelemetry execution-context chain and never names a builtin. Vite then externalizes the builtin into a stub whose every property read throws, and the throw happens while the module graph evaluates. The dashboard renders nothing, and no check notices, because the tests run in Node. Commit 7d73d61 added <code>readRunIdentity</code> to <code>src/utils/index.ts</code> and the dashboard went blank. The boundary must hold by structure, not by review.</rationale>
+  <see>dashboard/vite.config.ts</see>
+  <good-example>
+    ```typescript
+    // src/utils/index.ts — the dashboard imports this barrel, so every symbol is browser-safe
+    export { formatDate } from './formatDate.js';
+
+    // src/node-utils/index.ts — the module graph reaches a Node builtin
+    export { readRunIdentity } from './readRunIdentity.js';
+    ```
+
+  </good-example>
+  <bad-example>
+    ```typescript
+    // BAD: readRunIdentity imports existsSync from node:fs
+    export { readRunIdentity } from './readRunIdentity.js';
+    ```
+  </bad-example>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>

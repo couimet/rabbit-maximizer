@@ -1,4 +1,4 @@
-import { hasBuiltDashboard } from '../../src/utils/hasBuiltDashboard.js';
+import { hasBuiltDashboard } from '../../src/node-utils/index.js';
 
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';

@@ -1,4 +1,4 @@
-import { getRunIdAttribute } from '../../src/utils/index.js';
+import { getRunIdAttribute } from '../../src/node-utils/index.js';
 import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
 
 import { getUniqueInt, getUuid } from '@couimet/dynamic-testing';

@@ -53,6 +53,52 @@ describe('initLogger', () => {
     expect(mockPinoLogger.debug).toHaveBeenCalledWith({ fn: 'test', source: 'test' }, 'delegated to adapter');
   });
 
+  it('drops the rolling file target when LOG_TO_FILE is false', () => {
+    const prev = process.env.LOG_TO_FILE;
+    process.env.LOG_TO_FILE = 'false';
+
+    try {
+      const mockTransport = {};
+      mockTransportFn.mockReturnValue(mockTransport);
+      mockPinoFn.mockReturnValue(mockPinoLogger);
+
+      initLogger();
+
+      expect(mockTransportFn).toHaveBeenCalledWith({
+        targets: [{ target: 'pino-pretty', options: { destination: 1, colorize: true }, level: 'debug' }],
+      });
+    } finally {
+      process.env.LOG_TO_FILE = prev;
+    }
+  });
+
+  it('writes the log file under RABBIT_MAXIMIZER_LOGS_DIR when set', () => {
+    const prev = process.env.RABBIT_MAXIMIZER_LOGS_DIR;
+    const logsDir = getUniqueString();
+    process.env.RABBIT_MAXIMIZER_LOGS_DIR = logsDir;
+
+    try {
+      const mockTransport = {};
+      mockTransportFn.mockReturnValue(mockTransport);
+      mockPinoFn.mockReturnValue(mockPinoLogger);
+
+      initLogger();
+
+      expect(mockTransportFn).toHaveBeenCalledWith({
+        targets: [
+          {
+            target: 'pino-roll',
+            options: { file: `${logsDir}/rabbit-maximizer.log`, frequency: 'daily', mkdir: true, limit: { count: 7 } },
+            level: 'debug',
+          },
+          { target: 'pino-pretty', options: { destination: 1, colorize: true }, level: 'debug' },
+        ],
+      });
+    } finally {
+      process.env.RABBIT_MAXIMIZER_LOGS_DIR = prev;
+    }
+  });
+
   it('uses LOG_LEVEL env var over the debug default when set', () => {
     const prev = process.env.LOG_LEVEL;
     process.env.LOG_LEVEL = DEBUG_LOG_LEVEL;

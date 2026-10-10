@@ -1,7 +1,8 @@
 import type { QueueRepository } from './db/index.js';
 import { RabbitMaximizerError } from './errors/index.js';
 import type { ProbeFactory } from './probes/index.js';
-import { Resolution, TYPES } from './domain.js';
+import { Resolution } from './domain.js';
+import { TYPES } from './server-domain.js';
 import type { PruneEvaluator } from './services.js';
 
 import type { Logger } from '@couimet/logger-contract';

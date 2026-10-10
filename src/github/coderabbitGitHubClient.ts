@@ -1,5 +1,7 @@
-import { CommentDetectionMethod, type TriggerSource, TYPES } from '../domain.js';
+import { CommentDetectionMethod, type TriggerSource } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import { readRunIdentity } from '../node-utils/index.js';
+import { TYPES } from '../server-domain.js';
 import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, RetriggerDiagnosis, ReviewLimitComment } from '../types/index.js';
 
 import type { CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
@@ -194,7 +196,7 @@ export class CoderabbitGitHubClient {
     diagnosis: RetriggerDiagnosis | undefined,
   ): Promise<RetriggerComment> {
     const { owner, repo: repoName } = splitRepo(repo);
-    const body = buildCommentBody(sourceCommentUrl, runId, triggerSource, diagnosis);
+    const body = buildCommentBody(sourceCommentUrl, runId, triggerSource, diagnosis, readRunIdentity());
 
     this.log.info({ fn: 'postRetrigger', owner, repo: repoName, pr, runId, triggerSource }, 'Posting retrigger comment');
 

@@ -3,6 +3,10 @@
  * These files have no circular dependencies on each other through this barrel,
  * so ESM initialization is safe.
  *
+ * Every symbol here is browser-safe, because the dashboard imports this barrel.
+ * A symbol that needs a Node capability or pulls a server-only dependency goes
+ * to server-domain.ts instead.
+ *
  * Files with internal dependencies (config, container, express, etc.) belong in
  * services.ts or are imported directly from their source files.
  */
@@ -13,8 +17,6 @@ export { DismissalReason } from './DismissalReason.js';
 export { EventType } from './EventType.js';
 export { EXECUTION_CONTEXT_ATTRIBUTES } from './executionContextAttributes.js';
 export { FallbackReason } from './FallbackReason.js';
-export { IntervalService } from './IntervalService.js';
-export { TYPES } from './inversify-types.js';
 export { isProduction } from './isProduction.js';
 export { MatchedMarker } from './MatchedMarker.js';
 export { getPrStateFromGitHubValue, PrState, type PrStateValue } from './PrState.js';

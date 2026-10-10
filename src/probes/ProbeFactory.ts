@@ -1,5 +1,5 @@
 import type { EventRepository } from '../db/index.js';
-import { TYPES } from '../domain.js';
+import { TYPES } from '../server-domain.js';
 import type { QueueItem } from '../types/index.js';
 
 import {
