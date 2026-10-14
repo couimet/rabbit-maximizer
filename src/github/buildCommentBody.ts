@@ -1,12 +1,11 @@
 import pkg from '../../package.json' with { type: 'json' };
 import { TriggerSource } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
-import type { RetriggerDiagnosis } from '../types/index.js';
+import type { RetriggerDiagnosis, RunIdentity } from '../types/index.js';
 import { formatRelativeTime } from '../utils/index.js';
 
 import { REVIEW_BOT_RETRIGGER_COMMAND } from './index.js';
 
-const { version } = pkg;
 const repoUrl = pkg.repository.url;
 const JSON_METADATA_INDENT_SPACES = 2;
 
@@ -32,6 +31,7 @@ export const buildCommentBody = (
   runId: string,
   triggerSource: TriggerSource,
   diagnosis: RetriggerDiagnosis | undefined,
+  identity: RunIdentity,
 ): string => {
   let triggerLine: string;
   let sourceUrlForMetadata: string | null;
@@ -49,10 +49,11 @@ export const buildCommentBody = (
       throw RabbitMaximizerError.forUnexpectedSwitchDefault('triggerSource', triggerSource, 'buildCommentBody');
   }
 
-  const footer = `\u{1F916} [rabbit-maximizer](${repoUrl}) v${version} — run=${runId}`;
+  const footer = `\u{1F916} [rabbit-maximizer](${repoUrl}) v${identity.version} (${identity.gitSha}) — run=${runId}`;
 
   const metadata = {
-    version,
+    version: identity.version,
+    gitSha: identity.gitSha,
     runId,
     triggerSource,
     sourceCommentUrl: sourceUrlForMetadata,

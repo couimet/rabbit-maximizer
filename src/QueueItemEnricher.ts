@@ -1,9 +1,8 @@
-import type { PullRequestRepository } from '../db/index.js';
-import { type PrState } from '../domain.js';
-import { TYPES } from '../inversify-types.js';
-import type { CoderabbitReviewVerdict, EnrichedQueueItem, QueueItem } from '../types/index.js';
-
-import { isReviewVerdictState } from './isReviewVerdictState.js';
+import type { PullRequestRepository } from './db/index.js';
+import type { CoderabbitReviewVerdict, EnrichedQueueItem, QueueItem } from './types/index.js';
+import { isReviewVerdictState } from './utils/index.js';
+import { type PrState } from './domain.js';
+import { TYPES } from './server-domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
