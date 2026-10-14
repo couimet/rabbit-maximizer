@@ -27,6 +27,7 @@ const POLL_INTERVAL_MS = POLL_INTERVAL_SEC * 1000;
 const EXPECTED_REPO_COUNT = 1;
 const MS_PER_SECOND = 1000;
 const MS_PER_HOUR = 60 * 60 * MS_PER_SECOND;
+const SECONDARY_LIMIT_RETRY_AFTER_SEC = 300;
 const TICK_DEPTH = 20;
 interface MockDetectorDeps {
   directCommentChecker: jest.Mocked<DirectCommentChecker>;
@@ -441,7 +442,17 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
-        { fn: 'PollDetector.tick', status: 403, retryAfterSec: expectedRetryAfterSec, resetEpoch, resource, limit, remaining: 0, used },
+        {
+          fn: 'PollDetector.tick',
+          kind: 'quota-exhausted',
+          status: 403,
+          retryAfterSec: expectedRetryAfterSec,
+          resetEpoch,
+          resource,
+          limit,
+          remaining: 0,
+          used,
+        },
         'GitHub API rate limit exhausted; backing off until reset',
       );
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
@@ -496,7 +507,45 @@ describe('PollDetector', () => {
       await stop();
     });
 
-    it('falls through to generic error log when rate limit response has non-numeric x-ratelimit-reset header', async () => {
+    it('backs off and stops the tick when the quota read reports a secondary rate limit', async () => {
+      const rateLimitError = {
+        status: 403,
+        response: { headers: { 'retry-after': String(SECONDARY_LIMIT_RETRY_AFTER_SEC) } },
+      };
+      deps.github.getQuota.mockRejectedValue(rateLimitError);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      const { stop } = await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        {
+          fn: 'PollDetector.tick',
+          kind: 'throttled',
+          status: 403,
+          retryAfterSec: SECONDARY_LIMIT_RETRY_AFTER_SEC,
+          resetEpoch: undefined,
+          resource: undefined,
+          limit: undefined,
+          remaining: undefined,
+          used: undefined,
+        },
+        'GitHub API rate limit exhausted; backing off until reset',
+      );
+      expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(POLL_INTERVAL_MS);
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.getQuota).toHaveBeenCalledTimes(1);
+      expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('backs off for the one-minute minimum when a 429 carries no parsable reset header', async () => {
       const rateLimitError = {
         status: 429,
         response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
@@ -504,16 +553,31 @@ describe('PollDetector', () => {
       deps.github.searchReviewLimitComments.mockRejectedValue(rateLimitError);
 
       const detector = createDetector();
-      await detector.start();
+      const { stop } = await detector.start();
 
       await drainMicrotasks(TICK_DEPTH);
 
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: rateLimitError }, 'Poll tick failed; will retry on next interval');
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        {
+          fn: 'PollDetector.tick',
+          kind: 'throttled',
+          status: 429,
+          retryAfterSec: 60,
+          resetEpoch: undefined,
+          resource: undefined,
+          limit: undefined,
+          remaining: 0,
+          used: undefined,
+        },
+        'GitHub API rate limit exhausted; backing off until reset',
+      );
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
 
       jest.advanceTimersByTime(POLL_INTERVAL_MS);
       await drainMicrotasks(TICK_DEPTH);
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(2);
+
+      await stop();
     });
 
     it('logs generic warning for non-rate-limit errors and continues', async () => {

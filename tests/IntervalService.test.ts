@@ -258,6 +258,24 @@ describe('IntervalService', () => {
     expect(log.warn).not.toHaveBeenCalled();
   });
 
+  it('writes no gap line when the bootstrap tick outlives several intervals', async () => {
+    jest.useFakeTimers();
+    const log = createMockLogger();
+    const svc = new GatedService(log);
+
+    const started = svc.start();
+    jest.advanceTimersByTime(TICK_MS * 3);
+    svc.releaseGate();
+    const { stop } = await started;
+
+    jest.advanceTimersByTime(TICK_MS);
+
+    expect(log.warn).not.toHaveBeenCalled();
+
+    await stop();
+    jest.useRealTimers();
+  });
+
   it('logs a warning and continues when executeTick throws', async () => {
     jest.useFakeTimers();
     const log = createMockLogger();
