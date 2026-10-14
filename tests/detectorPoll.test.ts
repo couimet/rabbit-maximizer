@@ -308,32 +308,108 @@ describe('PollDetector', () => {
   });
 
   describe('acknowledgement check', () => {
-    it('checks for pending acknowledgements and records them when found', async () => {
-      const ackRef = generateReviewRef();
-      const ackId = getUniqueInt();
-      const ackCommentId = getUniqueInt();
-      const ackCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
-      const [ackOwner, ackRepoName] = ackRef.repoFullName.split('/');
-      const pendingAck = { id: ackId, repo_full_name: ackRef.repoFullName, pr_number: ackRef.prNumber, last_review_requested_at: getUniqueDate() };
-      const ackResult = { commentId: ackCommentId, commentUrl: ackCommentUrl };
+    it('checks every pending PR and records each acknowledgement', async () => {
+      const firstRef = generateReviewRef();
+      const secondRef = generateReviewRef();
+      const firstAck = { id: getUniqueInt(), repo_full_name: firstRef.repoFullName, pr_number: firstRef.prNumber, last_review_requested_at: getUniqueDate() };
+      const secondAck = {
+        id: getUniqueInt(),
+        repo_full_name: secondRef.repoFullName,
+        pr_number: secondRef.prNumber,
+        last_review_requested_at: getUniqueDate(),
+      };
+      const [firstOwner, firstRepoName] = firstRef.repoFullName.split('/');
+      const [secondOwner, secondRepoName] = secondRef.repoFullName.split('/');
+      const ackResult = { commentId: getUniqueInt(), commentUrl: getUniqueString({ prefix: 'https://gh/c/' }) };
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
-      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
+      deps.pullRequests.findPendingAcknowledgements.mockResolvedValue([firstAck, secondAck]);
       deps.github.findAcknowledgement.mockResolvedValue(ackResult);
       const detector = createDetector();
       await detector.start();
       await drainMicrotasks(TICK_DEPTH);
-      expect(deps.github.findAcknowledgement).toHaveBeenCalledWith(ackOwner, ackRepoName, ackRef.prNumber, pendingAck.last_review_requested_at);
-      expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(ackId);
+      expect(deps.github.findAcknowledgement).toHaveBeenCalledWith(firstOwner, firstRepoName, firstRef.prNumber, firstAck.last_review_requested_at);
+      expect(deps.github.findAcknowledgement).toHaveBeenCalledWith(secondOwner, secondRepoName, secondRef.prNumber, secondAck.last_review_requested_at);
+      expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(firstAck.id);
+      expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(secondAck.id);
     });
 
-    it('logs a warning and continues when acknowledgement check fails', async () => {
-      const ackError = new Error('DB connection lost');
+    it('logs a warning for one PR and keeps checking the remaining PRs', async () => {
+      const failingRef = generateReviewRef();
+      const checkedRef = generateReviewRef();
+      const ackError = new Error('GitHub unavailable');
+      const failingAck = {
+        id: getUniqueInt(),
+        repo_full_name: failingRef.repoFullName,
+        pr_number: failingRef.prNumber,
+        last_review_requested_at: getUniqueDate(),
+      };
+      const checkedAck = {
+        id: getUniqueInt(),
+        repo_full_name: checkedRef.repoFullName,
+        pr_number: checkedRef.prNumber,
+        last_review_requested_at: getUniqueDate(),
+      };
+      const ackResult = { commentId: getUniqueInt(), commentUrl: getUniqueString({ prefix: 'https://gh/c/' }) };
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
-      deps.pullRequests.findPendingAcknowledgement.mockRejectedValue(ackError);
+      deps.pullRequests.findPendingAcknowledgements.mockResolvedValue([failingAck, checkedAck]);
+      deps.github.findAcknowledgement.mockRejectedValueOnce(ackError).mockResolvedValueOnce(ackResult);
       const detector = createDetector();
       await detector.start();
       await drainMicrotasks(TICK_DEPTH);
-      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: ackError }, 'Acknowledgement check failed; continuing');
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        { fn: 'PollDetector.tick', repo: failingRef.repoFullName, pr: failingRef.prNumber, error: ackError },
+        'Acknowledgement check failed for PR; continuing',
+      );
+      expect(deps.pullRequests.recordAcknowledgement).toHaveBeenCalledWith(checkedAck.id);
+    });
+
+    it('stops the tick and backs off when GitHub rate-limits an acknowledgement check', async () => {
+      const firstRef = generateReviewRef();
+      const secondRef = generateReviewRef();
+      const rateLimitError = {
+        status: 429,
+        response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
+      };
+      const firstAck = { id: getUniqueInt(), repo_full_name: firstRef.repoFullName, pr_number: firstRef.prNumber, last_review_requested_at: getUniqueDate() };
+      const secondAck = {
+        id: getUniqueInt(),
+        repo_full_name: secondRef.repoFullName,
+        pr_number: secondRef.prNumber,
+        last_review_requested_at: getUniqueDate(),
+      };
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+      deps.pullRequests.findPendingAcknowledgements.mockResolvedValue([firstAck, secondAck]);
+      deps.github.findAcknowledgement.mockRejectedValue(rateLimitError);
+      const detector = createDetector();
+      await detector.start();
+      await drainMicrotasks(TICK_DEPTH);
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        {
+          fn: 'PollDetector.tick',
+          kind: 'throttled',
+          status: 429,
+          retryAfterSec: 60,
+          resetEpoch: undefined,
+          resource: undefined,
+          limit: undefined,
+          remaining: 0,
+          used: undefined,
+        },
+        'GitHub API rate limit exhausted; backing off until reset',
+      );
+      expect(deps.logger.warn).toHaveBeenCalledTimes(1);
+      expect(deps.github.findAcknowledgement).toHaveBeenCalledTimes(1);
+      expect(deps.pullRequests.recordAcknowledgement).not.toHaveBeenCalled();
+    });
+
+    it('logs a warning and continues when the acknowledgement query fails', async () => {
+      const ackError = new Error('DB connection lost');
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+      deps.pullRequests.findPendingAcknowledgements.mockRejectedValue(ackError);
+      const detector = createDetector();
+      await detector.start();
+      await drainMicrotasks(TICK_DEPTH);
+      expect(deps.logger.warn).toHaveBeenCalledWith({ fn: 'PollDetector.tick', error: ackError }, 'Acknowledgement query failed; continuing');
     });
   });
 
