@@ -199,16 +199,27 @@ export class PollDetector extends IntervalService {
       }
 
       try {
-        const pendingAck = await this.pullRequests.findPendingAcknowledgement();
-        if (pendingAck) {
-          const { owner, repo } = splitRepo(pendingAck.repo_full_name);
-          const ack = await this.github.findAcknowledgement(owner, repo, pendingAck.pr_number, pendingAck.last_review_requested_at);
-          if (ack) {
-            await this.pullRequests.recordAcknowledgement(pendingAck.id);
+        const pendingAcks = await this.pullRequests.findPendingAcknowledgements(undefined);
+        for (const pendingAck of pendingAcks) {
+          try {
+            const { owner, repo } = splitRepo(pendingAck.repo_full_name);
+            const ack = await this.github.findAcknowledgement(owner, repo, pendingAck.pr_number, pendingAck.last_review_requested_at);
+            if (ack) {
+              await this.pullRequests.recordAcknowledgement(pendingAck.id);
+            }
+          } catch (err: unknown) {
+            // A rate limit must still stop the whole tick, so the per-PR catch cannot swallow it.
+            if (this.applyRateLimitBackoff(err, logCtx)) {
+              return;
+            }
+            this.log.warn(
+              { ...logCtx, repo: pendingAck.repo_full_name, pr: pendingAck.pr_number, error: err },
+              'Acknowledgement check failed for PR; continuing',
+            );
           }
         }
       } catch (err: unknown) {
-        this.log.warn({ ...logCtx, error: err }, 'Acknowledgement check failed; continuing');
+        this.log.warn({ ...logCtx, error: err }, 'Acknowledgement query failed; continuing');
       }
 
       if (earliestNextReview) {

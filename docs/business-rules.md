@@ -31,7 +31,7 @@ Only `pending` and `retriggered` items are active: they appear in the queue orde
 
 Sources: [`detectorPoll`](../src/detectorPoll.ts), [`prScanner`](../src/prScanner.ts), [`DirectCommentChecker`](../src/DirectCommentChecker.ts), [`coderabbitGitHubClient`](../src/github/coderabbitGitHubClient.ts), [`classifyCoderabbitComment`](../src/github/classifyCoderabbitComment.ts), [`coderabbitConstants`](../src/github/coderabbitConstants.ts).
 
-Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: PR scan, stale-PR recovery, direct comment check, comment search, acknowledgement polling, then records the earliest next review availability.
+Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: PR scan, stale-PR recovery, direct comment check, comment search, acknowledgement polling of every open PR that waits for a reply, then records the earliest next review availability.
 
 <a id="br-2-1"></a>
 
@@ -93,7 +93,7 @@ CodeRabbit stamps each comment with a Run ID that changes on every run. The maxi
 ### Additional poll duties
 
 - Comments on PRs the scanner has not yet registered are ignored until the scanner registers the PR.
-- After the maximizer posts a request, the poll loop watches for CodeRabbit's acknowledgement reply and records it when found.
+- After the maximizer posts a request, the poll loop watches for CodeRabbit's acknowledgement reply on every open PR whose request is still outstanding, and records it when found. Each PR is checked on its own, so one failing check leaves the remaining PRs checked.
 - From every detected rate-limit comment, the earliest next review availability is computed as comment update time plus the stated wait (`REVIEW_LIMIT_FALLBACK_WAIT_SEC` when no wait is stated). The recorded availability only ever moves later, never earlier.
 - When GitHub's API quota is exhausted (403/429 with zero quota remaining), the poll loop suppresses all ticks until the quota reset time.
 
@@ -155,7 +155,7 @@ The scheduler runs on `SCHEDULER_TICK_INTERVAL_SEC` and triggers at most one ite
 1. Prune terminal PRs.
 2. Resolve stale retriggered items — any item still `retriggered` after `SCHEDULER_MAX_RETRIGGER_AGE_SEC` resolves as `failed`.
 3. Pause — while the scheduler is paused, the tick stops before any selection or trigger.
-4. Awaiting-acknowledgement hold — while the oldest outstanding request is younger than `SCHEDULER_RETRIGGER_SPACING_SEC`, the tick stops. This is the global spacing rule: no new request while a prior request may still be being processed.
+4. Awaiting-acknowledgement hold — while the oldest outstanding request on an open PR is younger than `SCHEDULER_RETRIGGER_SPACING_SEC`, the tick stops. This is the global spacing rule: no new request while a prior request may still be being processed.
 5. Account cooldown — while the recorded next-review-available time is in the future, the tick stops.
 6. Select and trigger one item.
 
@@ -218,6 +218,8 @@ The trigger first refetches the source comment that caused the enqueue:
 | No longer a rate-limit comment and no newer rate-limit comment exists | Resolve `stale_comment` — nothing left to request against                             |
 | Replacement comment deleted between listing and fetch                 | Backoff and retry later                                                               |
 
+The Gone (404/410) rows govern both paths that refetch a source comment. The trigger reschedules or posts without a reply target as the table says, and the edit-detection path of BR-6-1 reads the same terminal status as a gone comment and falls through to the reviews-API fallback.
+
 The `review_refused` row serves the operator re-queue: an item returned to `pending` still points at the refused comment, so the trigger must accept that classification. Without the row the item would resolve as `stale_comment` instead of posting.
 
 <a id="br-5-3"></a>
@@ -236,7 +238,7 @@ When the source comment was replaced, the item adopts the replacement's comment 
 
 ### Recovery from a deleted comment
 
-PRs that had a request posted but never received a review or acknowledgement, have no active item, and were not resolved in the last 5 minutes are recovered: a synthetic rate-limit comment is fed through detection, so the PR re-enters the queue and receives a retrigger with no reply target. This restores PRs whose rate-limit comment was deleted.
+PRs that had a request posted but never received a review or acknowledgement, have no active item, and were not resolved in the last 5 minutes are recovered: a synthetic rate-limit comment is fed through detection, so the PR re-enters the queue and receives a retrigger with no reply target. This restores PRs whose rate-limit comment was deleted. The synthetic comment carries an invented id that no GitHub comment holds, so the edit detector reads the terminal status of its fetch as a gone comment and the item keeps resolving through the reviews-API fallback rather than failing on every tick.
 
 A PR marked as permanently refused is excluded from that query until the operator re-queues it. Without the exclusion the recovery path would return the PR to the queue a few minutes after the refusal resolved it, and the loop would restart.
 
@@ -259,6 +261,7 @@ CodeRabbit edits its comment in place per run. The detector refetches the source
 | `review_skipped` with an unchanged run                                                  | Resolve `skipped`                                                                                        |
 | `review_skipped` with a new run, head not yet reviewed and trigger stale                | Reopen as `pending` so the scheduler re-triggers; adopting the re-edit in place would deadlock the item  |
 | `review_skipped` with a new run, head already reviewed, head unknown, or trigger recent | Adopt the run in place (update `source_comment_run_id`, restart the retrigger clock); stay `retriggered` |
+| Gone — GitHub answers 404 or 410 for the source comment                                 | No resolution — fall through to the reviews-API fallback, scoped by the source comment's stored type     |
 | Still a rate-limit comment, or not edited since the last sighting                       | No resolution — fall through to the reviews-API fallback                                                 |
 
 <a id="br-6-2"></a>
@@ -402,7 +405,7 @@ When GitHub reports a rate limit, the poll loop stops all GitHub work until the 
 
 ### Dashboard surfaces
 
-- Tracked PRs: open PRs never acknowledged by CodeRabbit and with no active item — the "awaiting acknowledgement" view. PRs CodeRabbit never touched appear too, sorted by last review time. When a walkthrough-summary comment (`review_stack_entry_start`) appears on such a PR, its comment time is recorded as `last_coderabbit_review_at` — evidence of the walkthrough without classifying it as a verdict.
+- Tracked PRs: open PRs never acknowledged by CodeRabbit and with no active item — the "awaiting acknowledgement" view. The acknowledgement watch covers every open PR on this view whose request is still outstanding, because a closed or merged PR never holds that watch. PRs CodeRabbit never touched appear too, sorted by last review time. When a walkthrough-summary comment (`review_stack_entry_start`) appears on such a PR, its comment time is recorded as `last_coderabbit_review_at` — evidence of the walkthrough without classifying it as a verdict.
 - Skipped items: the most recent items the scheduler skipped for cooldown or settling.
 - Events: every recorded event, newest first, each entry rendered with the same plain-language reading the probes record. Repo and PR chips narrow the events loaded so far; a run id copied from a posted comment footer can be pasted into the Run box, which refetches the timeline filtered by that run and reports the filtered total. The filter is server-side, so it reaches events beyond the loaded pages.
 - Activity list: recent items with their status and last activity. Each item links the repo name to the repository and the title to the PR, and shows the run id of its latest retrigger beside the PR link, so the run a comment names can be matched to the item that posted it.
@@ -419,7 +422,7 @@ Rabbit Maximizer never proactively requests a review on an observed push. It let
 
 ### The two holds
 
-- **Acknowledgement hold** — after the maximizer's own request, CodeRabbit replies with an auto-generated acknowledgement ("auto-generated reply by CodeRabbit"). The poll loop watches for that reply and records it; until it is seen, the scheduler holds new requests until the request is older than `SCHEDULER_RETRIGGER_SPACING_SEC`. This covers the maximizer's own requests.
+- **Acknowledgement hold** — after the maximizer's own request, CodeRabbit replies with an auto-generated acknowledgement ("auto-generated reply by CodeRabbit"). The poll loop watches for that reply on every open PR whose request is still outstanding and records it; until it is seen, the scheduler holds new requests until the request is older than `SCHEDULER_RETRIGGER_SPACING_SEC`. This covers the maximizer's own requests.
 - **Push-processing hold (sha-based inference)** — a push produces no acknowledgement: CodeRabbit silently processes it, then adds or updates a comment. Push processing is therefore inferred from the head sha. The maximizer tracks the head sha, the head commit's time, and the sha at the last recorded review (`head_sha`, `head_committed_at`, `reviewed_head_sha`), and keeps an append-only history of every observed sha. A push is a head sha change; a push after a recorded review is `head_sha != reviewed_head_sha`. These signals are the evidence trail — the enforcement is the rule above: the maximizer never acts on a push, only on the comment CodeRabbit adds or updates for the new head.
 
 <a id="br-10-2"></a>
@@ -492,7 +495,7 @@ Validation invariants: backoff max must be at least backoff base; retrigger spac
 These rules must never be violated. Every change to the product must preserve them.
 
 1. Rabbit Maximizer never proactively requests a review on an observed push. It lets CodeRabbit detect the push, waits out CodeRabbit's processing, and acts only on the comment CodeRabbit adds or updates for the new head. It must never post a request while CodeRabbit is still processing a new push.
-2. No review request is ever posted while a prior request is unacknowledged and younger than the retrigger spacing window.
+2. No review request is ever posted while a prior request on an open PR is unacknowledged and younger than the retrigger spacing window.
 3. No review request is ever posted inside the account cooldown.
 4. A comment already seen at or after its current update time is never processed again.
 5. A comment not newer than the recorded review never re-enqueues — an older run's comment cannot reopen completed work.
