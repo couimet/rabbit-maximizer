@@ -42,6 +42,10 @@ export abstract class IntervalService {
   async start(): Promise<{ stop(): Promise<void> }> {
     this.onStart();
     await this.bootstrapTick();
+    // The interval goes in only after the bootstrap tick settles, so the gap
+    // baseline moves to the install. Otherwise a slow bootstrap reads as a late
+    // first tick and writes a warning for a gap the timer never caused.
+    this.lastTickStartedAt = Date.now();
     this.intervalId = setInterval(() => {
       this.tick();
     }, this.intervalMs);
