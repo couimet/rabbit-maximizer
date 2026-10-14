@@ -12,6 +12,8 @@ DATA_UID='1001'
 DATA_GID='1001'
 STAGING_DIR_NAME='.restore'
 PREVIOUS_DIR_NAME='.previous'
+RESTORED_MARKER='restored'
+CURRENT_MARKER='current'
 
 setup() {
   DATA_DIR="$BATS_TEST_TMPDIR/data"
@@ -37,8 +39,19 @@ volume() {
   RABBIT_MAXIMIZER_DATA_DIR="$DATA_DIR" PATH="$BIN_DIR:$PATH" sh "$SCRIPT" "$@"
 }
 
+# The import reads the file header, so a payload must be a real SQLite
+# database. A sentinel row then identifies which database the data directory
+# holds after the run.
+write_database() {
+  sqlite3 "$1" "CREATE TABLE sentinel (marker TEXT); INSERT INTO sentinel VALUES ('$2');"
+}
+
+read_sentinel() {
+  sqlite3 "$1" 'SELECT marker FROM sentinel;'
+}
+
 write_source_archive() {
-  echo 'restored database' > "$SOURCE_DIR/$DB_FILE_NAME"
+  write_database "$SOURCE_DIR/$DB_FILE_NAME" "$RESTORED_MARKER"
   tar czf "$ARCHIVE" -C "$SOURCE_DIR" .
 }
 
@@ -57,12 +70,12 @@ write_source_archive() {
 
 @test 'restores the data directory from an archive' {
   write_source_archive
-  echo 'the current database' > "$DATA_DIR/$DB_FILE_NAME"
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
 
   run volume import "$ARCHIVE"
 
   [ "$status" -eq 0 ]
-  [ "$(cat "$DATA_DIR/$DB_FILE_NAME")" = 'restored database' ]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$RESTORED_MARKER" ]
 }
 
 @test 'removes the contents the data directory held before the restore' {
@@ -97,39 +110,66 @@ write_source_archive() {
 @test 'refuses an archive that holds no database and keeps the data directory' {
   echo 'notes' > "$SOURCE_DIR/notes.txt"
   tar czf "$ARCHIVE" -C "$SOURCE_DIR" .
-  echo 'the current database' > "$DATA_DIR/$DB_FILE_NAME"
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
 
   run volume import "$ARCHIVE"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"The archive holds no $DB_FILE_NAME"* ]]
-  [ "$(cat "$DATA_DIR/$DB_FILE_NAME")" = 'the current database' ]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
+  [ ! -e "$CHOWN_LOG" ]
+}
+
+@test 'refuses a database that is not a SQLite file and keeps the data directory' {
+  echo 'notes, not a database' > "$SOURCE_DIR/$DB_FILE_NAME"
+  tar czf "$ARCHIVE" -C "$SOURCE_DIR" .
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
+
+  run volume import "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The archive holds a $DB_FILE_NAME that is not a SQLite database"* ]]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
   [ ! -e "$CHOWN_LOG" ]
 }
 
 @test 'removes the staging directory a failed run left behind' {
-  echo 'notes' > "$SOURCE_DIR/notes.txt"
-  tar czf "$ARCHIVE" -C "$SOURCE_DIR" .
-  mkdir -p "$DATA_DIR/$STAGING_DIR_NAME" "$DATA_DIR/$PREVIOUS_DIR_NAME"
+  write_source_archive
+  mkdir -p "$DATA_DIR/$STAGING_DIR_NAME"
   echo 'a partial payload' > "$DATA_DIR/$STAGING_DIR_NAME/$DB_FILE_NAME"
+
+  run volume import "$ARCHIVE"
+
+  [ "$status" -eq 0 ]
+  [ ! -e "$DATA_DIR/$STAGING_DIR_NAME" ]
+  [ ! -e "$DATA_DIR/$PREVIOUS_DIR_NAME" ]
+}
+
+@test 'refuses an import while the previous directory holds an earlier payload' {
+  write_source_archive
+  mkdir -p "$DATA_DIR/$PREVIOUS_DIR_NAME"
   echo 'a previous payload' > "$DATA_DIR/$PREVIOUS_DIR_NAME/$DB_FILE_NAME"
 
   run volume import "$ARCHIVE"
 
   [ "$status" -eq 1 ]
+  [[ "$output" == *"An earlier import stopped between its two moves"* ]]
+  [[ "$output" == *"Move the entries of $DATA_DIR/$PREVIOUS_DIR_NAME back into $DATA_DIR"* ]]
+  [ -f "$DATA_DIR/$PREVIOUS_DIR_NAME/$DB_FILE_NAME" ]
+  [ ! -e "$DATA_DIR/$DB_FILE_NAME" ]
   [ ! -e "$DATA_DIR/$STAGING_DIR_NAME" ]
-  [ ! -e "$DATA_DIR/$PREVIOUS_DIR_NAME" ]
+  [ ! -e "$CHOWN_LOG" ]
 }
 
 @test 'refuses an archive that is not a tar' {
   echo 'not a tar' > "$ARCHIVE"
-  echo 'the current database' > "$DATA_DIR/$DB_FILE_NAME"
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
 
   run volume import "$ARCHIVE"
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"The archive did not open: $ARCHIVE"* ]]
-  [ "$(cat "$DATA_DIR/$DB_FILE_NAME")" = 'the current database' ]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
 }
 
 @test 'refuses an archive that does not exist' {

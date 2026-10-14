@@ -29,6 +29,6 @@ A prerelease gets its own section here. Write it by hand as `## [X.Y.Z-beta.N] -
 - **One run identity** - every log record and every posted comment carries the same run id, so one cycle is traceable end to end
 - **Container deployment** - a published image on GHCR with a shipped `compose.yml`, running as the unprivileged user `rabbit` with a read-only root filesystem
 - **Startup guards** - the entrypoint refuses to start when the configuration file is a directory or when the data directory is not a mount, because Docker hides both mistakes
-- **Move the data volume between hosts** - `pnpm docker:move-data:export <file>` writes the volume to an archive and `pnpm docker:move-data:import <file>` restores it. The import refuses an archive that holds no database and takes a safety export before it replaces a database. The image carries the helper at `/app/scripts/docker/volume.sh`, so an operator without a clone of the repository moves a volume with `docker run --entrypoint`
+- **Move the data volume between hosts** - `pnpm docker:move-data:export <file>` writes the volume to an archive and `pnpm docker:move-data:import <file>` restores it. The import refuses an archive that holds no usable database and takes a safety export before it replaces a database. The image carries the helper at `/app/scripts/docker/volume.sh`, so an operator without a clone of the repository moves a volume with `docker run --entrypoint`
 
 [Unreleased]: https://github.com/couimet/rabbit-maximizer/commits/main

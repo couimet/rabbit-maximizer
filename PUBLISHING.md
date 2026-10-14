@@ -105,7 +105,7 @@ Every log record carries the commit and the image tag, so a running ad-hoc image
 
 ## The release gate
 
-`.github/workflows/publish-image.yml` refuses to publish a tagged commit whose checks did not pass. `scripts/release/verify-ci-status.sh` reads the check runs for the commit, waits while a run is still in progress, and exits non-zero when a run concluded as a failure, a cancellation, or a timeout.
+`.github/workflows/publish-image.yml` refuses to publish a tagged commit whose checks did not pass. `scripts/release/verify-ci-status.sh` reads the check runs for the commit, waits while a run is still in progress, and exits non-zero when a run concluded as a failure, a cancellation, or a timeout. The gate ignores the check run of its own job, which stays in progress until the job ends.
 
 The gate applies to the `release` event only. A manual dispatch publishes `edge`, which the README documents as a build that can break at any time.
 

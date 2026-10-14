@@ -97,13 +97,26 @@ move_data() {
   [[ "$(cat "$CALL_LOG")" == *'docker run --rm --user root'* ]]
 }
 
-@test "reports an archive that holds no database" {
+@test "reports the restore the helper refused and names the helper's message" {
   touch "$ARCHIVE"
 
   FAKE_RESTORE_FAILS=1 run move_data import "$ARCHIVE"
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"$ARCHIVE holds no $DB_FILE_NAME"* ]]
+  [[ "$output" == *"The archive did not restore: $ARCHIVE."* ]]
+  [[ "$output" == *"The helper's message names the reason."* ]]
+}
+
+@test "refuses an import when the volume probe fails at the docker level" {
+  touch "$ARCHIVE"
+
+  FAKE_VOLUME_HAS_DB=125 run move_data import "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The probe of the $VOLUME_NAME volume failed"* ]]
+  [[ "$output" == *'docker exited with status 125'* ]]
+  [[ "$(cat "$CALL_LOG")" != *"$IMPORT_COMMAND"* ]]
+  [[ "$(cat "$CALL_LOG")" != *"$EXPORT_COMMAND"* ]]
 }
 
 @test "refuses to overwrite a volume that already holds a database" {
