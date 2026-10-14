@@ -12,13 +12,15 @@
 #
 # The import stages the payload inside the data directory and checks it for the
 # database before it moves the current contents aside. A wrong name, an
-# unreadable archive, or an archive of another volume therefore leaves the
-# database in place, and the staging directory never survives the run. Every
-# move stays on one filesystem, so no step needs free space.
+# unreadable archive, an archive of another volume, or a payload that is not a
+# SQLite database therefore leaves the database in place, and the staging
+# directory never survives the run. Every move stays on one filesystem, so no
+# step needs free space.
 #
 # One window stays open: a failure between the two moves leaves the current
-# contents in the previous directory instead of the data directory. The next run
-# clears both, so recover by hand if the restore must not run again.
+# contents in the previous directory instead of the data directory. The import
+# then refuses to run, because that directory can hold the only copy of the
+# database. Its message names the recovery.
 #
 # POSIX sh, because the container that runs this may be alpine or Debian.
 #
@@ -30,6 +32,8 @@ DATA_DIR="${RABBIT_MAXIMIZER_DATA_DIR:-/data}"
 DB_FILE_NAME='rabbit-maximizer.db'
 STAGING_DIR_NAME='.restore'
 PREVIOUS_DIR_NAME='.previous'
+SQLITE_HEADER='SQLite format 3'
+SQLITE_HEADER_LENGTH=15
 DATA_UID='1001'
 DATA_GID='1001'
 
@@ -81,13 +85,20 @@ if [ ! -f "$ARCHIVE" ]; then
   exit 1
 fi
 
+# An earlier import that stopped between its two moves left the current contents
+# in the previous directory. That directory can hold the only copy of the
+# database, so no run removes it. A person recovers it by hand.
+if [ -d "$PREVIOUS_DIR" ]; then
+  echo "An earlier import stopped between its two moves, so $DATA_DIR holds its contents in $PREVIOUS_DIR." >&2
+  echo "Move the entries of $PREVIOUS_DIR back into $DATA_DIR, remove $PREVIOUS_DIR, and run the import again." >&2
+  exit 1
+fi
+
 # A failed restore must leave the data directory as it was, so no run leaves its
-# own staging directory behind. The previous directory is deliberately not
-# removed here: a failure between the two moves is the one case where it holds
-# the only copy of the database.
+# own staging directory behind.
 trap 'rm -rf "$STAGING_DIR"' EXIT
 
-rm -rf "$STAGING_DIR" "$PREVIOUS_DIR"
+rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
 
 if ! tar xzf "$ARCHIVE" -C "$STAGING_DIR"; then
@@ -97,6 +108,16 @@ fi
 
 if [ ! -f "$STAGING_DIR/$DB_FILE_NAME" ]; then
   echo "The archive holds no $DB_FILE_NAME. $DATA_DIR keeps its contents." >&2
+  exit 1
+fi
+
+# Every SQLite database starts with the same 15 bytes. The image carries no
+# sqlite3 client, so the header is the whole proof that the payload is a
+# database rather than a file of that name.
+STAGED_HEADER="$(dd if="$STAGING_DIR/$DB_FILE_NAME" bs=1 count="$SQLITE_HEADER_LENGTH" 2>/dev/null)"
+
+if [ "$STAGED_HEADER" != "$SQLITE_HEADER" ]; then
+  echo "The archive holds a $DB_FILE_NAME that is not a SQLite database. $DATA_DIR keeps its contents." >&2
   exit 1
 fi
 

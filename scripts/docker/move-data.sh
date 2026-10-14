@@ -38,9 +38,21 @@ refuse_running_container() {
   fi
 }
 
+# The file test answers 0 for a held database and 1 for an empty volume. Any
+# other status comes from docker itself and says nothing about the volume, so
+# the caller must not read it as an empty volume.
 volume_holds_database() {
+  local status=0
+
   docker run --rm --volume "$VOLUME_NAME:$VOLUME_MOUNT:ro" "$HELPER_IMAGE" \
-    test -f "$VOLUME_MOUNT/$DB_FILE_NAME"
+    test -f "$VOLUME_MOUNT/$DB_FILE_NAME" || status=$?
+
+  case "$status" in
+    0 | 1) return "$status" ;;
+  esac
+
+  echo "The probe of the $VOLUME_NAME volume failed, and docker exited with status $status." >&2
+  exit 1
 }
 
 # The helper runs as root for two reasons: the archive directory on the host
@@ -120,7 +132,7 @@ if volume_holds_database; then
 fi
 
 if ! run_helper rw import "$ARCHIVE_MOUNT/$ARCHIVE_NAME"; then
-  echo "The archive did not restore: $ARCHIVE_DIR/$ARCHIVE_NAME holds no $DB_FILE_NAME, or it is unreadable. The $VOLUME_NAME volume keeps its contents." >&2
+  echo "The archive did not restore: $ARCHIVE_DIR/$ARCHIVE_NAME. The helper's message names the reason. The $VOLUME_NAME volume keeps its contents." >&2
   exit 1
 fi
 

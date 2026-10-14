@@ -6,6 +6,7 @@
 # Environment:
 #   REPOSITORY         owner and repository, for example couimet/rabbit-maximizer
 #   COMMIT_SHA         commit that the release tag points at
+#   SELF_CHECK_NAME    check name of the calling job, which the gate ignores
 #   POLL_INTERVAL_SEC  optional, seconds between two reads of the check runs
 #   WAIT_TIMEOUT_SEC   optional, seconds to wait before the wait counts as a refusal
 #
@@ -30,6 +31,26 @@ conclusion_passed() {
 read_check_runs() {
   gh api "repos/$REPOSITORY/commits/$COMMIT_SHA/check-runs?per_page=$PAGE_SIZE" --paginate \
     --jq '.check_runs[] | [.status, (.conclusion // "none"), .name] | @tsv'
+}
+
+# The calling job owns one check run on the same commit, and that run stays in
+# progress until the job ends. The gate drops that run, or the wait would always
+# end on the timeout of its own check. An empty report stays empty, so the
+# caller still tells a commit with no check run from one with a passing run.
+drop_self_check_run() {
+  local status
+  local conclusion
+  local name
+
+  if [ -z "$1" ]; then
+    return 0
+  fi
+
+  while IFS=$'\t' read -r status conclusion name; do
+    if [ "$name" != "$SELF_CHECK_NAME" ]; then
+      printf '%s\t%s\t%s\n' "$status" "$conclusion" "$name"
+    fi
+  done <<< "$1"
 }
 
 # An empty report keeps the wait going. A release starts seconds after the tag
@@ -72,12 +93,14 @@ report_failures() {
 
 REPOSITORY="${REPOSITORY:?REPOSITORY is required}"
 COMMIT_SHA="${COMMIT_SHA:?COMMIT_SHA is required}"
+SELF_CHECK_NAME="${SELF_CHECK_NAME:?SELF_CHECK_NAME is required}"
 
 ELAPSED_SEC=0
 REPORT=''
 
 while :; do
   REPORT="$(read_check_runs)"
+  REPORT="$(drop_self_check_run "$REPORT")"
 
   if ! must_keep_waiting "$REPORT"; then
     break

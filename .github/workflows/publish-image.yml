@@ -29,6 +29,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           COMMIT_SHA: ${{ github.sha }}
+          SELF_CHECK_NAME: ${{ github.job }}
         run: bash scripts/release/verify-ci-status.sh
 
       # A dispatch proves the packaging path from any branch without consuming a

@@ -9,6 +9,9 @@ load test_helper
 SCRIPT="$SCRIPT_DIR/release/verify-ci-status.sh"
 REPOSITORY='couimet/rabbit-maximizer'
 COMMIT_SHA='0123456789abcdef0123456789abcdef01234567'
+# The workflow reads github.job, which holds the job id. This suite stands in
+# for that value, so a fixture can name a check run of the calling job.
+SELF_CHECK_NAME='publish'
 
 setup() {
   CALL_LOG="$BATS_TEST_TMPDIR/calls.log"
@@ -20,7 +23,7 @@ setup() {
   UNFINISHED_RUNS=$'completed\tsuccess\tbuild\nin_progress\tnone\tlint'
   FAILING_RUNS=$'completed\tsuccess\tbuild\ncompleted\tfailure\tlint'
 
-  export REPOSITORY COMMIT_SHA
+  export REPOSITORY COMMIT_SHA SELF_CHECK_NAME
   export SETTLE_AFTER_CALL=1
   export PENDING_RUNS="$UNFINISHED_RUNS"
   export SETTLED_RUNS="$PASSING_RUNS"
@@ -89,6 +92,29 @@ verify_ci_status() {
   [[ "$output" == *"Waiting 1s for the check runs on $COMMIT_SHA"* ]]
   [[ "$output" == *"Every check run on $COMMIT_SHA passed"* ]]
   [ "$(cat "$CALL_COUNT_FILE")" -eq 2 ]
+}
+
+@test "ignores an in-progress check run of its own job and passes without waiting" {
+  # A short timeout ends the test in seconds when the gate stops ignoring its
+  # own run, instead of holding the suite for the default ten minutes.
+  export WAIT_TIMEOUT_SEC=2
+  export SETTLED_RUNS=$'completed\tsuccess\tbuild\nin_progress\tnone\tpublish'
+
+  run verify_ci_status
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Every check run on $COMMIT_SHA passed"* ]]
+  [[ "$output" != *'Waiting '* ]]
+  [ "$(cat "$CALL_COUNT_FILE")" -eq 1 ]
+}
+
+@test "refuses when the calling job name is not set" {
+  unset SELF_CHECK_NAME
+
+  run verify_ci_status
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'SELF_CHECK_NAME is required'* ]]
 }
 
 @test "refuses when a check run is unfinished past the timeout" {

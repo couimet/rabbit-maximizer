@@ -179,7 +179,7 @@ docker stop rabbit-maximizer \
   && docker start rabbit-maximizer
 ```
 
-A failed import removes its own staging directory, so the volume keeps the contents it had before the run. One window stays open. A command that you kill between the two swaps leaves those contents in a `.previous` directory inside the volume, and the data directory then holds no database. Check that directory before you start the container again. The next run removes it.
+A failed import removes its own staging directory, so the volume keeps the contents it had before the run. One window stays open. A command that you kill between the two swaps leaves those contents in a `.previous` directory inside the volume, and the data directory then holds no database. Check that directory before you start the container again. An import refuses to run while that directory exists, because it may hold the only copy of the database. Move its entries back into the data directory and remove the directory, then run the import again.
 
 The `docker:move-data` commands run the same helper for you, with the container name and the volume name already set. Run `pnpm docker:move-data:export <file>` on the old host and `pnpm docker:move-data:import <file>` on the new one. Both commands refuse a running container. The import refuses an archive that holds no database, asks before it replaces a volume that already holds a database, and writes a safety export first when you confirm.
 
