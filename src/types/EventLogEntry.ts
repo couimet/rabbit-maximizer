@@ -3,6 +3,7 @@ import { EventType } from '../domain.js';
 import type {
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
+  CoderabbitReviewRefusedPayload,
   CoderabbitReviewSkippedPayload,
   CoderabbitRunIdChangedPayload,
   CoderabbitRunIdClearedPayload,
@@ -58,6 +59,10 @@ export type EventLogEntry =
   | (EventEnvelope & {
       readonly type: EventType.coderabbit_review_changes_suggested;
       readonly payload: CoderabbitReviewChangesSuggestedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.coderabbit_review_refused;
+      readonly payload: CoderabbitReviewRefusedPayload;
     })
   | (EventEnvelope & {
       readonly type: EventType.coderabbit_review_skipped;

@@ -148,6 +148,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/queue/{uuid}/requeue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Returns a permanently-refused item to the pending queue, so the scheduler triggers the PR again after an operator clears the refusal cause. */
+    post: operations['requeue'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/queue/{uuid}/retrigger-now': {
     parameters: {
       query?: never;
@@ -256,7 +273,7 @@ export interface components {
        * @description When the item transitioned to resolved (supersedes reviewed_at/failed_at for new code)
        */
       resolved_at?: string | null;
-      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment) */
+      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused) */
       resolution?: string | null;
       /**
        * @description Outcome of the most recent CodeRabbit review for this PR
@@ -286,7 +303,7 @@ export interface components {
        */
       pr_state?: 'open' | 'merged' | 'closed' | null;
       status: components['schemas']['QueueStatus'];
-      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment) */
+      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused) */
       resolution?: string | null;
       /** Format: date-time */
       retriggered_at?: string | null;
@@ -722,6 +739,58 @@ export interface operations {
       };
       /** @description Queue item not found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      500: components['responses']['InternalError'];
+    };
+  };
+  requeue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        uuid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Item re-queued */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            ok: boolean;
+          };
+        };
+      };
+      /** @description Validation error */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Queue item not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Item is not resolved as a permanent CodeRabbit refusal */
+      409: {
         headers: {
           [name: string]: unknown;
         };

@@ -43,6 +43,8 @@ model PullRequest {
   last_review_url                 String?
   last_review_state               String?
   last_coderabbit_acknowledged_at DateTime?
+  /// Set when a permanent refusal resolves this PR's queue item; cleared by the operator re-queue action. Holds the PR out of the stale-PR recovery query while set.
+  permanent_refusal_at            DateTime?
   /// Max 40 (git sha). Head commit of the branch at the last scan.
   head_sha String?
   /// Max 40 (git sha). Head commit at the time the last CodeRabbit review was recorded.
@@ -239,7 +241,7 @@ model CoderabbitComment {
   comment_id      Int
   /// Max 512 (GitHub comment URL).
   url             String
-  /// One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
+  /// One of 'review_limited' | 'review_refused' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
   comment_type    String
   /// Max 1024. First N chars of the comment body, truncated by the repository on upsert.
   last_body_preview String?

@@ -240,6 +240,49 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/queue/{uuid}/requeue:
+    post:
+      operationId: requeue
+      description: Returns a permanently-refused item to the pending queue, so the scheduler triggers the PR again after an operator clears the refusal cause.
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Item re-queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+                additionalProperties: false
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Queue item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Item is not resolved as a permanent CodeRabbit refusal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/queue/{uuid}/retrigger-now:
     post:
       operationId: retriggerNow
@@ -447,7 +490,7 @@ components:
         resolution:
           type: string
           nullable: true
-          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment)
+          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused)
         coderabbit_review_state:
           type: string
           nullable: true
@@ -502,7 +545,7 @@ components:
         resolution:
           type: string
           nullable: true
-          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment)
+          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused)
         retriggered_at:
           type: string
           format: date-time

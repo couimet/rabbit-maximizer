@@ -4,6 +4,10 @@ import { z } from 'zod';
 export const ConfigSchema = z
   .object({
     CODERABBIT_ACCOUNT_COOLDOWN_SEC: z.coerce.number().int().positive('CODERABBIT_ACCOUNT_COOLDOWN_SEC must be a positive integer').default(3600),
+    CODERABBIT_REFUSAL_PHRASES: z
+      .array(z.string().min(1, 'CODERABBIT_REFUSAL_PHRASES entries must be non-empty'), { error: 'CODERABBIT_REFUSAL_PHRASES must be a list of strings' })
+      .min(1, 'CODERABBIT_REFUSAL_PHRASES must have at least one entry')
+      .default(['without an assigned CodeRabbit review seat']),
     DATABASE_URL: z.string().min(1).default('file:./data/rabbit-maximizer.db'),
     DETECTION_MODE: z.enum(['poll', 'webhook']).default('poll'),
     GITHUB_API_TIMEOUT_SEC: z.coerce.number().int().positive('GITHUB_API_TIMEOUT_SEC must be a positive integer').default(10),

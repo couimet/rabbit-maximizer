@@ -9,7 +9,7 @@ import {
   buildCommentBody,
   buildOpenPRSearchQuery,
   buildSearchQuery,
-  classifyCoderabbitComment,
+  type CoderabbitCommentClassifier,
   extractRepoFullName,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,
@@ -42,6 +42,7 @@ export class CoderabbitGitHubClient {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.Octokit) private readonly octokit: Octokit,
+    @inject(TYPES.CoderabbitCommentClassifier) private readonly classifier: CoderabbitCommentClassifier,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
@@ -86,7 +87,7 @@ export class CoderabbitGitHubClient {
             prNumber: item.number,
             prTitle: item.title,
             body: rateLimitComment.body,
-            commentType: classifyCoderabbitComment(rateLimitComment.body).classification,
+            commentType: this.classifier.classify(rateLimitComment.body).classification,
             detectedVia: CommentDetectionMethod.Search,
             commentId: rateLimitComment.id,
             url: rateLimitComment.html_url,

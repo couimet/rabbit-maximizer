@@ -1,4 +1,5 @@
 export { apiJson } from './apiJson.js';
+export { createCoderabbitCommentClassifier } from './CoderabbitClassifierTestSupport.js';
 export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
 export { generateConfigData } from './ConfigTestSupport.js';
 export { createMockActivityListMapper } from './createMockActivityListMapper.js';
@@ -39,6 +40,7 @@ export type {
   MockMarkQueueItemReviewedProbe,
   MockPrScannerProbe,
   MockPrunerProbe,
+  MockRefusalSweeperProbe,
   MockReviewDetectorProbe,
   MockReviewRetriggerProbe,
   MockSchedulerProbe,
@@ -50,6 +52,7 @@ export {
   createMockMarkQueueItemReviewedProbe,
   createMockPrScannerProbe,
   createMockPrunerProbe,
+  createMockRefusalSweeperProbe,
   createMockReviewDetectorProbe,
   createMockReviewRetriggerProbe,
   createMockSchedulerProbe,

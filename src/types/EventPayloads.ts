@@ -41,6 +41,13 @@ export interface CoderabbitReviewChangesSuggestedPayload {
   readonly coderabbit_run_id?: string;
 }
 
+export interface CoderabbitReviewRefusedPayload {
+  readonly source_ts: Date;
+  readonly comment_url: string;
+  readonly matched_phrase: string;
+  readonly coderabbit_run_id?: string;
+}
+
 export interface CoderabbitReviewSkippedPayload {
   readonly source_ts: Date;
   readonly comment_url: string;

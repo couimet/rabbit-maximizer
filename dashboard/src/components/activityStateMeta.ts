@@ -11,6 +11,7 @@ export const STATE_LABEL: Record<ActivityState, string> = {
   [ActivityState.reviewLimited]: 'CodeRabbit review-limited',
   [ActivityState.awaitingReview]: 'Awaiting CodeRabbit review',
   [ActivityState.staleComment]: 'Stale comment',
+  [ActivityState.permanentlyRefused]: 'CodeRabbit refused permanently',
   [ActivityState.pending]: 'Pending',
   [ActivityState.unknown]: 'Unknown',
 };
@@ -28,6 +29,7 @@ export const STATE_CLASS: Record<ActivityState, StatusPillClass> = {
   [ActivityState.reviewLimited]: 'retriggered',
   [ActivityState.awaitingReview]: 'retriggered',
   [ActivityState.staleComment]: 'stale',
+  [ActivityState.permanentlyRefused]: 'failed',
   [ActivityState.pending]: 'pending',
   [ActivityState.unknown]: 'unknown',
 };

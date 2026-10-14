@@ -10,6 +10,7 @@ const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
 const DEFAULT_MAX_RETRIGGER_AGE_SEC = 259200;
 const DEFAULT_MAX_PR_STATE_FETCHES_PER_TICK = 5;
 const ACCOUNT_COOLDOWN_SEC = 3600;
+const DEFAULT_CODERABBIT_REFUSAL_PHRASES = ['without an assigned CodeRabbit review seat'];
 
 describe('ConfigSchema', () => {
   let githubPat: string;
@@ -23,6 +24,7 @@ describe('ConfigSchema', () => {
     tunnelUrl = `https://${getRandomString({ charset: 'alpha', length: 8 })}.com`;
     BASE = {
       CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
+      CODERABBIT_REFUSAL_PHRASES: DEFAULT_CODERABBIT_REFUSAL_PHRASES,
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_SEC: 10,
       GITHUB_PAT: githubPat,
@@ -190,6 +192,15 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('applies default CODERABBIT_REFUSAL_PHRASES when missing', () => {
+    const { CODERABBIT_REFUSAL_PHRASES: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.CODERABBIT_REFUSAL_PHRASES).toStrictEqual(DEFAULT_CODERABBIT_REFUSAL_PHRASES);
+    }
+  });
+
   // -- Failure cases -----------------------------------------------------------
 
   it('rejects an invalid DETECTION_MODE', () => {
@@ -228,6 +239,22 @@ describe('ConfigSchema', () => {
         REPO_FILTER: [{ pattern: '', scope: 'user' as const }],
       }).success,
     ).toBe(false);
+  });
+
+  it('rejects an empty CODERABBIT_REFUSAL_PHRASES array', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, CODERABBIT_REFUSAL_PHRASES: [] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('CODERABBIT_REFUSAL_PHRASES'))).toBe(true);
+    }
+  });
+
+  it('rejects a CODERABBIT_REFUSAL_PHRASES entry that is an empty string', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, CODERABBIT_REFUSAL_PHRASES: [''] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('CODERABBIT_REFUSAL_PHRASES'))).toBe(true);
+    }
   });
 
   it('rejects RETRY_BACKOFF_MAX_SEC lower than RETRY_BACKOFF_BASE_SEC', () => {

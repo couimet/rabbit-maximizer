@@ -89,6 +89,11 @@ const reviewVerdictReading = (payload: EventPayload): ReadingToken[] => {
   return joinTokens([commentTokenFromUrl(payload.coderabbit_comment_url, commentLabel), runId !== undefined ? text(runLabel(runId)) : undefined]);
 };
 
+const refusedReading = (payload: EventPayload): ReadingToken[] => {
+  const phrase = readString(payload, 'matched_phrase');
+  return joinTokens([phrase !== undefined ? text(phrase) : undefined, commentTokenFromUrl(payload.comment_url, sourceCommentLabel)]);
+};
+
 const runIdBookkeepingReading = (payload: EventPayload, changed: 'seen' | 'changed' | 'cleared'): ReadingToken[] => {
   const comment = commentTokenFromPayload(payload);
   const runId = readString(payload, 'coderabbit_run_id');
@@ -133,6 +138,7 @@ export const summarizeEvent = (type: EventType | string, payload: EventPayload):
   if (type === EventType.retriggered) return retriggeredReading(payload);
   if (type === EventType.coderabbit_review_approved) return reviewVerdictReading(payload);
   if (type === EventType.coderabbit_review_changes_suggested) return reviewVerdictReading(payload);
+  if (type === EventType.coderabbit_review_refused) return refusedReading(payload);
   if (type === EventType.coderabbit_review_skipped) {
     const skipReason = readString(payload, 'skip_reason');
     if (skipReason !== undefined) return [text(skipReason)];

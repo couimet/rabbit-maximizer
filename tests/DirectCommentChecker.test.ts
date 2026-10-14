@@ -5,6 +5,7 @@ import type { EventLogEntry, OnDetectedCallback } from '../src/types/index.js';
 
 import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 import {
+  createCoderabbitCommentClassifier,
   createMockCoderabbitCommentRepo,
   createMockCoderabbitGitHubClient,
   createMockEventRepo,
@@ -56,7 +57,7 @@ describe('DirectCommentChecker', () => {
     probeFactory = createMockProbeFactory({ createDirectCommentCheckProbe: jest.fn().mockReturnValue(probe) });
     queue = createMockQueueRepo();
     pullRequests = createMockPullRequestRepo();
-    checker = new DirectCommentChecker(github, onDetected, coderabbitComments, queue, pullRequests, probeFactory);
+    checker = new DirectCommentChecker(github, onDetected, coderabbitComments, queue, pullRequests, probeFactory, createCoderabbitCommentClassifier());
   });
 
   it('fetches comments and calls onDetected for rate-limit comments', async () => {

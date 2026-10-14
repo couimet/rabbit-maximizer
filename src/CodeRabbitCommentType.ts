@@ -2,7 +2,9 @@
 export enum CodeRabbitCommentType {
   /** CodeRabbit refused due to rate limiting. */
   review_limited = 'review_limited',
-  /** CodeRabbit explicitly skipped the review (permanent refusal). */
+  /** CodeRabbit permanently refused the review and stated a reason no retrigger can clear. */
+  review_refused = 'review_refused',
+  /** CodeRabbit explicitly skipped the review. */
   review_skipped = 'review_skipped',
   /** CodeRabbit reviewed and approved the PR. */
   review_approved = 'review_approved',

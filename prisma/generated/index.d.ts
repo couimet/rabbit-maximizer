@@ -1504,6 +1504,7 @@ export namespace Prisma {
     last_review_url: string | null;
     last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
+    permanent_refusal_at: Date | null;
     head_sha: string | null;
     reviewed_head_sha: string | null;
     head_committed_at: Date | null;
@@ -1531,6 +1532,7 @@ export namespace Prisma {
     last_review_url: string | null;
     last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
+    permanent_refusal_at: Date | null;
     head_sha: string | null;
     reviewed_head_sha: string | null;
     head_committed_at: Date | null;
@@ -1558,6 +1560,7 @@ export namespace Prisma {
     last_review_url: number;
     last_review_state: number;
     last_coderabbit_acknowledged_at: number;
+    permanent_refusal_at: number;
     head_sha: number;
     reviewed_head_sha: number;
     head_committed_at: number;
@@ -1600,6 +1603,7 @@ export namespace Prisma {
     last_review_url?: true;
     last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
+    permanent_refusal_at?: true;
     head_sha?: true;
     reviewed_head_sha?: true;
     head_committed_at?: true;
@@ -1627,6 +1631,7 @@ export namespace Prisma {
     last_review_url?: true;
     last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
+    permanent_refusal_at?: true;
     head_sha?: true;
     reviewed_head_sha?: true;
     head_committed_at?: true;
@@ -1654,6 +1659,7 @@ export namespace Prisma {
     last_review_url?: true;
     last_review_state?: true;
     last_coderabbit_acknowledged_at?: true;
+    permanent_refusal_at?: true;
     head_sha?: true;
     reviewed_head_sha?: true;
     head_committed_at?: true;
@@ -1765,6 +1771,7 @@ export namespace Prisma {
     last_review_url: string | null;
     last_review_state: string | null;
     last_coderabbit_acknowledged_at: Date | null;
+    permanent_refusal_at: Date | null;
     head_sha: string | null;
     reviewed_head_sha: string | null;
     head_committed_at: Date | null;
@@ -1810,6 +1817,7 @@ export namespace Prisma {
       last_review_url?: boolean;
       last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
+      permanent_refusal_at?: boolean;
       head_sha?: boolean;
       reviewed_head_sha?: boolean;
       head_committed_at?: boolean;
@@ -1845,6 +1853,7 @@ export namespace Prisma {
       last_review_url?: boolean;
       last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
+      permanent_refusal_at?: boolean;
       head_sha?: boolean;
       reviewed_head_sha?: boolean;
       head_committed_at?: boolean;
@@ -1875,6 +1884,7 @@ export namespace Prisma {
       last_review_url?: boolean;
       last_review_state?: boolean;
       last_coderabbit_acknowledged_at?: boolean;
+      permanent_refusal_at?: boolean;
       head_sha?: boolean;
       reviewed_head_sha?: boolean;
       head_committed_at?: boolean;
@@ -1904,6 +1914,7 @@ export namespace Prisma {
     last_review_url?: boolean;
     last_review_state?: boolean;
     last_coderabbit_acknowledged_at?: boolean;
+    permanent_refusal_at?: boolean;
     head_sha?: boolean;
     reviewed_head_sha?: boolean;
     head_committed_at?: boolean;
@@ -1931,6 +1942,7 @@ export namespace Prisma {
     | 'last_review_url'
     | 'last_review_state'
     | 'last_coderabbit_acknowledged_at'
+    | 'permanent_refusal_at'
     | 'head_sha'
     | 'reviewed_head_sha'
     | 'head_committed_at'
@@ -1986,6 +1998,10 @@ export namespace Prisma {
         last_review_url: string | null;
         last_review_state: string | null;
         last_coderabbit_acknowledged_at: Date | null;
+        /**
+         * Set when a permanent refusal resolves this PR's queue item; cleared by the operator re-queue action. Holds the PR out of the stale-PR recovery query while set.
+         */
+        permanent_refusal_at: Date | null;
         /**
          * Max 40 (git sha). Head commit of the branch at the last scan.
          */
@@ -2486,6 +2502,7 @@ export namespace Prisma {
     readonly last_review_url: FieldRef<'PullRequest', 'String'>;
     readonly last_review_state: FieldRef<'PullRequest', 'String'>;
     readonly last_coderabbit_acknowledged_at: FieldRef<'PullRequest', 'DateTime'>;
+    readonly permanent_refusal_at: FieldRef<'PullRequest', 'DateTime'>;
     readonly head_sha: FieldRef<'PullRequest', 'String'>;
     readonly reviewed_head_sha: FieldRef<'PullRequest', 'String'>;
     readonly head_committed_at: FieldRef<'PullRequest', 'DateTime'>;
@@ -8562,7 +8579,7 @@ export namespace Prisma {
          */
         url: string;
         /**
-         * One of 'review_limited' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
+         * One of 'review_limited' | 'review_refused' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
          */
         comment_type: string;
         /**
@@ -10620,6 +10637,7 @@ export namespace Prisma {
     last_review_url: 'last_review_url';
     last_review_state: 'last_review_state';
     last_coderabbit_acknowledged_at: 'last_coderabbit_acknowledged_at';
+    permanent_refusal_at: 'permanent_refusal_at';
     head_sha: 'head_sha';
     reviewed_head_sha: 'reviewed_head_sha';
     head_committed_at: 'head_committed_at';
@@ -10800,6 +10818,7 @@ export namespace Prisma {
     last_review_url?: StringNullableFilter<'PullRequest'> | string | null;
     last_review_state?: StringNullableFilter<'PullRequest'> | string | null;
     last_coderabbit_acknowledged_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
+    permanent_refusal_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
     head_sha?: StringNullableFilter<'PullRequest'> | string | null;
     reviewed_head_sha?: StringNullableFilter<'PullRequest'> | string | null;
     head_committed_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
@@ -10831,6 +10850,7 @@ export namespace Prisma {
     last_review_url?: SortOrderInput | SortOrder;
     last_review_state?: SortOrderInput | SortOrder;
     last_coderabbit_acknowledged_at?: SortOrderInput | SortOrder;
+    permanent_refusal_at?: SortOrderInput | SortOrder;
     head_sha?: SortOrderInput | SortOrder;
     reviewed_head_sha?: SortOrderInput | SortOrder;
     head_committed_at?: SortOrderInput | SortOrder;
@@ -10867,6 +10887,7 @@ export namespace Prisma {
       last_review_url?: StringNullableFilter<'PullRequest'> | string | null;
       last_review_state?: StringNullableFilter<'PullRequest'> | string | null;
       last_coderabbit_acknowledged_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
+      permanent_refusal_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
       head_sha?: StringNullableFilter<'PullRequest'> | string | null;
       reviewed_head_sha?: StringNullableFilter<'PullRequest'> | string | null;
       head_committed_at?: DateTimeNullableFilter<'PullRequest'> | Date | string | null;
@@ -10900,6 +10921,7 @@ export namespace Prisma {
     last_review_url?: SortOrderInput | SortOrder;
     last_review_state?: SortOrderInput | SortOrder;
     last_coderabbit_acknowledged_at?: SortOrderInput | SortOrder;
+    permanent_refusal_at?: SortOrderInput | SortOrder;
     head_sha?: SortOrderInput | SortOrder;
     reviewed_head_sha?: SortOrderInput | SortOrder;
     head_committed_at?: SortOrderInput | SortOrder;
@@ -10935,6 +10957,7 @@ export namespace Prisma {
     last_review_url?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
     last_review_state?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
     last_coderabbit_acknowledged_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
+    permanent_refusal_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
     head_sha?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
     reviewed_head_sha?: StringNullableWithAggregatesFilter<'PullRequest'> | string | null;
     head_committed_at?: DateTimeNullableWithAggregatesFilter<'PullRequest'> | Date | string | null;
@@ -11528,6 +11551,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -11559,6 +11583,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -11589,6 +11614,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -11620,6 +11646,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -11651,6 +11678,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -11677,6 +11705,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -11704,6 +11733,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -12449,6 +12479,7 @@ export namespace Prisma {
     last_review_url?: SortOrder;
     last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
+    permanent_refusal_at?: SortOrder;
     head_sha?: SortOrder;
     reviewed_head_sha?: SortOrder;
     head_committed_at?: SortOrder;
@@ -12483,6 +12514,7 @@ export namespace Prisma {
     last_review_url?: SortOrder;
     last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
+    permanent_refusal_at?: SortOrder;
     head_sha?: SortOrder;
     reviewed_head_sha?: SortOrder;
     head_committed_at?: SortOrder;
@@ -12510,6 +12542,7 @@ export namespace Prisma {
     last_review_url?: SortOrder;
     last_review_state?: SortOrder;
     last_coderabbit_acknowledged_at?: SortOrder;
+    permanent_refusal_at?: SortOrder;
     head_sha?: SortOrder;
     reviewed_head_sha?: SortOrder;
     head_committed_at?: SortOrder;
@@ -13978,6 +14011,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -14008,6 +14042,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -14053,6 +14088,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -14083,6 +14119,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -14130,6 +14167,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -14160,6 +14198,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -14229,6 +14268,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -14259,6 +14299,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -14288,6 +14329,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -14318,6 +14360,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -14363,6 +14406,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -14393,6 +14437,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -14552,6 +14597,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -14582,6 +14628,7 @@ export namespace Prisma {
     last_review_url?: string | null;
     last_review_state?: string | null;
     last_coderabbit_acknowledged_at?: Date | string | null;
+    permanent_refusal_at?: Date | string | null;
     head_sha?: string | null;
     reviewed_head_sha?: string | null;
     head_committed_at?: Date | string | null;
@@ -14627,6 +14674,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -14657,6 +14705,7 @@ export namespace Prisma {
     last_review_url?: NullableStringFieldUpdateOperationsInput | string | null;
     last_review_state?: NullableStringFieldUpdateOperationsInput | string | null;
     last_coderabbit_acknowledged_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    permanent_refusal_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     reviewed_head_sha?: NullableStringFieldUpdateOperationsInput | string | null;
     head_committed_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null;

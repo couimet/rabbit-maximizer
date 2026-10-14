@@ -1,7 +1,7 @@
 import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository } from './db/index.js';
 import {
   buildCommentUrl,
-  classifyCoderabbitComment,
+  type CoderabbitCommentClassifier,
   type CoderabbitGitHubClient,
   hasOwnRetriggerMarker,
   parseWaitSeconds,
@@ -35,6 +35,8 @@ export class DirectCommentChecker {
     private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.ProbeFactory)
     private readonly probeFactory: ProbeFactory,
+    @inject(TYPES.CoderabbitCommentClassifier)
+    private readonly classifier: CoderabbitCommentClassifier,
   ) {}
   /* c8 ignore stop */
 
@@ -68,7 +70,7 @@ export class DirectCommentChecker {
           }
           probe.withComment(pr.repoFullName, pr.prNumber, c.id);
 
-          const { classification } = classifyCoderabbitComment(c.body);
+          const { classification } = this.classifier.classify(c.body);
 
           if (classification === CodeRabbitCommentType.unknown) {
             // Walkthrough summaries carry no verdict but mark when CodeRabbit reviewed;

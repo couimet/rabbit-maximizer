@@ -15,6 +15,7 @@ export { PrScanner } from './prScanner.js';
 export { PruneEvaluator } from './PruneEvaluator.js';
 export { Pruner } from './Pruner.js';
 export { QueueItemEnricher } from './QueueItemEnricher.js';
+export { RefusalSweeper } from './RefusalSweeper.js';
 export { ReviewDetector } from './ReviewDetector.js';
 export { ReviewTrigger } from './ReviewTrigger.js';
 export { RunIdGenerator } from './RunIdGenerator.js';

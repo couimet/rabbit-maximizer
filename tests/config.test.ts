@@ -216,6 +216,44 @@ describe('parseConfig', () => {
     });
   });
 
+  it('parses CODERABBIT_REFUSAL_PHRASES as a JSON array of strings', () => {
+    const result = parseConfig(env(BASE, { CODERABBIT_REFUSAL_PHRASES: '["seat is missing","not allowed"]' }));
+
+    expect(result.value.CODERABBIT_REFUSAL_PHRASES).toStrictEqual(['seat is missing', 'not allowed']);
+  });
+
+  it('parses a bare CODERABBIT_REFUSAL_PHRASES phrase into a single-entry list', () => {
+    const result = parseConfig(env(BASE, { CODERABBIT_REFUSAL_PHRASES: 'seat is missing' }));
+
+    expect(result.value.CODERABBIT_REFUSAL_PHRASES).toStrictEqual(['seat is missing']);
+  });
+
+  it('fails when CODERABBIT_REFUSAL_PHRASES is a malformed JSON array rather than treating it as a bare phrase', () => {
+    const result = parseConfig(env(BASE, { CODERABBIT_REFUSAL_PHRASES: '["seat is missing"' }));
+
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
+      message: 'Config validation failed',
+      functionName: 'parseConfig',
+      details: { issues: ['CODERABBIT_REFUSAL_PHRASES: CODERABBIT_REFUSAL_PHRASES must have at least one entry'] },
+    });
+  });
+
+  it('fails when CODERABBIT_REFUSAL_PHRASES JSON is not a string array', () => {
+    const result = parseConfig(env(BASE, { CODERABBIT_REFUSAL_PHRASES: '[1,2,3]' }));
+
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
+      message: 'Config validation failed',
+      functionName: 'parseConfig',
+      details: { issues: ['CODERABBIT_REFUSAL_PHRASES: CODERABBIT_REFUSAL_PHRASES must have at least one entry'] },
+    });
+  });
+
+  it('treats a bare phrase that happens to parse as a JSON scalar as a single-entry list', () => {
+    const result = parseConfig(env(BASE, { CODERABBIT_REFUSAL_PHRASES: '42' }));
+
+    expect(result.value.CODERABBIT_REFUSAL_PHRASES).toStrictEqual(['42']);
+  });
+
   it('succeeds with webhook mode and both webhook vars set', () => {
     const result = parseConfig(
       env(BASE, {

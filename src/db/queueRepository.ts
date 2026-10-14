@@ -1,5 +1,6 @@
 import type { Config } from '../config.js';
 import { CodeRabbitCommentType, QueueStatus, Resolution, SkipReason, TriggerSource } from '../domain.js';
+import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import { BasePrismaRepository, PrismaRecordNotFoundError, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { ReviewQueueToQueueItemMapper } from '../mappers/index.js';
 import { getRunIdAttribute } from '../node-utils/index.js';
@@ -420,6 +421,20 @@ export class QueueRepository extends BasePrismaRepository {
     return changed;
   }
 
+  // Resolves whatever active item the PR holds, so a refusal clears the queue entry
+  // that a retrigger loop would otherwise keep alive. Returns the number of rows changed.
+  async markResolvedByPullRequestId(pullRequestId: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<number> {
+    const result = await this.client(tx).reviewQueue.updateMany({
+      where: { pull_request_id: pullRequestId, status: { in: [...ACTIVE_STATUSES] } },
+      data: { status: QueueStatus.resolved, resolution, resolved_at: new Date() },
+    });
+    this.log.debug(
+      { fn: 'QueueRepository.markResolvedByPullRequestId', pullRequestId, resolution, changed: result.count },
+      'Resolved active queue items of a pull request',
+    );
+    return result.count;
+  }
+
   // Guard on the loaded run: a delayed adoption must not regress a newer run
   // the scheduler wrote while this item was being processed.
   async adoptRunIfStillRetriggered(id: number, expectedRunId: string | undefined, adoptedRunId: string, tx: Prisma.TransactionClient): Promise<boolean> {
@@ -485,6 +500,51 @@ export class QueueRepository extends BasePrismaRepository {
         throw err;
       }
     });
+  }
+
+  // Returns a permanently-refused item to pending with a fresh attempt budget, so an
+  // operator can retry the PR once the refusal cause is cleared. Throws when the item
+  // does not exist, or when it is not resolved as a permanent refusal.
+  async requeueByUuid(uuid: string, tx: Prisma.TransactionClient): Promise<QueueItem> {
+    const db = this.client(tx);
+    const row = await db.reviewQueue.findUnique({ where: { uuid } });
+    if (!row) {
+      throw new PrismaRecordNotFoundError({
+        tableName: 'reviewQueue',
+        functionName: 'QueueRepository.requeueByUuid',
+        details: { uuid },
+      });
+    }
+    if (row.status !== QueueStatus.resolved || row.resolution !== Resolution.PermanentlyRefused) {
+      throw new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PERMANENTLY_REFUSED,
+        message: `Queue item ${uuid} is not resolved as a permanently-refused review`,
+        functionName: 'QueueRepository.requeueByUuid',
+        details: { uuid, status: row.status, resolution: row.resolution },
+      });
+    }
+
+    const updated = await db.reviewQueue.update({
+      where: { id: row.id },
+      data: {
+        status: QueueStatus.pending,
+        resolution: null,
+        resolved_at: null,
+        attempts: 0,
+        cooldown_until: null,
+        last_skipped_at: null,
+        last_skip_reason: null,
+        retrigger_skip_count: 0,
+      },
+    });
+
+    const existingOrder = await db.queueOrder.findUnique({ where: { queue_item_id: row.id } });
+    if (!existingOrder) {
+      await db.queueOrder.create({ data: { queue_item_id: row.id } });
+    }
+
+    this.log.info({ fn: 'QueueRepository.requeueByUuid', uuid, id: row.id }, 'Re-queued a permanently-refused item as pending');
+    return this.mapper.fromReviewQueue(updated);
   }
 
   async reschedule(id: number, sourceComment: CommentDetails, originalSourceCommentUrl: string | undefined, tx: Prisma.TransactionClient): Promise<QueueItem> {

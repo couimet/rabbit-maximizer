@@ -1,6 +1,6 @@
 import type { CoderabbitCommentRepository } from './db/index.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
-import { classifyCoderabbitComment, type CoderabbitGitHubClient, splitRepo } from './github/index.js';
+import { type CoderabbitCommentClassifier, type CoderabbitGitHubClient, splitRepo } from './github/index.js';
 import { type EditDetectionOutcome, type QueueItem } from './types/index.js';
 import { extractCoderabbitRunId, isReviewVerdictState } from './utils/index.js';
 import { CodeRabbitCommentType, FallbackReason } from './domain.js';
@@ -17,6 +17,8 @@ export class EditDetector {
     private readonly coderabbitComments: CoderabbitCommentRepository,
     @inject(TYPES.CoderabbitGitHubClient)
     private readonly github: CoderabbitGitHubClient,
+    @inject(TYPES.CoderabbitCommentClassifier)
+    private readonly classifier: CoderabbitCommentClassifier,
   ) {}
   /* c8 ignore stop */
 
@@ -40,7 +42,8 @@ export class EditDetector {
         });
       }
 
-      const { classification: newType } = classifyCoderabbitComment(fetchResult.body);
+      const classification = this.classifier.classify(fetchResult.body);
+      const newType = classification.classification;
       const freshRunId = extractCoderabbitRunId(fetchResult.body);
 
       const updatedComment = {
@@ -55,6 +58,10 @@ export class EditDetector {
       };
 
       await this.coderabbitComments.upsert(updatedComment);
+
+      if (classification.classification === CodeRabbitCommentType.review_refused) {
+        return RabbitResult.ok({ action: 'refused', matchedPhrase: classification.matchedPhrase });
+      }
 
       if (isReviewVerdictState(newType)) {
         return RabbitResult.ok({

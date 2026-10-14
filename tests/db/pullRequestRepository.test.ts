@@ -7,6 +7,9 @@ import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 
+const FIND_STALE_OPEN_PRS_SQL =
+  "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.permanent_refusal_at IS NULL AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status = 'resolved' AND rq.resolved_at > datetime('now', '-5 minutes'))";
+
 describe('PullRequestRepository', () => {
   let frozenNow: Date;
   let logger: ReturnType<typeof createMockLogger>;
@@ -469,6 +472,76 @@ describe('PullRequestRepository', () => {
     });
   });
 
+  describe('setPermanentRefusalAt', () => {
+    it('sets permanent_refusal_at to now', async () => {
+      const id = getUniqueInt();
+      const { prisma, pullRequest } = createMockPrismaClient();
+      const sut = new PullRequestRepository(prisma, logger);
+
+      await sut.setPermanentRefusalAt(id, prisma);
+
+      expect(pullRequest.update).toHaveBeenCalledWith({ where: { id }, data: { permanent_refusal_at: frozenNow } });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepository.setPermanentRefusalAt', id },
+        'Recorded permanent CodeRabbit refusal on PullRequest',
+      );
+    });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
+        pullRequest: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      await expect(sut.setPermanentRefusalAt(getUniqueInt(), prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'PullRequest'",
+        functionName: 'PullRequestRepository.setPermanentRefusalAt',
+        details: { tableName: 'PullRequest' },
+        cause: p2025,
+      });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepository.setPermanentRefusalAt', modelName: 'PullRequest', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
+    });
+  });
+
+  describe('clearPermanentRefusalAt', () => {
+    it('clears permanent_refusal_at', async () => {
+      const id = getUniqueInt();
+      const { prisma, pullRequest } = createMockPrismaClient();
+      const sut = new PullRequestRepository(prisma, logger);
+
+      await sut.clearPermanentRefusalAt(id, prisma);
+
+      expect(pullRequest.update).toHaveBeenCalledWith({ where: { id }, data: { permanent_refusal_at: null } });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepository.clearPermanentRefusalAt', id },
+        'Cleared permanent CodeRabbit refusal on PullRequest',
+      );
+    });
+
+    it('wraps P2025 errors in PrismaRecordNotFoundError', async () => {
+      const p2025 = new Prisma.PrismaClientKnownRequestError('Record not found', { code: 'P2025', clientVersion: '7.8.0' });
+      const { prisma, pullRequest: _pullRequest } = createMockPrismaClient({
+        pullRequest: { update: jest.fn<any>().mockRejectedValue(p2025) },
+      });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      await expect(sut.clearPermanentRefusalAt(getUniqueInt(), prisma)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'PullRequest'",
+        functionName: 'PullRequestRepository.clearPermanentRefusalAt',
+        details: { tableName: 'PullRequest' },
+        cause: p2025,
+      });
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepository.clearPermanentRefusalAt', modelName: 'PullRequest', prismaCode: 'P2025' },
+        'Prisma record not found, throwing typed error',
+      );
+    });
+  });
+
   describe('findPendingAcknowledgement', () => {
     it('returns the mapped PR when a pending acknowledgement exists', async () => {
       const lastReviewRequestedAt = getUniqueDate();
@@ -768,11 +841,7 @@ describe('PullRequestRepository', () => {
 
       const result = await sut.findStaleOpenPRs();
 
-      expect(queryRawUnsafe).toHaveBeenCalledWith(
-        expect.toEqualIgnoringWhitespace(
-          "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status = 'resolved' AND rq.resolved_at > datetime('now', '-5 minutes'))",
-        ),
-      );
+      expect(queryRawUnsafe).toHaveBeenCalledWith(expect.toEqualIgnoringWhitespace(FIND_STALE_OPEN_PRS_SQL));
       expect(result).toStrictEqual(
         rows.map((row) => ({
           id: row.id,
@@ -793,6 +862,35 @@ describe('PullRequestRepository', () => {
 
       expect(result).toStrictEqual([]);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.findStaleOpenPRs', count: 0 }, 'Found stale open PRs');
+    });
+
+    it('excludes a permanently refused PR and includes it again once the flag is cleared', async () => {
+      const staleRef = generateReviewRef();
+      const eligibleRow = {
+        id: getUniqueInt(),
+        repo_full_name: staleRef.repoFullName,
+        pr_number: staleRef.prNumber,
+        title: getUniqueString(),
+        last_review_requested_at: getUniqueDate().toISOString(),
+      };
+      const queryRawUnsafe = jest.fn<any>().mockResolvedValueOnce([]).mockResolvedValueOnce([eligibleRow]);
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      const refusedResult = await sut.findStaleOpenPRs();
+      const eligibleResult = await sut.findStaleOpenPRs();
+
+      expect(queryRawUnsafe).toHaveBeenCalledWith(expect.toEqualIgnoringWhitespace(FIND_STALE_OPEN_PRS_SQL));
+      expect(refusedResult).toStrictEqual([]);
+      expect(eligibleResult).toStrictEqual([
+        {
+          id: eligibleRow.id,
+          repoFullName: eligibleRow.repo_full_name,
+          prNumber: eligibleRow.pr_number,
+          title: eligibleRow.title,
+          lastReviewRequestedAt: new Date(eligibleRow.last_review_requested_at),
+        },
+      ]);
     });
   });
 
