@@ -198,6 +198,11 @@ export class PollDetector extends IntervalService {
         }
       }
 
+      // The acknowledgement walk below can stop the tick, so record the cooldown first.
+      if (earliestNextReview) {
+        await this.systemStateRepo.setNextReviewAvailableAtIfLater(earliestNextReview, undefined);
+      }
+
       try {
         const pendingAcks = await this.pullRequests.findPendingAcknowledgements(undefined);
         for (const pendingAck of pendingAcks) {
@@ -220,10 +225,6 @@ export class PollDetector extends IntervalService {
         }
       } catch (err: unknown) {
         this.log.warn({ ...logCtx, error: err }, 'Acknowledgement query failed; continuing');
-      }
-
-      if (earliestNextReview) {
-        await this.systemStateRepo.setNextReviewAvailableAtIfLater(earliestNextReview, undefined);
       }
     } catch (err: unknown) {
       if (this.applyRateLimitBackoff(err, logCtx)) {
