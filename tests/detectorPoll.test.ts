@@ -402,6 +402,48 @@ describe('PollDetector', () => {
       expect(deps.pullRequests.recordAcknowledgement).not.toHaveBeenCalled();
     });
 
+    it('keeps the computed cooldown when GitHub rate-limits an acknowledgement check', async () => {
+      const rateLimitError = {
+        status: 429,
+        response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': 'not-a-number' } },
+      };
+      const updatedAt = getUniqueDate().toISOString();
+      const comment = generateDetectedCommentHydrationData({ updatedAt });
+      const bodyText = 'rate limited by coderabbit.ai Please wait 5 minutes and 30 seconds before requesting another review.';
+      const ackRef = generateReviewRef();
+      const pendingAck = {
+        id: getUniqueInt(),
+        repo_full_name: ackRef.repoFullName,
+        pr_number: ackRef.prNumber,
+        last_review_requested_at: getUniqueDate(),
+      };
+      const expectedWaitSeconds = 5 * 60 + 30;
+      const expectedDate = new Date(new Date(updatedAt).getTime() + expectedWaitSeconds * MS_PER_SECOND);
+      deps.github.searchReviewLimitComments.mockResolvedValue([comment]);
+      deps.github.fetchComment.mockResolvedValue({ body: bodyText, createdAt: comment.createdAt, updatedAt: comment.updatedAt });
+      deps.pullRequests.findByRepoAndPr.mockResolvedValue({ id: pullRequestId, head_sha: null });
+      deps.pullRequests.findPendingAcknowledgements.mockResolvedValue([pendingAck]);
+      deps.github.findAcknowledgement.mockRejectedValue(rateLimitError);
+      const detector = createDetector();
+      await detector.start();
+      await drainMicrotasks(TICK_DEPTH);
+      expect(deps.systemStateRepo.setNextReviewAvailableAtIfLater).toHaveBeenCalledWith(expectedDate, undefined);
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        {
+          fn: 'PollDetector.tick',
+          kind: 'throttled',
+          status: 429,
+          retryAfterSec: 60,
+          resetEpoch: undefined,
+          resource: undefined,
+          limit: undefined,
+          remaining: 0,
+          used: undefined,
+        },
+        'GitHub API rate limit exhausted; backing off until reset',
+      );
+    });
+
     it('logs a warning and continues when the acknowledgement query fails', async () => {
       const ackError = new Error('DB connection lost');
       deps.github.searchReviewLimitComments.mockResolvedValue([]);

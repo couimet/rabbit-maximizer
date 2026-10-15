@@ -31,7 +31,7 @@ Only `pending` and `retriggered` items are active: they appear in the queue orde
 
 Sources: [`detectorPoll`](../src/detectorPoll.ts), [`prScanner`](../src/prScanner.ts), [`DirectCommentChecker`](../src/DirectCommentChecker.ts), [`coderabbitGitHubClient`](../src/github/coderabbitGitHubClient.ts), [`classifyCoderabbitComment`](../src/github/classifyCoderabbitComment.ts), [`coderabbitConstants`](../src/github/coderabbitConstants.ts).
 
-Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: PR scan, stale-PR recovery, direct comment check, comment search, acknowledgement polling of every open PR that waits for a reply, then records the earliest next review availability.
+Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: PR scan, stale-PR recovery, direct comment check, comment search, recording of the earliest next review availability, then acknowledgement polling of every open PR that waits for a reply.
 
 <a id="br-2-1"></a>
 
