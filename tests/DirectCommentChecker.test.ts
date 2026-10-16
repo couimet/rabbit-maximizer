@@ -1,10 +1,11 @@
 import { buildCommentUrl } from '../src/github/buildCommentUrl.js';
 import { DirectCommentCheckProbe } from '../src/probes/index.js';
-import { DirectCommentChecker } from '../src/services.js';
+import { DirectCheckCap, DirectCommentChecker } from '../src/services.js';
 import type { EventLogEntry, OnDetectedCallback } from '../src/types/index.js';
 
 import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 import {
+  createCoderabbitCommentClassifier,
   createMockCoderabbitCommentRepo,
   createMockCoderabbitGitHubClient,
   createMockEventRepo,
@@ -13,11 +14,12 @@ import {
   createMockPullRequestRepo,
   createMockQueueRepo,
   generateCoderabbitCommentHydrationData,
+  generateConfigData,
   generateEventTraceContext,
   generateReviewRef,
 } from './helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getRandomInt, getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -56,7 +58,16 @@ describe('DirectCommentChecker', () => {
     probeFactory = createMockProbeFactory({ createDirectCommentCheckProbe: jest.fn().mockReturnValue(probe) });
     queue = createMockQueueRepo();
     pullRequests = createMockPullRequestRepo();
-    checker = new DirectCommentChecker(github, onDetected, coderabbitComments, queue, pullRequests, probeFactory);
+    checker = new DirectCommentChecker(
+      github,
+      onDetected,
+      coderabbitComments,
+      queue,
+      pullRequests,
+      probeFactory,
+      createCoderabbitCommentClassifier(),
+      new DirectCheckCap(generateConfigData()),
+    );
   });
 
   it('fetches comments and calls onDetected for rate-limit comments', async () => {
@@ -651,23 +662,48 @@ describe('DirectCommentChecker', () => {
     expect(logger.info).toHaveBeenCalledWith({ fn: 'DirectCommentCheckProbe.found', found: 1, checked: 1 }, 'Direct comment check found comments');
   });
 
-  it('truncates and warns when PR count exceeds the direct-check limit', async () => {
+  it('checks only the configured cap and logs an error that states the hidden count', async () => {
+    const configuredCap = getRandomInt(1, 5);
+    const hiddenCount = getRandomInt(1, 5);
     const ref = generateReviewRef();
-    github.listComments.mockResolvedValue([]);
-    const prs = Array.from({ length: 130 }, () => ({
+    const prs = Array.from({ length: configuredCap + hiddenCount }, () => ({
       repoFullName: ref.repoFullName,
       prNumber: getUniqueInt(),
       pullRequestId: getUniqueInt(),
       prTitle: ref.prTitle,
     }));
-
-    await checker.check(prs);
-
-    expect(github.listComments).toHaveBeenCalledTimes(125);
-    expect(logger.warn).toHaveBeenCalledWith(
-      { fn: 'DirectCommentCheckProbe.truncated', prCount: 130, maxDirectCheckPRs: 125 },
-      'PR count exceeds direct-check limit; truncating to prevent API rate-limit exhaustion',
+    github.listComments.mockResolvedValue([]);
+    const cappedChecker = new DirectCommentChecker(
+      github,
+      onDetected,
+      coderabbitComments,
+      queue,
+      pullRequests,
+      probeFactory,
+      createCoderabbitCommentClassifier(),
+      new DirectCheckCap(generateConfigData({ MAX_DIRECT_CHECK_PRS: configuredCap })),
     );
+
+    await cappedChecker.check(prs);
+
+    const [owner, repo] = ref.repoFullName.split('/');
+    expect(github.listComments).toHaveBeenCalledTimes(configuredCap);
+    for (const hiddenPr of prs.slice(configuredCap)) {
+      expect(github.listComments).not.toHaveBeenCalledWith(owner, repo, hiddenPr.prNumber);
+    }
+    expect(logger.error).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.truncated', prCount: configuredCap + hiddenCount, maxDirectCheckPRs: configuredCap, hiddenCount },
+      'PR count exceeds the direct-check cap; the configured cap hides PRs from the direct check',
+    );
+  });
+
+  it('does not log a truncation when the PR count fits the cap', async () => {
+    const ref = generateReviewRef();
+    github.listComments.mockResolvedValue([]);
+
+    await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: getUniqueInt(), prTitle: ref.prTitle }]);
+
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it('does not record a run id event for an unchanged comment with a null stored run id', async () => {

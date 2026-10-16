@@ -321,6 +321,58 @@ describe('DetectedProbe', () => {
     );
   });
 
+  it('records a coderabbit_review_refused event with comment_url, matched_phrase, and coderabbit_run_id', async () => {
+    const ref = generateReviewRef();
+    const sourceTs = getUniqueDate();
+    const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+    const coderabbitRunId = getUuid();
+    const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+    const entryUuid = getUuid();
+    const tx = createMockTx();
+
+    const entry = { uuid: entryUuid } as unknown as EventLogEntry;
+    const { eventRepository, record } = makeEventRepository(entry);
+    const logger = createMockLogger();
+
+    const probe = new DetectedProbe(
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: sourceTs,
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: coderabbitRunId,
+        detectedVia: CommentDetectionMethod.Search,
+      },
+      eventRepository,
+      logger,
+    );
+
+    const result = await runInContext(() => probe.refused(tx, matchedPhrase));
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        type: 'coderabbit_review_refused',
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
+        payload: {
+          source_ts: sourceTs,
+          comment_url: sourceCommentUrl,
+          matched_phrase: matchedPhrase,
+          coderabbit_run_id: coderabbitRunId,
+        },
+      },
+      tx,
+    );
+    expect(result).toBe(entry);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId, matchedPhrase },
+      'CodeRabbit permanently refused the review; resolved the queue item',
+    );
+  });
+
   it('records a detected event with coderabbit_run_id as evidence', async () => {
     const ref = generateReviewRef();
     const sourceTs = getUniqueDate();

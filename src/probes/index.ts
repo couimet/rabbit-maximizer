@@ -8,6 +8,7 @@ export { ProbeFactory } from './ProbeFactory.js';
 export { PrScannerProbe } from './PrScannerProbe.js';
 export { PrunerProbe } from './PrunerProbe.js';
 export { recordDismissalEvent } from './recordDismissalEvent.js';
+export { RefusalSweeperProbe } from './RefusalSweeperProbe.js';
 export { ReviewDetectorProbe } from './ReviewDetectorProbe.js';
 export { ReviewRetriggerProbe } from './ReviewRetriggerProbe.js';
 export { type CreateSchedulerProbeParams, SchedulerProbe } from './SchedulerProbe.js';

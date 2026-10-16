@@ -1,11 +1,13 @@
 import { config } from '../src/config.js';
 import { CodeRabbitCommentType } from '../src/domain.js';
+import type { CoderabbitCommentClassifier } from '../src/github/index.js';
 import type { DetectedProbe, ProbeFactory } from '../src/probes/index.js';
 import { EnqueueService } from '../src/services.js';
 import { MS_PER_SECOND } from '../src/utils/index.js';
 
 import { createMockCoderabbitCommentRepo } from './helpers/createMockCoderabbitCommentRepo.js';
 import {
+  createCoderabbitCommentClassifier,
   createMockDetectedProbe,
   createMockProbeFactory,
   createMockPullRequestRepo,
@@ -19,6 +21,8 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const FOR_TEST_SKIP_BODY = 'skip review by coderabbit.ai';
+const REFUSAL_PHRASE = config.CODERABBIT_REFUSAL_PHRASES[0];
+const FOR_TEST_REFUSAL_BODY = `CodeRabbit cannot review this PR ${REFUSAL_PHRASE}.`;
 
 describe('EnqueueService', () => {
   let frozenNow: Date;
@@ -29,8 +33,10 @@ describe('EnqueueService', () => {
   let prisma: PrismaClient;
   let tx: Prisma.TransactionClient;
   let probe: ReturnType<typeof createMockDetectedProbe>;
+  let classifier: CoderabbitCommentClassifier;
 
   beforeEach(() => {
+    classifier = createCoderabbitCommentClassifier();
     jest.useFakeTimers();
     frozenNow = getUniqueDate();
     jest.setSystemTime(frozenNow);
@@ -49,7 +55,7 @@ describe('EnqueueService', () => {
     coderabbitComments = createMockCoderabbitCommentRepo();
   });
 
-  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, coderabbitComments);
+  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, coderabbitComments, classifier);
 
   describe('handle', () => {
     it('creates probe, enqueues, and completes probe in a transaction with pullRequestId', async () => {
@@ -285,6 +291,39 @@ describe('EnqueueService', () => {
         expect(probe.enqueued).not.toHaveBeenCalled();
         expect(probe.alreadyQueued).toHaveBeenCalled();
         expect(probe.skipped).toHaveBeenCalledWith(tx);
+      });
+    });
+
+    describe('refusal path', () => {
+      it('marks the PR refused, resolves the active item, records the refusal event, and never enqueues', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_REFUSAL_BODY });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(coderabbitComments.findCompletedReview).toHaveBeenCalledWith(pullRequestId);
+        expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
+        expect(coderabbitComments.upsert).toHaveBeenCalledWith(
+          {
+            comment_id: comment.commentId,
+            pull_request_id: pullRequestId,
+            url: comment.url,
+            comment_type: 'review_refused',
+            body: comment.body,
+            gh_created_at: new Date(comment.createdAt),
+            gh_updated_at: new Date(comment.updatedAt),
+            coderabbit_run_id: null,
+          },
+          tx,
+        );
+        expect(pullRequests.setPermanentRefusalAt).toHaveBeenCalledWith(pullRequestId, tx);
+        expect(queue.markResolvedByPullRequestId).toHaveBeenCalledWith(pullRequestId, 'permanently_refused', tx);
+        expect(probe.refused).toHaveBeenCalledWith(tx, REFUSAL_PHRASE);
+        expect(queue.enqueue).not.toHaveBeenCalled();
+        expect(probe.enqueued).not.toHaveBeenCalled();
+        expect(probe.skipped).not.toHaveBeenCalled();
+        expect(probe.verdictResolved).not.toHaveBeenCalled();
       });
     });
 

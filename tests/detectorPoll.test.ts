@@ -1,9 +1,10 @@
 import { config } from '../src/config.js';
-import type { CoderabbitGitHubClient } from '../src/github/index.js';
+import type { CoderabbitCommentClassifier, CoderabbitGitHubClient } from '../src/github/index.js';
 import { type DirectCommentChecker, PollDetector } from '../src/services.js';
 import type { DetectedComment, OnDetectedCallback } from '../src/types/index.js';
 
 import {
+  createCoderabbitCommentClassifier,
   createMockCoderabbitCommentRepo,
   createMockCoderabbitGitHubClient,
   createMockDirectCommentChecker,
@@ -60,9 +61,11 @@ describe('PollDetector', () => {
   let deps: MockDetectorDeps;
   let frozenNow: Date;
   let pullRequestId: number;
+  let classifier: CoderabbitCommentClassifier;
 
   beforeEach(() => {
     deps = setup();
+    classifier = createCoderabbitCommentClassifier();
     frozenNow = getUniqueDate();
     pullRequestId = getUniqueInt();
     jest.useFakeTimers();
@@ -79,6 +82,7 @@ describe('PollDetector', () => {
       deps.pullRequests,
       deps.systemStateRepo,
       deps.coderabbitComments,
+      classifier,
       deps.logger,
     );
 

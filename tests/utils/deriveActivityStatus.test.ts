@@ -133,6 +133,14 @@ describe('deriveActivityStatus', () => {
       expect(result).toStrictEqual({ state: 'stale_comment', linkUrl: sourceCommentUrl });
     });
 
+    it('returns permanently_refused state with source comment URL for permanently_refused resolution', () => {
+      const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'permanently_refused', source_comment_url: sourceCommentUrl });
+
+      const result = deriveActivityStatus(item);
+
+      expect(result).toStrictEqual({ state: 'permanently_refused', linkUrl: sourceCommentUrl });
+    });
+
     it('returns manual_review state for manual_review resolution', () => {
       const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'manual_review' });
 
@@ -152,6 +160,14 @@ describe('deriveActivityStatus', () => {
 
       it('returns pr_merged state when pr_state is merged and resolution is review_completed', () => {
         const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'review_completed', pr_state: 'merged' });
+
+        const result = deriveActivityStatus(item);
+
+        expect(result).toStrictEqual({ state: 'pr_merged', linkUrl: undefined });
+      });
+
+      it('returns pr_merged state when pr_state is merged and resolution is permanently_refused', () => {
+        const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'permanently_refused', pr_state: 'merged' });
 
         const result = deriveActivityStatus(item);
 

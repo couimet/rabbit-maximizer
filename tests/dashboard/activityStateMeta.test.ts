@@ -15,6 +15,7 @@ describe('activityStateMeta', () => {
       review_limited: 'CodeRabbit review-limited',
       awaiting_review: 'Awaiting CodeRabbit review',
       stale_comment: 'Stale comment',
+      permanently_refused: 'CodeRabbit refused permanently',
       pending: 'Pending',
       unknown: 'Unknown',
     });
@@ -32,6 +33,7 @@ describe('activityStateMeta', () => {
       review_limited: 'retriggered',
       awaiting_review: 'retriggered',
       stale_comment: 'stale',
+      permanently_refused: 'failed',
       pending: 'pending',
       unknown: 'unknown',
     });

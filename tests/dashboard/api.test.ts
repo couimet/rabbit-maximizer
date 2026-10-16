@@ -7,6 +7,7 @@ import {
   markResolved,
   moveQueueItems,
   moveToTop,
+  requeue,
 } from '../../dashboard/src/api.js';
 
 import { getUuid } from '@couimet/dynamic-testing';
@@ -193,6 +194,27 @@ describe('api', () => {
         Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({ error: 'Not found' }) } as Response),
       ) as unknown as typeof fetch;
       await expect(markResolved(UUID)).rejects.toThrow('Not found');
+    });
+  });
+
+  describe('requeue', () => {
+    const UUID = '11111111-1111-1111-1111-111111111111';
+
+    it('posts to the requeue endpoint and returns the parsed body', async () => {
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true }) } as Response),
+      ) as unknown as typeof fetch;
+
+      await expect(requeue(UUID)).resolves.toStrictEqual({ ok: true });
+      expect(globalThis.fetch).toHaveBeenCalledWith(`/api/queue/${UUID}/requeue`, { method: 'POST' });
+    });
+
+    it('throws with body error message on failure', async () => {
+      globalThis.fetch = jest.fn(() =>
+        Promise.resolve({ ok: false, status: 409, json: () => Promise.resolve({ error: 'Item is not permanently refused' }) } as Response),
+      ) as unknown as typeof fetch;
+
+      await expect(requeue(UUID)).rejects.toThrow('Item is not permanently refused');
     });
   });
 });

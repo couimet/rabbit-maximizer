@@ -1,4 +1,4 @@
-import type { QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
+import type { PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from '../db/index.js';
 import { QueueStatus, Resolution, TriggerSource } from '../domain.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
 import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
@@ -115,6 +115,38 @@ export const createRetriggerNowHandler = (
     } catch (error) {
       logger.error({ fn: 'api.queueOrder.retriggerNow', error }, 'Failed to retrigger now');
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to retrigger now' });
+    }
+  };
+};
+
+export const createRequeueHandler = (queueRepo: QueueRepository, pullRequestRepo: PullRequestRepository, prisma: PrismaClient, logger: Logger) => {
+  return async (req: Request, res: Response): Promise<void> => {
+    try {
+      const uuid = req.params.uuid as string;
+      if (!isValidUuid(uuid)) {
+        res.status(StatusCodes.BAD_REQUEST).json({ error: 'uuid must be a valid UUID v4' });
+        return;
+      }
+
+      const item = await prisma.$transaction(async (tx) => {
+        const requeued = await queueRepo.requeueByUuid(uuid, tx);
+        await pullRequestRepo.clearPermanentRefusalAt(requeued.pull_request_id, tx);
+        return requeued;
+      });
+
+      logger.info({ fn: 'api.queueOrder.requeue', uuid, queueId: item.id }, 'Re-queued a permanently-refused item');
+      res.json({ ok: true });
+    } catch (error) {
+      if (error instanceof PrismaRecordNotFoundError) {
+        res.status(StatusCodes.NOT_FOUND).json({ error: `Queue item not found: ${req.params.uuid as string}` });
+        return;
+      }
+      if (error instanceof RabbitMaximizerError && error.code === RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PERMANENTLY_REFUSED) {
+        res.status(StatusCodes.CONFLICT).json({ error: error.message });
+        return;
+      }
+      logger.error({ fn: 'api.queueOrder.requeue', error }, 'Failed to re-queue item');
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to re-queue item' });
     }
   };
 };

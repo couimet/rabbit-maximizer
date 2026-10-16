@@ -73,6 +73,8 @@ export const retriggerNow = (uuid: string, overridePause?: boolean): Promise<voi
 export const markResolved = (uuid: string): Promise<{ ok: boolean }> =>
   fetchJson<{ ok: boolean }>(`${API_BASE}/queue/${uuid}/mark-reviewed`, { method: 'POST' });
 
+export const requeue = (uuid: string): Promise<{ ok: boolean }> => fetchJson<{ ok: boolean }>(`${API_BASE}/queue/${uuid}/requeue`, { method: 'POST' });
+
 export const setPaused = (paused: boolean): Promise<{ paused: boolean }> =>
   fetchJson<{ paused: boolean }>(`${API_BASE}/pause`, {
     method: 'POST',

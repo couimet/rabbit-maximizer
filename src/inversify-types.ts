@@ -5,6 +5,7 @@
  * identifiers here as the service graph grows.
  */
 export const TYPES = {
+  CoderabbitCommentClassifier: Symbol.for('CoderabbitCommentClassifier'),
   CoderabbitCommentRepository: Symbol.for('CoderabbitCommentRepository'),
   Config: Symbol.for('Config'),
   CoderabbitGitHubClient: Symbol.for('CoderabbitGitHubClient'),
@@ -13,6 +14,7 @@ export const TYPES = {
   EventEntryMapper: Symbol.for('EventEntryMapper'),
   EventRepository: Symbol.for('EventRepository'),
   Logger: Symbol.for('Logger'),
+  DirectCheckCap: Symbol.for('DirectCheckCap'),
   DirectCommentChecker: Symbol.for('DirectCommentChecker'),
   EditDetector: Symbol.for('EditDetector'),
   OnDetectedCallback: Symbol.for('OnDetectedCallback'),
@@ -29,6 +31,8 @@ export const TYPES = {
   QueueItemMapper: Symbol.for('QueueItemMapper'),
   QueueOrderRepository: Symbol.for('QueueOrderRepository'),
   QueueRepository: Symbol.for('QueueRepository'),
+  RefusalPhrases: Symbol.for('RefusalPhrases'),
+  RefusalSweeper: Symbol.for('RefusalSweeper'),
   ReviewDetector: Symbol.for('ReviewDetector'),
   ReviewQueueToActivityListItemMapper: Symbol.for('ReviewQueueToActivityListItemMapper'),
   ReviewQueueToQueueItemMapper: Symbol.for('ReviewQueueToQueueItemMapper'),

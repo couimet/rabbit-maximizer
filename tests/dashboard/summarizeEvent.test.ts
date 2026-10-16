@@ -6,10 +6,12 @@ const PR_URL = 'https://github.com/couimet/rabbit-maximizer/pull/343';
 const SOURCE_COMMENT_ID = '227104133';
 const RETRIGGERED_COMMENT_ID = '227104521';
 const SKIPPED_COMMENT_ID = '227089120';
+const REFUSED_COMMENT_ID = '227102915';
 const RUN_ID_COMMENT_ID = '227081902';
 const SOURCE_COMMENT_URL = `${PR_URL}#issuecomment-${SOURCE_COMMENT_ID}`;
 const RETRIGGERED_COMMENT_URL = `${PR_URL}#issuecomment-${RETRIGGERED_COMMENT_ID}`;
 const SKIPPED_COMMENT_URL = `${PR_URL}#issuecomment-${SKIPPED_COMMENT_ID}`;
+const REFUSED_COMMENT_URL = `${PR_URL}#issuecomment-${REFUSED_COMMENT_ID}`;
 const RUN_ID_COMMENT_URL = `${PR_URL}#issuecomment-${RUN_ID_COMMENT_ID}`;
 const VERDICT_COMMENT_ID = '227098210';
 const VERDICT_COMMENT_URL = `https://github.com/couimet/my-claude-skills/pull/263#issuecomment-${VERDICT_COMMENT_ID}`;
@@ -134,6 +136,36 @@ describe('summarizeEvent', () => {
 
   it('returns an empty reading for a review verdict with no tokens', () => {
     expect(summarizeEvent('coderabbit_review_changes_suggested', {})).toStrictEqual([]);
+  });
+
+  it('renders the matched phrase and source comment link for a refused review', () => {
+    const reading = summarizeEvent('coderabbit_review_refused', {
+      matched_phrase: 'without an assigned CodeRabbit review seat',
+      comment_url: REFUSED_COMMENT_URL,
+    });
+    expect(reading).toStrictEqual([
+      textToken('without an assigned CodeRabbit review seat'),
+      textToken(' · '),
+      linkToken(`source comment ${REFUSED_COMMENT_ID}`, REFUSED_COMMENT_URL),
+    ]);
+  });
+
+  it('renders only the matched phrase for a refused review with no comment url', () => {
+    const reading = summarizeEvent('coderabbit_review_refused', {
+      matched_phrase: 'without an assigned CodeRabbit review seat',
+    });
+    expect(reading).toStrictEqual([textToken('without an assigned CodeRabbit review seat')]);
+  });
+
+  it('renders only the source comment link for a refused review with no matched phrase', () => {
+    const reading = summarizeEvent('coderabbit_review_refused', {
+      comment_url: REFUSED_COMMENT_URL,
+    });
+    expect(reading).toStrictEqual([linkToken(`source comment ${REFUSED_COMMENT_ID}`, REFUSED_COMMENT_URL)]);
+  });
+
+  it('returns an empty reading for a refused review with neither phrase nor comment', () => {
+    expect(summarizeEvent('coderabbit_review_refused', {})).toStrictEqual([]);
   });
 
   it('renders the skip reason for a skipped review', () => {

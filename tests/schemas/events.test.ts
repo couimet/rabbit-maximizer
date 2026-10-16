@@ -224,6 +224,51 @@ describe('parseEventRow', () => {
     });
   });
 
+  it('parses a coderabbit_review_refused event without coderabbit_run_id', () => {
+    const commentUrl = getUniqueString();
+    const matchedPhrase = getUniqueString();
+    const sourceTs = getUniqueDate();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_refused',
+      payload: JSON.stringify({ source_ts: sourceTs.toISOString(), comment_url: commentUrl, matched_phrase: matchedPhrase }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_refused');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      matched_phrase: matchedPhrase,
+    });
+  });
+
+  it('parses a coderabbit_review_refused event with coderabbit_run_id', () => {
+    const commentUrl = getUniqueString();
+    const matchedPhrase = getUniqueString();
+    const sourceTs = getUniqueDate();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_refused',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        comment_url: commentUrl,
+        matched_phrase: matchedPhrase,
+        coderabbit_run_id: coderabbitRunId,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_refused');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      matched_phrase: matchedPhrase,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
   it('parses a coderabbit_run_id_first_seen event', () => {
     const commentUrl = getUniqueString();
     const commentId = getUniqueInt();

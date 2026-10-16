@@ -6,4 +6,6 @@ export enum CommentDetectionMethod {
   DirectScan = 'direct_scan',
   /** Synthesized for an open PR whose real review-limit comment was deleted. */
   StaleRecovery = 'stale_recovery',
+  /** Re-fetched from GitHub at startup for an item that already sits in the queue. */
+  RefusalSweep = 'refusal_sweep',
 }

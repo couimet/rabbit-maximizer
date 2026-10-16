@@ -1,6 +1,6 @@
 import { type CoderabbitCommentRepository, type PullRequestRepository, type SystemStateRepository } from './db/index.js';
 import {
-  classifyCoderabbitComment,
+  type CoderabbitCommentClassifier,
   type CoderabbitGitHubClient,
   hasOwnRetriggerMarker,
   parseGitHubRateLimitError,
@@ -49,6 +49,8 @@ export class PollDetector extends IntervalService {
     private readonly systemStateRepo: SystemStateRepository,
     @inject(TYPES.CoderabbitCommentRepository)
     private readonly coderabbitComments: CoderabbitCommentRepository,
+    @inject(TYPES.CoderabbitCommentClassifier)
+    private readonly classifier: CoderabbitCommentClassifier,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super('poll-detector', POLL_INTERVAL_MS, log);
@@ -152,7 +154,7 @@ export class PollDetector extends IntervalService {
         const { owner, repo } = splitRepo(c.repoFullName);
         const { body } = await this.github.fetchComment(owner, repo, c.commentId);
 
-        const { classification } = classifyCoderabbitComment(body);
+        const { classification } = this.classifier.classify(body);
 
         if (classification === CodeRabbitCommentType.unknown) {
           this.log.debug({ ...logCtx, owner, repo, commentId: c.commentId }, 'Skipping comment with unknown classification');

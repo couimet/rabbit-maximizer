@@ -1,9 +1,10 @@
 import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository, UpsertCommentData } from './db/index.js';
-import { classifyCoderabbitComment, parseWaitSeconds } from './github/index.js';
+import { type CoderabbitCommentClassifier, parseWaitSeconds } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { type OnDetectedCallback } from './types/index.js';
 import { extractCoderabbitRunId, isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
+import { CodeRabbitCommentType, Resolution } from './domain.js';
 import { TYPES } from './server-domain.js';
 
 import { type PrismaClient } from '@prisma/client';
@@ -23,6 +24,8 @@ export class EnqueueService {
     private readonly probes: ProbeFactory,
     @inject(TYPES.CoderabbitCommentRepository)
     private readonly coderabbitComments: CoderabbitCommentRepository,
+    @inject(TYPES.CoderabbitCommentClassifier)
+    private readonly classifier: CoderabbitCommentClassifier,
   ) {}
   /* c8 ignore stop */
 
@@ -39,7 +42,7 @@ export class EnqueueService {
     });
     await probe.detected();
 
-    const { classification } = classifyCoderabbitComment(comment.body);
+    const { classification, matchedPhrase } = this.classifier.classify(comment.body);
     const commentData: UpsertCommentData = {
       comment_id: comment.commentId,
       pull_request_id: pullRequestId,
@@ -69,7 +72,14 @@ export class EnqueueService {
       await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
       await this.coderabbitComments.upsert(commentData, tx);
 
-      if (classification === 'review_skipped') {
+      if (classification === CodeRabbitCommentType.review_refused) {
+        await this.pullRequests.setPermanentRefusalAt(pullRequestId, tx);
+        await this.queue.markResolvedByPullRequestId(pullRequestId, Resolution.PermanentlyRefused, tx);
+        await probe.refused(tx, matchedPhrase);
+        return;
+      }
+
+      if (classification === CodeRabbitCommentType.review_skipped) {
         const { created } = await this.queue.enqueue(
           {
             repo: comment.repoFullName,

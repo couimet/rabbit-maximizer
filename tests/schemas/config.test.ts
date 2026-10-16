@@ -5,11 +5,13 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 const DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC = 1800;
 const DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC = 900;
+const DEFAULT_MAX_DIRECT_CHECK_PRS = 125;
 const DEFAULT_MAX_RETRIGGER_ATTEMPTS = 10;
 const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
 const DEFAULT_MAX_RETRIGGER_AGE_SEC = 259200;
 const DEFAULT_MAX_PR_STATE_FETCHES_PER_TICK = 5;
 const ACCOUNT_COOLDOWN_SEC = 3600;
+const DEFAULT_CODERABBIT_REFUSAL_PHRASES = ['without an assigned CodeRabbit review seat'];
 
 describe('ConfigSchema', () => {
   let githubPat: string;
@@ -23,11 +25,13 @@ describe('ConfigSchema', () => {
     tunnelUrl = `https://${getRandomString({ charset: 'alpha', length: 8 })}.com`;
     BASE = {
       CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
+      CODERABBIT_REFUSAL_PHRASES: DEFAULT_CODERABBIT_REFUSAL_PHRASES,
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_SEC: 10,
       GITHUB_PAT: githubPat,
       PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
+      MAX_DIRECT_CHECK_PRS: DEFAULT_MAX_DIRECT_CHECK_PRS,
       MAX_RETRIGGER_ATTEMPTS: DEFAULT_MAX_RETRIGGER_ATTEMPTS,
       POLL_INTERVAL_SEC: 90,
       PR_SCANNER_INTERVAL_SEC: 300,
@@ -145,6 +149,15 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('applies default MAX_DIRECT_CHECK_PRS when missing', () => {
+    const { MAX_DIRECT_CHECK_PRS: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.MAX_DIRECT_CHECK_PRS).toBe(DEFAULT_MAX_DIRECT_CHECK_PRS);
+    }
+  });
+
   it('applies default MAX_RETRIGGER_ATTEMPTS when missing', () => {
     const { MAX_RETRIGGER_ATTEMPTS: _, ...rest } = BASE;
     const result = ConfigSchema.safeParse(rest);
@@ -181,12 +194,30 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('coerces numeric MAX_DIRECT_CHECK_PRS from a string', () => {
+    const customDirectCheckPRs = 250;
+    const result = ConfigSchema.safeParse({ ...BASE, MAX_DIRECT_CHECK_PRS: String(customDirectCheckPRs) });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.MAX_DIRECT_CHECK_PRS).toBe(customDirectCheckPRs);
+    }
+  });
+
   it('coerces numeric MAX_RETRIGGER_ATTEMPTS from a string', () => {
     const customMaxAttempts = 5;
     const result = ConfigSchema.safeParse({ ...BASE, MAX_RETRIGGER_ATTEMPTS: String(customMaxAttempts) });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.MAX_RETRIGGER_ATTEMPTS).toBe(customMaxAttempts);
+    }
+  });
+
+  it('applies default CODERABBIT_REFUSAL_PHRASES when missing', () => {
+    const { CODERABBIT_REFUSAL_PHRASES: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.CODERABBIT_REFUSAL_PHRASES).toStrictEqual(DEFAULT_CODERABBIT_REFUSAL_PHRASES);
     }
   });
 
@@ -230,6 +261,22 @@ describe('ConfigSchema', () => {
     ).toBe(false);
   });
 
+  it('rejects an empty CODERABBIT_REFUSAL_PHRASES array', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, CODERABBIT_REFUSAL_PHRASES: [] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('CODERABBIT_REFUSAL_PHRASES'))).toBe(true);
+    }
+  });
+
+  it('rejects a CODERABBIT_REFUSAL_PHRASES entry that is an empty string', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, CODERABBIT_REFUSAL_PHRASES: [''] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('CODERABBIT_REFUSAL_PHRASES'))).toBe(true);
+    }
+  });
+
   it('rejects RETRY_BACKOFF_MAX_SEC lower than RETRY_BACKOFF_BASE_SEC', () => {
     const result = ConfigSchema.safeParse({ ...BASE, SCHEDULER_RETRY_BACKOFF_BASE_SEC: 120, SCHEDULER_RETRY_BACKOFF_MAX_SEC: 60 });
     expect(result.success).toBe(false);
@@ -260,6 +307,10 @@ describe('ConfigSchema', () => {
 
   it('rejects negative REVIEW_DETECTION_LOOKBACK_SEC', () => {
     expect(ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: -1 }).success).toBe(false);
+  });
+
+  it('rejects negative MAX_DIRECT_CHECK_PRS', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, MAX_DIRECT_CHECK_PRS: -1 }).success).toBe(false);
   });
 
   it('rejects negative MAX_RETRIGGER_ATTEMPTS', () => {

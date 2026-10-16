@@ -4,7 +4,7 @@ import { withTestExecutionContext } from '../external-deps/couimet/execution-con
 import { createMockTx } from '../external-deps/couimet/prisma-testing/index.js';
 import { createMockEventRepo, generateEventTraceContext, generateQueueItemHydrationData, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueString } from '@couimet/dynamic-testing';
+import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
@@ -97,6 +97,79 @@ describe('ReviewDetectorProbe', () => {
       expect(logger.info).toHaveBeenCalledWith(
         { fn: 'ReviewDetectorProbe.reviewed', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, eventType: 'coderabbit_review_approved', commentUrl },
         'Review detected',
+      );
+    });
+  });
+
+  describe('refused', () => {
+    it('records coderabbit_review_refused event with the item source fields and logs info', async () => {
+      const ref = generateReviewRef();
+      const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+      const runId = getUuid();
+      const item = generateQueueItemHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_url: commentUrl,
+        source_comment_run_id: runId,
+      });
+      const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+      const tx = createMockTx();
+      const probe = createProbe();
+      probe.withItem(item);
+      await runInContext(() => probe.refused(matchedPhrase, tx));
+      expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'coderabbit_review_refused',
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
+          payload: {
+            source_ts: item.created_at,
+            comment_url: commentUrl,
+            matched_phrase: matchedPhrase,
+            coderabbit_run_id: runId,
+          },
+        },
+        tx,
+      );
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.refused', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, matchedPhrase },
+        'Re-edited source comment permanently refused the review; resolved the queue item',
+      );
+    });
+
+    it('records undefined for coderabbit_run_id when the item carries no run id', async () => {
+      const ref = generateReviewRef();
+      const commentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+      const item = generateQueueItemHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_url: commentUrl,
+        source_comment_run_id: undefined,
+      });
+      const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+      const tx = createMockTx();
+      const probe = createProbe();
+      probe.withItem(item);
+      await runInContext(() => probe.refused(matchedPhrase, tx));
+      expect(events.record as jest.Mock<any>).toHaveBeenCalledWith(
+        {
+          type: 'coderabbit_review_refused',
+          repo_full_name: ref.repoFullName,
+          pr_number: ref.prNumber,
+          correlation_id: eventTrace.correlationId,
+          request_id: eventTrace.requestId,
+          version: eventTrace.version,
+          payload: {
+            source_ts: item.created_at,
+            comment_url: commentUrl,
+            matched_phrase: matchedPhrase,
+            coderabbit_run_id: undefined,
+          },
+        },
+        tx,
       );
     });
   });

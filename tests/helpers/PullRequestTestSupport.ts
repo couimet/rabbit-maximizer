@@ -29,6 +29,7 @@ export const generatePullRequestHydrationData = (overrideValues?: Partial<PullRe
     last_review_url: null,
     last_review_state: null,
     last_coderabbit_acknowledged_at: getUniqueDate(),
+    permanent_refusal_at: getUniqueDate(),
     head_sha: getUniqueString({ prefix: 'head-sha-' }),
     reviewed_head_sha: getUniqueString({ prefix: 'reviewed-sha-' }),
     head_committed_at: getUniqueDate(),
