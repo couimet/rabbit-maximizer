@@ -133,6 +133,21 @@ write_source_archive() {
   [ ! -e "$CHOWN_LOG" ]
 }
 
+@test 'refuses a database that is a symbolic link and keeps the data directory' {
+  # The link points at the database the data directory holds, so the header
+  # check reads a real SQLite file unless the import refuses the link first.
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
+  ln -s "$DATA_DIR/$DB_FILE_NAME" "$SOURCE_DIR/$DB_FILE_NAME"
+  tar czf "$ARCHIVE" -C "$SOURCE_DIR" .
+
+  run volume import "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The archive holds a $DB_FILE_NAME that is a symbolic link"* ]]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
+  [ ! -e "$CHOWN_LOG" ]
+}
+
 @test 'removes the staging directory a failed run left behind' {
   write_source_archive
   mkdir -p "$DATA_DIR/$STAGING_DIR_NAME"

@@ -11,11 +11,11 @@
 #        volume.sh import <archive>
 #
 # The import stages the payload inside the data directory and checks it for the
-# database before it moves the current contents aside. A wrong name, an
-# unreadable archive, an archive of another volume, or a payload that is not a
-# SQLite database therefore leaves the database in place, and the staging
-# directory never survives the run. Every move stays on one filesystem, so no
-# step needs free space.
+# database before it moves the current contents aside. A wrong name, a link in
+# place of the database, an unreadable archive, an archive of another volume, or
+# a payload that is not a SQLite database therefore leaves the database in
+# place, and the staging directory never survives the run. Every move stays on
+# one filesystem, so no step needs free space.
 #
 # One window stays open: a failure between the two moves leaves the current
 # contents in the previous directory instead of the data directory. The import
@@ -103,6 +103,14 @@ mkdir -p "$STAGING_DIR"
 
 if ! tar xzf "$ARCHIVE" -C "$STAGING_DIR"; then
   echo "The archive did not open: $ARCHIVE. $DATA_DIR keeps its contents." >&2
+  exit 1
+fi
+
+# A link to the database in the data directory passes the header check below,
+# because `-f` and `dd` both follow it. The two moves then install the link and
+# delete the database with the previous directory.
+if [ -L "$STAGING_DIR/$DB_FILE_NAME" ]; then
+  echo "The archive holds a $DB_FILE_NAME that is a symbolic link. $DATA_DIR keeps its contents." >&2
   exit 1
 fi
 
