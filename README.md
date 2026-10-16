@@ -157,7 +157,7 @@ docker stop rabbit-maximizer \
   && docker start rabbit-maximizer
 ```
 
-Restore the volume with the reverse command. Replace `<file>` with the backup name. The helper extracts the archive into a staging directory inside the volume. It checks the payload for `rabbit-maximizer.db`, then swaps the payload into place with renames. The volume keeps the current database until the replacement is complete. A wrong name, an unreadable archive, a payload with no database, or a full volume therefore leaves that database in place. The staging directory holds a second copy of the payload while the command runs. The volume therefore needs that much free space. A failed step stops the sequence, so the container stays stopped until you start it again:
+Restore the volume with the reverse command. Replace `<file>` with the backup name. The helper extracts the archive into a staging directory inside the volume. It checks the payload for `rabbit-maximizer.db`, then swaps the payload into place with renames. The volume keeps the current database until the replacement is complete. A wrong name, an unreadable archive, a payload with no database, a database that is a symbolic link, or a full volume therefore leaves that database in place. The staging directory holds a second copy of the payload while the command runs. The volume therefore needs that much free space. A failed step stops the sequence, so the container stays stopped until you start it again:
 
 ```bash
 # With Docker Compose

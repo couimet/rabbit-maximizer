@@ -30,6 +30,8 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           COMMIT_SHA: ${{ github.sha }}
           SELF_CHECK_NAME: ${{ github.job }}
+          SELF_RUN_ID: ${{ github.run_id }}
+          REQUIRED_WORKFLOW_FILE: ci.yml
         run: bash scripts/release/verify-ci-status.sh
 
       # A dispatch proves the packaging path from any branch without consuming a
