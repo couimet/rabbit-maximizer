@@ -366,7 +366,7 @@ On startup the maximizer verifies the GitHub token authenticates and that the re
 
 ### Account guard (GitHub API quota)
 
-When GitHub responds with a quota-exhausted status (403 or 429 with zero quota remaining), the poll loop stops all GitHub work until the quota reset time. This is the account guard that stops detection — and therefore posting — while the token is rate-limited.
+When GitHub reports a rate limit, the poll loop stops all GitHub work until the wait elapses. GitHub reports two kinds. An exhausted primary quota arrives as a 403 or 429 with zero quota remaining, and the loop waits until the reset time those headers name. A secondary (abuse) limit arrives as a 403 or 429 with a `retry-after` header or a message that names the limit, and the loop waits that many seconds. When a secondary-limit response names no wait, the loop waits one minute, which is the minimum GitHub documents. The same guard covers the quota read: when that read itself reports a rate limit, the tick stops before it touches the GitHub API again. This is the account guard that stops detection — and therefore posting — while the token is rate-limited.
 
 <a id="br-9-6"></a>
 

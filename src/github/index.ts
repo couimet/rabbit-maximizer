@@ -40,6 +40,7 @@ export { SubmittedComment } from './SubmittedComment.js';
 export { SubmittedReview } from './SubmittedReview.js';
 export type { CompletedReview } from './types/CompletedReview.js';
 export type { FetchCommentResult } from './types/FetchCommentResult.js';
+export type { GitHubQuota } from './types/GitHubQuota.js';
 export type { ListedComment } from './types/ListedComment.js';
 export type { RateLimitInfo } from './types/RateLimitInfo.js';
 export type { RetriggerComment } from './types/RetriggerComment.js';

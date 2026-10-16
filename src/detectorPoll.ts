@@ -7,10 +7,10 @@ import {
   parseWaitSeconds,
   splitRepo,
 } from './github/index.js';
-import type { OnDetectedCallback } from './types/index.js';
+import type { OnDetectedCallback, TickGuardOutcome } from './types/index.js';
 import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
-import { CodeRabbitCommentType } from './domain.js';
+import { CodeRabbitCommentType, TickGuardReason } from './domain.js';
 import { IntervalService, TYPES } from './server-domain.js';
 import type { DirectCommentChecker, PrScanner, StalePrRecoverer } from './services.js';
 
@@ -18,6 +18,14 @@ import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
 const POLL_INTERVAL_MS = config.POLL_INTERVAL_SEC * MS_PER_SECOND;
+
+/**
+ * Wait applied when GitHub throttles a request and the response carries no
+ * delay of its own. GitHub documents one minute as the minimum wait after a
+ * secondary rate limit, and a secondary-limit response can omit the
+ * retry-after header that would name an exact wait.
+ */
+const SECONDARY_LIMIT_FALLBACK_WAIT_SEC = 60;
 
 @injectable()
 export class PollDetector extends IntervalService {
@@ -55,12 +63,80 @@ export class PollDetector extends IntervalService {
     this.log.info({ fn: 'PollDetector.stop' }, 'Poll detector stopped');
   }
 
-  protected tickGuard(): boolean {
-    return super.tickGuard() && Date.now() >= this.rateLimitRetryAfter;
+  protected tickGuard(): TickGuardOutcome {
+    const base = super.tickGuard();
+    if (!base.allowed) {
+      return base;
+    }
+
+    const now = Date.now();
+    if (now < this.rateLimitRetryAfter) {
+      return { allowed: false, reason: TickGuardReason.rateLimit, retryAfterMs: this.rateLimitRetryAfter - now };
+    }
+    return { allowed: true };
+  }
+
+  /**
+   * Reports false when the tick must stop, which happens when the quota read
+   * itself reports a rate limit and sets the backoff.
+   */
+  private async logQuota(logCtx: LoggingContext): Promise<boolean> {
+    try {
+      const quota = await this.github.getQuota();
+      this.log.info(
+        { ...logCtx, resource: quota.resource, limit: quota.limit, remaining: quota.remaining, used: quota.used, resetEpoch: quota.resetEpoch },
+        'GitHub API quota',
+      );
+      return true;
+    } catch (err: unknown) {
+      if (this.applyRateLimitBackoff(err, logCtx)) {
+        return false;
+      }
+      this.log.warn({ ...logCtx, error: err }, 'Quota read failed; continuing');
+      return true;
+    }
+  }
+
+  /**
+   * Applies the polling backoff when the error reports a GitHub rate limit.
+   * Reports true for a rate limit, so the caller stops the tick before touching
+   * the GitHub API again. The guard holds the backoff, so later ticks stay
+   * suppressed until the wait elapses.
+   */
+  private applyRateLimitBackoff(err: unknown, logCtx: LoggingContext): boolean {
+    const rateLimit = parseGitHubRateLimitError(err);
+    if (!rateLimit) {
+      return false;
+    }
+
+    const retryAfterMs =
+      rateLimit.kind === 'quota-exhausted'
+        ? Math.max(0, rateLimit.resetEpoch * MS_PER_SECOND - Date.now())
+        : (rateLimit.retryAfterSec ?? SECONDARY_LIMIT_FALLBACK_WAIT_SEC) * MS_PER_SECOND;
+
+    this.rateLimitRetryAfter = Date.now() + retryAfterMs;
+    this.log.warn(
+      {
+        ...logCtx,
+        kind: rateLimit.kind,
+        status: rateLimit.status,
+        retryAfterSec: Math.ceil(retryAfterMs / MS_PER_SECOND),
+        resetEpoch: rateLimit.kind === 'quota-exhausted' ? rateLimit.resetEpoch : undefined,
+        resource: rateLimit.resource,
+        limit: rateLimit.limit,
+        remaining: rateLimit.remaining,
+        used: rateLimit.used,
+      },
+      'GitHub API rate limit exhausted; backing off until reset',
+    );
+    return true;
   }
 
   protected async executeTick(): Promise<void> {
     const logCtx: LoggingContext = { fn: 'PollDetector.tick' };
+    if (!(await this.logQuota(logCtx))) {
+      return;
+    }
 
     try {
       const { scannedPRs } = await this.prScanner.scan();
@@ -137,15 +213,7 @@ export class PollDetector extends IntervalService {
         await this.systemStateRepo.setNextReviewAvailableAtIfLater(earliestNextReview, undefined);
       }
     } catch (err: unknown) {
-      const rateLimit = parseGitHubRateLimitError(err);
-
-      if (rateLimit) {
-        const retryAfterMs = Math.max(0, rateLimit.resetEpoch * MS_PER_SECOND - Date.now());
-        this.rateLimitRetryAfter = Date.now() + retryAfterMs;
-        this.log.warn(
-          { ...logCtx, status: rateLimit.status, retryAfterSec: Math.ceil(retryAfterMs / MS_PER_SECOND) },
-          'GitHub API rate limit exhausted; backing off until reset',
-        );
+      if (this.applyRateLimitBackoff(err, logCtx)) {
         return;
       }
 

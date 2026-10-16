@@ -3,7 +3,14 @@ import { CodeRabbitCommentType, MatchedMarker, TriggerSource } from '../../src/d
 import { CoderabbitGitHubClient } from '../../src/github/index.js';
 import { TYPES } from '../../src/server-domain.js';
 import type { RepoFilter } from '../../src/types/index.js';
-import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockReposRest, type MockSearchRest } from '../helpers/index.js';
+import {
+  createMockOctokit,
+  type MockIssuesRest,
+  type MockPullsRest,
+  type MockRateLimitRest,
+  type MockReposRest,
+  type MockSearchRest,
+} from '../helpers/index.js';
 
 import { getRandomString, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -29,6 +36,7 @@ describe('client', () => {
   let pulls: MockPullsRest;
   let repos: MockReposRest;
   let search: MockSearchRest;
+  let rateLimit: MockRateLimitRest;
   let logger: ReturnType<typeof createMockLogger>;
 
   let frozenDate: Date;
@@ -54,7 +62,7 @@ describe('client', () => {
     jest.setSystemTime(frozenDate);
     ({
       octokit,
-      rest: { issues, pulls, search, repos },
+      rest: { issues, pulls, search, repos, rateLimit },
     } = createMockOctokit());
     logger = createMockLogger();
   });
@@ -798,6 +806,34 @@ describe('client', () => {
         },
       ]);
       expect(logger.debug).toHaveBeenCalledWith({ fn: 'listOpenPRs', query: 'is:pr state:open user:couimet' }, 'Searching for open PRs');
+    });
+  });
+
+  describe('getQuota', () => {
+    it('reads the core resource from the rate limit endpoint', async () => {
+      const limit = getUniqueInt();
+      const remaining = getUniqueInt();
+      const used = getUniqueInt();
+      const resetEpoch = getUniqueInt();
+      rateLimit.get.mockResolvedValue({
+        data: { resources: { core: { limit, remaining, used, reset: resetEpoch } } },
+      });
+
+      const client = new CoderabbitGitHubClient(octokit, logger);
+      const result = await client.getQuota();
+
+      expect(rateLimit.get).toHaveBeenCalledWith();
+      expect(result).toStrictEqual({ resource: 'core', limit, remaining, used, resetEpoch });
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'getQuota', resource: 'core' }, 'Fetching API quota');
+    });
+
+    it('propagates an error from the rate limit endpoint', async () => {
+      const endpointError = new Error('rate limit endpoint unavailable');
+      rateLimit.get.mockRejectedValue(endpointError);
+
+      const client = new CoderabbitGitHubClient(octokit, logger);
+
+      await expect(client.getQuota()).rejects.toThrow(endpointError);
     });
   });
 
