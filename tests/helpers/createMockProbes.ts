@@ -47,6 +47,8 @@ export interface MockDetectedProbe {
   alreadyQueued: jest.Mock;
   skipped: jest.Mock<() => Promise<unknown>>;
   refused: jest.Mock<() => Promise<unknown>>;
+  excluded: jest.Mock<() => Promise<unknown>>;
+  alreadyExcluded: jest.Mock;
   alreadySkipped: jest.Mock;
   alreadyReviewed: jest.Mock<any>;
   verdictResolved: jest.Mock<() => Promise<unknown>>;
@@ -60,6 +62,8 @@ export const createMockDetectedProbe = (): MockDetectedProbe => ({
   alreadyQueued: jest.fn(),
   skipped: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   refused: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
+  excluded: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
+  alreadyExcluded: jest.fn(),
   alreadySkipped: jest.fn(),
   alreadyReviewed: jest.fn(),
   verdictResolved: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
@@ -215,6 +219,17 @@ export interface MockRefusalSweeperProbe {
   completed: jest.Mock<any>;
 }
 export const createMockRefusalSweeperProbe = (): MockRefusalSweeperProbe => ({
+  sweepStarted: jest.fn<any>(),
+  itemFailed: jest.fn<any>(),
+  completed: jest.fn<any>(),
+});
+
+export interface MockExclusionSweeperProbe {
+  sweepStarted: jest.Mock<any>;
+  itemFailed: jest.Mock<any>;
+  completed: jest.Mock<any>;
+}
+export const createMockExclusionSweeperProbe = (): MockExclusionSweeperProbe => ({
   sweepStarted: jest.fn<any>(),
   itemFailed: jest.fn<any>(),
   completed: jest.fn<any>(),

@@ -12,11 +12,12 @@ export const STATE_LABEL: Record<ActivityState, string> = {
   [ActivityState.awaitingReview]: 'Awaiting CodeRabbit review',
   [ActivityState.staleComment]: 'Stale comment',
   [ActivityState.permanentlyRefused]: 'CodeRabbit refused permanently',
+  [ActivityState.excluded]: 'Excluded by ignore rule',
   [ActivityState.pending]: 'Pending',
   [ActivityState.unknown]: 'Unknown',
 };
 
-type StatusPillClass = 'reviewed' | 'failed' | 'merged' | 'closed' | 'skipped' | 'retriggered' | 'pending' | 'stale' | 'unknown';
+type StatusPillClass = 'reviewed' | 'failed' | 'merged' | 'closed' | 'skipped' | 'retriggered' | 'pending' | 'stale' | 'excluded' | 'unknown';
 
 export const STATE_CLASS: Record<ActivityState, StatusPillClass> = {
   [ActivityState.reviewCompleted]: 'reviewed',
@@ -30,6 +31,7 @@ export const STATE_CLASS: Record<ActivityState, StatusPillClass> = {
   [ActivityState.awaitingReview]: 'retriggered',
   [ActivityState.staleComment]: 'stale',
   [ActivityState.permanentlyRefused]: 'failed',
+  [ActivityState.excluded]: 'excluded',
   [ActivityState.pending]: 'pending',
   [ActivityState.unknown]: 'unknown',
 };

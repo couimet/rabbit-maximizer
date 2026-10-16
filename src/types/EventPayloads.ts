@@ -1,5 +1,6 @@
 import type { CommentDetectionMethod } from '../CommentDetectionMethod.js';
 import type { DismissalReason } from '../DismissalReason.js';
+import type { IgnoreRuleField } from '../IgnoreRuleField.js';
 import type { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
 
 import type { CoderabbitReviewVerdictState } from './CoderabbitReviewVerdict.js';
@@ -72,6 +73,14 @@ export interface CoderabbitRunIdFirstSeenPayload {
   readonly comment_id: number;
   readonly comment_url: string;
   readonly coderabbit_run_id: string;
+}
+
+export interface ExcludedPayload {
+  readonly source_ts: Date;
+  readonly comment_url: string;
+  readonly matched_field: IgnoreRuleField;
+  readonly matched_pattern: string;
+  readonly coderabbit_run_id?: string;
 }
 
 export interface FailedPayload {

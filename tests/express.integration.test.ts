@@ -1,6 +1,7 @@
 import { setupExpress } from '../src/express.js';
 import { EventCountsMapper, EventEntryMapper, QueueItemMapper, TrackedPrMapper } from '../src/mappers/index.js';
 import { hasBuiltDashboard } from '../src/node-utils/index.js';
+import { IgnoreRules } from '../src/services.js';
 
 import { fetchResponse } from './helpers/fetchResponse.js';
 import {
@@ -12,6 +13,7 @@ import {
   createMockQueueRepo,
   createMockSystemStateRepository,
   EXPECTED_CSP_WITHOUT_UPGRADE_INSECURE_REQUESTS,
+  generateConfigData,
 } from './helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -52,7 +54,7 @@ describe('setupExpress in production', () => {
       reviewTrigger: { trigger: jest.fn() } as any,
       systemStateRepo: createMockSystemStateRepository(),
       pullRequestRepo: createMockPullRequestRepo(),
-      trackedPrMapper: new TrackedPrMapper(),
+      trackedPrMapper: new TrackedPrMapper(new IgnoreRules(generateConfigData())),
       logger: createMockLogger(),
       port: 0,
     });

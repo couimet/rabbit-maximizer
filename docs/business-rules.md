@@ -97,11 +97,19 @@ CodeRabbit stamps each comment with a Run ID that changes on every run. The maxi
 - From every detected rate-limit comment, the earliest next review availability is computed as comment update time plus the stated wait (`REVIEW_LIMIT_FALLBACK_WAIT_SEC` when no wait is stated). The recorded availability only ever moves later, never earlier.
 - When GitHub's API quota is exhausted (403/429 with zero quota remaining), the poll loop suppresses all ticks until the quota reset time.
 
+<a id="br-2-7"></a>
+
+### Ignore rules
+
+The operator can leave pull requests out of monitoring with two rule lists: `IGNORE_AUTHORS` matches the PR author's login, and `IGNORE_TITLES` matches the PR title. Each entry is an unanchored regular expression, so a rule matches anywhere in the value. Author rules are tested before title rules, and the first match wins.
+
+The rules are re-matched at every detection against the pull request's current row, and nothing is stored on that row. A removed rule therefore brings the PR back with no cleanup, and a retitle stops a title rule from matching on the next detection.
+
 ## 3. Enqueue
 
 Sources: [`EnqueueService`](../src/EnqueueService.ts), [`queueRepository`](../src/db/queueRepository.ts).
 
-Every detected comment flows through one handler that decides, in order: dismissal, classification branch, then enqueue.
+Every detected comment flows through one handler that decides, in order: dismissal, ignore rule, classification branch, then enqueue.
 
 <a id="br-3-1"></a>
 
@@ -110,6 +118,16 @@ Every detected comment flows through one handler that decides, in order: dismiss
 A completed review only dismisses comments from runs it already saw. CodeRabbit edits its comment in place per push, so an edit newer than the recorded verdict is a new run and must flow through the normal branches. When a completed review is already recorded for the PR and the comment's update time is not newer than that recorded review's update time, the comment is dismissed as already reviewed. The dismissal still advances the freshness latch, or the direct check would re-detect the comment on every scan.
 
 <a id="br-3-2"></a>
+
+### Exclusion
+
+When an ignore rule matches the PR's author login or current title (BR-2-7), the handler resolves the PR's active item as `excluded` and enqueues nothing. The exclusion runs inside the same transaction as the comment upsert, so the freshness latch advances and the direct check does not re-detect the comment on every scan. It runs before the classification branches, so a rule the operator wrote by hand wins over the classification of the comment that arrived.
+
+The exclusion records one event naming the matched field and the pattern, so the dashboard can show why a PR was left out. A match on a PR that holds no active item records nothing and logs only.
+
+Removing the rule does not restore the item by itself. The comment can reopen the item through the enqueue path once it changes (BR-3-4), and the startup ignore-rule sweep resolves items whose rule arrived after they were enqueued (BR-6-3).
+
+<a id="br-3-3"></a>
 
 ### Classification branches
 
@@ -123,7 +141,7 @@ A completed review only dismisses comments from runs it already saw. CodeRabbit 
 
 A refusal resolves instead of enqueuing, because no review request can clear it. The PR is marked refused in the same step, which is what holds it out of the deleted-comment recovery path (BR-5-5). A refusal that arrives when the PR has no active item still marks the PR refused.
 
-<a id="br-3-3"></a>
+<a id="br-3-4"></a>
 
 ### Deduplication
 
@@ -138,7 +156,7 @@ The enqueue decision depends on the existing item for the same PR and source com
 | `retriggered` | Different source comment                                                                                                                            | Recycle — the item adopts the new source comment (and its run ID) in place; no new item is created                                                                      |
 | `resolved`    | Same source comment, resolved within the last 5 minutes                                                                                             | No-op — recently-resolved loop guard                                                                                                                                    |
 | `resolved`    | Same source comment, still inside the cooldown window                                                                                               | No-op                                                                                                                                                                   |
-| `resolved`    | Reopenable resolution (`review_completed`, `failed`, `skipped`) and the comment was updated after the resolution                                    | Reopen as `pending`; attempts and skip bookkeeping reset; the item keeps or rejoins the queue order                                                                     |
+| `resolved`    | Reopenable resolution (`review_completed`, `failed`, `skipped`, `excluded`) and the comment was updated after the resolution                        | Reopen as `pending`; attempts and skip bookkeeping reset; the item keeps or rejoins the queue order                                                                     |
 | `resolved`    | Resolution `permanently_refused`, whatever the comment state                                                                                        | No-op — a permanent refusal never reopens; only the dashboard re-queue action returns the item to `pending`                                                             |
 | `resolved`    | Comment not updated since the resolution                                                                                                            | No-op                                                                                                                                                                   |
 | `pending`     | Any (creation conflict)                                                                                                                             | No-op — already queued                                                                                                                                                  |
@@ -242,6 +260,8 @@ PRs that had a request posted but never received a review or acknowledgement, ha
 
 A PR marked as permanently refused is excluded from that query until the operator re-queues it. Without the exclusion the recovery path would return the PR to the queue a few minutes after the refusal resolved it, and the loop would restart.
 
+A PR that an ignore rule matches is dropped from the recovered set before the synthetic comment is built. The recovery path builds its own comment, so the exclusion cannot come from the detection funnel; without this guard the recovery would re-queue a PR the operator left out of monitoring.
+
 ## 6. Review detector and edit detection
 
 Sources: [`ReviewDetector`](../src/ReviewDetector.ts), [`EditDetector`](../src/EditDetector.ts), [`coderabbitGitHubClient`](../src/github/coderabbitGitHubClient.ts).
@@ -292,9 +312,10 @@ The app survives downtime of minutes to days by converging through the existing 
 - A comment re-edited during downtime carries a new CodeRabbit run ID. The first detection tick re-detects it (its freshness latch has not seen the edit); when the still-`retriggered` item's trigger is stale and its head unreviewed, detection reopens it as `pending` so the scheduler re-triggers, otherwise the enqueue adoption rule above rewrites its run tracking in place, restarting the retrigger clock.
 - The first review tick then evaluates the item under the tier order of BR-6-2: a `review_skipped` item resolves on a review whose commit matches the current head even when that review ran before the trigger was posted (a pre-trigger walkthrough), falling back to the adopted run when the commit does not match; other flows still require the adopted run, so a review from a run started before the trigger cannot resolve them.
 - The scheduler's stale-retriggered sweep resolves as `failed` only items whose adopted run genuinely produced nothing after `SCHEDULER_MAX_RETRIGGER_AGE_SEC`.
-- Before the detectors start, one refusal sweep re-reads the source comment of every active item and feeds each refusal through detection, so an item enqueued before the phrase list existed leaves the queue with the true reason instead of looping (see the exception below).
+- Before the detectors start, one refusal sweep re-reads the source comment of every active item and feeds each refusal through detection, so an item enqueued before the phrase list existed leaves the queue with the true reason instead of looping (see the exceptions below).
+- Before the detectors start, one ignore-rule sweep re-matches the current rules against the current pull request row of every active item and resolves each match as `excluded`, so an item enqueued before the rule existed leaves the queue at boot.
 
-No dedicated reconciliation process exists by design, with one deliberate exception: the startup refusal sweep. It exists because the refusal phrase list is configuration that arrived after those items were enqueued, so their stored comment preview is the only evidence the normal path has, and it may be truncated or written before the check existed. The sweep runs once, before the first detector tick, so no tick can enqueue a refused PR between boot and the sweep. Outside it, the same decision logic covers boot after downtime and steady-state operation. Writers that can race the review detector are guarded: the detector resolves only via `markResolvedIfStillRetriggered` (a lost race logs `resolutionLostRace` and skips the resolution), and the scheduler's stale sweep already uses a status-guarded `updateMany`. The pruner's unguarded `markResolved` is deliberate — terminal PR states take precedence over `review_completed` (invariant 9), so its overwrite direction is safe.
+No dedicated reconciliation process exists by design, with two deliberate exceptions: the startup refusal sweep and the startup ignore-rule sweep. Each exists because its configuration arrived after those items were enqueued, so the normal path has no later evidence to act on: the refusal sweep re-reads the stored comment, and the ignore-rule sweep re-reads the pull request row. Both sweeps run once, before the first detector tick, so no tick can enqueue a refused or excluded PR between boot and the sweep. Outside them, the same decision logic covers boot after downtime and steady-state operation. Writers that can race the review detector are guarded: the detector resolves only via `markResolvedIfStillRetriggered` (a lost race logs `resolutionLostRace` and skips the resolution), and the scheduler's stale sweep already uses a status-guarded `updateMany`. The pruner's unguarded `markResolved` is deliberate — terminal PR states take precedence over `review_completed` (invariant 9), so its overwrite direction is safe.
 
 ## 7. Queue order and dashboard retrigger
 
@@ -405,7 +426,7 @@ When GitHub reports a rate limit, the poll loop stops all GitHub work until the 
 
 ### Dashboard surfaces
 
-- Tracked PRs: open PRs never acknowledged by CodeRabbit and with no active item — the "awaiting acknowledgement" view. The acknowledgement watch covers every open PR on this view whose request is still outstanding, because a closed or merged PR never holds that watch. PRs CodeRabbit never touched appear too, sorted by last review time. When a walkthrough-summary comment (`review_stack_entry_start`) appears on such a PR, its comment time is recorded as `last_coderabbit_review_at` — evidence of the walkthrough without classifying it as a verdict.
+- Tracked PRs: open PRs never acknowledged by CodeRabbit and with no active item — the "awaiting acknowledgement" view. The acknowledgement watch covers every open PR on this view whose request is still outstanding, because a closed or merged PR never holds that watch. PRs CodeRabbit never touched appear too, sorted by last review time. When a walkthrough-summary comment (`review_stack_entry_start`) appears on such a PR, its comment time is recorded as `last_coderabbit_review_at` — evidence of the walkthrough without classifying it as a verdict. A row whose PR matches an ignore rule shows an "Ignored" badge instead of a review state, with the matched field and pattern in the badge title, so the operator can see why the PR is left out.
 - Skipped items: the most recent items the scheduler skipped for cooldown or settling.
 - Events: every recorded event, newest first, each entry rendered with the same plain-language reading the probes record. Repo and PR chips narrow the events loaded so far; a run id copied from a posted comment footer can be pasted into the Run box, which refetches the timeline filtered by that run and reports the filtered total. The filter is server-side, so it reaches events beyond the loaded pages.
 - Activity list: recent items with their status and last activity. Each item links the repo name to the repository and the title to the PR, and shows the run id of its latest retrigger beside the PR link, so the run a comment names can be matched to the item that posted it.
@@ -470,6 +491,8 @@ All keys are environment variables. Defaults are stated; validation invariants f
 | `SCHEDULER_RETRIGGER_SPACING_SEC`                                                | Minimum spacing between review requests; also the settling wait for new items and the acknowledgement hold window | 180                                              |
 | `CODERABBIT_ACCOUNT_COOLDOWN_SEC`                                                | Account cooldown after each posted request                                                                        | 3600                                             |
 | `CODERABBIT_REFUSAL_PHRASES`                                                     | Phrases that mark a CodeRabbit comment as a permanent refusal; a JSON array or a single phrase                    | `["without an assigned CodeRabbit review seat"]` |
+| `IGNORE_AUTHORS`                                                                 | Author logins to leave out of monitoring; unanchored regular expressions, a JSON array or a single pattern        | `[]`                                             |
+| `IGNORE_TITLES`                                                                  | PR titles to leave out of monitoring; unanchored regular expressions, a JSON array or a single pattern            | `[]`                                             |
 | `REVIEW_LIMIT_FALLBACK_WAIT_SEC`                                                 | Wait applied when a rate-limit comment states no wait                                                             | 3600                                             |
 | `REVIEW_LIMIT_BUFFER_SEC`                                                        | Extra wait added when rescheduling onto a replacement comment                                                     | 60                                               |
 | `MAX_RETRIGGER_ATTEMPTS`                                                         | Attempt cap per item; the item resolves as failed at the cap                                                      | 10                                               |
@@ -486,7 +509,7 @@ All keys are environment variables. Defaults are stated; validation invariants f
 | `DATABASE_URL`                                                                   | Database location                                                                                                 | `file:./data/rabbit-maximizer.db`                |
 | `PAUSE_NOTIFICATION_INITIAL_DELAY_SEC`, `PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC` | Pause-notification timing (dashboard configuration)                                                               | 1800, 900                                        |
 
-Validation invariants: backoff max must be at least backoff base; retrigger spacing must be at least the poll interval and strictly less than the account cooldown; the review-detection lookback must be at most twice the account cooldown; webhook mode requires both the webhook secret and the tunnel URL.
+Validation invariants: backoff max must be at least backoff base; retrigger spacing must be at least the poll interval and strictly less than the account cooldown; the review-detection lookback must be at most twice the account cooldown; webhook mode requires both the webhook secret and the tunnel URL; every entry of `IGNORE_AUTHORS` and `IGNORE_TITLES` must be non-empty and must compile as a regular expression.
 
 <a id="br-12"></a>
 
@@ -509,3 +532,4 @@ These rules must never be violated. Every change to the product must preserve th
 13. The maximizer never posts a review request except in direct response to a detected CodeRabbit comment (or a recovery synthesized from a deleted one).
 14. A review from a run other than the item's adopted run never resolves the item, except when the source comment is `review_skipped` and the review's commit matches the PR head. When no run is known, a `review_skipped` item resolves only on a review matching the PR head; any other source comment resolves on the newest completed review.
 15. A PR CodeRabbit permanently refused is never requested again until an operator re-queues it: its item never reopens, and the recovery path excludes it.
+16. A PR an ignore rule matches never holds an active queue item: detection resolves its item as `excluded` instead of enqueuing, the recovery path drops it before the synthetic comment, and the startup sweep resolves any item that predates the rule.

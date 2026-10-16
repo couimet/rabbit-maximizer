@@ -1,4 +1,4 @@
-import { CodeRabbitCommentType, CommentDetectionMethod, DismissalReason, EventType } from '../domain.js';
+import { CodeRabbitCommentType, CommentDetectionMethod, DismissalReason, EventType, IgnoreRuleField } from '../domain.js';
 import { RabbitMaximizerError } from '../errors/index.js';
 import { ReviewDetectionMethod } from '../ReviewDetectionMethod.js';
 import type { EventEnvelope, EventLogEntry } from '../types/index.js';
@@ -77,6 +77,14 @@ export const CoderabbitRunIdFirstSeenPayloadSchema = z.object({
   coderabbit_run_id: z.string().max(CODERABBIT_RUN_ID_MAX_LENGTH),
 });
 
+export const ExcludedPayloadSchema = z.object({
+  source_ts: z.coerce.date(),
+  comment_url: COMMENT_URL_SCHEMA,
+  matched_field: z.enum(IgnoreRuleField),
+  matched_pattern: z.string(),
+  coderabbit_run_id: z.string().max(CODERABBIT_RUN_ID_MAX_LENGTH).optional(),
+});
+
 export const FailedPayloadSchema = z.object({
   reason: z.string().max(REASON_MAX_LENGTH),
   retrigger_count: z.number().int().positive().optional(),
@@ -119,6 +127,12 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         ...envelope,
         type: EventType.enqueued,
         payload: EnqueuedPayloadSchema.parse(payload),
+      };
+    case EventType.excluded:
+      return {
+        ...envelope,
+        type: EventType.excluded,
+        payload: ExcludedPayloadSchema.parse(payload),
       };
     case EventType.retriggered:
       return {

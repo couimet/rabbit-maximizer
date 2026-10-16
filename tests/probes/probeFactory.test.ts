@@ -4,6 +4,7 @@ import {
   DetectedProbe,
   DirectCommentCheckProbe,
   EnqueueProbe,
+  ExclusionSweeperProbe,
   MarkQueueItemReviewedProbe,
   ProbeFactory,
   PrScannerProbe,
@@ -134,6 +135,26 @@ describe('ProbeFactory', () => {
 
     probe.completed(5, 2);
     expect(logger.info).toHaveBeenCalledWith({ fn: 'RefusalSweeperProbe.completed', checked: 5, refused: 2 }, 'Permanent refusal sweep completed');
+  });
+
+  it('creates an ExclusionSweeperProbe wired to the factory logger', () => {
+    const { eventRepository, logger } = makeMocks();
+    const factory = new ProbeFactory(eventRepository, logger);
+    const probe = factory.createExclusionSweeperProbe();
+    expect(probe).toBeInstanceOf(ExclusionSweeperProbe);
+
+    probe.sweepStarted(3);
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'ExclusionSweeperProbe.sweepStarted', count: 3 }, 'Sweeping active queue items for ignore-rule matches');
+
+    const sweepError = new Error('sweep failed');
+    probe.itemFailed('org/repo', 7, 123, sweepError);
+    expect(logger.warn).toHaveBeenCalledWith(
+      { fn: 'ExclusionSweeperProbe.itemFailed', repo: 'org/repo', pr: 7, pullRequestId: 123, error: sweepError },
+      'Failed to sweep one queue item; skipping it and continuing',
+    );
+
+    probe.completed(5, 2);
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'ExclusionSweeperProbe.completed', checked: 5, excluded: 2 }, 'Ignore-rule sweep completed');
   });
 
   describe('container binding', () => {

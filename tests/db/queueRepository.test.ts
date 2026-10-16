@@ -662,6 +662,85 @@ describe('QueueRepository', () => {
       );
     });
 
+    it('reopens a row resolved as excluded and searches only the reopenable resolutions', async () => {
+      const ref = generateReviewRef();
+      const oldCommentId = getUniqueInt();
+      const newCommentId = getUniqueInt();
+      const tenMinAgo = new Date(frozenNow.getTime() - TEN_MINUTES_MS);
+      const oldRetriggered = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        status: QueueStatus.retriggered,
+        source_comment_id: oldCommentId,
+      });
+      const conflictingResolved = generateReviewQueueHydrationData({
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_comment_id: newCommentId,
+        status: QueueStatus.resolved,
+        resolution: Resolution.Excluded,
+        resolved_at: tenMinAgo,
+      });
+      const reopened = {
+        ...conflictingResolved,
+        status: QueueStatus.pending as const,
+        resolution: null,
+        resolved_at: null,
+      };
+
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(oldRetriggered).mockResolvedValueOnce(conflictingResolved),
+          update: createResolvedMock(reopened),
+          updateMany: createResolvedMock({ count: 1 }),
+        },
+        queueOrder: { findUnique: createResolvedMock({ queue_item_id: conflictingResolved.id }) },
+      });
+      const sut = new QueueRepository(prisma, probeFactory, mapper, config, logger);
+
+      const { item: result, created } = await runInContext(() =>
+        sut.enqueue(
+          {
+            repo: ref.repoFullName,
+            pr: ref.prNumber,
+            prTitle: 'Re-enqueued PR title',
+            sourceCommentUrl: buildCommentUrl(ref.repoFullName, ref.prNumber, newCommentId),
+            sourceCommentId: newCommentId,
+            coderabbitRunId: undefined,
+            commentUpdatedAt: frozenNow,
+            pullRequestId: getUniqueInt(),
+            sourceCommentType: undefined,
+          },
+          prisma as unknown as Prisma.TransactionClient,
+        ),
+      );
+
+      expect(reviewQueue.findFirst).toHaveBeenNthCalledWith(2, {
+        where: {
+          source_comment_id: newCommentId,
+          id: { not: oldRetriggered.id },
+          status: 'resolved',
+          resolution: { in: ['review_completed', 'failed', 'skipped', 'excluded'] },
+        },
+      });
+      expect(reviewQueue.update).toHaveBeenNthCalledWith(1, {
+        where: { id: conflictingResolved.id },
+        data: {
+          status: 'pending',
+          resolution: null,
+          resolved_at: null,
+          pr_title: 'Re-enqueued PR title',
+          source_comment_run_id: null,
+          cooldown_until: null,
+          last_skipped_at: null,
+          last_skip_reason: null,
+          retrigger_skip_count: 0,
+        },
+      });
+      expect(created).toBe(true);
+      expect(result).toStrictEqual(reopened);
+    });
+
     it('creates the missing queue_order entry when reopening a resolved row', async () => {
       const ref = generateReviewRef();
       const oldCommentId = getUniqueInt();

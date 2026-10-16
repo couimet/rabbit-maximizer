@@ -21,10 +21,12 @@ const {
   createMockQueueOrderRepo,
   createMockQueueRepo,
   createMockSystemStateRepository,
+  generateConfigData,
 } = await import('./helpers/index.js');
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
 const { setupExpress } = await import('../src/express.js');
+const { IgnoreRules } = await import('../src/services.js');
 const { fetchResponse } = await import('./helpers/fetchResponse.js');
 
 const tempDirs: string[] = [];
@@ -71,7 +73,7 @@ describe('setupExpress', () => {
       reviewTrigger: { trigger: jest.fn() } as any,
       systemStateRepo: createMockSystemStateRepository(),
       pullRequestRepo: createMockPullRequestRepo(),
-      trackedPrMapper: new TrackedPrMapper(),
+      trackedPrMapper: new TrackedPrMapper(new IgnoreRules(generateConfigData())),
       logger,
       port: 0,
     });
@@ -170,7 +172,7 @@ describe('setupExpress', () => {
           reviewTrigger: { trigger: jest.fn() } as any,
           systemStateRepo: createMockSystemStateRepository(),
           pullRequestRepo: createMockPullRequestRepo(),
-          trackedPrMapper: new TrackedPrMapper(),
+          trackedPrMapper: new TrackedPrMapper(new IgnoreRules(generateConfigData())),
           logger,
           port: blockedPort,
         }),

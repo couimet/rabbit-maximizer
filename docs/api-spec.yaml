@@ -490,7 +490,7 @@ components:
         resolution:
           type: string
           nullable: true
-          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused)
+          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused, excluded)
         coderabbit_review_state:
           type: string
           nullable: true
@@ -545,7 +545,7 @@ components:
         resolution:
           type: string
           nullable: true
-          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused)
+          description: Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused, excluded)
         retriggered_at:
           type: string
           format: date-time
@@ -603,6 +603,7 @@ components:
           detected,
           dismissed,
           enqueued,
+          excluded,
           failed,
           retriggered,
         ]
@@ -708,9 +709,20 @@ components:
             $ref: '#/components/schemas/TrackedPr'
       additionalProperties: false
 
+    IgnoreRuleMatch:
+      type: object
+      required: [field, pattern]
+      properties:
+        field:
+          type: string
+          enum: [author, title]
+        pattern:
+          type: string
+      additionalProperties: false
+
     TrackedPr:
       type: object
-      required: [repo_full_name, pr_number, title, author_login]
+      required: [repo_full_name, pr_number, title, author_login, matched_ignore_rule]
       properties:
         repo_full_name:
           type: string
@@ -720,6 +732,11 @@ components:
           type: string
         author_login:
           type: string
+        matched_ignore_rule:
+          oneOf:
+            - $ref: '#/components/schemas/IgnoreRuleMatch'
+            - type: 'null'
+          description: The ignore rule that matches this pull request, or null when no rule matches
         last_review_state:
           type: string
           nullable: true

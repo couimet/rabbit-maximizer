@@ -141,6 +141,22 @@ describe('deriveActivityStatus', () => {
       expect(result).toStrictEqual({ state: 'permanently_refused', linkUrl: sourceCommentUrl });
     });
 
+    it('returns excluded state with source comment URL for excluded resolution', () => {
+      const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'excluded', source_comment_url: sourceCommentUrl });
+
+      const result = deriveActivityStatus(item);
+
+      expect(result).toStrictEqual({ state: 'excluded', linkUrl: sourceCommentUrl });
+    });
+
+    it('returns excluded state with undefined link when source_comment_url is absent for excluded resolution', () => {
+      const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'excluded', source_comment_url: undefined });
+
+      const result = deriveActivityStatus(item);
+
+      expect(result).toStrictEqual({ state: 'excluded', linkUrl: undefined });
+    });
+
     it('returns manual_review state for manual_review resolution', () => {
       const item = generateQueueItemResponseData({ status: 'resolved', resolution: 'manual_review' });
 

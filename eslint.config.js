@@ -16,7 +16,7 @@ export default [
     },
   },
   {
-    files: ['src/MatchedMarker.ts'],
+    files: ['src/MatchedMarker.ts', 'src/schemas/config.ts'],
     rules: {
       'barrel-boundary/enforce-barrel-files': 'off',
     },

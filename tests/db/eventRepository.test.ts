@@ -349,6 +349,7 @@ describe('EventRepository', () => {
         changesReqCnt,
         skippedCnt,
         refusedCnt,
+        excludedCnt,
         failedCnt,
         runIdChangedCnt,
         runIdClearedCnt,
@@ -362,6 +363,7 @@ describe('EventRepository', () => {
         'changesReqCnt',
         'skippedCnt',
         'refusedCnt',
+        'excludedCnt',
         'failedCnt',
         'runIdChangedCnt',
         'runIdClearedCnt',
@@ -370,6 +372,7 @@ describe('EventRepository', () => {
       const rows = [
         { type: 'detected', _count: { type: detectedCnt } },
         { type: 'enqueued', _count: { type: enqueuedCnt } },
+        { type: 'excluded', _count: { type: excludedCnt } },
         { type: 'retriggered', _count: { type: retriggeredCnt } },
         { type: 'dismissed', _count: { type: dismissedCnt } },
         { type: 'coderabbit_review_approved', _count: { type: approvedCnt } },
@@ -406,6 +409,7 @@ describe('EventRepository', () => {
         coderabbit_run_id_first_seen: runIdFirstSeenCnt,
         detected: detectedCnt,
         enqueued: enqueuedCnt,
+        excluded: excludedCnt,
         failed: failedCnt,
         retriggered: retriggeredCnt,
       });
@@ -423,6 +427,7 @@ describe('EventRepository', () => {
             coderabbit_run_id_first_seen: runIdFirstSeenCnt,
             detected: detectedCnt,
             enqueued: enqueuedCnt,
+            excluded: excludedCnt,
             failed: failedCnt,
             retriggered: retriggeredCnt,
           },
@@ -451,6 +456,7 @@ describe('EventRepository', () => {
         coderabbit_run_id_first_seen: 0,
         detected: detectedCnt,
         enqueued: enqueuedCnt,
+        excluded: 0,
         failed: 0,
         retriggered: 0,
       };

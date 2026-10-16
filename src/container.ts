@@ -26,6 +26,8 @@ import { EditDetector } from './EditDetector.js';
 import { TYPES } from './server-domain.js';
 import {
   EnqueueService,
+  ExclusionSweeper,
+  IgnoreRules,
   PollDetector,
   PrScanner,
   PruneEvaluator,
@@ -66,6 +68,8 @@ container
 
 container.bind<RefusalPhrases>(TYPES.RefusalPhrases).to(RefusalPhrases).inSingletonScope();
 
+container.bind<IgnoreRules>(TYPES.IgnoreRules).to(IgnoreRules).inSingletonScope();
+
 container.bind<CoderabbitCommentClassifier>(TYPES.CoderabbitCommentClassifier).to(CoderabbitCommentClassifier).inSingletonScope();
 
 container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClient).inSingletonScope();
@@ -97,6 +101,8 @@ container.bind<PrScanner>(TYPES.PrScanner).to(PrScanner).inSingletonScope();
 container.bind<StalePrRecoverer>(TYPES.StalePrRecoverer).to(StalePrRecoverer).inSingletonScope();
 
 container.bind<RefusalSweeper>(TYPES.RefusalSweeper).to(RefusalSweeper).inSingletonScope();
+
+container.bind<ExclusionSweeper>(TYPES.ExclusionSweeper).to(ExclusionSweeper).inSingletonScope();
 
 container.bind<DirectCommentChecker>(TYPES.DirectCommentChecker).to(DirectCommentChecker).inSingletonScope();
 

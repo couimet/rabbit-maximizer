@@ -10,6 +10,7 @@ export enum ActivityState {
   awaitingReview = 'awaiting_review',
   staleComment = 'stale_comment',
   permanentlyRefused = 'permanently_refused',
+  excluded = 'excluded',
   pending = 'pending',
   unknown = 'unknown',
 }

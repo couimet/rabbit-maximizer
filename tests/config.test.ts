@@ -254,6 +254,53 @@ describe('parseConfig', () => {
     expect(result.value.CODERABBIT_REFUSAL_PHRASES).toStrictEqual(['42']);
   });
 
+  it('parses IGNORE_AUTHORS as a JSON array of strings', () => {
+    const result = parseConfig(env(BASE, { IGNORE_AUTHORS: '["renovate","^dependabot"]' }));
+
+    expect(result.value.IGNORE_AUTHORS).toStrictEqual(['renovate', '^dependabot']);
+  });
+
+  it('parses a bare IGNORE_AUTHORS pattern into a single-entry list', () => {
+    const result = parseConfig(env(BASE, { IGNORE_AUTHORS: 'renovate' }));
+
+    expect(result.value.IGNORE_AUTHORS).toStrictEqual(['renovate']);
+  });
+
+  it('treats a malformed JSON IGNORE_AUTHORS value as no rules rather than a bare pattern', () => {
+    const result = parseConfig(env(BASE, { IGNORE_AUTHORS: '["renovate"' }));
+
+    expect(result.value.IGNORE_AUTHORS).toStrictEqual([]);
+  });
+
+  it('treats a non-string-array IGNORE_AUTHORS value as no rules', () => {
+    const result = parseConfig(env(BASE, { IGNORE_AUTHORS: '[1,2,3]' }));
+
+    expect(result.value.IGNORE_AUTHORS).toStrictEqual([]);
+  });
+
+  it('fails when an IGNORE_AUTHORS entry does not compile as a regular expression', () => {
+    const result = parseConfig(env(BASE, { IGNORE_AUTHORS: '(unclosed' }));
+
+    expect(result).toHaveDetailedError('CONFIG_VALIDATION_FAILED', {
+      message: 'Config validation failed',
+      functionName: 'parseConfig',
+      details: { issues: ['IGNORE_AUTHORS.0: IGNORE_AUTHORS entry is not a valid regular expression: (unclosed'] },
+    });
+  });
+
+  it('parses IGNORE_TITLES as a JSON array of strings', () => {
+    const result = parseConfig(env(BASE, { IGNORE_TITLES: '["^release:","WIP"]' }));
+
+    expect(result.value.IGNORE_TITLES).toStrictEqual(['^release:', 'WIP']);
+  });
+
+  it('applies an empty list when IGNORE_AUTHORS and IGNORE_TITLES are absent', () => {
+    const result = parseConfig(BASE);
+
+    expect(result.value.IGNORE_AUTHORS).toStrictEqual([]);
+    expect(result.value.IGNORE_TITLES).toStrictEqual([]);
+  });
+
   it('succeeds with webhook mode and both webhook vars set', () => {
     const result = parseConfig(
       env(BASE, {

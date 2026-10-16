@@ -454,7 +454,14 @@ describe('PollDetector', () => {
         scannedPRs: [{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: sharedId, prTitle: ref.prTitle }],
       });
       deps.stalePrRecoverer.recover.mockResolvedValue([
-        { id: sharedId, repoFullName: ref.repoFullName, prNumber: ref.prNumber, title: ref.prTitle, lastReviewRequestedAt: getUniqueDate() },
+        {
+          id: sharedId,
+          repoFullName: ref.repoFullName,
+          prNumber: ref.prNumber,
+          title: ref.prTitle,
+          authorLogin: getUniqueString(),
+          lastReviewRequestedAt: getUniqueDate(),
+        },
       ]);
       deps.github.searchReviewLimitComments.mockResolvedValue([]);
 

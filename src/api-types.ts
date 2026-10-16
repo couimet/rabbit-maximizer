@@ -273,7 +273,7 @@ export interface components {
        * @description When the item transitioned to resolved (supersedes reviewed_at/failed_at for new code)
        */
       resolved_at?: string | null;
-      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused) */
+      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused, excluded) */
       resolution?: string | null;
       /**
        * @description Outcome of the most recent CodeRabbit review for this PR
@@ -303,7 +303,7 @@ export interface components {
        */
       pr_state?: 'open' | 'merged' | 'closed' | null;
       status: components['schemas']['QueueStatus'];
-      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused) */
+      /** @description Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused, excluded) */
       resolution?: string | null;
       /** Format: date-time */
       retriggered_at?: string | null;
@@ -338,6 +338,7 @@ export interface components {
       | 'detected'
       | 'dismissed'
       | 'enqueued'
+      | 'excluded'
       | 'failed'
       | 'retriggered';
     EventEntry: {
@@ -383,11 +384,18 @@ export interface components {
       schedulerStale: boolean;
       trackedPrs: components['schemas']['TrackedPr'][];
     };
+    IgnoreRuleMatch: {
+      /** @enum {string} */
+      field: 'author' | 'title';
+      pattern: string;
+    };
     TrackedPr: {
       repo_full_name: string;
       pr_number: number;
       title: string;
       author_login: string;
+      /** @description The ignore rule that matches this pull request, or null when no rule matches */
+      matched_ignore_rule: components['schemas']['IgnoreRuleMatch'] | null;
       last_review_state?: string | null;
       /** Format: date-time */
       last_coderabbit_review_at?: string | null;

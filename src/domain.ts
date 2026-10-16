@@ -17,6 +17,7 @@ export { DismissalReason } from './DismissalReason.js';
 export { EventType } from './EventType.js';
 export { EXECUTION_CONTEXT_ATTRIBUTES } from './executionContextAttributes.js';
 export { FallbackReason } from './FallbackReason.js';
+export { IgnoreRuleField } from './IgnoreRuleField.js';
 export { isProduction } from './isProduction.js';
 export { MatchedMarker } from './MatchedMarker.js';
 export { getPrStateFromGitHubValue, PrState, type PrStateValue } from './PrState.js';

@@ -94,6 +94,15 @@ const refusedReading = (payload: EventPayload): ReadingToken[] => {
   return joinTokens([phrase !== undefined ? text(phrase) : undefined, commentTokenFromUrl(payload.comment_url, sourceCommentLabel)]);
 };
 
+const excludedReading = (payload: EventPayload): ReadingToken[] => {
+  const field = readString(payload, 'matched_field');
+  const pattern = readString(payload, 'matched_pattern');
+  return joinTokens([
+    field !== undefined && pattern !== undefined ? text(`matched the ${field} rule ${pattern}`) : undefined,
+    commentTokenFromUrl(payload.comment_url, sourceCommentLabel),
+  ]);
+};
+
 const runIdBookkeepingReading = (payload: EventPayload, changed: 'seen' | 'changed' | 'cleared'): ReadingToken[] => {
   const comment = commentTokenFromPayload(payload);
   const runId = readString(payload, 'coderabbit_run_id');
@@ -149,6 +158,7 @@ export const summarizeEvent = (type: EventType | string, payload: EventPayload):
   if (type === EventType.coderabbit_run_id_changed) return runIdBookkeepingReading(payload, 'changed');
   if (type === EventType.coderabbit_run_id_cleared) return runIdBookkeepingReading(payload, 'cleared');
   if (type === EventType.dismissed) return dismissedReading(payload);
+  if (type === EventType.excluded) return excludedReading(payload);
   if (type === EventType.failed) return failedReading(payload);
   return [];
 };
