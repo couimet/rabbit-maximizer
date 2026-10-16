@@ -88,7 +88,7 @@ export class Scheduler extends IntervalService {
         return;
       }
 
-      const pendingAck = await this.pullRequests.findPendingAcknowledgement();
+      const [pendingAck] = await this.pullRequests.findPendingAcknowledgements(undefined);
       if (pendingAck) {
         const elapsed = Date.now() - pendingAck.last_review_requested_at.getTime();
         if (elapsed < this.retriggerSpacingMs) {

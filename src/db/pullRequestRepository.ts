@@ -13,13 +13,13 @@ const PULL_REQUEST_TABLE = 'pull_request';
 /** Matches `@@map("review_queue")` in the Prisma schema. */
 const REVIEW_QUEUE_TABLE = 'review_queue';
 
-const FIND_PENDING_ACKNOWLEDGEMENT_SQL = `
+const FIND_PENDING_ACKNOWLEDGEMENTS_SQL = `
   SELECT id, repo_full_name, pr_number, last_review_requested_at
   FROM ${PULL_REQUEST_TABLE}
-  WHERE last_review_requested_at IS NOT NULL
+  WHERE pr_state = 'open'
+    AND last_review_requested_at IS NOT NULL
     AND (last_coderabbit_acknowledged_at IS NULL OR last_coderabbit_acknowledged_at < last_review_requested_at)
   ORDER BY last_review_requested_at ASC
-  LIMIT 1
 `;
 
 const FIND_STALE_OPEN_PRS_SQL = `
@@ -227,21 +227,18 @@ export class PullRequestRepository extends BasePrismaRepository {
     this.log.debug({ fn: 'PullRequestRepository.recordWalkthroughReview', id }, 'Recorded walkthrough review on PullRequest');
   }
 
-  async findPendingAcknowledgement(tx?: Prisma.TransactionClient): Promise<PendingAcknowledgement | undefined> {
+  async findPendingAcknowledgements(tx: Prisma.TransactionClient | undefined): Promise<PendingAcknowledgement[]> {
     const db = this.client(tx);
     const rows =
       await db.$queryRawUnsafe<Array<{ id: number; repo_full_name: string; pr_number: number; last_review_requested_at: Date }>>(
-        FIND_PENDING_ACKNOWLEDGEMENT_SQL,
+        FIND_PENDING_ACKNOWLEDGEMENTS_SQL,
       );
-    if (rows.length === 0) {
-      return undefined;
-    }
-    return {
-      id: rows[0].id,
-      repo_full_name: rows[0].repo_full_name,
-      pr_number: rows[0].pr_number,
-      last_review_requested_at: new Date(rows[0].last_review_requested_at),
-    };
+    return rows.map((row) => ({
+      id: row.id,
+      repo_full_name: row.repo_full_name,
+      pr_number: row.pr_number,
+      last_review_requested_at: new Date(row.last_review_requested_at),
+    }));
   }
 
   async findStaleOpenPRs(): Promise<StaleOpenPR[]> {

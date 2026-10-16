@@ -63,6 +63,50 @@ describe('EditDetector', () => {
     expect(github.fetchComment).toHaveBeenCalled();
   });
 
+  it('falls back with not_found when GitHub answers 404 for a recovered comment', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const commentId = -getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId });
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      comment_type: 'review_limited',
+      gh_updated_at: getUniqueDate(),
+      last_seen_at: getUniqueDate(),
+      is_not_deleted: false,
+    } as any);
+    github.fetchComment.mockRejectedValue({ status: 404 });
+
+    const detector = new EditDetector(comments, github, classifier);
+    const result = await detector.detectEdit(item);
+
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_found', sourceCommentType: 'review_limited' });
+    expect(comments.upsert).not.toHaveBeenCalled();
+  });
+
+  it('falls back with not_found when GitHub answers 410 for a deleted comment', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId });
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      comment_type: 'review_skipped',
+      gh_updated_at: getUniqueDate(),
+      last_seen_at: getUniqueDate(),
+      is_not_deleted: false,
+    } as any);
+    github.fetchComment.mockRejectedValue({ status: 410 });
+
+    const detector = new EditDetector(comments, github, classifier);
+    const result = await detector.detectEdit(item);
+
+    expect(result).toBeSuccess({ action: 'fallback', reason: 'not_found', sourceCommentType: 'review_skipped' });
+    expect(comments.upsert).not.toHaveBeenCalled();
+  });
+
   it('returns resolved when edited comment re-classifies as review_approved', async () => {
     const comments = createMockCoderabbitCommentRepo();
     const github = createMockCoderabbitGitHubClient();
