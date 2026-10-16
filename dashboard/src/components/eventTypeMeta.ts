@@ -28,6 +28,7 @@ export const EVENT_TYPE_META: Record<EventType, EventTypeMeta> = {
   [EventType.enqueued]: { label: 'Enqueued', family: 'life' },
   [EventType.retriggered]: { label: 'Retrigger posted', family: 'life' },
   [EventType.dismissed]: { label: 'Dismissed', family: 'life' },
+  [EventType.excluded]: { label: 'Excluded by ignore rule', family: 'life' },
   [EventType.failed]: { label: 'Failed', family: 'fail' },
   [EventType.coderabbit_review_approved]: { label: 'Review approved', family: 'verdict' },
   [EventType.coderabbit_review_changes_suggested]: { label: 'Changes suggested', family: 'verdict' },

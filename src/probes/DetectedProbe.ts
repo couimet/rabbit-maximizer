@@ -1,6 +1,6 @@
 import type { EventRepository } from '../db/index.js';
 import { type CommentDetectionMethod, DismissalReason, EventType } from '../domain.js';
-import type { AlreadyReviewedComment, CoderabbitReviewVerdictState, EventLogEntry } from '../types/index.js';
+import type { AlreadyReviewedComment, CoderabbitReviewVerdictState, EventLogEntry, IgnoreRuleMatch } from '../types/index.js';
 import { toReviewEventType } from '../utils/index.js';
 
 import { getEventTraceAttributes } from './getEventTraceAttributes.js';
@@ -86,6 +86,37 @@ export class DetectedProbe {
 
   alreadyQueued(): void {
     this.log.info(this.loggingCtx, 'Review-limit comment already queued; skipping');
+  }
+
+  async excluded(tx: Prisma.TransactionClient, match: IgnoreRuleMatch): Promise<EventLogEntry> {
+    const event = await this.eventRepository.record(
+      {
+        type: EventType.excluded,
+        repo_full_name: this.context.repo_full_name,
+        pr_number: this.context.pr_number,
+        ...getEventTraceAttributes(),
+        payload: {
+          source_ts: this.context.source_ts,
+          comment_url: this.context.source_comment_url,
+          matched_field: match.field,
+          matched_pattern: match.pattern,
+          coderabbit_run_id: this.context.coderabbit_run_id,
+        },
+      },
+      tx,
+    );
+    this.log.info(
+      { ...this.loggingCtx, eventUuid: event.uuid, matchedField: match.field, matchedPattern: match.pattern },
+      'Pull request matched an ignore rule; resolved the queue item',
+    );
+    return event;
+  }
+
+  alreadyExcluded(match: IgnoreRuleMatch): void {
+    this.log.info(
+      { ...this.loggingCtx, matchedField: match.field, matchedPattern: match.pattern },
+      'Pull request matched an ignore rule and holds no active queue item; skipping',
+    );
   }
 
   async skipped(tx: Prisma.TransactionClient): Promise<EventLogEntry> {

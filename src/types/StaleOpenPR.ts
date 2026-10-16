@@ -4,5 +4,6 @@ export interface StaleOpenPR {
   readonly repoFullName: string;
   readonly prNumber: number;
   readonly title: string;
+  readonly authorLogin: string;
   readonly lastReviewRequestedAt: Date;
 }

@@ -1,5 +1,5 @@
 import type { EventRepository } from '../../src/db/index.js';
-import { CodeRabbitCommentType, CommentDetectionMethod } from '../../src/domain.js';
+import { CodeRabbitCommentType, CommentDetectionMethod, IgnoreRuleField } from '../../src/domain.js';
 import { DetectedProbe } from '../../src/probes/index.js';
 import type { EventLogEntry } from '../../src/types/index.js';
 import { withTestExecutionContext } from '../external-deps/couimet/execution-context-testing/index.js';
@@ -370,6 +370,93 @@ describe('DetectedProbe', () => {
     expect(logger.info).toHaveBeenCalledWith(
       { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId, matchedPhrase },
       'CodeRabbit permanently refused the review; resolved the queue item',
+    );
+  });
+
+  it('records an excluded event with comment_url, the matched rule, and coderabbit_run_id', async () => {
+    const ref = generateReviewRef();
+    const sourceTs = getUniqueDate();
+    const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+    const coderabbitRunId = getUuid();
+    const matchedPattern = getUniqueString({ prefix: 'rule-' });
+    const entryUuid = getUuid();
+    const tx = createMockTx();
+
+    const entry = { uuid: entryUuid } as unknown as EventLogEntry;
+    const { eventRepository, record } = makeEventRepository(entry);
+    const logger = createMockLogger();
+
+    const probe = new DetectedProbe(
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: sourceTs,
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: coderabbitRunId,
+        detectedVia: CommentDetectionMethod.Search,
+      },
+      eventRepository,
+      logger,
+    );
+
+    const result = await runInContext(() => probe.excluded(tx, { field: IgnoreRuleField.author, pattern: matchedPattern }));
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        type: 'excluded',
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
+        payload: {
+          source_ts: sourceTs,
+          comment_url: sourceCommentUrl,
+          matched_field: 'author',
+          matched_pattern: matchedPattern,
+          coderabbit_run_id: coderabbitRunId,
+        },
+      },
+      tx,
+    );
+    expect(result).toBe(entry);
+    expect(logger.info).toHaveBeenCalledWith(
+      {
+        fn: 'DetectedProbe',
+        repo: ref.repoFullName,
+        pr: ref.prNumber,
+        eventUuid: entryUuid,
+        coderabbit_run_id: coderabbitRunId,
+        matchedField: 'author',
+        matchedPattern,
+      },
+      'Pull request matched an ignore rule; resolved the queue item',
+    );
+  });
+
+  it('logs when an excluded pull request holds no active queue item', () => {
+    const ref = generateReviewRef();
+    const matchedPattern = getUniqueString({ prefix: 'rule-' });
+    const logger = createMockLogger();
+
+    const probe = new DetectedProbe(
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: getUniqueDate(),
+        source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+        coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
+      },
+      {} as EventRepository,
+      logger,
+    );
+
+    probe.alreadyExcluded({ field: IgnoreRuleField.title, pattern: matchedPattern });
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, matchedField: 'title', matchedPattern },
+      'Pull request matched an ignore rule and holds no active queue item; skipping',
     );
   });
 

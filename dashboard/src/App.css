@@ -407,6 +407,11 @@ a:hover {
   color: #2e7d32;
 }
 
+.status-pill.excluded {
+  background: #e7e7ea;
+  color: #55555f;
+}
+
 .row-status-reviewed td {
   color: #8b7d6b;
 }

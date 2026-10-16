@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index.js';
+import { CONFIG_KEYS } from '../schemas/index.js';
 
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { PrismaClient } from '@prisma/client';
@@ -27,7 +28,7 @@ export const createPrismaClient = (): PrismaClient => {
     const [scheme] = url.split(':');
     throw new RabbitMaximizerError({
       code: RabbitMaximizerErrorCodes.PRISMA_CONNECTION_METHOD_NOT_SUPPORTED,
-      message: 'Unsupported DATABASE_URL connection method; only "file:" URLs are supported',
+      message: `Unsupported ${CONFIG_KEYS.DATABASE_URL} connection method; only "file:" URLs are supported`,
       functionName: 'createPrismaClient',
       details: { scheme },
     });

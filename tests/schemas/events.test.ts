@@ -269,6 +269,59 @@ describe('parseEventRow', () => {
     });
   });
 
+  it('parses an excluded event', () => {
+    const commentUrl = getUniqueString();
+    const matchedPattern = getUniqueString();
+    const sourceTs = getUniqueDate();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'excluded',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        comment_url: commentUrl,
+        matched_field: 'title',
+        matched_pattern: matchedPattern,
+        coderabbit_run_id: coderabbitRunId,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('excluded');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      matched_field: 'title',
+      matched_pattern: matchedPattern,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('parses an excluded event without coderabbit_run_id', () => {
+    const commentUrl = getUniqueString();
+    const matchedPattern = getUniqueString();
+    const sourceTs = getUniqueDate();
+    const row = generateEventHydrationData({
+      type: 'excluded',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        comment_url: commentUrl,
+        matched_field: 'author',
+        matched_pattern: matchedPattern,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('excluded');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      matched_field: 'author',
+      matched_pattern: matchedPattern,
+    });
+  });
+
   it('parses a coderabbit_run_id_first_seen event', () => {
     const commentUrl = getUniqueString();
     const commentId = getUniqueInt();
