@@ -133,6 +133,12 @@ describe('parseConfig', () => {
 
     expect(result.value.SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK).toBe(3);
   });
+
+  it('reads MAX_DIRECT_CHECK_PRS from the environment', () => {
+    const result = parseConfig(env(BASE, { MAX_DIRECT_CHECK_PRS: '50' }));
+
+    expect(result.value.MAX_DIRECT_CHECK_PRS).toBe(50);
+  });
   it('applies default DATABASE_URL when absent', () => {
     const { DATABASE_URL: _, ...rest } = BASE;
     const result = parseConfig(rest);

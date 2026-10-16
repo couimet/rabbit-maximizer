@@ -114,7 +114,7 @@ model ReviewQueue {
   pr_title       String
   /// Max 25; one of 'pending' | 'retriggered' | 'resolved' (CHECK in migration).
   status         String    @default("pending")
-  /// Max 50. Terminal reason when status='resolved' (review_completed, pr_merged, pr_closed_without_merge, failed, skipped).
+  /// Max 50. Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused).
   resolution     String?
   resolved_at    DateTime?
   attempts       Int       @default(0)

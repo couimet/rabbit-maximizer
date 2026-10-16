@@ -4731,7 +4731,7 @@ export namespace Prisma {
          */
         status: string;
         /**
-         * Max 50. Terminal reason when status='resolved' (review_completed, pr_merged, pr_closed_without_merge, failed, skipped).
+         * Max 50. Terminal reason when status='resolved' (review_completed, manual_review, pr_merged, pr_closed_without_merge, failed, skipped, stale_comment, permanently_refused).
          */
         resolution: string | null;
         resolved_at: Date | null;

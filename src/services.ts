@@ -8,6 +8,7 @@
  * and the whole server vocabulary.
  */
 export { PollDetector } from './detectorPoll.js';
+export { DirectCheckCap } from './DirectCheckCap.js';
 export { DirectCommentChecker } from './DirectCommentChecker.js';
 export { EditDetector } from './EditDetector.js';
 export { EnqueueService } from './EnqueueService.js';

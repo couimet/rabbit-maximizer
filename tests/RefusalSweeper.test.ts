@@ -1,5 +1,6 @@
 import { config } from '../src/config.js';
 import type { QueueRepository } from '../src/db/index.js';
+import { RabbitMaximizerError } from '../src/errors/index.js';
 import type { CoderabbitGitHubClient } from '../src/github/index.js';
 import { RefusalSweeper } from '../src/services.js';
 import type { OnDetectedCallback, QueueItem } from '../src/types/index.js';
@@ -86,6 +87,46 @@ describe('RefusalSweeper', () => {
       expect(github.fetchComment).toHaveBeenCalledWith(nextRef.owner, nextRef.repo, nextRef.commentId);
       expect(onDetected).not.toHaveBeenCalled();
       expect(probe.completed).toHaveBeenCalledWith(2, 0);
+    });
+
+    it('catches a malformed repo name, skips that item, and continues with the next', async () => {
+      const malformedRepoFullName = 'repo-without-an-owner';
+      const malformedItem = generateQueueItemHydrationData({ repo_full_name: malformedRepoFullName });
+      const nextRef = generateReviewRef();
+      const nextItem = buildItem(nextRef);
+      const body = refusalBody();
+      const createdAt = getUniqueDate().toISOString();
+      const updatedAt = getUniqueDate().toISOString();
+      queue.getActiveQueue.mockResolvedValue([malformedItem, nextItem]);
+      github.fetchComment.mockResolvedValue({ body, createdAt, updatedAt });
+
+      const result = await sweeper.sweep();
+
+      expect(result).toBe(1);
+      expect(probe.sweepStarted).toHaveBeenCalledWith(2);
+      expect(probe.itemFailed).toHaveBeenCalledWith(
+        malformedRepoFullName,
+        malformedItem.pr_number,
+        malformedItem.source_comment_id,
+        expect.any(RabbitMaximizerError) as RabbitMaximizerError,
+      );
+      expect(github.fetchComment).toHaveBeenCalledWith(nextRef.owner, nextRef.repo, nextRef.commentId);
+      expect(onDetected).toHaveBeenCalledWith(
+        {
+          url: nextItem.source_comment_url,
+          repoFullName: nextItem.repo_full_name,
+          prNumber: nextItem.pr_number,
+          commentId: nextItem.source_comment_id,
+          createdAt,
+          updatedAt,
+          prTitle: nextItem.pr_title,
+          body,
+          commentType: 'review_refused',
+          detectedVia: 'refusal_sweep',
+        },
+        nextItem.pull_request_id,
+      );
+      expect(probe.completed).toHaveBeenCalledWith(2, 1);
     });
 
     it('skips a comment that does not classify as a refusal', async () => {

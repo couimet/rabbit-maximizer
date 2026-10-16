@@ -8,9 +8,9 @@ import { TYPES } from './server-domain.js';
 import { inject, injectable } from 'inversify';
 
 /**
- * Clears queue items that CodeRabbit already permanently refused. The detection path
- * classifies the stored comment preview, so an item the loop enqueued before the phrase
- * list existed stays queued; this sweep re-reads the full body from GitHub at startup.
+ * Clears queue items that CodeRabbit already permanently refused. An item the loop
+ * enqueued before the phrase list existed stays queued, so this sweep re-reads every
+ * active item's source comment from GitHub at startup and classifies the full body.
  */
 @injectable()
 export class RefusalSweeper {
@@ -39,11 +39,11 @@ export class RefusalSweeper {
 
     let refused = 0;
     for (const item of activeItems) {
-      const { owner, repo } = splitRepo(item.repo_full_name);
       let body: string;
       let createdAt: string;
       let updatedAt: string;
       try {
+        const { owner, repo } = splitRepo(item.repo_full_name);
         const fetched = await this.github.fetchComment(owner, repo, item.source_comment_id);
         body = fetched.body;
         createdAt = fetched.createdAt;

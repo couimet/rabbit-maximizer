@@ -79,7 +79,7 @@ export class EnqueueService {
         return;
       }
 
-      if (classification === 'review_skipped') {
+      if (classification === CodeRabbitCommentType.review_skipped) {
         const { created } = await this.queue.enqueue(
           {
             repo: comment.repoFullName,

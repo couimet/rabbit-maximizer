@@ -49,7 +49,7 @@ Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: 
 Two complementary paths feed the same detection handler:
 
 - **Search path** — GitHub search over the monitored repos for open PRs whose comments mention the rate-limit phrases CodeRabbit uses in its comments ("review limit" or "rate limit") or the on-request skip phrase ("review available"). The full body of every hit is fetched before classification, because the search index returns truncated bodies. The freshness latch (below) suppresses already-seen comments before they reach the detection handler.
-- **Direct check path** — for every PR known to the scanner plus recovered PRs, list the PR's comments directly and consider only comments authored by the CodeRabbit bot. This bypasses search-index delay. The number of directly checked PRs per tick is capped (125); beyond the cap, coverage falls back to the search path.
+- **Direct check path** — for every PR known to the scanner plus recovered PRs, list the PR's comments directly and consider only comments authored by the CodeRabbit bot. This bypasses search-index delay. The number of directly checked PRs per tick is capped by `MAX_DIRECT_CHECK_PRS` (default 125); the direct check logs an error that states how many PRs the cap hid, and coverage for those PRs falls back to the search path.
 
 <a id="br-2-3"></a>
 
@@ -463,6 +463,7 @@ All keys are environment variables. Defaults are stated; validation invariants f
 | `GITHUB_PAT`                                                                     | GitHub token for search, comment, and posting calls                                                               | Required                                         |
 | `POLL_INTERVAL_SEC`                                                              | Detection tick interval                                                                                           | 90                                               |
 | `PR_SCANNER_INTERVAL_SEC`                                                        | Minimum interval between PR scans                                                                                 | 300                                              |
+| `MAX_DIRECT_CHECK_PRS`                                                           | Cap on the number of PRs the direct comment check inspects per scan                                               | 125                                              |
 | `SCHEDULER_TICK_INTERVAL_SEC`                                                    | Scheduler tick interval                                                                                           | 10                                               |
 | `SCHEDULER_RETRIGGER_SPACING_SEC`                                                | Minimum spacing between review requests; also the settling wait for new items and the acknowledgement hold window | 180                                              |
 | `CODERABBIT_ACCOUNT_COOLDOWN_SEC`                                                | Account cooldown after each posted request                                                                        | 3600                                             |

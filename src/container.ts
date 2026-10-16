@@ -25,6 +25,7 @@ import { DirectCommentChecker } from './DirectCommentChecker.js';
 import { EditDetector } from './EditDetector.js';
 import { TYPES } from './server-domain.js';
 import {
+  DirectCheckCap,
   EnqueueService,
   PollDetector,
   PrScanner,
@@ -97,6 +98,8 @@ container.bind<PrScanner>(TYPES.PrScanner).to(PrScanner).inSingletonScope();
 container.bind<StalePrRecoverer>(TYPES.StalePrRecoverer).to(StalePrRecoverer).inSingletonScope();
 
 container.bind<RefusalSweeper>(TYPES.RefusalSweeper).to(RefusalSweeper).inSingletonScope();
+
+container.bind<DirectCheckCap>(TYPES.DirectCheckCap).to(DirectCheckCap).inSingletonScope();
 
 container.bind<DirectCommentChecker>(TYPES.DirectCommentChecker).to(DirectCommentChecker).inSingletonScope();
 

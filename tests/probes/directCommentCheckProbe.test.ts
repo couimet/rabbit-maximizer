@@ -23,14 +23,15 @@ describe('DirectCommentCheckProbe', () => {
 
   const createProbe = () => new DirectCommentCheckProbe(events, logger);
 
-  it('logs a warn when the PR count is truncated to the direct-check limit', () => {
+  it('logs an error when the PR count is truncated to the direct-check cap', () => {
     const probe = createProbe();
     const prCount = getUniqueInt();
     const maxDirectCheckPRs = getUniqueInt();
-    probe.truncated(prCount, maxDirectCheckPRs);
-    expect(logger.warn).toHaveBeenCalledWith(
-      { fn: 'DirectCommentCheckProbe.truncated', prCount, maxDirectCheckPRs },
-      'PR count exceeds direct-check limit; truncating to prevent API rate-limit exhaustion',
+    const hiddenCount = getUniqueInt();
+    probe.truncated(prCount, maxDirectCheckPRs, hiddenCount);
+    expect(logger.error).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.truncated', prCount, maxDirectCheckPRs, hiddenCount },
+      'PR count exceeds the direct-check cap; the configured cap hides PRs from the direct check',
     );
   });
 

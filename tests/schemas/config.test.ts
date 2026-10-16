@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from '@jest/globals';
 
 const DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC = 1800;
 const DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC = 900;
+const DEFAULT_MAX_DIRECT_CHECK_PRS = 125;
 const DEFAULT_MAX_RETRIGGER_ATTEMPTS = 10;
 const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
 const DEFAULT_MAX_RETRIGGER_AGE_SEC = 259200;
@@ -30,6 +31,7 @@ describe('ConfigSchema', () => {
       GITHUB_PAT: githubPat,
       PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
+      MAX_DIRECT_CHECK_PRS: DEFAULT_MAX_DIRECT_CHECK_PRS,
       MAX_RETRIGGER_ATTEMPTS: DEFAULT_MAX_RETRIGGER_ATTEMPTS,
       POLL_INTERVAL_SEC: 90,
       PR_SCANNER_INTERVAL_SEC: 300,
@@ -147,6 +149,15 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('applies default MAX_DIRECT_CHECK_PRS when missing', () => {
+    const { MAX_DIRECT_CHECK_PRS: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.MAX_DIRECT_CHECK_PRS).toBe(DEFAULT_MAX_DIRECT_CHECK_PRS);
+    }
+  });
+
   it('applies default MAX_RETRIGGER_ATTEMPTS when missing', () => {
     const { MAX_RETRIGGER_ATTEMPTS: _, ...rest } = BASE;
     const result = ConfigSchema.safeParse(rest);
@@ -180,6 +191,15 @@ describe('ConfigSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.REVIEW_DETECTION_LOOKBACK_SEC).toBe(customLookbackSec);
+    }
+  });
+
+  it('coerces numeric MAX_DIRECT_CHECK_PRS from a string', () => {
+    const customDirectCheckPRs = 250;
+    const result = ConfigSchema.safeParse({ ...BASE, MAX_DIRECT_CHECK_PRS: String(customDirectCheckPRs) });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.MAX_DIRECT_CHECK_PRS).toBe(customDirectCheckPRs);
     }
   });
 
@@ -287,6 +307,10 @@ describe('ConfigSchema', () => {
 
   it('rejects negative REVIEW_DETECTION_LOOKBACK_SEC', () => {
     expect(ConfigSchema.safeParse({ ...BASE, REVIEW_DETECTION_LOOKBACK_SEC: -1 }).success).toBe(false);
+  });
+
+  it('rejects negative MAX_DIRECT_CHECK_PRS', () => {
+    expect(ConfigSchema.safeParse({ ...BASE, MAX_DIRECT_CHECK_PRS: -1 }).success).toBe(false);
   });
 
   it('rejects negative MAX_RETRIGGER_ATTEMPTS', () => {

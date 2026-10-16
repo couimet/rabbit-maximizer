@@ -12,12 +12,11 @@ import {
 import type { ProbeFactory } from './probes/index.js';
 import type { DirectCheckPR, OnDetectedCallback, ReviewLimitCandidate } from './types/index.js';
 import { extractCoderabbitRunId } from './utils/index.js';
+import type { DirectCheckCap } from './DirectCheckCap.js';
 import { CodeRabbitCommentType, CommentDetectionMethod } from './domain.js';
 import { TYPES } from './server-domain.js';
 
 import { inject, injectable } from 'inversify';
-
-const MAX_DIRECT_CHECK_PRS = 125;
 
 @injectable()
 export class DirectCommentChecker {
@@ -37,24 +36,27 @@ export class DirectCommentChecker {
     private readonly probeFactory: ProbeFactory,
     @inject(TYPES.CoderabbitCommentClassifier)
     private readonly classifier: CoderabbitCommentClassifier,
+    @inject(TYPES.DirectCheckCap)
+    private readonly directCheckCap: DirectCheckCap,
   ) {}
   /* c8 ignore stop */
 
   /**
    * Check known PRs directly for rate-limit comments via the comments API, bypassing
    * GitHub search indexing delay. At ~21 open PRs and ~90s tick interval this adds
-   * ~840 API calls/hr, well under the 5000/hr authenticated rate limit. Revisit if
-   * the monitored PR count grows past ~125.
+   * ~840 API calls/hr, well under the 5000/hr authenticated rate limit, so the scan
+   * stops at the configured `MAX_DIRECT_CHECK_PRS` and reports how many PRs it hid.
    */
   async check(prs: readonly DirectCheckPR[]): Promise<ReviewLimitCandidate[]> {
     const probe = this.probeFactory.createDirectCommentCheckProbe();
     const candidates: ReviewLimitCandidate[] = [];
+    const cap = this.directCheckCap.max();
     let found = 0;
 
     let effectivePRs: typeof prs;
-    if (prs.length > MAX_DIRECT_CHECK_PRS) {
-      probe.truncated(prs.length, MAX_DIRECT_CHECK_PRS);
-      effectivePRs = prs.slice(0, MAX_DIRECT_CHECK_PRS);
+    if (prs.length > cap) {
+      probe.truncated(prs.length, cap, prs.length - cap);
+      effectivePRs = prs.slice(0, cap);
     } else {
       effectivePRs = prs;
     }

@@ -12,6 +12,7 @@ export const ConfigSchema = z
     DETECTION_MODE: z.enum(['poll', 'webhook']).default('poll'),
     GITHUB_API_TIMEOUT_SEC: z.coerce.number().int().positive('GITHUB_API_TIMEOUT_SEC must be a positive integer').default(10),
     GITHUB_PAT: z.string({ error: 'GITHUB_PAT is required' }).min(1, 'GITHUB_PAT is required'),
+    MAX_DIRECT_CHECK_PRS: z.coerce.number().int().positive('MAX_DIRECT_CHECK_PRS must be a positive integer').default(125),
     MAX_RETRIGGER_ATTEMPTS: z.coerce.number().int().positive('MAX_RETRIGGER_ATTEMPTS must be a positive integer').default(10),
     PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: z.coerce.number().int().positive('PAUSE_NOTIFICATION_INITIAL_DELAY_SEC must be a positive integer').default(1800),
     PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: z.coerce.number().int().positive('PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC must be a positive integer').default(900),
