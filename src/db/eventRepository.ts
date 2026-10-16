@@ -14,6 +14,7 @@ import type {
   EnqueuedPayload,
   EventLogEntry,
   EventMetadata,
+  ExcludedPayload,
   FailedPayload,
   PaginatedResult,
   RetriggeredPayload,
@@ -45,6 +46,7 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.coderabbit_run_id_changed; payload: CoderabbitRunIdChangedPayload })
   | (NewEventBase & { type: EventType.coderabbit_run_id_cleared; payload: CoderabbitRunIdClearedPayload })
   | (NewEventBase & { type: EventType.coderabbit_run_id_first_seen; payload: CoderabbitRunIdFirstSeenPayload })
+  | (NewEventBase & { type: EventType.excluded; payload: ExcludedPayload })
   | (NewEventBase & { type: EventType.failed; payload: FailedPayload });
 
 @injectable()
@@ -123,6 +125,7 @@ export class EventRepository {
       detected: 0,
       dismissed: 0,
       enqueued: 0,
+      excluded: 0,
       failed: 0,
       retriggered: 0,
     };

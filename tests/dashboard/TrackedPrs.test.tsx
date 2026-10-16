@@ -30,6 +30,7 @@ describe('TrackedPrs', () => {
         pr_number: prNumber,
         title,
         author_login: author,
+        matched_ignore_rule: null,
         last_review_state: 'review_approved',
         last_coderabbit_review_at: null,
       },
@@ -53,6 +54,7 @@ describe('TrackedPrs', () => {
         pr_number: getUniqueInt(),
         title: getUniqueString(),
         author_login: getUniqueString(),
+        matched_ignore_rule: null,
         last_review_state: null,
         last_coderabbit_review_at: null,
       },
@@ -62,6 +64,49 @@ describe('TrackedPrs', () => {
 
     expect(screen.getByText('Awaiting review')).toBeInTheDocument();
     expect(screen.queryByText('Reviewed')).not.toBeInTheDocument();
+  });
+
+  it('renders the ignored badge naming the matched author rule', () => {
+    const repo = getUniqueGitHubRepoRef().fullName;
+    const title = getUniqueString();
+    const pattern = getUniqueString();
+    const items = [
+      {
+        repo_full_name: repo,
+        pr_number: getUniqueInt(),
+        title,
+        author_login: getUniqueString(),
+        matched_ignore_rule: { field: 'author' as const, pattern },
+        last_review_state: 'review_approved',
+        last_coderabbit_review_at: null,
+      },
+    ];
+
+    render(<TrackedPrs items={items} headingLevel="h3" />);
+
+    expect(screen.getByText('Ignored')).toHaveAttribute('title', `Matched the author rule ${pattern}`);
+    expect(screen.queryByText('Reviewed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Awaiting review')).not.toBeInTheDocument();
+  });
+
+  it('renders the ignored badge naming the matched title rule', () => {
+    const repo = getUniqueGitHubRepoRef().fullName;
+    const pattern = getUniqueString();
+    const items = [
+      {
+        repo_full_name: repo,
+        pr_number: getUniqueInt(),
+        title: getUniqueString(),
+        author_login: getUniqueString(),
+        matched_ignore_rule: { field: 'title' as const, pattern },
+        last_review_state: null,
+        last_coderabbit_review_at: null,
+      },
+    ];
+
+    render(<TrackedPrs items={items} headingLevel="h3" />);
+
+    expect(screen.getByText('Ignored')).toHaveAttribute('title', `Matched the title rule ${pattern}`);
   });
 
   it('renders an h2 heading when headingLevel is h2', () => {

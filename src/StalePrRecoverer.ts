@@ -2,6 +2,7 @@ import type { PullRequestRepository } from './db/index.js';
 import { buildPrUrl } from './github/index.js';
 import { type OnDetectedCallback, type StaleOpenPR } from './types/index.js';
 import { CodeRabbitCommentType, CommentDetectionMethod } from './domain.js';
+import type { IgnoreRules } from './IgnoreRules.js';
 import { TYPES } from './server-domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -15,19 +16,24 @@ export class StalePrRecoverer {
     private readonly pullRequests: PullRequestRepository,
     @inject(TYPES.OnDetectedCallback)
     private readonly onDetected: OnDetectedCallback,
+    @inject(TYPES.IgnoreRules)
+    private readonly ignoreRules: IgnoreRules,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
 
   async recover(): Promise<StaleOpenPR[]> {
     const stalePRs = await this.pullRequests.findStaleOpenPRs();
-    if (stalePRs.length === 0) {
+    // A recovered PR never passes through the detection funnel with its own comment, so
+    // the exclusion has to drop it here or the synthetic comment re-queues it.
+    const recoverable = stalePRs.filter((pr) => this.ignoreRules.match({ authorLogin: pr.authorLogin, title: pr.title }) === undefined);
+    if (recoverable.length === 0) {
       return [];
     }
 
-    this.log.warn({ fn: 'StalePrRecoverer.recover', count: stalePRs.length }, 'Recovering stale open PRs with no review-limit comment');
+    this.log.warn({ fn: 'StalePrRecoverer.recover', count: recoverable.length }, 'Recovering stale open PRs with no review-limit comment');
     const now = new Date().toISOString();
-    for (const pr of stalePRs) {
+    for (const pr of recoverable) {
       const syntheticComment = {
         url: buildPrUrl(pr.repoFullName, pr.prNumber),
         repoFullName: pr.repoFullName,
@@ -49,6 +55,6 @@ export class StalePrRecoverer {
         );
       }
     }
-    return stalePRs;
+    return recoverable;
   }
 }

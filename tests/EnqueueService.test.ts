@@ -2,7 +2,7 @@ import { config } from '../src/config.js';
 import { CodeRabbitCommentType } from '../src/domain.js';
 import type { CoderabbitCommentClassifier } from '../src/github/index.js';
 import type { DetectedProbe, ProbeFactory } from '../src/probes/index.js';
-import { EnqueueService } from '../src/services.js';
+import { EnqueueService, IgnoreRules } from '../src/services.js';
 import { MS_PER_SECOND } from '../src/utils/index.js';
 
 import { createMockCoderabbitCommentRepo } from './helpers/createMockCoderabbitCommentRepo.js';
@@ -13,6 +13,7 @@ import {
   createMockPullRequestRepo,
   createMockQueueRepo,
   generateCoderabbitCommentHydrationData,
+  generateConfigData,
   generateDetectedCommentHydrationData,
 } from './helpers/index.js';
 
@@ -34,6 +35,7 @@ describe('EnqueueService', () => {
   let tx: Prisma.TransactionClient;
   let probe: ReturnType<typeof createMockDetectedProbe>;
   let classifier: CoderabbitCommentClassifier;
+  let ignoreRules: IgnoreRules;
 
   beforeEach(() => {
     classifier = createCoderabbitCommentClassifier();
@@ -53,9 +55,10 @@ describe('EnqueueService', () => {
     probes = createMockProbeFactory({ createDetectedProbe: jest.fn().mockReturnValue(probe as unknown as DetectedProbe) });
 
     coderabbitComments = createMockCoderabbitCommentRepo();
+    ignoreRules = new IgnoreRules(generateConfigData());
   });
 
-  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, coderabbitComments, classifier);
+  const createService = () => new EnqueueService(queue, pullRequests, prisma, probes, coderabbitComments, classifier, ignoreRules);
 
   describe('handle', () => {
     it('creates probe, enqueues, and completes probe in a transaction with pullRequestId', async () => {
@@ -324,6 +327,90 @@ describe('EnqueueService', () => {
         expect(probe.enqueued).not.toHaveBeenCalled();
         expect(probe.skipped).not.toHaveBeenCalled();
         expect(probe.verdictResolved).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('exclusion path', () => {
+      const IGNORE_AUTHOR = 'renovate';
+
+      const withAuthorRule = () => {
+        ignoreRules = new IgnoreRules(generateConfigData({ IGNORE_AUTHORS: [IGNORE_AUTHOR] }));
+      };
+
+      it('resolves the active item, records the excluded event, and never enqueues', async () => {
+        withAuthorRule();
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData();
+        const pullRequestId = getUniqueInt();
+        pullRequests.findIgnoreRuleTarget.mockResolvedValue({ authorLogin: `${IGNORE_AUTHOR}-bot`, title: getUniqueString() });
+        queue.markResolvedByPullRequestId.mockResolvedValue(1);
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.findIgnoreRuleTarget).toHaveBeenCalledWith(pullRequestId);
+        expect(pullRequests.recordReviewLimitDetection).toHaveBeenCalledWith(pullRequestId, frozenNow, tx);
+        expect(queue.markResolvedByPullRequestId).toHaveBeenCalledWith(pullRequestId, 'excluded', tx);
+        expect(probe.excluded).toHaveBeenCalledWith(tx, { field: 'author', pattern: IGNORE_AUTHOR });
+        expect(queue.enqueue).not.toHaveBeenCalled();
+        expect(probe.enqueued).not.toHaveBeenCalled();
+        expect(probe.skipped).not.toHaveBeenCalled();
+        expect(probe.refused).not.toHaveBeenCalled();
+        expect(probe.alreadyExcluded).not.toHaveBeenCalled();
+      });
+
+      it('logs an already-excluded match when the resolution changes no row', async () => {
+        withAuthorRule();
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData();
+        const pullRequestId = getUniqueInt();
+        pullRequests.findIgnoreRuleTarget.mockResolvedValue({ authorLogin: IGNORE_AUTHOR, title: getUniqueString() });
+        queue.markResolvedByPullRequestId.mockResolvedValue(0);
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(probe.alreadyExcluded).toHaveBeenCalledWith({ field: 'author', pattern: IGNORE_AUTHOR });
+        expect(probe.excluded).not.toHaveBeenCalled();
+        expect(queue.enqueue).not.toHaveBeenCalled();
+      });
+
+      it('reads the pull request row only when a rule is configured', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData();
+
+        await svc.handle(comment, getUniqueInt());
+
+        expect(pullRequests.findIgnoreRuleTarget).not.toHaveBeenCalled();
+        expect(probe.excluded).not.toHaveBeenCalled();
+      });
+
+      it('continues to enqueue when the pull request row is missing', async () => {
+        withAuthorRule();
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData();
+        const pullRequestId = getUniqueInt();
+        pullRequests.findIgnoreRuleTarget.mockResolvedValue(null);
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.findIgnoreRuleTarget).toHaveBeenCalledWith(pullRequestId);
+        expect(queue.markResolvedByPullRequestId).not.toHaveBeenCalled();
+        expect(queue.enqueue).toHaveBeenCalled();
+      });
+
+      it('excludes ahead of the refusal branch when a comment is both excluded and refused', async () => {
+        withAuthorRule();
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_REFUSAL_BODY });
+        const pullRequestId = getUniqueInt();
+        pullRequests.findIgnoreRuleTarget.mockResolvedValue({ authorLogin: IGNORE_AUTHOR, title: getUniqueString() });
+        queue.markResolvedByPullRequestId.mockResolvedValue(1);
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(queue.markResolvedByPullRequestId).toHaveBeenCalledWith(pullRequestId, 'excluded', tx);
+        expect(pullRequests.setPermanentRefusalAt).not.toHaveBeenCalled();
+        expect(probe.refused).not.toHaveBeenCalled();
+        expect(probe.excluded).toHaveBeenCalledWith(tx, { field: 'author', pattern: IGNORE_AUTHOR });
       });
     });
 

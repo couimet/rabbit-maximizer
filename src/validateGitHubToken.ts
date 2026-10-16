@@ -1,5 +1,6 @@
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
 import { splitRepo } from './github/index.js';
+import { CONFIG_KEYS } from './schemas/index.js';
 import type { RepoFilter } from './types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
@@ -48,7 +49,7 @@ const resolveAllRepos = async (octokit: Octokit, repoFilter: readonly RepoFilter
     throw new RabbitMaximizerError({
       code: RabbitMaximizerErrorCodes.TOKEN_VALIDATION_EMPTY_FILTER,
       functionName: 'resolveAllRepos',
-      message: 'REPO_FILTER resolved to zero repositories. Check that the filter matches at least one accessible repo.',
+      message: `${CONFIG_KEYS.REPO_FILTER} resolved to zero repositories. Check that the filter matches at least one accessible repo.`,
     });
   }
 

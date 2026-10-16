@@ -1,10 +1,11 @@
 import type { CoderabbitCommentRepository, PullRequestRepository, QueueRepository, UpsertCommentData } from './db/index.js';
 import { type CoderabbitCommentClassifier, parseWaitSeconds } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
-import { type OnDetectedCallback } from './types/index.js';
+import { type IgnoreRuleMatch, type OnDetectedCallback } from './types/index.js';
 import { extractCoderabbitRunId, isReviewVerdictState, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
 import { CodeRabbitCommentType, Resolution } from './domain.js';
+import type { IgnoreRules } from './IgnoreRules.js';
 import { TYPES } from './server-domain.js';
 
 import { type PrismaClient } from '@prisma/client';
@@ -26,11 +27,24 @@ export class EnqueueService {
     private readonly coderabbitComments: CoderabbitCommentRepository,
     @inject(TYPES.CoderabbitCommentClassifier)
     private readonly classifier: CoderabbitCommentClassifier,
+    @inject(TYPES.IgnoreRules)
+    private readonly ignoreRules: IgnoreRules,
   ) {}
   /* c8 ignore stop */
 
+  private async findIgnoreMatch(pullRequestId: number): Promise<IgnoreRuleMatch | undefined> {
+    if (!this.ignoreRules.hasRules()) {
+      return undefined;
+    }
+    const target = await this.pullRequests.findIgnoreRuleTarget(pullRequestId);
+    return target === null ? undefined : this.ignoreRules.match(target);
+  }
+
   readonly handle: OnDetectedCallback = async (comment, pullRequestId) => {
     const coderabbitRunId = extractCoderabbitRunId(comment.body);
+    // The rules match the current row, so a retitle or a removed rule ends the match
+    // with no second write.
+    const ignoreMatch = await this.findIgnoreMatch(pullRequestId);
 
     const probe = this.probes.createDetectedProbe({
       repo_full_name: comment.repoFullName,
@@ -71,6 +85,16 @@ export class EnqueueService {
     await this.prisma.$transaction(async (tx) => {
       await this.pullRequests.recordReviewLimitDetection(pullRequestId, new Date(), tx);
       await this.coderabbitComments.upsert(commentData, tx);
+
+      if (ignoreMatch !== undefined) {
+        const changed = await this.queue.markResolvedByPullRequestId(pullRequestId, Resolution.Excluded, tx);
+        if (changed > 0) {
+          await probe.excluded(tx, ignoreMatch);
+        } else {
+          probe.alreadyExcluded(ignoreMatch);
+        }
+        return;
+      }
 
       if (classification === CodeRabbitCommentType.review_refused) {
         await this.pullRequests.setPermanentRefusalAt(pullRequestId, tx);

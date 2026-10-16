@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 
 const FIND_STALE_OPEN_PRS_SQL =
-  "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.permanent_refusal_at IS NULL AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status = 'resolved' AND rq.resolved_at > datetime('now', '-5 minutes'))";
+  "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.permanent_refusal_at IS NULL AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status = 'resolved' AND rq.resolved_at > datetime('now', '-5 minutes'))";
 
 describe('PullRequestRepository', () => {
   let frozenNow: Date;
@@ -830,6 +830,32 @@ describe('PullRequestRepository', () => {
     });
   });
 
+  describe('findIgnoreRuleTarget', () => {
+    it('returns the author login and title of the pull request', async () => {
+      const id = getUniqueInt();
+      const authorLogin = getUniqueString();
+      const title = getUniqueString();
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock({ author_login: authorLogin, title }) },
+      });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      const result = await sut.findIgnoreRuleTarget(id);
+
+      expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id }, select: { author_login: true, title: true } });
+      expect(result).toStrictEqual({ authorLogin, title });
+    });
+
+    it('returns null when the pull request does not exist', async () => {
+      const { prisma } = createMockPrismaClient({ pullRequest: { findUnique: createResolvedMock(null) } });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      const result = await sut.findIgnoreRuleTarget(getUniqueInt());
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('findStaleOpenPRs', () => {
     it('returns stale open PRs with last_review_requested_at as Date objects', async () => {
       const lastReviewRequestedAt = getUniqueDate();
@@ -838,6 +864,7 @@ describe('PullRequestRepository', () => {
       const rows = [
         {
           id: getUniqueInt(),
+          author_login: getUniqueString(),
           repo_full_name: staleRef1.repoFullName,
           pr_number: staleRef1.prNumber,
           title: getUniqueString(),
@@ -845,6 +872,7 @@ describe('PullRequestRepository', () => {
         },
         {
           id: getUniqueInt(),
+          author_login: getUniqueString(),
           repo_full_name: staleRef2.repoFullName,
           pr_number: staleRef2.prNumber,
           title: getUniqueString(),
@@ -861,6 +889,7 @@ describe('PullRequestRepository', () => {
       expect(result).toStrictEqual(
         rows.map((row) => ({
           id: row.id,
+          authorLogin: row.author_login,
           repoFullName: row.repo_full_name,
           prNumber: row.pr_number,
           title: row.title,
@@ -884,6 +913,7 @@ describe('PullRequestRepository', () => {
       const staleRef = generateReviewRef();
       const eligibleRow = {
         id: getUniqueInt(),
+        author_login: getUniqueString(),
         repo_full_name: staleRef.repoFullName,
         pr_number: staleRef.prNumber,
         title: getUniqueString(),
@@ -901,6 +931,7 @@ describe('PullRequestRepository', () => {
       expect(eligibleResult).toStrictEqual([
         {
           id: eligibleRow.id,
+          authorLogin: eligibleRow.author_login,
           repoFullName: eligibleRow.repo_full_name,
           prNumber: eligibleRow.pr_number,
           title: eligibleRow.title,

@@ -12,6 +12,7 @@ import type {
   DismissedPayload,
   EnqueuedPayload,
   EventMetadata,
+  ExcludedPayload,
   FailedPayload,
   RetriggeredPayload,
 } from './index.js';
@@ -43,6 +44,10 @@ export type EventLogEntry =
   | (EventEnvelope & {
       readonly type: EventType.enqueued;
       readonly payload: EnqueuedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.excluded;
+      readonly payload: ExcludedPayload;
     })
   | (EventEnvelope & {
       readonly type: EventType.failed;

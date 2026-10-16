@@ -16,7 +16,7 @@ import { DASHBOARD_DIR, setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { initLogger } from './logger.js';
 import { TYPES } from './server-domain.js';
-import { type PollDetector, type RefusalSweeper, type ReviewDetector, ReviewTrigger, type Scheduler } from './services.js';
+import { type ExclusionSweeper, type PollDetector, type RefusalSweeper, type ReviewDetector, ReviewTrigger, type Scheduler } from './services.js';
 import { validateGitHubToken } from './validateGitHubToken.js';
 
 import 'reflect-metadata';
@@ -53,6 +53,9 @@ await ExecutionContext.run({ correlationId: 'rabbit-maximizer-init', requestId: 
 
   const refusalSweeper = container.get<RefusalSweeper>(TYPES.RefusalSweeper);
   await refusalSweeper.sweep();
+
+  const exclusionSweeper = container.get<ExclusionSweeper>(TYPES.ExclusionSweeper);
+  await exclusionSweeper.sweep();
 
   const detector = container.get<PollDetector>(TYPES.PollDetector);
   const { stop: stopDetector } = await detector.start();

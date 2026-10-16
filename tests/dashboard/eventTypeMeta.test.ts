@@ -18,6 +18,7 @@ describe('eventTypeMeta', () => {
     expect(EVENT_TYPE_META).toStrictEqual({
       detected: { label: 'Review-limit detected', family: 'life' },
       enqueued: { label: 'Enqueued', family: 'life' },
+      excluded: { label: 'Excluded by ignore rule', family: 'life' },
       retriggered: { label: 'Retrigger posted', family: 'life' },
       dismissed: { label: 'Dismissed', family: 'life' },
       failed: { label: 'Failed', family: 'fail' },

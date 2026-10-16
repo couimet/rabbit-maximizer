@@ -1,7 +1,15 @@
 import { CodeRabbitCommentType, PrState } from '../domain.js';
 import { BasePrismaRepository } from '../external-deps/couimet/prisma-repo/index.js';
 import { TYPES } from '../server-domain.js';
-import type { PendingAcknowledgement, PullRequestColumnTypes, PullRequestHeadSha, StaleOpenPR, TrackedPrRow, UpsertPullRequestData } from '../types/index.js';
+import type {
+  IgnoreRuleTarget,
+  PendingAcknowledgement,
+  PullRequestColumnTypes,
+  PullRequestHeadSha,
+  StaleOpenPR,
+  TrackedPrRow,
+  UpsertPullRequestData,
+} from '../types/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -23,7 +31,7 @@ const FIND_PENDING_ACKNOWLEDGEMENTS_SQL = `
 `;
 
 const FIND_STALE_OPEN_PRS_SQL = `
-  SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at
+  SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.last_review_requested_at
   FROM ${PULL_REQUEST_TABLE} pr
   WHERE pr.pr_state = 'open'
     AND pr.permanent_refusal_at IS NULL
@@ -244,17 +252,24 @@ export class PullRequestRepository extends BasePrismaRepository {
   async findStaleOpenPRs(): Promise<StaleOpenPR[]> {
     const db = this.client();
     const rows =
-      await db.$queryRawUnsafe<Array<{ id: number; repo_full_name: string; pr_number: number; title: string; last_review_requested_at: string }>>(
-        FIND_STALE_OPEN_PRS_SQL,
-      );
+      await db.$queryRawUnsafe<
+        Array<{ id: number; repo_full_name: string; pr_number: number; title: string; author_login: string; last_review_requested_at: string }>
+      >(FIND_STALE_OPEN_PRS_SQL);
     this.log.debug({ fn: 'PullRequestRepository.findStaleOpenPRs', count: rows.length }, 'Found stale open PRs');
     return rows.map((row) => ({
       id: row.id,
       repoFullName: row.repo_full_name,
       prNumber: row.pr_number,
       title: row.title,
+      authorLogin: row.author_login,
       lastReviewRequestedAt: new Date(row.last_review_requested_at),
     }));
+  }
+
+  async findIgnoreRuleTarget(id: number): Promise<IgnoreRuleTarget | null> {
+    const db = this.client();
+    const row = await db.pullRequest.findUnique({ where: { id }, select: { author_login: true, title: true } });
+    return row === null ? null : { authorLogin: row.author_login, title: row.title };
   }
 
   async findTrackedPRs(): Promise<TrackedPrRow[]> {

@@ -15,6 +15,7 @@ describe('EventType', () => {
       detected: 'detected',
       dismissed: 'dismissed',
       enqueued: 'enqueued',
+      excluded: 'excluded',
       failed: 'failed',
       retriggered: 'retriggered',
     });

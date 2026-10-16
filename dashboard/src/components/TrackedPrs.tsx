@@ -4,6 +4,18 @@ import { prUrl, repoUrl } from '../githubUrl.js';
 import './TrackedPrs.css';
 import { useState } from 'react';
 
+const statusBadge = (item: TrackedPrResponse) => {
+  const rule = item.matched_ignore_rule;
+  if (rule) {
+    return (
+      <span className="badge ignored" title={`Matched the ${rule.field} rule ${rule.pattern}`}>
+        Ignored
+      </span>
+    );
+  }
+  return item.last_review_state ? <span className="badge reviewed">Reviewed</span> : <span className="badge awaiting">Awaiting review</span>;
+};
+
 const TrackedPrs = ({ items, headingLevel }: { items: TrackedPrResponse[] | null; headingLevel: 'h2' | 'h3' }) => {
   const Heading = headingLevel;
   const [explanationOpen, setExplanationOpen] = useState(false);
@@ -52,7 +64,7 @@ const TrackedPrs = ({ items, headingLevel }: { items: TrackedPrResponse[] | null
                   </a>
                 </td>
                 <td>{item.author_login}</td>
-                <td>{item.last_review_state ? <span className="badge reviewed">Reviewed</span> : <span className="badge awaiting">Awaiting review</span>}</td>
+                <td>{statusBadge(item)}</td>
               </tr>
             ))}
           </tbody>

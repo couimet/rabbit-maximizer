@@ -10,6 +10,7 @@ export { extractCoderabbitRunId } from './extractCoderabbitRunId.js';
 export { formatDate } from './formatDate.js';
 export { formatRelativeFuture } from './formatRelativeFuture.js';
 export { formatRelativeTime } from './formatRelativeTime.js';
+export { isCompilableRegex } from './isCompilableRegex.js';
 export { isNonBlankString } from './isNonBlankString.js';
 export { isReviewVerdictState } from './isReviewVerdictState.js';
 export { isTerminalHttpStatus, TERMINAL_HTTP_STATUSES } from './isTerminalHttpStatus.js';
