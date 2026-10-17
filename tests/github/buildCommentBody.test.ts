@@ -1,12 +1,11 @@
 import pkg from '../../package.json' with { type: 'json' };
 import { CodeRabbitCommentType, MatchedMarker, TriggerSource } from '../../src/domain.js';
 import { buildCommentBody } from '../../src/github/index.js';
-import type { CommentDiagnosis, RetriggerDiagnosis } from '../../src/types/index.js';
+import type { CommentDiagnosis, RetriggerDiagnosis, RunIdentity } from '../../src/types/index.js';
 
 import { getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-const VERSION = pkg.version;
 const REPO_URL = pkg.repository.url;
 const MS_PER_HOUR = 3_600_000;
 const SOURCE_AGE_MS = 2 * MS_PER_HOUR;
@@ -14,9 +13,20 @@ const WAIT_SECONDS = 1800;
 
 describe('buildCommentBody', () => {
   let frozenDate: Date;
+  let version: string;
+  let gitSha: string;
+  let identity: RunIdentity;
 
   beforeEach(() => {
     frozenDate = getUniqueDate();
+    version = getUniqueString({ prefix: 'v-' });
+    gitSha = getUniqueString({ prefix: 'sha-' });
+    identity = {
+      version,
+      gitSha,
+      runKind: getUniqueString({ prefix: 'kind-' }),
+      imageTags: getUniqueString({ prefix: 'tags-' }),
+    };
     jest.useFakeTimers();
     jest.setSystemTime(frozenDate);
   });
@@ -28,7 +38,7 @@ describe('buildCommentBody', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
     const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, undefined);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, undefined, identity);
 
     const lines = body.split('\n');
     expect(lines[0]).toBe('@coderabbitai full review');
@@ -37,13 +47,14 @@ describe('buildCommentBody', () => {
     expect(lines[3]).toBe('');
     expect(lines[4]).toBe('---');
     expect(lines[5]).toBe('');
-    expect(lines[6]).toBe(`\u{1F916} [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`);
+    expect(lines[6]).toBe(`\u{1F916} [rabbit-maximizer](${REPO_URL}) v${version} (${gitSha}) — run=${runId}`);
     expect(lines[7]).toBe('');
 
     const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
     expect(jsonMatch).not.toBeNull();
     expect(JSON.parse(jsonMatch![1])).toStrictEqual({
-      version: VERSION,
+      version,
+      gitSha,
       runId,
       triggerSource: 'scheduler',
       sourceCommentUrl: triggerUrl,
@@ -58,7 +69,7 @@ describe('buildCommentBody', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
     const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.dashboard_retrigger_now, undefined);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.dashboard_retrigger_now, undefined, identity);
 
     const lines = body.split('\n');
     expect(lines[0]).toBe('@coderabbitai full review');
@@ -67,13 +78,14 @@ describe('buildCommentBody', () => {
     expect(lines[3]).toBe('');
     expect(lines[4]).toBe('---');
     expect(lines[5]).toBe('');
-    expect(lines[6]).toBe(`\u{1F916} [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`);
+    expect(lines[6]).toBe(`\u{1F916} [rabbit-maximizer](${REPO_URL}) v${version} (${gitSha}) — run=${runId}`);
     expect(lines[7]).toBe('');
 
     const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
     expect(jsonMatch).not.toBeNull();
     expect(JSON.parse(jsonMatch![1])).toStrictEqual({
-      version: VERSION,
+      version,
+      gitSha,
       runId,
       triggerSource: 'dashboard_retrigger_now',
       sourceCommentUrl: null,
@@ -84,7 +96,7 @@ describe('buildCommentBody', () => {
   it('uses fallback text and null metadata when source comment URL is undefined for scheduler', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
-    const body = buildCommentBody(undefined, runId, TriggerSource.scheduler, undefined);
+    const body = buildCommentBody(undefined, runId, TriggerSource.scheduler, undefined, identity);
 
     const lines = body.split('\n');
     expect(lines[2]).toBe('\u{21A9} Triggered by scheduler');
@@ -92,7 +104,8 @@ describe('buildCommentBody', () => {
     const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
     expect(jsonMatch).not.toBeNull();
     expect(JSON.parse(jsonMatch![1])).toStrictEqual({
-      version: VERSION,
+      version,
+      gitSha,
       runId,
       triggerSource: 'scheduler',
       sourceCommentUrl: null,
@@ -107,7 +120,7 @@ describe('buildCommentBody', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
     const triggerUrl = `https://github.com/${owner}/-->${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, undefined);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, undefined, identity);
 
     const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
     expect(jsonMatch).not.toBeNull();
@@ -122,7 +135,7 @@ describe('buildCommentBody', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
     const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${commentId}`;
-    const invoke = () => buildCommentBody(triggerUrl, runId, 'bogus' as TriggerSource, undefined);
+    const invoke = () => buildCommentBody(triggerUrl, runId, 'bogus' as TriggerSource, undefined, identity);
 
     expect(invoke).toThrowDetailedError('UNEXPECTED_SWITCH_VALUE', {
       message: 'Unexpected triggerSource: "bogus"',
@@ -154,7 +167,7 @@ describe('buildCommentBody', () => {
       decision: 'source',
     };
 
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis, identity);
 
     const lines = body.split('\n');
     expect(lines[0]).toBe('@coderabbitai full review');
@@ -164,13 +177,14 @@ describe('buildCommentBody', () => {
     expect(lines[4]).toBe('');
     expect(lines[5]).toBe('---');
     expect(lines[6]).toBe('');
-    expect(lines[7]).toBe(`\u{1F916} [rabbit-maximizer](${REPO_URL}) v${VERSION} — run=${runId}`);
+    expect(lines[7]).toBe(`\u{1F916} [rabbit-maximizer](${REPO_URL}) v${version} (${gitSha}) — run=${runId}`);
     expect(lines[8]).toBe('');
 
     const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
     expect(jsonMatch).not.toBeNull();
     expect(JSON.parse(jsonMatch![1])).toStrictEqual({
-      version: VERSION,
+      version,
+      gitSha,
       runId,
       triggerSource: 'scheduler',
       sourceCommentUrl: triggerUrl,
@@ -210,7 +224,7 @@ describe('buildCommentBody', () => {
       decision: 'source',
     };
 
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis, identity);
 
     expect(body.split('\n')[3]).toBe('\u{1F50D} Source: review_limited comment from 2h ago');
   });
@@ -237,7 +251,7 @@ describe('buildCommentBody', () => {
       decision: 'direct',
     };
 
-    const body = buildCommentBody(undefined, runId, TriggerSource.scheduler, diagnosis);
+    const body = buildCommentBody(undefined, runId, TriggerSource.scheduler, diagnosis, identity);
 
     const lines = body.split('\n');
     expect(lines[2]).toBe('\u{21A9} Triggered by scheduler');
@@ -246,7 +260,8 @@ describe('buildCommentBody', () => {
     const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
     expect(jsonMatch).not.toBeNull();
     expect(JSON.parse(jsonMatch![1])).toStrictEqual({
-      version: VERSION,
+      version,
+      gitSha,
       runId,
       triggerSource: 'scheduler',
       sourceCommentUrl: null,
@@ -295,7 +310,7 @@ describe('buildCommentBody', () => {
       decision: 'replacement',
     };
 
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis, identity);
 
     const lines = body.split('\n');
     expect(lines[3]).toBe('\u{1F50D} Source: replacement of review_limited comment from 2h ago, wait 1800s');
@@ -332,7 +347,7 @@ describe('buildCommentBody', () => {
       decision: 'replacement',
     };
 
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.scheduler, diagnosis, identity);
 
     const lines = body.split('\n');
     expect(lines[3]).toBe('\u{1F50D} Source: replacement of unknown comment (time unavailable), wait 1800s');
@@ -360,7 +375,7 @@ describe('buildCommentBody', () => {
       decision: 'source',
     };
 
-    const body = buildCommentBody(triggerUrl, runId, TriggerSource.dashboard_retrigger_now, diagnosis);
+    const body = buildCommentBody(triggerUrl, runId, TriggerSource.dashboard_retrigger_now, diagnosis, identity);
 
     const lines = body.split('\n');
     expect(lines[2]).toBe('\u{26A1} Triggered manually from dashboard');
@@ -375,12 +390,12 @@ describe('buildCommentBody', () => {
   it('omits diagnosis from JSON metadata when diagnosis is not provided (dashboard trigger)', () => {
     const runId = getUniqueString({ prefix: 'run-' });
 
-    const body = buildCommentBody(undefined, runId, TriggerSource.dashboard_retrigger_now, undefined);
+    const body = buildCommentBody(undefined, runId, TriggerSource.dashboard_retrigger_now, undefined, identity);
 
     const jsonMatch = body.match(/<!-- rabbit-maximizer\n([\s\S]*?)\n-->/);
     expect(jsonMatch).not.toBeNull();
     const parsed = JSON.parse(jsonMatch![1]);
     expect(parsed.diagnosis).toBeUndefined();
-    expect(Object.keys(parsed).sort()).toStrictEqual(['runId', 'sourceCommentUrl', 'timestamp', 'triggerSource', 'version']);
+    expect(Object.keys(parsed).sort()).toStrictEqual(['gitSha', 'runId', 'sourceCommentUrl', 'timestamp', 'triggerSource', 'version']);
   });
 });

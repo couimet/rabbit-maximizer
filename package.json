@@ -33,7 +33,7 @@
     "jest": "NODE_OPTIONS='--experimental-vm-modules' jest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "local": "DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" tsx watch --exclude 'logs' --exclude 'data' --exclude 'coverage' --exclude 'dist' src/main.ts",
+    "local": "GIT_SHA=\"$(git rev-parse --short HEAD)\" RUN_KIND=local DATABASE_URL=\"file:$(bash scripts/db/data-dir.sh)/rabbit-maximizer.db\" tsx watch --exclude 'logs' --exclude 'data' --exclude 'coverage' --exclude 'dist' src/main.ts",
     "prisma:snapshot": "prisma generate && bash scripts/prisma-snapshot.sh",
     "prisma:validate": "bash scripts/prisma-validate.sh",
     "start": "NODE_ENV=production node dist/src/main.js",

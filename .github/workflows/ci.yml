@@ -85,3 +85,19 @@ jobs:
       - run: cp .env.ci .env
       - uses: couimet/github-actions/install-deps@main
       - run: bash scripts/validate-migrations.sh
+
+  # amd64 only: the runner builds natively, so this needs no QEMU. The publish
+  # workflow still builds both platforms. The smoke run starts the built image
+  # against a throwaway volume, so a file missing from the runtime stage fails
+  # here instead of in the first release.
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: docker build -t rabbit-maximizer:ci .
+      - run: bash scripts/docker/smoke-test.sh
+        env:
+          IMAGE_REF: rabbit-maximizer:ci
+          ENV_FILE: .env.ci

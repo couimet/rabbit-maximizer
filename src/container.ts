@@ -19,17 +19,18 @@ import {
 } from './mappers/index.js';
 import { ProbeFactory } from './probes/index.js';
 import type { OnDetectedCallback } from './types/index.js';
-import { MS_PER_SECOND, QueueItemEnricher } from './utils/index.js';
+import { MS_PER_SECOND } from './utils/index.js';
 import { type Config, config } from './config.js';
 import { DirectCommentChecker } from './DirectCommentChecker.js';
-import { TYPES } from './domain.js';
 import { EditDetector } from './EditDetector.js';
+import { TYPES } from './server-domain.js';
 import {
   EnqueueService,
   PollDetector,
   PrScanner,
   PruneEvaluator,
   Pruner,
+  QueueItemEnricher,
   ReviewDetector,
   ReviewTrigger,
   RunIdGenerator,

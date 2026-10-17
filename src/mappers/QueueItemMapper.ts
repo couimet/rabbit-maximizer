@@ -1,6 +1,7 @@
-import { TYPES } from '../domain.js';
+import { TYPES } from '../server-domain.js';
+import { type QueueItemEnricher } from '../services.js';
 import type { EnrichedQueueItem, QueueItem, QueueItemResponse } from '../types/index.js';
-import { nullableDateToISOString, nullableString, type QueueItemEnricher } from '../utils/index.js';
+import { nullableDateToISOString, nullableString } from '../utils/index.js';
 
 import { inject, injectable } from 'inversify';
 
