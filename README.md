@@ -83,6 +83,8 @@ IMAGE_REF=rabbit-maximizer:local ENV_FILE=.env.ci bash scripts/docker/smoke-test
 
 The published image holds the server and the dashboard. The repository ships `compose.yml`, and the same container starts with one `docker run` command when you prefer no Compose. Both forms publish port 3000, where the dashboard answers. Open `http://<host>:3000`, with the machine name or its IP address in place of `<host>`.
 
+The dashboard API has no authentication. Keep the host on a trusted network, or add an authenticated proxy for access from outside it.
+
 #### With Docker Compose
 
 Copy `compose.yml` from a clone of the repository to a directory on the host, create the configuration file beside it, and start the container:
@@ -159,13 +161,13 @@ Restore the volume with the reverse command. Replace `<file>` with the backup na
 # With Docker Compose
 docker compose stop rabbit-maximizer \
   && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
-       sh -c 'rm -rf /data/.restore /data/.previous && mkdir -p /data/.restore && tar xzf "/backup/<file>.tar.gz" -C /data/.restore && test -f /data/.restore/rabbit-maximizer.db && mkdir -p /data/.previous && find /data -mindepth 1 -maxdepth 1 ! -name .restore ! -name .previous -exec mv {} /data/.previous/ \; && find /data/.restore -mindepth 1 -maxdepth 1 -exec mv {} /data/ \; && rm -rf /data/.previous /data/.restore' \
+       sh -c 'rm -rf /data/.restore /data/.previous && mkdir -p /data/.restore && tar xzf "/backup/<file>.tar.gz" -C /data/.restore && test -f /data/.restore/rabbit-maximizer.db && mkdir -p /data/.previous && for f in /data/*; do mv "$f" /data/.previous/ || exit 1; done && for f in /data/.restore/*; do mv "$f" /data/ || exit 1; done && rm -rf /data/.previous /data/.restore' \
   && docker compose start rabbit-maximizer
 
 # Without Compose
 docker stop rabbit-maximizer \
   && docker run --rm -v rabbit-maximizer-data:/data -v "$PWD:/backup" alpine:3.24 \
-       sh -c 'rm -rf /data/.restore /data/.previous && mkdir -p /data/.restore && tar xzf "/backup/<file>.tar.gz" -C /data/.restore && test -f /data/.restore/rabbit-maximizer.db && mkdir -p /data/.previous && find /data -mindepth 1 -maxdepth 1 ! -name .restore ! -name .previous -exec mv {} /data/.previous/ \; && find /data/.restore -mindepth 1 -maxdepth 1 -exec mv {} /data/ \; && rm -rf /data/.previous /data/.restore' \
+       sh -c 'rm -rf /data/.restore /data/.previous && mkdir -p /data/.restore && tar xzf "/backup/<file>.tar.gz" -C /data/.restore && test -f /data/.restore/rabbit-maximizer.db && mkdir -p /data/.previous && for f in /data/*; do mv "$f" /data/.previous/ || exit 1; done && for f in /data/.restore/*; do mv "$f" /data/ || exit 1; done && rm -rf /data/.previous /data/.restore' \
   && docker start rabbit-maximizer
 ```
 
