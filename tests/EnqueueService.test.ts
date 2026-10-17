@@ -22,8 +22,13 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type Prisma, type PrismaClient } from '@prisma/client';
 
 const FOR_TEST_SKIP_BODY = 'skip review by coderabbit.ai';
+const APPROVAL_BODY = 'No actionable comments were generated in the recent review.';
+const RATE_LIMIT_BODY = 'rate limited by coderabbit.ai';
+const CHANGES_SUGGESTED_BODY = 'Actionable comments posted:';
+const BODY_START_OFFSET = 0;
+const REFUSAL_PREFIX = 'CodeRabbit cannot review this PR ';
 const REFUSAL_PHRASE = config.CODERABBIT_REFUSAL_PHRASES[0];
-const FOR_TEST_REFUSAL_BODY = `CodeRabbit cannot review this PR ${REFUSAL_PHRASE}.`;
+const FOR_TEST_REFUSAL_BODY = `${REFUSAL_PREFIX}${REFUSAL_PHRASE}.`;
 
 describe('EnqueueService', () => {
   let frozenNow: Date;
@@ -99,9 +104,7 @@ describe('EnqueueService', () => {
 
     it('persists the comment via coderabbitComments.upsert after classification', async () => {
       const svc = createService();
-      const comment = generateDetectedCommentHydrationData({
-        body: 'No actionable comments were generated in the recent review.',
-      });
+      const comment = generateDetectedCommentHydrationData({ body: APPROVAL_BODY });
       const pullRequestId = getUniqueInt();
 
       await svc.handle(comment, pullRequestId);
@@ -113,6 +116,8 @@ describe('EnqueueService', () => {
           url: comment.url,
           comment_type: 'review_approved',
           body: comment.body,
+          matched_phrase: APPROVAL_BODY,
+          matched_offset: BODY_START_OFFSET,
           gh_created_at: new Date(comment.createdAt),
           gh_updated_at: new Date(comment.updatedAt),
           coderabbit_run_id: null,
@@ -123,7 +128,7 @@ describe('EnqueueService', () => {
 
     it('dismisses the comment but still upserts it when the existing review is newer', async () => {
       const svc = createService();
-      const comment = generateDetectedCommentHydrationData({ body: 'rate limited by coderabbit.ai' });
+      const comment = generateDetectedCommentHydrationData({ body: RATE_LIMIT_BODY });
       const reviewComment = generateCoderabbitCommentHydrationData({
         comment_id: getUniqueInt(),
         url: getUniqueString({ prefix: 'https://gh/' }),
@@ -144,6 +149,8 @@ describe('EnqueueService', () => {
           url: comment.url,
           comment_type: 'review_limited',
           body: comment.body,
+          matched_phrase: RATE_LIMIT_BODY,
+          matched_offset: BODY_START_OFFSET,
           gh_created_at: new Date(comment.createdAt),
           gh_updated_at: new Date(comment.updatedAt),
           coderabbit_run_id: null,
@@ -184,7 +191,7 @@ describe('EnqueueService', () => {
         tx,
       );
       expect(probe.alreadyReviewed).not.toHaveBeenCalled();
-      expect(probe.skipped).toHaveBeenCalledWith(tx);
+      expect(probe.skipped).toHaveBeenCalledWith(tx, FOR_TEST_SKIP_BODY, BODY_START_OFFSET);
     });
 
     it('proceeds with enqueue when findCompletedReview returns no existing review', async () => {
@@ -257,6 +264,8 @@ describe('EnqueueService', () => {
             url: comment.url,
             comment_type: 'review_skipped',
             body: comment.body,
+            matched_phrase: FOR_TEST_SKIP_BODY,
+            matched_offset: BODY_START_OFFSET,
             gh_created_at: new Date(comment.createdAt),
             gh_updated_at: new Date(comment.updatedAt),
             coderabbit_run_id: coderabbitRunId,
@@ -279,7 +288,7 @@ describe('EnqueueService', () => {
           tx,
         );
         expect(probe.enqueued).toHaveBeenCalledWith(tx);
-        expect(probe.skipped).toHaveBeenCalledWith(tx);
+        expect(probe.skipped).toHaveBeenCalledWith(tx, FOR_TEST_SKIP_BODY, BODY_START_OFFSET);
       });
 
       it('drives alreadyQueued and still records the skipped encounter when enqueue returns created: false', async () => {
@@ -293,7 +302,7 @@ describe('EnqueueService', () => {
         expect(queue.enqueue).toHaveBeenCalled();
         expect(probe.enqueued).not.toHaveBeenCalled();
         expect(probe.alreadyQueued).toHaveBeenCalled();
-        expect(probe.skipped).toHaveBeenCalledWith(tx);
+        expect(probe.skipped).toHaveBeenCalledWith(tx, FOR_TEST_SKIP_BODY, BODY_START_OFFSET);
       });
     });
 
@@ -314,6 +323,8 @@ describe('EnqueueService', () => {
             url: comment.url,
             comment_type: 'review_refused',
             body: comment.body,
+            matched_phrase: REFUSAL_PHRASE,
+            matched_offset: REFUSAL_PREFIX.length,
             gh_created_at: new Date(comment.createdAt),
             gh_updated_at: new Date(comment.updatedAt),
             coderabbit_run_id: null,
@@ -322,7 +333,7 @@ describe('EnqueueService', () => {
         );
         expect(pullRequests.setPermanentRefusalAt).toHaveBeenCalledWith(pullRequestId, tx);
         expect(queue.markResolvedByPullRequestId).toHaveBeenCalledWith(pullRequestId, 'permanently_refused', tx);
-        expect(probe.refused).toHaveBeenCalledWith(tx, REFUSAL_PHRASE);
+        expect(probe.refused).toHaveBeenCalledWith(tx, REFUSAL_PHRASE, REFUSAL_PREFIX.length);
         expect(queue.enqueue).not.toHaveBeenCalled();
         expect(probe.enqueued).not.toHaveBeenCalled();
         expect(probe.skipped).not.toHaveBeenCalled();
@@ -417,37 +428,31 @@ describe('EnqueueService', () => {
     describe('verdict path', () => {
       it('does not enqueue review_approved comments and records the review', async () => {
         const svc = createService();
-        const comment = generateDetectedCommentHydrationData({
-          body: 'No actionable comments were generated in the recent review.',
-        });
+        const comment = generateDetectedCommentHydrationData({ body: APPROVAL_BODY });
         const pullRequestId = getUniqueInt();
 
         await svc.handle(comment, pullRequestId);
 
         expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_approved', undefined, tx);
-        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_approved');
+        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_approved', APPROVAL_BODY, BODY_START_OFFSET);
         expect(queue.enqueue).not.toHaveBeenCalled();
       });
 
       it('does not enqueue review_changes_suggested comments and records the review', async () => {
         const svc = createService();
-        const comment = generateDetectedCommentHydrationData({
-          body: 'Actionable comments posted:',
-        });
+        const comment = generateDetectedCommentHydrationData({ body: CHANGES_SUGGESTED_BODY });
         const pullRequestId = getUniqueInt();
 
         await svc.handle(comment, pullRequestId);
 
         expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_changes_suggested', undefined, tx);
-        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_changes_suggested');
+        expect(probe.verdictResolved).toHaveBeenCalledWith(tx, 'review_changes_suggested', CHANGES_SUGGESTED_BODY, BODY_START_OFFSET);
         expect(queue.enqueue).not.toHaveBeenCalled();
       });
 
       it('still enqueues review_limited (non-verdict) comments', async () => {
         const svc = createService();
-        const comment = generateDetectedCommentHydrationData({
-          body: 'rate limited by coderabbit.ai',
-        });
+        const comment = generateDetectedCommentHydrationData({ body: RATE_LIMIT_BODY });
         const pullRequestId = getUniqueInt();
 
         await svc.handle(comment, pullRequestId);

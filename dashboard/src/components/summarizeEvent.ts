@@ -1,4 +1,5 @@
 import { CommentDetectionMethod, DismissalReason, EventType } from '../../../src/domain.js';
+import { shortGitSha } from '../../../src/utils/index.js';
 
 /**
  * Plain-language reading of an event's payload, shown under the vocabulary
@@ -89,8 +90,11 @@ const reviewVerdictReading = (payload: EventPayload): ReadingToken[] => {
   return joinTokens([commentTokenFromUrl(payload.coderabbit_comment_url, commentLabel), runId !== undefined ? text(runLabel(runId)) : undefined]);
 };
 
+/** The configured phrase that decided the classification, with the legacy skip reason as the fallback. */
+const matchedPhrase = (payload: EventPayload): string | undefined => readString(payload, 'matched_phrase') ?? readString(payload, 'skip_reason');
+
 const refusedReading = (payload: EventPayload): ReadingToken[] => {
-  const phrase = readString(payload, 'matched_phrase');
+  const phrase = matchedPhrase(payload);
   return joinTokens([phrase !== undefined ? text(phrase) : undefined, commentTokenFromUrl(payload.comment_url, sourceCommentLabel)]);
 };
 
@@ -123,6 +127,16 @@ const dismissedReading = (payload: EventPayload): ReadingToken[] => {
   return phrase !== '' ? [text(phrase)] : [];
 };
 
+const headDriftReading = (payload: EventPayload): ReadingToken[] => {
+  const headSha = readString(payload, 'head_sha');
+  const reviewedHeadSha = readString(payload, 'reviewed_head_sha');
+  if (headSha === undefined) return [];
+  return joinTokens([
+    text(`head ${shortGitSha(headSha)} has no review`),
+    reviewedHeadSha !== undefined ? text(`last review covered ${shortGitSha(reviewedHeadSha)}`) : undefined,
+  ]);
+};
+
 const failedReading = (payload: EventPayload): ReadingToken[] => {
   const reason = readString(payload, 'reason');
   if (reason !== undefined) return [text(reason)];
@@ -149,8 +163,8 @@ export const summarizeEvent = (type: EventType | string, payload: EventPayload):
   if (type === EventType.coderabbit_review_changes_suggested) return reviewVerdictReading(payload);
   if (type === EventType.coderabbit_review_refused) return refusedReading(payload);
   if (type === EventType.coderabbit_review_skipped) {
-    const skipReason = readString(payload, 'skip_reason');
-    if (skipReason !== undefined) return [text(skipReason)];
+    const phrase = matchedPhrase(payload);
+    if (phrase !== undefined) return [text(phrase)];
     const comment = commentTokenFromUrl(payload.comment_url, commentLabel);
     return comment !== undefined ? [comment] : [];
   }
@@ -160,5 +174,6 @@ export const summarizeEvent = (type: EventType | string, payload: EventPayload):
   if (type === EventType.dismissed) return dismissedReading(payload);
   if (type === EventType.excluded) return excludedReading(payload);
   if (type === EventType.failed) return failedReading(payload);
+  if (type === EventType.head_drift_recovered) return headDriftReading(payload);
   return [];
 };

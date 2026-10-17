@@ -8,6 +8,7 @@ import {
   createMockCoderabbitCommentRepo,
   createMockCoderabbitGitHubClient,
   createMockDirectCommentChecker,
+  createMockHeadDriftRecoverer,
   createMockOnDetectedCallback,
   createMockPrScanner,
   createMockPullRequestRepo,
@@ -33,6 +34,7 @@ const TICK_DEPTH = 20;
 interface MockDetectorDeps {
   directCommentChecker: jest.Mocked<DirectCommentChecker>;
   github: jest.Mocked<CoderabbitGitHubClient>;
+  headDriftRecoverer: ReturnType<typeof createMockHeadDriftRecoverer>;
   onDetected: jest.Mocked<OnDetectedCallback>;
   prScanner: ReturnType<typeof createMockPrScanner>;
   pullRequests: ReturnType<typeof createMockPullRequestRepo>;
@@ -45,6 +47,7 @@ interface MockDetectorDeps {
 const setup = (): MockDetectorDeps => {
   const directCommentChecker = createMockDirectCommentChecker();
   const github = createMockCoderabbitGitHubClient();
+  const headDriftRecoverer = createMockHeadDriftRecoverer();
 
   const onDetected = createMockOnDetectedCallback();
   const prScanner = createMockPrScanner();
@@ -54,7 +57,18 @@ const setup = (): MockDetectorDeps => {
   const coderabbitComments = createMockCoderabbitCommentRepo();
   const logger = createMockLogger();
 
-  return { directCommentChecker, github, onDetected, prScanner, pullRequests, stalePrRecoverer, systemStateRepo, coderabbitComments, logger };
+  return {
+    directCommentChecker,
+    github,
+    headDriftRecoverer,
+    onDetected,
+    prScanner,
+    pullRequests,
+    stalePrRecoverer,
+    systemStateRepo,
+    coderabbitComments,
+    logger,
+  };
 };
 
 describe('PollDetector', () => {
@@ -77,6 +91,7 @@ describe('PollDetector', () => {
       deps.github,
       deps.prScanner,
       deps.stalePrRecoverer,
+      deps.headDriftRecoverer,
       deps.directCommentChecker,
       deps.onDetected,
       deps.pullRequests,

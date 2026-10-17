@@ -1,5 +1,4 @@
 import {
-  BODY_PREVIEW_MAX_LENGTH,
   CODERABBIT_RUN_ID_MAX_LENGTH,
   COMMENT_URL_MAX_LENGTH,
   CORRELATION_ID_MAX_LENGTH,
@@ -98,10 +97,6 @@ describe('lengths', () => {
 
     it('REPO_FULL_NAME_MAX_LENGTH is 140', () => {
       expect(REPO_FULL_NAME_MAX_LENGTH).toBe(140);
-    });
-
-    it('BODY_PREVIEW_MAX_LENGTH is 1024', () => {
-      expect(BODY_PREVIEW_MAX_LENGTH).toBe(1024);
     });
   });
 

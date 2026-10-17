@@ -56,13 +56,15 @@ export class EnqueueService {
     });
     await probe.detected();
 
-    const { classification, matchedPhrase } = this.classifier.classify(comment.body);
+    const { classification, matchedPhrase, matchedOffset } = this.classifier.classify(comment.body);
     const commentData: UpsertCommentData = {
       comment_id: comment.commentId,
       pull_request_id: pullRequestId,
       url: comment.url,
       comment_type: classification,
       body: comment.body,
+      matched_phrase: matchedPhrase,
+      matched_offset: matchedOffset,
       gh_created_at: new Date(comment.createdAt),
       gh_updated_at: new Date(comment.updatedAt),
       coderabbit_run_id: coderabbitRunId ?? null,
@@ -99,7 +101,7 @@ export class EnqueueService {
       if (classification === CodeRabbitCommentType.review_refused) {
         await this.pullRequests.setPermanentRefusalAt(pullRequestId, tx);
         await this.queue.markResolvedByPullRequestId(pullRequestId, Resolution.PermanentlyRefused, tx);
-        await probe.refused(tx, matchedPhrase);
+        await probe.refused(tx, matchedPhrase, matchedOffset);
         return;
       }
 
@@ -124,13 +126,13 @@ export class EnqueueService {
         } else {
           probe.alreadyQueued();
         }
-        await probe.skipped(tx);
+        await probe.skipped(tx, matchedPhrase, matchedOffset);
         return;
       }
 
       if (isReviewVerdictState(classification)) {
         await this.pullRequests.recordReview(pullRequestId, comment.url, classification, undefined, tx);
-        await probe.verdictResolved(tx, classification);
+        await probe.verdictResolved(tx, classification, matchedPhrase, matchedOffset);
         return;
       }
 

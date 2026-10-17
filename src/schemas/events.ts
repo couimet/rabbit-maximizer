@@ -10,6 +10,9 @@ import { z } from 'zod';
 
 const COMMENT_URL_SCHEMA = z.string().max(COMMENT_URL_MAX_LENGTH);
 
+/** A phrase offset is a zero-based index into the comment body, so a negative value is invalid. */
+const MATCHED_OFFSET_SCHEMA = z.number().int().nonnegative();
+
 export const DetectedPayloadSchema = z.object({
   source_ts: z.coerce.date().optional(),
   source_comment_url: COMMENT_URL_SCHEMA.optional(),
@@ -34,6 +37,8 @@ export const CoderabbitReviewApprovedPayloadSchema = z.object({
   verdict_state: z.enum([CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested]).optional(),
   detected_via: z.enum(ReviewDetectionMethod).optional(),
   coderabbit_run_id: z.string().max(CODERABBIT_RUN_ID_MAX_LENGTH).optional(),
+  matched_phrase: z.string().optional(),
+  matched_offset: MATCHED_OFFSET_SCHEMA.optional(),
 });
 
 export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
@@ -42,19 +47,24 @@ export const CoderabbitReviewChangesSuggestedPayloadSchema = z.object({
   verdict_state: z.enum([CodeRabbitCommentType.review_approved, CodeRabbitCommentType.review_changes_suggested]).optional(),
   detected_via: z.enum(ReviewDetectionMethod).optional(),
   coderabbit_run_id: z.string().max(CODERABBIT_RUN_ID_MAX_LENGTH).optional(),
+  matched_phrase: z.string().optional(),
+  matched_offset: MATCHED_OFFSET_SCHEMA.optional(),
 });
 
 export const CoderabbitReviewRefusedPayloadSchema = z.object({
   source_ts: z.coerce.date(),
   comment_url: COMMENT_URL_SCHEMA,
   matched_phrase: z.string(),
+  matched_offset: MATCHED_OFFSET_SCHEMA.optional(),
   coderabbit_run_id: z.string().max(CODERABBIT_RUN_ID_MAX_LENGTH).optional(),
 });
 
 export const CoderabbitReviewSkippedPayloadSchema = z.object({
   source_ts: z.coerce.date(),
   comment_url: COMMENT_URL_SCHEMA,
-  skip_reason: z.string(),
+  matched_phrase: z.string().optional(),
+  matched_offset: MATCHED_OFFSET_SCHEMA.optional(),
+  skip_reason: z.string().optional(),
   coderabbit_run_id: z.string().max(CODERABBIT_RUN_ID_MAX_LENGTH).optional(),
 });
 
@@ -89,6 +99,11 @@ export const FailedPayloadSchema = z.object({
   reason: z.string().max(REASON_MAX_LENGTH),
   retrigger_count: z.number().int().positive().optional(),
   max: z.number().int().positive().optional(),
+});
+
+export const HeadDriftRecoveredPayloadSchema = z.object({
+  head_sha: z.string(),
+  reviewed_head_sha: z.string().optional(),
 });
 
 export const EventMetadataSchema = z.object({
@@ -193,6 +208,12 @@ export const parseEventRow = (row: PrismaEvent): EventLogEntry => {
         ...envelope,
         type: EventType.failed,
         payload: FailedPayloadSchema.parse(payload),
+      };
+    case EventType.head_drift_recovered:
+      return {
+        ...envelope,
+        type: EventType.head_drift_recovered,
+        payload: HeadDriftRecoveredPayloadSchema.parse(payload),
       };
     default:
       throw RabbitMaximizerError.forUnexpectedSwitchDefault('event type', row.type, 'parseEventRow');

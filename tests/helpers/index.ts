@@ -1,6 +1,7 @@
 export { apiJson } from './apiJson.js';
 export { createCoderabbitCommentClassifier } from './CoderabbitClassifierTestSupport.js';
 export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
+export { createCoderabbitMarkers } from './CoderabbitMarkersTestSupport.js';
 export { generateConfigData } from './ConfigTestSupport.js';
 export { createMockActivityListMapper } from './createMockActivityListMapper.js';
 export { createMockCoderabbitCommentRepo } from './createMockCoderabbitCommentRepo.js';
@@ -9,6 +10,7 @@ export { createMockDirectCommentChecker } from './createMockDirectCommentChecker
 export { createMockEditDetector } from './createMockEditDetector.js';
 export { createMockEventRepo } from './createMockEventRepo.js';
 export { createMockFetch } from './createMockFetch.js';
+export { createMockHeadDriftRecoverer } from './createMockHeadDriftRecoverer.js';
 export type {
   MockIssuesRest,
   MockOctokitOptions,
@@ -38,6 +40,7 @@ export type {
   MockDirectCommentCheckProbe,
   MockEnqueueProbe,
   MockExclusionSweeperProbe,
+  MockHeadDriftProbe,
   MockMarkQueueItemReviewedProbe,
   MockPrScannerProbe,
   MockPrunerProbe,
@@ -51,6 +54,7 @@ export {
   createMockDirectCommentCheckProbe,
   createMockEnqueueProbe,
   createMockExclusionSweeperProbe,
+  createMockHeadDriftProbe,
   createMockMarkQueueItemReviewedProbe,
   createMockPrScannerProbe,
   createMockPrunerProbe,

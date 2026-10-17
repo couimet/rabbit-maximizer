@@ -5,6 +5,7 @@ import {
   createMockDirectCommentCheckProbe,
   createMockEnqueueProbe,
   createMockExclusionSweeperProbe,
+  createMockHeadDriftProbe,
   createMockMarkQueueItemReviewedProbe,
   createMockPrScannerProbe,
   createMockPrunerProbe,
@@ -29,5 +30,6 @@ export const createMockProbeFactory = (overrides?: Partial<Record<keyof ProbeFac
     createRefusalSweeperProbe: jest.fn(() => createMockRefusalSweeperProbe()),
     createReviewDetectorProbe: jest.fn(() => createMockReviewDetectorProbe()),
     createReviewRetriggerProbe: jest.fn(() => createMockReviewRetriggerProbe()),
+    createHeadDriftProbe: jest.fn(() => createMockHeadDriftProbe()),
     ...overrides,
   }) as unknown as jest.Mocked<ProbeFactory>;

@@ -10,13 +10,13 @@ import {
   buildOpenPRSearchQuery,
   buildSearchQuery,
   type CoderabbitCommentClassifier,
+  type CoderabbitMarkers,
   extractRepoFullName,
-  hasOwnRetriggerMarker,
-  hasRateLimitMarker,
   hasRateLimitOrSkipMarker,
   isAcknowledgementComment,
   isApprovalReviewSignal,
   isMatchingCompletedReview,
+  isRateLimitComment,
   isReviewForRun,
   normalizeCommentBody,
   parseCommentUrl,
@@ -43,6 +43,7 @@ export class CoderabbitGitHubClient {
   constructor(
     @inject(TYPES.Octokit) private readonly octokit: Octokit,
     @inject(TYPES.CoderabbitCommentClassifier) private readonly classifier: CoderabbitCommentClassifier,
+    @inject(TYPES.CoderabbitMarkers) private readonly markers: CoderabbitMarkers,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
@@ -79,7 +80,7 @@ export class CoderabbitGitHubClient {
           per_page: COMMENTS_FETCH_PER_PAGE,
         });
 
-        const rateLimitComment = comments.data.find((c) => hasRateLimitOrSkipMarker(c.body));
+        const rateLimitComment = comments.data.find((c) => hasRateLimitOrSkipMarker(c.body, this.markers.rateLimitOrSkip));
 
         if (rateLimitComment && rateLimitComment.body) {
           results.push({
@@ -284,12 +285,12 @@ export class CoderabbitGitHubClient {
 
       for (const r of response.data) {
         const review = SubmittedReview.from(r);
-        if (!isMatchingCompletedReview(review, since) || !isReviewForRun(review, expectedRunId, expectedHeadSha)) continue;
+        if (!isMatchingCompletedReview(review, since, this.markers.completion) || !isReviewForRun(review, expectedRunId, expectedHeadSha)) continue;
         latest = {
           htmlUrl: r.html_url,
           reviewId: r.id,
           // Body is a string here: isMatchingCompletedReview rejects bodyless reviews first.
-          isApproval: isApprovalReviewSignal(r.body!),
+          isApproval: isApprovalReviewSignal(r.body!, this.markers.approval),
           commitId: r.commit_id ?? undefined,
         };
       }
@@ -315,7 +316,7 @@ export class CoderabbitGitHubClient {
       per_page: COMMENTS_FETCH_PER_PAGE,
     });
 
-    const rateLimitComment = response.data.find((c) => c.body && hasRateLimitMarker(c.body) && !hasOwnRetriggerMarker(c.body));
+    const rateLimitComment = response.data.find((c) => isRateLimitComment(c.body, this.markers.rateLimit));
 
     if (rateLimitComment) {
       this.log.debug(
@@ -350,7 +351,7 @@ export class CoderabbitGitHubClient {
         page,
       });
 
-      const ackComment = response.data.find((c) => isAcknowledgementComment(SubmittedComment.from(c)));
+      const ackComment = response.data.find((c) => isAcknowledgementComment(SubmittedComment.from(c), this.markers.acknowledgement));
 
       if (ackComment) {
         this.log.debug(

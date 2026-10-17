@@ -10,6 +10,12 @@ import { Prisma } from '@prisma/client';
 const FIND_STALE_OPEN_PRS_SQL =
   "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.permanent_refusal_at IS NULL AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status = 'resolved' AND rq.resolved_at > datetime('now', '-5 minutes'))";
 
+const FIND_UNREVIEWED_HEAD_PRS_SQL =
+  "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.head_sha, pr.reviewed_head_sha, pr.head_committed_at FROM pull_request pr LEFT JOIN pull_request_sha ps ON ps.pull_request_id = pr.id AND ps.sha = pr.head_sha WHERE pr.pr_state = 'open' AND pr.permanent_refusal_at IS NULL AND pr.last_review_requested_at IS NOT NULL AND pr.head_sha IS NOT NULL AND pr.head_committed_at IS NOT NULL AND (pr.reviewed_head_sha IS NULL OR pr.reviewed_head_sha <> pr.head_sha) AND max(pr.head_committed_at, COALESCE(ps.first_observed_at, pr.head_committed_at)) > pr.last_review_requested_at AND max(pr.head_committed_at, COALESCE(ps.first_observed_at, pr.head_committed_at)) < ? AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) ORDER BY pr.head_committed_at ASC";
+
+const GRACE_BOUND = new Date('2026-10-17T12:00:00.000Z');
+const GRACE_BOUND_SQL = '2026-10-17T12:00:00.000+00:00';
+
 describe('PullRequestRepository', () => {
   let frozenNow: Date;
   let logger: ReturnType<typeof createMockLogger>;
@@ -938,6 +944,66 @@ describe('PullRequestRepository', () => {
           lastReviewRequestedAt: new Date(eligibleRow.last_review_requested_at),
         },
       ]);
+    });
+  });
+
+  describe('findUnreviewedHeadPRs', () => {
+    it('returns candidate PRs with head_committed_at as a Date and reviewed_head_sha as null when absent', async () => {
+      const rows = [
+        {
+          id: getUniqueInt(),
+          repo_full_name: generateReviewRef().repoFullName,
+          pr_number: getUniqueInt(),
+          title: getUniqueString(),
+          author_login: getUniqueString(),
+          head_sha: getUniqueString({ prefix: 'head-' }),
+          reviewed_head_sha: null,
+          head_committed_at: GRACE_BOUND_SQL,
+        },
+        {
+          id: getUniqueInt(),
+          repo_full_name: generateReviewRef().repoFullName,
+          pr_number: getUniqueInt(),
+          title: getUniqueString(),
+          author_login: getUniqueString(),
+          head_sha: getUniqueString({ prefix: 'head-' }),
+          reviewed_head_sha: getUniqueString({ prefix: 'reviewed-head-' }),
+          head_committed_at: GRACE_BOUND_SQL,
+        },
+      ];
+      const queryRawUnsafe = jest.fn<any>().mockResolvedValue(rows);
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      const result = await sut.findUnreviewedHeadPRs(GRACE_BOUND);
+
+      expect(queryRawUnsafe).toHaveBeenCalledWith(expect.toEqualIgnoringWhitespace(FIND_UNREVIEWED_HEAD_PRS_SQL), GRACE_BOUND_SQL);
+      expect(result).toStrictEqual(
+        rows.map((row) => ({
+          id: row.id,
+          repoFullName: row.repo_full_name,
+          prNumber: row.pr_number,
+          title: row.title,
+          authorLogin: row.author_login,
+          headSha: row.head_sha,
+          headCommittedAt: new Date(row.head_committed_at),
+          reviewedHeadSha: row.reviewed_head_sha,
+        })),
+      );
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'PullRequestRepository.findUnreviewedHeadPRs', count: rows.length },
+        'Found pull requests with an unreviewed head',
+      );
+    });
+
+    it('returns an empty array when no PR carries an unreviewed head', async () => {
+      const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      const result = await sut.findUnreviewedHeadPRs(GRACE_BOUND);
+
+      expect(result).toStrictEqual([]);
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PullRequestRepository.findUnreviewedHeadPRs', count: 0 }, 'Found pull requests with an unreviewed head');
     });
   });
 

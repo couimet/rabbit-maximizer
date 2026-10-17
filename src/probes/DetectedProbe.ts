@@ -119,7 +119,7 @@ export class DetectedProbe {
     );
   }
 
-  async skipped(tx: Prisma.TransactionClient): Promise<EventLogEntry> {
+  async skipped(tx: Prisma.TransactionClient, matchedPhrase: string | undefined, matchedOffset: number | undefined): Promise<EventLogEntry> {
     const event = await this.eventRepository.record(
       {
         type: EventType.coderabbit_review_skipped,
@@ -129,17 +129,18 @@ export class DetectedProbe {
         payload: {
           source_ts: this.context.source_ts,
           comment_url: this.context.source_comment_url,
-          skip_reason: 'CodeRabbit explicitly skipped this review',
+          ...(matchedPhrase !== undefined ? { matched_phrase: matchedPhrase } : {}),
+          ...(matchedOffset !== undefined ? { matched_offset: matchedOffset } : {}),
           coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,
     );
-    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit skip comment encountered');
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid, matchedPhrase, matchedOffset }, 'CodeRabbit skip comment encountered');
     return event;
   }
 
-  async refused(tx: Prisma.TransactionClient, matchedPhrase: string): Promise<EventLogEntry> {
+  async refused(tx: Prisma.TransactionClient, matchedPhrase: string, matchedOffset: number): Promise<EventLogEntry> {
     const event = await this.eventRepository.record(
       {
         type: EventType.coderabbit_review_refused,
@@ -150,16 +151,25 @@ export class DetectedProbe {
           source_ts: this.context.source_ts,
           comment_url: this.context.source_comment_url,
           matched_phrase: matchedPhrase,
+          matched_offset: matchedOffset,
           coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,
     );
-    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid, matchedPhrase }, 'CodeRabbit permanently refused the review; resolved the queue item');
+    this.log.info(
+      { ...this.loggingCtx, eventUuid: event.uuid, matchedPhrase, matchedOffset },
+      'CodeRabbit permanently refused the review; resolved the queue item',
+    );
     return event;
   }
 
-  async verdictResolved(tx: Prisma.TransactionClient, verdictState: CoderabbitReviewVerdictState): Promise<EventLogEntry> {
+  async verdictResolved(
+    tx: Prisma.TransactionClient,
+    verdictState: CoderabbitReviewVerdictState,
+    matchedPhrase: string | undefined,
+    matchedOffset: number | undefined,
+  ): Promise<EventLogEntry> {
     const event = await this.eventRepository.record(
       {
         type: toReviewEventType(verdictState),
@@ -170,12 +180,15 @@ export class DetectedProbe {
           coderabbit_comment_url: this.context.source_comment_url,
           source_ts: this.context.source_ts,
           verdict_state: verdictState,
+          // A verdict from the reviews API carries no phrase, so omit the key rather than store null.
+          ...(matchedPhrase !== undefined ? { matched_phrase: matchedPhrase } : {}),
+          ...(matchedOffset !== undefined ? { matched_offset: matchedOffset } : {}),
           coderabbit_run_id: this.context.coderabbit_run_id,
         },
       },
       tx,
     );
-    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid }, 'CodeRabbit review verdict detected; skipping enqueue');
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid, matchedPhrase, matchedOffset }, 'CodeRabbit review verdict detected; skipping enqueue');
     return event;
   }
 
