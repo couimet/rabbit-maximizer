@@ -1,0 +1,83 @@
+[
+  {
+    "file": "review-approved.md",
+    "sourceCommentUrl": "https://github.com/couimet/rangeLink/pull/707#issuecomment-5134757073",
+    "expected": {
+      "classification": "review_approved",
+      "matchedPhrase": "No actionable comments were generated in the recent review.",
+      "matchedOffset": 396
+    }
+  },
+  {
+    "file": "review-approved-after-pause.md",
+    "sourceCommentUrl": "https://github.com/couimet/rabbit-maximizer/pull/320#issuecomment-5404798734",
+    "expected": {
+      "classification": "review_approved",
+      "matchedPhrase": "No actionable comments were generated in the recent review.",
+      "matchedOffset": 926
+    }
+  },
+  {
+    "file": "review-paused.md",
+    "sourceCommentUrl": "https://github.com/couimet/dev-tooling/pull/37#issuecomment-5526060960",
+    "expected": {
+      "classification": "review_skipped",
+      "matchedPhrase": "review paused by coderabbit.ai",
+      "matchedOffset": 363
+    }
+  },
+  {
+    "file": "review-rate-limited.md",
+    "sourceCommentUrl": "https://github.com/couimet/github-actions/pull/84#issuecomment-5134888724",
+    "expected": {
+      "classification": "review_limited",
+      "matchedPhrase": "rate limited by coderabbit.ai",
+      "matchedOffset": 111
+    }
+  },
+  {
+    "file": "review-rate-limited-after-walkthrough.md",
+    "sourceCommentUrl": "https://github.com/couimet/rangeLink/pull/708#issuecomment-5135228659",
+    "expected": {
+      "classification": "review_limited",
+      "matchedPhrase": "rate limited by coderabbit.ai",
+      "matchedOffset": 436
+    }
+  },
+  {
+    "file": "review-refused-with-skip-marker.md",
+    "sourceCommentUrl": "https://github.com/couimet/couimet.github.io/pull/234#issuecomment-5761070464",
+    "expected": {
+      "classification": "review_refused",
+      "matchedPhrase": "without an assigned CodeRabbit review seat",
+      "matchedOffset": 215
+    }
+  },
+  {
+    "file": "review-skipped-with-pause-note.md",
+    "sourceCommentUrl": "https://github.com/couimet/rabbit-maximizer/pull/296#issuecomment-5259124113",
+    "expected": {
+      "classification": "review_skipped",
+      "matchedPhrase": "skip review by coderabbit.ai",
+      "matchedOffset": 443
+    }
+  },
+  {
+    "file": "review-acknowledgement.md",
+    "sourceCommentUrl": "https://github.com/couimet/rabbit-maximizer/pull/383#issuecomment-6208018360",
+    "expected": {
+      "classification": "unknown",
+      "matchedPhrase": null,
+      "matchedOffset": null
+    }
+  },
+  {
+    "file": "review-walkthrough-only.md",
+    "sourceCommentUrl": "https://github.com/couimet/rangeLink/pull/686#issuecomment-4949000959",
+    "expected": {
+      "classification": "unknown",
+      "matchedPhrase": null,
+      "matchedOffset": null
+    }
+  }
+]

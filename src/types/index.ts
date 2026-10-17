@@ -46,6 +46,7 @@ export type {
   EventMetadata,
   ExcludedPayload,
   FailedPayload,
+  HeadDriftRecoveredPayload,
   RetriggeredPayload,
 } from './EventPayloads.js';
 export type { EventTraceAttributes } from './EventTraceAttributes.js';
@@ -53,6 +54,7 @@ export type { FormatRelativeTimeGranularity } from './FormatRelativeTimeGranular
 export type { FormatRelativeTimeOptions } from './FormatRelativeTimeOptions.js';
 export type { IgnoreRuleMatch } from './IgnoreRuleMatch.js';
 export type { IgnoreRuleTarget } from './IgnoreRuleTarget.js';
+export type { MatchedText } from './MatchedText.js';
 export type { OnDetectedCallback } from './OnDetectedCallback.js';
 export type { PaginatedResult } from './PaginatedResult.js';
 export type { PendingAcknowledgement } from './PendingAcknowledgement.js';
@@ -79,4 +81,5 @@ export type { SubmittedReviewRaw } from './SubmittedReviewRaw.js';
 export type { TickGuardOutcome } from './TickGuardOutcome.js';
 export type { TrackedPrRow } from './TrackedPrRow.js';
 export type { TriggerDetails } from './TriggerDetails.js';
+export type { UnreviewedHeadPR } from './UnreviewedHeadPR.js';
 export type { UpsertPullRequestData } from './UpsertPullRequestData.js';

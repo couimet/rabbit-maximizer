@@ -8,7 +8,7 @@ import {
   SystemStateRepository,
 } from './db/index.js';
 import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/index.js';
-import { CoderabbitCommentClassifier, CoderabbitGitHubClient, PRStateFetcher, RefusalPhrases } from './github/index.js';
+import { CoderabbitCommentClassifier, CoderabbitGitHubClient, CoderabbitMarkers, PRStateFetcher } from './github/index.js';
 import {
   EventCountsMapper,
   EventEntryMapper,
@@ -27,6 +27,7 @@ import { TYPES } from './server-domain.js';
 import {
   EnqueueService,
   ExclusionSweeper,
+  HeadDriftRecoverer,
   IgnoreRules,
   PollDetector,
   PrScanner,
@@ -66,7 +67,7 @@ container
   .toDynamicValue(() => createPrismaClient().$extends(softDeleteExtension({ models: { CoderabbitComment: true } })) as unknown as PrismaClient)
   .inSingletonScope();
 
-container.bind<RefusalPhrases>(TYPES.RefusalPhrases).to(RefusalPhrases).inSingletonScope();
+container.bind<CoderabbitMarkers>(TYPES.CoderabbitMarkers).to(CoderabbitMarkers).inSingletonScope();
 
 container.bind<IgnoreRules>(TYPES.IgnoreRules).to(IgnoreRules).inSingletonScope();
 
@@ -99,6 +100,8 @@ container.bind<Pruner>(TYPES.Pruner).to(Pruner).inSingletonScope();
 container.bind<PrScanner>(TYPES.PrScanner).to(PrScanner).inSingletonScope();
 
 container.bind<StalePrRecoverer>(TYPES.StalePrRecoverer).to(StalePrRecoverer).inSingletonScope();
+
+container.bind<HeadDriftRecoverer>(TYPES.HeadDriftRecoverer).to(HeadDriftRecoverer).inSingletonScope();
 
 container.bind<RefusalSweeper>(TYPES.RefusalSweeper).to(RefusalSweeper).inSingletonScope();
 

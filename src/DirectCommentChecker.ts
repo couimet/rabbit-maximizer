@@ -3,15 +3,15 @@ import {
   buildCommentUrl,
   type CoderabbitCommentClassifier,
   type CoderabbitGitHubClient,
+  type CoderabbitMarkers,
   hasOwnRetriggerMarker,
   parseWaitSeconds,
   REVIEW_BOT_LOGIN,
-  REVIEW_STACK_MARKER,
   splitRepo,
 } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import type { DirectCheckPR, OnDetectedCallback, ReviewLimitCandidate } from './types/index.js';
-import { extractCoderabbitRunId } from './utils/index.js';
+import { extractCoderabbitRunId, findPhrase } from './utils/index.js';
 import { CodeRabbitCommentType, CommentDetectionMethod } from './domain.js';
 import { TYPES } from './server-domain.js';
 
@@ -37,6 +37,8 @@ export class DirectCommentChecker {
     private readonly probeFactory: ProbeFactory,
     @inject(TYPES.CoderabbitCommentClassifier)
     private readonly classifier: CoderabbitCommentClassifier,
+    @inject(TYPES.CoderabbitMarkers)
+    private readonly markers: CoderabbitMarkers,
   ) {}
   /* c8 ignore stop */
 
@@ -75,7 +77,8 @@ export class DirectCommentChecker {
           if (classification === CodeRabbitCommentType.unknown) {
             // Walkthrough summaries carry no verdict but mark when CodeRabbit reviewed;
             // on a never-enqueued PR they are the only signal, so record the activity.
-            if (c.body.includes(REVIEW_STACK_MARKER) && !(await this.queue.existsByPullRequestId(pr.pullRequestId))) {
+            const walkthrough = findPhrase(c.body, this.markers.walkthrough);
+            if (walkthrough !== undefined && !(await this.queue.existsByPullRequestId(pr.pullRequestId))) {
               const stored = await this.coderabbitComments.findByCommentId(pr.pullRequestId, c.id);
               if (stored && c.updatedAt <= stored.last_seen_at) {
                 probe.skippedAlreadySeen();
@@ -87,6 +90,8 @@ export class DirectCommentChecker {
                 url: buildCommentUrl(pr.repoFullName, pr.prNumber, c.id),
                 comment_type: classification,
                 body: c.body,
+                matched_phrase: walkthrough.phrase,
+                matched_offset: walkthrough.offset,
                 gh_created_at: c.createdAt,
                 gh_updated_at: c.updatedAt,
                 coderabbit_run_id: extractCoderabbitRunId(c.body) ?? null,

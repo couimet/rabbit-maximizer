@@ -179,7 +179,29 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses a coderabbit_review_skipped event without coderabbit_run_id', () => {
+  it('parses a coderabbit_review_approved event with the matched phrase and offset', () => {
+    const coderabbitCommentUrl = getUniqueString();
+    const matchedPhrase = getUniqueString();
+    const matchedOffset = getUniqueInt();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_approved',
+      payload: JSON.stringify({
+        coderabbit_comment_url: coderabbitCommentUrl,
+        matched_phrase: matchedPhrase,
+        matched_offset: matchedOffset,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.payload).toStrictEqual({
+      coderabbit_comment_url: coderabbitCommentUrl,
+      matched_phrase: matchedPhrase,
+      matched_offset: matchedOffset,
+    });
+  });
+
+  it('parses a legacy coderabbit_review_skipped event that carries only skip_reason', () => {
     const commentUrl = getUniqueString();
     const skipReason = getUniqueString();
     const sourceTs = getUniqueDate();
@@ -198,7 +220,7 @@ describe('parseEventRow', () => {
     });
   });
 
-  it('parses a coderabbit_review_skipped event with coderabbit_run_id', () => {
+  it('parses a legacy coderabbit_review_skipped event with coderabbit_run_id', () => {
     const commentUrl = getUniqueString();
     const skipReason = getUniqueString();
     const sourceTs = getUniqueDate();
@@ -221,6 +243,75 @@ describe('parseEventRow', () => {
       comment_url: commentUrl,
       skip_reason: skipReason,
       coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('parses a coderabbit_review_skipped event with the matched phrase and offset', () => {
+    const commentUrl = getUniqueString();
+    const matchedPhrase = getUniqueString();
+    const matchedOffset = getUniqueInt();
+    const sourceTs = getUniqueDate();
+    const coderabbitRunId = getUuid();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_skipped',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        comment_url: commentUrl,
+        matched_phrase: matchedPhrase,
+        matched_offset: matchedOffset,
+        coderabbit_run_id: coderabbitRunId,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_skipped');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      matched_phrase: matchedPhrase,
+      matched_offset: matchedOffset,
+      coderabbit_run_id: coderabbitRunId,
+    });
+  });
+
+  it('rejects a coderabbit_review_skipped event whose matched offset is negative', () => {
+    const negativeOffset = -getUniqueInt() - 1;
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_skipped',
+      payload: JSON.stringify({
+        source_ts: getUniqueDate().toISOString(),
+        comment_url: getUniqueString(),
+        matched_phrase: getUniqueString(),
+        matched_offset: negativeOffset,
+      }),
+    });
+    expect(() => parseEventRow(row)).toThrow(z.ZodError);
+  });
+
+  it('parses a coderabbit_review_refused event with the matched offset', () => {
+    const commentUrl = getUniqueString();
+    const matchedPhrase = getUniqueString();
+    const matchedOffset = getUniqueInt();
+    const sourceTs = getUniqueDate();
+    const row = generateEventHydrationData({
+      type: 'coderabbit_review_refused',
+      payload: JSON.stringify({
+        source_ts: sourceTs.toISOString(),
+        comment_url: commentUrl,
+        matched_phrase: matchedPhrase,
+        matched_offset: matchedOffset,
+      }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('coderabbit_review_refused');
+    expect(result.payload).toStrictEqual({
+      source_ts: sourceTs,
+      comment_url: commentUrl,
+      matched_phrase: matchedPhrase,
+      matched_offset: matchedOffset,
     });
   });
 
@@ -428,6 +519,32 @@ describe('parseEventRow', () => {
 
     expect(result.type).toBe('failed');
     expect(result.payload).toStrictEqual({ reason });
+  });
+
+  it('parses a head_drift_recovered event with the reviewed head sha', () => {
+    const headSha = getUniqueString({ prefix: 'head-' });
+    const reviewedHeadSha = getUniqueString({ prefix: 'reviewed-head-' });
+    const row = generateEventHydrationData({
+      type: 'head_drift_recovered',
+      payload: JSON.stringify({ head_sha: headSha, reviewed_head_sha: reviewedHeadSha }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.type).toBe('head_drift_recovered');
+    expect(result.payload).toStrictEqual({ head_sha: headSha, reviewed_head_sha: reviewedHeadSha });
+  });
+
+  it('parses a head_drift_recovered event with no reviewed head sha', () => {
+    const headSha = getUniqueString({ prefix: 'head-' });
+    const row = generateEventHydrationData({
+      type: 'head_drift_recovered',
+      payload: JSON.stringify({ head_sha: headSha }),
+    });
+
+    const result = parseEventRow(row);
+
+    expect(result.payload).toStrictEqual({ head_sha: headSha });
   });
 
   it('throws for an unknown event type', () => {

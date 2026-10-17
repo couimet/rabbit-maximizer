@@ -9,6 +9,7 @@ import {
   DirectCommentCheckProbe,
   EnqueueProbe,
   ExclusionSweeperProbe,
+  HeadDriftProbe,
   MarkQueueItemReviewedProbe,
   PrScannerProbe,
   PrunerProbe,
@@ -73,5 +74,9 @@ export class ProbeFactory {
 
   createExclusionSweeperProbe(): ExclusionSweeperProbe {
     return new ExclusionSweeperProbe(this.log);
+  }
+
+  createHeadDriftProbe(): HeadDriftProbe {
+    return new HeadDriftProbe(this.eventRepository, this.log);
   }
 }

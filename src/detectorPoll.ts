@@ -12,7 +12,7 @@ import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
 import { CodeRabbitCommentType, TickGuardReason } from './domain.js';
 import { IntervalService, TYPES } from './server-domain.js';
-import type { DirectCommentChecker, PrScanner, StalePrRecoverer } from './services.js';
+import type { DirectCommentChecker, HeadDriftRecoverer, PrScanner, StalePrRecoverer } from './services.js';
 
 import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -39,6 +39,8 @@ export class PollDetector extends IntervalService {
     private readonly prScanner: PrScanner,
     @inject(TYPES.StalePrRecoverer)
     private readonly stalePrRecoverer: StalePrRecoverer,
+    @inject(TYPES.HeadDriftRecoverer)
+    private readonly headDriftRecoverer: HeadDriftRecoverer,
     @inject(TYPES.DirectCommentChecker)
     private readonly directCommentChecker: DirectCommentChecker,
     @inject(TYPES.OnDetectedCallback)
@@ -146,6 +148,8 @@ export class PollDetector extends IntervalService {
 
       const mergedPRs = mergeByPullRequestId(scannedPRs, stalePRs);
       const directCandidates = await this.directCommentChecker.check(mergedPRs);
+      // Runs after the direct check so a pause enqueue from this tick already holds the PR.
+      await this.headDriftRecoverer.recover(new Date(Date.now() - config.HEAD_DRIFT_GRACE_SEC * MS_PER_SECOND));
 
       const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;

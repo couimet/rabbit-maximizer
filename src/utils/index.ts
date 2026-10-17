@@ -7,6 +7,7 @@ export { dismissalReasonFromPrState } from './dismissalReasonFromPrState.js';
 export { HOURS_PER_DAY, MINUTES_PER_HOUR, MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND, SECONDS_PER_HOUR, SECONDS_PER_MINUTE } from './durations.js';
 export { expectedHeadShaForSourceCommentType } from './expectedHeadShaForSourceCommentType.js';
 export { extractCoderabbitRunId } from './extractCoderabbitRunId.js';
+export { findPhrase } from './findPhrase.js';
 export { formatDate } from './formatDate.js';
 export { formatRelativeFuture } from './formatRelativeFuture.js';
 export { formatRelativeTime } from './formatRelativeTime.js';
@@ -27,5 +28,5 @@ export { shouldReopenStaleRetriggered } from './shouldReopenStaleRetriggered.js'
 export { sqlDateToDate } from './sqlDateToDate.js';
 export { stringToNumber } from './stringToNumber.js';
 export { toReviewEventType } from './toReviewEventType.js';
-export { truncateBodyPreview } from './truncateBodyPreview.js';
+export { toSqlDateTime } from './toSqlDateTime.js';
 export { findByUuid, isValidUuid, resolveUuidsToIds } from './uuidLookup.js';

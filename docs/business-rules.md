@@ -29,9 +29,9 @@ Only `pending` and `retriggered` items are active: they appear in the queue orde
 
 ## 2. Detection
 
-Sources: [`detectorPoll`](../src/detectorPoll.ts), [`prScanner`](../src/prScanner.ts), [`DirectCommentChecker`](../src/DirectCommentChecker.ts), [`coderabbitGitHubClient`](../src/github/coderabbitGitHubClient.ts), [`classifyCoderabbitComment`](../src/github/classifyCoderabbitComment.ts), [`coderabbitConstants`](../src/github/coderabbitConstants.ts).
+Sources: [`detectorPoll`](../src/detectorPoll.ts), [`prScanner`](../src/prScanner.ts), [`DirectCommentChecker`](../src/DirectCommentChecker.ts), [`HeadDriftRecoverer`](../src/HeadDriftRecoverer.ts), [`coderabbitGitHubClient`](../src/github/coderabbitGitHubClient.ts), [`CoderabbitCommentClassifier`](../src/github/CoderabbitCommentClassifier.ts), [`CoderabbitMarkers`](../src/github/CoderabbitMarkers.ts), [`findPhrase`](../src/utils/findPhrase.ts).
 
-Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: PR scan, stale-PR recovery, direct comment check, comment search, acknowledgement polling of every open PR that waits for a reply, then records the earliest next review availability.
+Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: PR scan, stale-PR recovery, direct comment check, head-drift sweep, comment search, acknowledgement polling of every open PR that waits for a reply, then records the earliest next review availability.
 
 <a id="br-2-1"></a>
 
@@ -58,12 +58,13 @@ Two complementary paths feed the same detection handler:
 CodeRabbit's comment bodies carry hidden markers that drive classification, in this precedence order:
 
 1. Refusal phrase → `review_refused` — CodeRabbit refuses the review for a permanent cause, such as a missing review seat. The phrase list is configurable (`CODERABBIT_REFUSAL_PHRASES`).
-2. Skip marker → `review_skipped` — CodeRabbit did not review, and a full-review request can change that.
-3. Completion signals → `review_approved` (no-actionable-comments signal) or `review_changes_suggested` (actionable-comments signal) — a verdict was rendered.
-4. Rate-limit marker → `review_limited` — CodeRabbit refused due to its review quota, usually stating a wait time ("Please wait X minutes and Y seconds before requesting another review").
-5. None of the above → `unknown`.
+2. Skip marker → `review_skipped` — CodeRabbit did not review, and a full-review request can change that (`CODERABBIT_SKIP_PHRASES`).
+3. Completion signals → `review_approved` (no-actionable-comments signal) or `review_changes_suggested` (actionable-comments signal) — a verdict was rendered (`CODERABBIT_APPROVAL_PHRASES`, `CODERABBIT_CHANGES_SUGGESTED_PHRASES`).
+4. Pause marker → `review_skipped` — CodeRabbit paused automatic reviews after a set number of commits, and a full-review request resumes the work (`CODERABBIT_PAUSE_PHRASES`).
+5. Rate-limit marker → `review_limited` — CodeRabbit refused due to its review quota, usually stating a wait time ("Please wait X minutes and Y seconds before requesting another review") (`CODERABBIT_RATE_LIMIT_PHRASES`).
+6. None of the above → `unknown`.
 
-The refusal check runs first, because a refusal comment carries the skip marker too. Without that order the refusal reads as a skip, and a skip always looks retriggerable.
+Every phrase list is configurable, so a wording change needs no release. The refusal check runs first, because a refusal comment carries the skip marker too. Without that order the refusal reads as a skip, and a skip always looks retriggerable. The pause check runs after the completion check, so a comment that carries a verdict stays a verdict, and before the rate-limit check.
 
 Classification outcome at detection:
 
@@ -104,6 +105,18 @@ CodeRabbit stamps each comment with a Run ID that changes on every run. The maxi
 The operator can leave pull requests out of monitoring with two rule lists: `IGNORE_AUTHORS` matches the PR author's login, and `IGNORE_TITLES` matches the PR title. Each entry is an unanchored regular expression, so a rule matches anywhere in the value. Author rules are tested before title rules, and the first match wins.
 
 The rules are re-matched at every detection against the pull request's current row, and nothing is stored on that row. A removed rule therefore brings the PR back with no cleanup, and a retitle stops a title rule from matching on the next detection.
+
+<a id="br-2-8"></a>
+
+### Head-drift recovery
+
+The comment paths see only the comments CodeRabbit writes. A push that CodeRabbit leaves unanswered writes nothing, so the head moves and no comment reports it. The poll tick runs a bounded sweep that finds that state and returns the PR to the queue.
+
+The sweep selects an open PR when all of these hold: the PR is not permanently refused, a review was requested at least once, the head is newer than the last recorded review (`reviewed_head_sha` differs from `head_sha`, or no review recorded a head), the push is newer than the last review request, the push is older than `HEAD_DRIFT_GRACE_SEC`, and no active item exists. The grace window measures from the later of the head commit time and the first observation of the head sha, so a re-push of an old commit still waits out the window.
+
+For each candidate, the sweep first applies the ignore rules (BR-2-7) and drops a match without enqueuing. It then asks the GitHub reviews API for a completed review that covers the head. A review that covers the head is recorded (`recordReview`) and nothing is enqueued. When no review covers the head, the sweep enqueues a pending item whose source url is the PR url and whose source comment id is synthetic and negative, which is the convention the deleted-comment recovery uses (BR-5-5). The scheduler posts the retrigger under the existing holds (BR-5-6).
+
+The sweep never posts a request itself. It records one `head_drift_recovered` event when it creates the item, so the timeline explains why the PR re-entered the queue. The sweep runs after the direct comment check, so a pause enqueue from the same tick already holds the PR.
 
 ## 3. Enqueue
 
@@ -261,6 +274,12 @@ PRs that had a request posted but never received a review or acknowledgement, ha
 A PR marked as permanently refused is excluded from that query until the operator re-queues it. Without the exclusion the recovery path would return the PR to the queue a few minutes after the refusal resolved it, and the loop would restart.
 
 A PR that an ignore rule matches is dropped from the recovered set before the synthetic comment is built. The recovery path builds its own comment, so the exclusion cannot come from the detection funnel; without this guard the recovery would re-queue a PR the operator left out of monitoring.
+
+<a id="br-5-6"></a>
+
+### Retrigger for a head-drift item
+
+A head-drift item (BR-2-8) carries no real source comment: its source id is synthetic and negative. The trigger refetches that id, GitHub answers 404, and the item posts its retrigger with no reply target, exactly as the deleted-comment recovery does (BR-5-5). The item records no source comment type, so the review detector accepts the newest completed review in the lookback window (BR-6-2) instead of requiring a head or run match.
 
 ## 6. Review detector and edit detection
 
@@ -444,7 +463,7 @@ Rabbit Maximizer never proactively requests a review on an observed push. It let
 ### The two holds
 
 - **Acknowledgement hold** — after the maximizer's own request, CodeRabbit replies with an auto-generated acknowledgement ("auto-generated reply by CodeRabbit"). The poll loop watches for that reply on every open PR whose request is still outstanding and records it; until it is seen, the scheduler holds new requests until the request is older than `SCHEDULER_RETRIGGER_SPACING_SEC`. This covers the maximizer's own requests.
-- **Push-processing hold (sha-based inference)** — a push produces no acknowledgement: CodeRabbit silently processes it, then adds or updates a comment. Push processing is therefore inferred from the head sha. The maximizer tracks the head sha, the head commit's time, and the sha at the last recorded review (`head_sha`, `head_committed_at`, `reviewed_head_sha`), and keeps an append-only history of every observed sha. A push is a head sha change; a push after a recorded review is `head_sha != reviewed_head_sha`. These signals are the evidence trail — the enforcement is the rule above: the maximizer never acts on a push, only on the comment CodeRabbit adds or updates for the new head.
+- **Push-processing hold (sha-based inference)** — a push produces no acknowledgement: CodeRabbit silently processes it, then adds or updates a comment. Push processing is therefore inferred from the head sha. The maximizer tracks the head sha, the head commit's time, and the sha at the last recorded review (`head_sha`, `head_committed_at`, `reviewed_head_sha`), and keeps an append-only history of every observed sha. A push is a head sha change; a push after a recorded review is `head_sha != reviewed_head_sha`. These signals are the evidence trail. The comment path enforces the rule above: it acts only on the comment CodeRabbit adds or updates for the new head. The head-drift sweep (BR-2-8) is the one bounded exception: it acts on the absence of a comment, and only after the push is older than `HEAD_DRIFT_GRACE_SEC`.
 
 <a id="br-10-2"></a>
 
@@ -481,33 +500,41 @@ A comment whose update time is not newer than the recorded review is dismissed a
 
 All keys are environment variables. Defaults are stated; validation invariants follow.
 
-| Key                                                                              | Meaning                                                                                                           | Default                                          |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `REPO_FILTER`                                                                    | Repos to monitor: `owner/*` (all accessible repos of the owner) or `owner/repo` (single repo)                     | Required                                         |
-| `GITHUB_PAT`                                                                     | GitHub token for search, comment, and posting calls                                                               | Required                                         |
-| `POLL_INTERVAL_SEC`                                                              | Detection tick interval                                                                                           | 90                                               |
-| `PR_SCANNER_INTERVAL_SEC`                                                        | Minimum interval between PR scans                                                                                 | 300                                              |
-| `SCHEDULER_TICK_INTERVAL_SEC`                                                    | Scheduler tick interval                                                                                           | 10                                               |
-| `SCHEDULER_RETRIGGER_SPACING_SEC`                                                | Minimum spacing between review requests; also the settling wait for new items and the acknowledgement hold window | 180                                              |
-| `CODERABBIT_ACCOUNT_COOLDOWN_SEC`                                                | Account cooldown after each posted request                                                                        | 3600                                             |
-| `CODERABBIT_REFUSAL_PHRASES`                                                     | Phrases that mark a CodeRabbit comment as a permanent refusal; a JSON array or a single phrase                    | `["without an assigned CodeRabbit review seat"]` |
-| `IGNORE_AUTHORS`                                                                 | Author logins to leave out of monitoring; unanchored regular expressions, a JSON array or a single pattern        | `[]`                                             |
-| `IGNORE_TITLES`                                                                  | PR titles to leave out of monitoring; unanchored regular expressions, a JSON array or a single pattern            | `[]`                                             |
-| `REVIEW_LIMIT_FALLBACK_WAIT_SEC`                                                 | Wait applied when a rate-limit comment states no wait                                                             | 3600                                             |
-| `REVIEW_LIMIT_BUFFER_SEC`                                                        | Extra wait added when rescheduling onto a replacement comment                                                     | 60                                               |
-| `MAX_RETRIGGER_ATTEMPTS`                                                         | Attempt cap per item; the item resolves as failed at the cap                                                      | 10                                               |
-| `SCHEDULER_MAX_RETRIGGER_AGE_SEC`                                                | Age at which a retriggered item resolves as failed                                                                | 259200                                           |
-| `SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK`                                        | Max candidate PR-state lookups per tick while scanning for the next due item                                      | 5                                                |
-| `SCHEDULER_RETRY_BACKOFF_BASE_SEC`                                               | Base of the exponential failure backoff                                                                           | 60                                               |
-| `SCHEDULER_RETRY_BACKOFF_MAX_SEC`                                                | Cap of the exponential failure backoff                                                                            | 3600                                             |
-| `REVIEW_DETECTION_LOOKBACK_SEC`                                                  | Lookback window for the reviews-API fallback                                                                      | 7200                                             |
-| `SCHEDULER_STALE_TICK_MULTIPLIER`                                                | Multiplier for the dashboard staleness signal                                                                     | 4                                                |
-| `DETECTION_MODE`                                                                 | `poll` or `webhook`; the app runs the poll detector                                                               | `poll`                                           |
-| `WEBHOOK_SECRET`, `TUNNEL_URL`                                                   | Required when `DETECTION_MODE=webhook`                                                                            | Unset                                            |
-| `WEB_PORT`                                                                       | Dashboard API port                                                                                                | 3000                                             |
-| `GITHUB_API_TIMEOUT_SEC`                                                         | GitHub API call timeout                                                                                           | 10                                               |
-| `DATABASE_URL`                                                                   | Database location                                                                                                 | `file:./data/rabbit-maximizer.db`                |
-| `PAUSE_NOTIFICATION_INITIAL_DELAY_SEC`, `PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC` | Pause-notification timing (dashboard configuration)                                                               | 1800, 900                                        |
+| Key                                                                              | Meaning                                                                                                           | Default                                                           |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `REPO_FILTER`                                                                    | Repos to monitor: `owner/*` (all accessible repos of the owner) or `owner/repo` (single repo)                     | Required                                                          |
+| `GITHUB_PAT`                                                                     | GitHub token for search, comment, and posting calls                                                               | Required                                                          |
+| `HEAD_DRIFT_GRACE_SEC`                                                           | Wait after a push before the head-drift sweep enqueues the PR                                                     | 900                                                               |
+| `POLL_INTERVAL_SEC`                                                              | Detection tick interval                                                                                           | 90                                                                |
+| `PR_SCANNER_INTERVAL_SEC`                                                        | Minimum interval between PR scans                                                                                 | 300                                                               |
+| `SCHEDULER_TICK_INTERVAL_SEC`                                                    | Scheduler tick interval                                                                                           | 10                                                                |
+| `SCHEDULER_RETRIGGER_SPACING_SEC`                                                | Minimum spacing between review requests; also the settling wait for new items and the acknowledgement hold window | 180                                                               |
+| `CODERABBIT_ACCOUNT_COOLDOWN_SEC`                                                | Account cooldown after each posted request                                                                        | 3600                                                              |
+| `CODERABBIT_ACKNOWLEDGEMENT_PHRASES`                                             | Phrases that mark CodeRabbit's acknowledgement reply; a JSON array or a single phrase                             | `["auto-generated reply by CodeRabbit"]`                          |
+| `CODERABBIT_APPROVAL_PHRASES`                                                    | Phrases that mark a completed review with no actionable comments; a JSON array or a single phrase                 | `["No actionable comments were generated in the recent review."]` |
+| `CODERABBIT_CHANGES_SUGGESTED_PHRASES`                                           | Phrases that mark a completed review with actionable comments; a JSON array or a single phrase                    | `["Actionable comments posted:"]`                                 |
+| `CODERABBIT_PAUSE_PHRASES`                                                       | Phrases that mark CodeRabbit's pause of automatic reviews; a JSON array or a single phrase                        | `["review paused by coderabbit.ai"]`                              |
+| `CODERABBIT_RATE_LIMIT_PHRASES`                                                  | Phrases that mark a CodeRabbit review-limit comment; a JSON array or a single phrase                              | `["rate limited by coderabbit.ai"]`                               |
+| `CODERABBIT_REFUSAL_PHRASES`                                                     | Phrases that mark a CodeRabbit comment as a permanent refusal; a JSON array or a single phrase                    | `["without an assigned CodeRabbit review seat"]`                  |
+| `CODERABBIT_SKIP_PHRASES`                                                        | Phrases that mark a CodeRabbit skipped review; a JSON array or a single phrase                                    | `["skip review by coderabbit.ai"]`                                |
+| `CODERABBIT_WALKTHROUGH_PHRASES`                                                 | Phrases that mark a CodeRabbit walkthrough summary; a JSON array or a single phrase                               | `["review_stack_entry_start"]`                                    |
+| `IGNORE_AUTHORS`                                                                 | Author logins to leave out of monitoring; unanchored regular expressions, a JSON array or a single pattern        | `[]`                                                              |
+| `IGNORE_TITLES`                                                                  | PR titles to leave out of monitoring; unanchored regular expressions, a JSON array or a single pattern            | `[]`                                                              |
+| `REVIEW_LIMIT_FALLBACK_WAIT_SEC`                                                 | Wait applied when a rate-limit comment states no wait                                                             | 3600                                                              |
+| `REVIEW_LIMIT_BUFFER_SEC`                                                        | Extra wait added when rescheduling onto a replacement comment                                                     | 60                                                                |
+| `MAX_RETRIGGER_ATTEMPTS`                                                         | Attempt cap per item; the item resolves as failed at the cap                                                      | 10                                                                |
+| `SCHEDULER_MAX_RETRIGGER_AGE_SEC`                                                | Age at which a retriggered item resolves as failed                                                                | 259200                                                            |
+| `SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK`                                        | Max candidate PR-state lookups per tick while scanning for the next due item                                      | 5                                                                 |
+| `SCHEDULER_RETRY_BACKOFF_BASE_SEC`                                               | Base of the exponential failure backoff                                                                           | 60                                                                |
+| `SCHEDULER_RETRY_BACKOFF_MAX_SEC`                                                | Cap of the exponential failure backoff                                                                            | 3600                                                              |
+| `REVIEW_DETECTION_LOOKBACK_SEC`                                                  | Lookback window for the reviews-API fallback                                                                      | 7200                                                              |
+| `SCHEDULER_STALE_TICK_MULTIPLIER`                                                | Multiplier for the dashboard staleness signal                                                                     | 4                                                                 |
+| `DETECTION_MODE`                                                                 | `poll` or `webhook`; the app runs the poll detector                                                               | `poll`                                                            |
+| `WEBHOOK_SECRET`, `TUNNEL_URL`                                                   | Required when `DETECTION_MODE=webhook`                                                                            | Unset                                                             |
+| `WEB_PORT`                                                                       | Dashboard API port                                                                                                | 3000                                                              |
+| `GITHUB_API_TIMEOUT_SEC`                                                         | GitHub API call timeout                                                                                           | 10                                                                |
+| `DATABASE_URL`                                                                   | Database location                                                                                                 | `file:./data/rabbit-maximizer.db`                                 |
+| `PAUSE_NOTIFICATION_INITIAL_DELAY_SEC`, `PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC` | Pause-notification timing (dashboard configuration)                                                               | 1800, 900                                                         |
 
 Validation invariants: backoff max must be at least backoff base; retrigger spacing must be at least the poll interval and strictly less than the account cooldown; the review-detection lookback must be at most twice the account cooldown; webhook mode requires both the webhook secret and the tunnel URL; every entry of `IGNORE_AUTHORS` and `IGNORE_TITLES` must be non-empty and must compile as a regular expression.
 
@@ -517,7 +544,7 @@ Validation invariants: backoff max must be at least backoff base; retrigger spac
 
 These rules must never be violated. Every change to the product must preserve them.
 
-1. Rabbit Maximizer never proactively requests a review on an observed push. It lets CodeRabbit detect the push, waits out CodeRabbit's processing, and acts only on the comment CodeRabbit adds or updates for the new head. It must never post a request while CodeRabbit is still processing a new push.
+1. Rabbit Maximizer never proactively requests a review on an observed push. It lets CodeRabbit detect the push, waits out CodeRabbit's processing, and acts only on the comment CodeRabbit adds or updates for the new head. It must never post a request while CodeRabbit is still processing a new push. The head-drift sweep (BR-2-8) is the one exception: it enqueues only after the push is older than `HEAD_DRIFT_GRACE_SEC`, and it never posts a request itself.
 2. No review request is ever posted while a prior request on an open PR is unacknowledged and younger than the retrigger spacing window.
 3. No review request is ever posted inside the account cooldown.
 4. A comment already seen at or after its current update time is never processed again.
@@ -529,7 +556,7 @@ These rules must never be violated. Every change to the product must preserve th
 10. A paused scheduler never posts, except the dashboard retrigger with an explicit pause override.
 11. When GitHub's API quota is exhausted, all polling stops until the quota reset time.
 12. Resolved items never appear in the queue order and can never be reordered or retriggered.
-13. The maximizer never posts a review request except in direct response to a detected CodeRabbit comment (or a recovery synthesized from a deleted one).
+13. The maximizer never posts a review request except in direct response to a detected CodeRabbit comment (or a recovery synthesized from a deleted comment or from a head no comment covers, BR-2-8).
 14. A review from a run other than the item's adopted run never resolves the item, except when the source comment is `review_skipped` and the review's commit matches the PR head. When no run is known, a `review_skipped` item resolves only on a review matching the PR head; any other source comment resolves on the newest completed review.
 15. A PR CodeRabbit permanently refused is never requested again until an operator re-queues it: its item never reopens, and the recovery path excludes it.
 16. A PR an ignore rule matches never holds an active queue item: detection resolves its item as `excluded` instead of enqueuing, the recovery path drops it before the synthetic comment, and the startup sweep resolves any item that predates the rule.

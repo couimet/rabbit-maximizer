@@ -12,6 +12,7 @@ export { DirectCommentChecker } from './DirectCommentChecker.js';
 export { EditDetector } from './EditDetector.js';
 export { EnqueueService } from './EnqueueService.js';
 export { ExclusionSweeper } from './ExclusionSweeper.js';
+export { HeadDriftRecoverer } from './HeadDriftRecoverer.js';
 export { IgnoreRules } from './IgnoreRules.js';
 export { PrScanner } from './prScanner.js';
 export { PruneEvaluator } from './PruneEvaluator.js';

@@ -1,8 +1,8 @@
-import { CoderabbitCommentClassifier, RefusalPhrases } from '../../src/github/index.js';
+import { CoderabbitCommentClassifier } from '../../src/github/index.js';
 import type { Config } from '../../src/schemas/index.js';
 
-import { generateConfigData } from './ConfigTestSupport.js';
+import { createCoderabbitMarkers } from './CoderabbitMarkersTestSupport.js';
 
 /** @testFixture */
 export const createCoderabbitCommentClassifier = (overrides?: Partial<Config>): CoderabbitCommentClassifier =>
-  new CoderabbitCommentClassifier(new RefusalPhrases(generateConfigData(overrides)));
+  new CoderabbitCommentClassifier(createCoderabbitMarkers(overrides));

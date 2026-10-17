@@ -10,7 +10,15 @@ const DEFAULT_REVIEW_DETECTION_LOOKBACK_SEC = 7200;
 const DEFAULT_MAX_RETRIGGER_AGE_SEC = 259200;
 const DEFAULT_MAX_PR_STATE_FETCHES_PER_TICK = 5;
 const ACCOUNT_COOLDOWN_SEC = 3600;
+const DEFAULT_CODERABBIT_ACKNOWLEDGEMENT_PHRASES = ['auto-generated reply by CodeRabbit'];
+const DEFAULT_CODERABBIT_APPROVAL_PHRASES = ['No actionable comments were generated in the recent review.'];
+const DEFAULT_CODERABBIT_CHANGES_SUGGESTED_PHRASES = ['Actionable comments posted:'];
+const DEFAULT_CODERABBIT_PAUSE_PHRASES = ['review paused by coderabbit.ai'];
+const DEFAULT_CODERABBIT_RATE_LIMIT_PHRASES = ['rate limited by coderabbit.ai'];
 const DEFAULT_CODERABBIT_REFUSAL_PHRASES = ['without an assigned CodeRabbit review seat'];
+const DEFAULT_CODERABBIT_SKIP_PHRASES = ['skip review by coderabbit.ai'];
+const DEFAULT_CODERABBIT_WALKTHROUGH_PHRASES = ['review_stack_entry_start'];
+const DEFAULT_HEAD_DRIFT_GRACE_SEC = 900;
 
 describe('ConfigSchema', () => {
   let githubPat: string;
@@ -24,10 +32,18 @@ describe('ConfigSchema', () => {
     tunnelUrl = `https://${getRandomString({ charset: 'alpha', length: 8 })}.com`;
     BASE = {
       CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
+      CODERABBIT_ACKNOWLEDGEMENT_PHRASES: DEFAULT_CODERABBIT_ACKNOWLEDGEMENT_PHRASES,
+      CODERABBIT_APPROVAL_PHRASES: DEFAULT_CODERABBIT_APPROVAL_PHRASES,
+      CODERABBIT_CHANGES_SUGGESTED_PHRASES: DEFAULT_CODERABBIT_CHANGES_SUGGESTED_PHRASES,
+      CODERABBIT_PAUSE_PHRASES: DEFAULT_CODERABBIT_PAUSE_PHRASES,
+      CODERABBIT_RATE_LIMIT_PHRASES: DEFAULT_CODERABBIT_RATE_LIMIT_PHRASES,
       CODERABBIT_REFUSAL_PHRASES: DEFAULT_CODERABBIT_REFUSAL_PHRASES,
+      CODERABBIT_SKIP_PHRASES: DEFAULT_CODERABBIT_SKIP_PHRASES,
+      CODERABBIT_WALKTHROUGH_PHRASES: DEFAULT_CODERABBIT_WALKTHROUGH_PHRASES,
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_SEC: 10,
       GITHUB_PAT: githubPat,
+      HEAD_DRIFT_GRACE_SEC: DEFAULT_HEAD_DRIFT_GRACE_SEC,
       IGNORE_AUTHORS: [],
       IGNORE_TITLES: [],
       PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
@@ -200,6 +216,52 @@ describe('ConfigSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.CODERABBIT_REFUSAL_PHRASES).toStrictEqual(DEFAULT_CODERABBIT_REFUSAL_PHRASES);
+    }
+  });
+
+  it('applies the shipped CodeRabbit phrase defaults when every phrase key is missing', () => {
+    const {
+      CODERABBIT_ACKNOWLEDGEMENT_PHRASES: _acknowledgement,
+      CODERABBIT_APPROVAL_PHRASES: _approval,
+      CODERABBIT_CHANGES_SUGGESTED_PHRASES: _changesSuggested,
+      CODERABBIT_PAUSE_PHRASES: _pause,
+      CODERABBIT_RATE_LIMIT_PHRASES: _rateLimit,
+      CODERABBIT_REFUSAL_PHRASES: _refusal,
+      CODERABBIT_SKIP_PHRASES: _skip,
+      CODERABBIT_WALKTHROUGH_PHRASES: _walkthrough,
+      ...rest
+    } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect({
+        acknowledgement: result.data.CODERABBIT_ACKNOWLEDGEMENT_PHRASES,
+        approval: result.data.CODERABBIT_APPROVAL_PHRASES,
+        changesSuggested: result.data.CODERABBIT_CHANGES_SUGGESTED_PHRASES,
+        pause: result.data.CODERABBIT_PAUSE_PHRASES,
+        rateLimit: result.data.CODERABBIT_RATE_LIMIT_PHRASES,
+        refusal: result.data.CODERABBIT_REFUSAL_PHRASES,
+        skip: result.data.CODERABBIT_SKIP_PHRASES,
+        walkthrough: result.data.CODERABBIT_WALKTHROUGH_PHRASES,
+      }).toStrictEqual({
+        acknowledgement: ['auto-generated reply by CodeRabbit'],
+        approval: ['No actionable comments were generated in the recent review.'],
+        changesSuggested: ['Actionable comments posted:'],
+        pause: ['review paused by coderabbit.ai'],
+        rateLimit: ['rate limited by coderabbit.ai'],
+        refusal: ['without an assigned CodeRabbit review seat'],
+        skip: ['skip review by coderabbit.ai'],
+        walkthrough: ['review_stack_entry_start'],
+      });
+    }
+  });
+
+  it('applies the default HEAD_DRIFT_GRACE_SEC when missing', () => {
+    const { HEAD_DRIFT_GRACE_SEC: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.HEAD_DRIFT_GRACE_SEC).toBe(900);
     }
   });
 

@@ -270,11 +270,13 @@ describe('DetectedProbe', () => {
     );
   });
 
-  it('records a coderabbit_review_skipped event with source_ts, comment_url, and coderabbit_run_id', async () => {
+  it('records a coderabbit_review_skipped event with the matched phrase, its offset, and coderabbit_run_id', async () => {
     const ref = generateReviewRef();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const coderabbitRunId = getUuid();
+    const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+    const matchedOffset = getUniqueInt();
     const entryUuid = getUuid();
     const tx = createMockTx();
 
@@ -295,7 +297,7 @@ describe('DetectedProbe', () => {
       logger,
     );
 
-    const result = await runInContext(() => probe.skipped(tx));
+    const result = await runInContext(() => probe.skipped(tx, matchedPhrase, matchedOffset));
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -308,7 +310,8 @@ describe('DetectedProbe', () => {
         payload: {
           source_ts: sourceTs,
           comment_url: sourceCommentUrl,
-          skip_reason: 'CodeRabbit explicitly skipped this review',
+          matched_phrase: matchedPhrase,
+          matched_offset: matchedOffset,
           coderabbit_run_id: coderabbitRunId,
         },
       },
@@ -316,17 +319,16 @@ describe('DetectedProbe', () => {
     );
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId },
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId, matchedPhrase, matchedOffset },
       'CodeRabbit skip comment encountered',
     );
   });
 
-  it('records a coderabbit_review_refused event with comment_url, matched_phrase, and coderabbit_run_id', async () => {
+  it('records a coderabbit_review_skipped event without the matched pair when the classifier found no phrase', async () => {
     const ref = generateReviewRef();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const coderabbitRunId = getUuid();
-    const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
     const entryUuid = getUuid();
     const tx = createMockTx();
 
@@ -347,7 +349,66 @@ describe('DetectedProbe', () => {
       logger,
     );
 
-    const result = await runInContext(() => probe.refused(tx, matchedPhrase));
+    await runInContext(() => probe.skipped(tx, undefined, undefined));
+
+    expect(record).toHaveBeenCalledWith(
+      {
+        type: 'coderabbit_review_skipped',
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        correlation_id: eventTrace.correlationId,
+        request_id: eventTrace.requestId,
+        version: eventTrace.version,
+        payload: {
+          source_ts: sourceTs,
+          comment_url: sourceCommentUrl,
+          coderabbit_run_id: coderabbitRunId,
+        },
+      },
+      tx,
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      {
+        fn: 'DetectedProbe',
+        repo: ref.repoFullName,
+        pr: ref.prNumber,
+        eventUuid: entryUuid,
+        coderabbit_run_id: coderabbitRunId,
+        matchedPhrase: undefined,
+        matchedOffset: undefined,
+      },
+      'CodeRabbit skip comment encountered',
+    );
+  });
+
+  it('records a coderabbit_review_refused event with comment_url, matched_phrase, and coderabbit_run_id', async () => {
+    const ref = generateReviewRef();
+    const sourceTs = getUniqueDate();
+    const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
+    const coderabbitRunId = getUuid();
+    const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+    const matchedOffset = getUniqueInt();
+    const entryUuid = getUuid();
+    const tx = createMockTx();
+
+    const entry = { uuid: entryUuid } as unknown as EventLogEntry;
+    const { eventRepository, record } = makeEventRepository(entry);
+    const logger = createMockLogger();
+
+    const probe = new DetectedProbe(
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: sourceTs,
+        source_comment_url: sourceCommentUrl,
+        coderabbit_run_id: coderabbitRunId,
+        detectedVia: CommentDetectionMethod.Search,
+      },
+      eventRepository,
+      logger,
+    );
+
+    const result = await runInContext(() => probe.refused(tx, matchedPhrase, matchedOffset));
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -361,6 +422,7 @@ describe('DetectedProbe', () => {
           source_ts: sourceTs,
           comment_url: sourceCommentUrl,
           matched_phrase: matchedPhrase,
+          matched_offset: matchedOffset,
           coderabbit_run_id: coderabbitRunId,
         },
       },
@@ -368,7 +430,15 @@ describe('DetectedProbe', () => {
     );
     expect(result).toBe(entry);
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId, matchedPhrase },
+      {
+        fn: 'DetectedProbe',
+        repo: ref.repoFullName,
+        pr: ref.prNumber,
+        eventUuid: entryUuid,
+        coderabbit_run_id: coderabbitRunId,
+        matchedPhrase,
+        matchedOffset,
+      },
       'CodeRabbit permanently refused the review; resolved the queue item',
     );
   });
@@ -505,11 +575,13 @@ describe('DetectedProbe', () => {
     );
   });
 
-  it('records a coderabbit_review_approved event with coderabbit_run_id as evidence', async () => {
+  it('records a coderabbit_review_approved event with coderabbit_run_id and the matched pair as evidence', async () => {
     const ref = generateReviewRef();
     const sourceTs = getUniqueDate();
     const sourceCommentUrl = getUniqueString({ prefix: 'https://gh/c/' });
     const coderabbitRunId = getUuid();
+    const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+    const matchedOffset = getUniqueInt();
     const entryUuid = getUuid();
     const tx = createMockTx();
 
@@ -530,7 +602,7 @@ describe('DetectedProbe', () => {
       logger,
     );
 
-    await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_approved));
+    await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_approved, matchedPhrase, matchedOffset));
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -540,12 +612,27 @@ describe('DetectedProbe', () => {
         correlation_id: eventTrace.correlationId,
         request_id: eventTrace.requestId,
         version: eventTrace.version,
-        payload: { coderabbit_comment_url: sourceCommentUrl, source_ts: sourceTs, verdict_state: 'review_approved', coderabbit_run_id: coderabbitRunId },
+        payload: {
+          coderabbit_comment_url: sourceCommentUrl,
+          source_ts: sourceTs,
+          verdict_state: 'review_approved',
+          matched_phrase: matchedPhrase,
+          matched_offset: matchedOffset,
+          coderabbit_run_id: coderabbitRunId,
+        },
       },
       tx,
     );
     expect(logger.info).toHaveBeenCalledWith(
-      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, eventUuid: entryUuid, coderabbit_run_id: coderabbitRunId },
+      {
+        fn: 'DetectedProbe',
+        repo: ref.repoFullName,
+        pr: ref.prNumber,
+        eventUuid: entryUuid,
+        coderabbit_run_id: coderabbitRunId,
+        matchedPhrase,
+        matchedOffset,
+      },
       'CodeRabbit review verdict detected; skipping enqueue',
     );
   });
@@ -627,7 +714,7 @@ describe('DetectedProbe', () => {
       logger,
     );
 
-    const result = await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_approved));
+    const result = await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_approved, undefined, undefined));
 
     expect(record).toHaveBeenCalledWith(
       {
@@ -672,7 +759,7 @@ describe('DetectedProbe', () => {
       logger,
     );
 
-    const result = await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_changes_suggested));
+    const result = await runInContext(() => probe.verdictResolved(tx, CodeRabbitCommentType.review_changes_suggested, undefined, undefined));
 
     expect(record).toHaveBeenCalledWith(
       {

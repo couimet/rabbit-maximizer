@@ -1,33 +1,34 @@
 import { isCompletedReview } from '../../src/github/index.js';
 
-import { getRandomString } from '@couimet/dynamic-testing';
-import { describe, expect, it } from '@jest/globals';
+import { getRandomString, getUniqueString } from '@couimet/dynamic-testing';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('isCompletedReview', () => {
-  it('returns true when the body contains the actionable-comments marker', () => {
-    const body = `## Summary by CodeRabbit\n\n**Actionable comments posted: 3**\n\nHere are the findings.`;
-    expect(isCompletedReview(body)).toBe(true);
+  let phrase: string;
+  let phrases: readonly string[];
+
+  beforeEach(() => {
+    phrase = getUniqueString({ prefix: 'verdict-' });
+    phrases = [phrase];
   });
 
-  it('returns true when the body contains the no-actionable marker', () => {
-    const body = '<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\nNo actionable comments were generated in the recent review.';
-    expect(isCompletedReview(body)).toBe(true);
+  it('returns true when the body contains a configured phrase', () => {
+    expect(isCompletedReview(`## Summary by CodeRabbit\n\n${phrase}\n\nHere are the findings.`, phrases)).toBe(true);
   });
 
-  it('matches markers anywhere in the body (substring check)', () => {
-    const body = `${getRandomString()}\n**Actionable comments posted: 1**\n${getRandomString()}`;
-    expect(isCompletedReview(body)).toBe(true);
+  it('matches a phrase anywhere in the body (substring check)', () => {
+    expect(isCompletedReview(`${getRandomString()}\n${phrase}\n${getRandomString()}`, phrases)).toBe(true);
   });
 
-  it('returns false for unrelated bodies', () => {
-    expect(isCompletedReview('Looks good to me!')).toBe(false);
+  it('returns false when the body holds no configured phrase', () => {
+    expect(isCompletedReview('Looks good to me!', phrases)).toBe(false);
   });
 
-  it('returns false for empty body', () => {
-    expect(isCompletedReview('')).toBe(false);
+  it('returns false when the phrase list holds nothing', () => {
+    expect(isCompletedReview(phrase, [])).toBe(false);
   });
 
-  it('returns false for rate-limit comments', () => {
-    expect(isCompletedReview('You have reached your PR review rate limit. Please wait.')).toBe(false);
+  it('returns false for an empty body', () => {
+    expect(isCompletedReview('', phrases)).toBe(false);
   });
 });
