@@ -6,6 +6,7 @@ import type { EventLogEntry, OnDetectedCallback } from '../src/types/index.js';
 import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 import {
   createCoderabbitCommentClassifier,
+  createCoderabbitMarkers,
   createMockCoderabbitCommentRepo,
   createMockCoderabbitGitHubClient,
   createMockEventRepo,
@@ -29,7 +30,9 @@ const APPROVED_COMMENT_BODY =
 const REVIEW_LIMITED_BODY = 'rate limited by coderabbit.ai';
 const REVIEW_LIMITED_WITH_WAIT = 'rate limited by coderabbit.ai\n\n**Next review available in:** **34 minutes**';
 const ONE_MINUTE_MS = 60_000;
-const WALKTHROUGH_BODY = 'review_stack_entry_start';
+const WALKTHROUGH_PHRASE = 'review_stack_entry_start';
+const WALKTHROUGH_BODY = WALKTHROUGH_PHRASE;
+const WALKTHROUGH_PHRASE_OFFSET = WALKTHROUGH_BODY.indexOf(WALKTHROUGH_PHRASE);
 
 describe('DirectCommentChecker', () => {
   let github: ReturnType<typeof createMockCoderabbitGitHubClient>;
@@ -67,6 +70,7 @@ describe('DirectCommentChecker', () => {
       probeFactory,
       createCoderabbitCommentClassifier(),
       new DirectCheckCap(generateConfigData()),
+      createCoderabbitMarkers(),
     );
   });
 
@@ -141,6 +145,8 @@ describe('DirectCommentChecker', () => {
       url: buildCommentUrl(ref.repoFullName, ref.prNumber, commentId),
       comment_type: 'unknown',
       body: WALKTHROUGH_BODY,
+      matched_phrase: WALKTHROUGH_PHRASE,
+      matched_offset: WALKTHROUGH_PHRASE_OFFSET,
       gh_created_at: commentUpdatedAt,
       gh_updated_at: commentUpdatedAt,
       coderabbit_run_id: null,
@@ -682,6 +688,7 @@ describe('DirectCommentChecker', () => {
       probeFactory,
       createCoderabbitCommentClassifier(),
       new DirectCheckCap(generateConfigData({ MAX_DIRECT_CHECK_PRS: configuredCap })),
+      createCoderabbitMarkers(),
     );
 
     await cappedChecker.check(prs);

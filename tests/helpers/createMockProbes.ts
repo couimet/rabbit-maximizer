@@ -234,3 +234,20 @@ export const createMockExclusionSweeperProbe = (): MockExclusionSweeperProbe => 
   itemFailed: jest.fn<any>(),
   completed: jest.fn<any>(),
 });
+
+export interface MockHeadDriftProbe {
+  withCandidate: jest.Mock<any>;
+  noDriftFound: jest.Mock<any>;
+  excluded: jest.Mock<any>;
+  headAlreadyReviewed: jest.Mock<any>;
+  headDriftFound: jest.Mock<any>;
+  recovered: jest.Mock<any>;
+}
+export const createMockHeadDriftProbe = (): MockHeadDriftProbe => ({
+  withCandidate: jest.fn<any>(),
+  noDriftFound: jest.fn<any>(),
+  excluded: jest.fn<any>(),
+  headAlreadyReviewed: jest.fn<any>(),
+  headDriftFound: jest.fn<any>(),
+  recovered: jest.fn<any>().mockResolvedValue(undefined),
+});

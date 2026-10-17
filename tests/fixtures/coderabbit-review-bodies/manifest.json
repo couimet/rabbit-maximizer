@@ -1,0 +1,35 @@
+[
+  {
+    "file": "review-changes-suggested-one-finding.md",
+    "sourceReviewUrl": "https://github.com/couimet/rabbit-maximizer/pull/361#pullrequestreview-5337932327",
+    "author": "coderabbitai[bot]",
+    "submittedAt": "2026-09-28T11:30:49Z",
+    "expected": {
+      "matchedPhrase": "Actionable comments posted:",
+      "matchedOffset": 2,
+      "isApproval": false
+    }
+  },
+  {
+    "file": "review-changes-suggested-three-findings.md",
+    "sourceReviewUrl": "https://github.com/couimet/rabbit-maximizer/pull/361#pullrequestreview-5411318694",
+    "author": "coderabbitai[bot]",
+    "submittedAt": "2026-10-05T07:37:36Z",
+    "expected": {
+      "matchedPhrase": "Actionable comments posted:",
+      "matchedOffset": 2,
+      "isApproval": false
+    }
+  },
+  {
+    "file": "review-changes-suggested-two-findings.md",
+    "sourceReviewUrl": "https://github.com/couimet/rabbit-maximizer/pull/361#pullrequestreview-5479586913",
+    "author": "coderabbitai[bot]",
+    "submittedAt": "2026-10-10T15:26:20Z",
+    "expected": {
+      "matchedPhrase": "Actionable comments posted:",
+      "matchedOffset": 2,
+      "isApproval": false
+    }
+  }
+]

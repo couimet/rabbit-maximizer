@@ -14,6 +14,7 @@ import type {
   EventMetadata,
   ExcludedPayload,
   FailedPayload,
+  HeadDriftRecoveredPayload,
   RetriggeredPayload,
 } from './index.js';
 
@@ -52,6 +53,10 @@ export type EventLogEntry =
   | (EventEnvelope & {
       readonly type: EventType.failed;
       readonly payload: FailedPayload;
+    })
+  | (EventEnvelope & {
+      readonly type: EventType.head_drift_recovered;
+      readonly payload: HeadDriftRecoveredPayload;
     })
   | (EventEnvelope & {
       readonly type: EventType.retriggered;

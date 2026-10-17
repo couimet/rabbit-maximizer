@@ -14,6 +14,8 @@ export const generateCoderabbitCommentCreationData = (overrideValues?: Partial<U
     url: ref.commentUrl,
     comment_type: getRandomEnumValue(CodeRabbitCommentType),
     body: getUniqueString(),
+    matched_phrase: getUniqueString(),
+    matched_offset: getUniqueInt(),
     gh_created_at: getUniqueDate(),
     gh_updated_at: getUniqueDate(),
     coderabbit_run_id: getUuid(),
@@ -27,7 +29,7 @@ export const generateCoderabbitCommentHydrationData = (overrideValues?: Partial<
     pull_request_id: overrideValues?.pull_request_id,
     url: overrideValues?.url,
     comment_type: overrideValues?.comment_type as CodeRabbitCommentType | undefined,
-    body: overrideValues?.last_body_preview ?? undefined,
+    body: overrideValues?.last_body ?? undefined,
   });
   return {
     id: getUniqueInt(),
@@ -36,7 +38,9 @@ export const generateCoderabbitCommentHydrationData = (overrideValues?: Partial<
     comment_id: creationData.comment_id,
     url: creationData.url,
     comment_type: creationData.comment_type,
-    last_body_preview: creationData.body,
+    last_body: creationData.body,
+    last_matched_phrase: creationData.matched_phrase ?? null,
+    last_matched_offset: creationData.matched_offset ?? null,
     gh_created_at: creationData.gh_created_at,
     gh_updated_at: creationData.gh_updated_at,
     first_seen_at: getUniqueDate(),

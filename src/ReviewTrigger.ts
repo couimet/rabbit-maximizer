@@ -4,6 +4,7 @@ import { validateAttributes, withAttributes } from './external-deps/couimet/exec
 import {
   type CoderabbitCommentClassifier,
   type CoderabbitGitHubClient,
+  type CoderabbitMarkers,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,
   parseWaitSeconds,
@@ -48,6 +49,8 @@ export class ReviewTrigger {
     @inject(TYPES.Config) cfg: Config,
     @inject(TYPES.CoderabbitCommentClassifier)
     private readonly classifier: CoderabbitCommentClassifier,
+    @inject(TYPES.CoderabbitMarkers)
+    private readonly markers: CoderabbitMarkers,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {
     this.postCooldownMs = cfg.CODERABBIT_ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
@@ -95,7 +98,7 @@ export class ReviewTrigger {
     const sourceRunId = extractCoderabbitRunId(storedBody);
     const storedClassification = this.classifier.classify(storedBody);
 
-    if (storedBody !== '' && hasRateLimitMarker(storedBody) && !hasOwnRetriggerMarker(storedBody)) {
+    if (storedBody !== '' && hasRateLimitMarker(storedBody, this.markers.rateLimit) && !hasOwnRetriggerMarker(storedBody)) {
       const isReplacement = item.original_source_comment_url !== undefined;
       const diagnosis = includeDiagnosis
         ? isReplacement
@@ -161,7 +164,7 @@ export class ReviewTrigger {
     const rescheduleEarliest = new Date(new Date(latest.updatedAt).getTime() + waitSeconds * MS_PER_SECOND);
 
     probe.staleCommentRescheduled(rescheduleEarliest);
-    const { classification, matchedMarker } = storedClassification;
+    const { classification, matchedPhrase, matchedOffset } = storedClassification;
     return RabbitResult.err(
       new StaleCommentRescheduledError(
         { commentId: latest.commentId, commentUrl: latest.url, coderabbitRunId: extractCoderabbitRunId(latestBody) },
@@ -170,7 +173,8 @@ export class ReviewTrigger {
           createdAt: sourceCreatedAt,
           updatedAt: sourceUpdatedAt,
           classification,
-          matchedMarker,
+          matchedPhrase,
+          matchedOffset,
         },
         rescheduleEarliest,
         'ReviewTrigger.trigger',
@@ -185,14 +189,15 @@ export class ReviewTrigger {
     storedBody: string,
     decision: RetriggerDecision,
   ): RetriggerDiagnosis {
-    const { classification, matchedMarker } = this.classifier.classify(storedBody);
+    const { classification, matchedPhrase, matchedOffset } = this.classifier.classify(storedBody);
 
     const sourceComment: CommentDiagnosis = {
       url: sourceCommentUrl,
       createdAt: sourceCreatedAt,
       updatedAt: sourceUpdatedAt,
       classification,
-      matchedMarker,
+      matchedPhrase,
+      matchedOffset,
     };
 
     const waitSeconds = parseWaitSeconds(storedBody);
@@ -213,14 +218,15 @@ export class ReviewTrigger {
       createdAt: '',
       updatedAt: '',
       classification: CodeRabbitCommentType.unknown,
-      matchedMarker: undefined,
+      matchedPhrase: undefined,
+      matchedOffset: undefined,
     });
 
     let original: CommentDiagnosis;
     try {
       const result = await this.github.fetchCommentByUrl(originalUrl);
-      const { classification, matchedMarker } = this.classifier.classify(result.body);
-      original = { url: originalUrl, createdAt: result.createdAt, updatedAt: result.updatedAt, classification, matchedMarker };
+      const { classification, matchedPhrase, matchedOffset } = this.classifier.classify(result.body);
+      original = { url: originalUrl, createdAt: result.createdAt, updatedAt: result.updatedAt, classification, matchedPhrase, matchedOffset };
     } catch (err: unknown) {
       const error = err as { status?: number };
       if (isTerminalHttpStatus(error.status)) {
@@ -234,13 +240,14 @@ export class ReviewTrigger {
       }
     }
 
-    const { classification, matchedMarker } = this.classifier.classify(replacementBody);
+    const { classification, matchedPhrase, matchedOffset } = this.classifier.classify(replacementBody);
     const replacementComment: CommentDiagnosis = {
       url: item.source_comment_url,
       createdAt: replacementCreatedAt,
       updatedAt: replacementUpdatedAt,
       classification,
-      matchedMarker,
+      matchedPhrase,
+      matchedOffset,
     };
 
     return { sourceComment: original, replacementComment, waitSeconds: parseWaitSeconds(replacementBody), decision: 'replacement' };
@@ -252,7 +259,8 @@ export class ReviewTrigger {
       createdAt: '',
       updatedAt: '',
       classification: CodeRabbitCommentType.unknown,
-      matchedMarker: undefined,
+      matchedPhrase: undefined,
+      matchedOffset: undefined,
     };
 
     return { sourceComment, waitSeconds: undefined, decision: 'direct' };

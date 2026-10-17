@@ -8,8 +8,6 @@ import { createMockLogger } from '@couimet/logger-contract-testing';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 
-const EXPECTED_BODY_PREVIEW_MAX_LENGTH = 1024;
-
 describe('CoderabbitCommentRepository', () => {
   let frozenNow: Date;
   let logger: ReturnType<typeof createMockLogger>;
@@ -38,7 +36,9 @@ describe('CoderabbitCommentRepository', () => {
           pull_request_id: data.pull_request_id,
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body,
+          last_body: data.body,
+          last_matched_phrase: data.matched_phrase,
+          last_matched_offset: data.matched_offset,
           coderabbit_run_id: data.coderabbit_run_id,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
@@ -52,6 +52,35 @@ describe('CoderabbitCommentRepository', () => {
         { fn: 'CoderabbitCommentRepository.upsert', commentId: data.comment_id, id: created.id },
         'Created CoderabbitComment',
       );
+    });
+
+    it('creates the row with null matched columns when the data carries no phrase', async () => {
+      const data = generateCoderabbitCommentCreationData({ matched_phrase: undefined, matched_offset: undefined });
+      const created = generateCoderabbitCommentHydrationData();
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: { findFirst: jest.fn<any>().mockResolvedValue(null), create: jest.fn<any>().mockResolvedValue(created) },
+      });
+      const sut = new CoderabbitCommentRepository(prisma, logger);
+
+      await sut.upsert(data);
+
+      expect(coderabbitComment.create).toHaveBeenCalledWith({
+        data: {
+          comment_id: data.comment_id,
+          pull_request_id: data.pull_request_id,
+          url: data.url,
+          comment_type: data.comment_type,
+          last_body: data.body,
+          last_matched_phrase: null,
+          last_matched_offset: null,
+          coderabbit_run_id: data.coderabbit_run_id,
+          gh_created_at: data.gh_created_at,
+          gh_updated_at: data.gh_updated_at,
+          first_seen_at: frozenNow,
+          last_seen_at: frozenNow,
+          is_not_deleted: true,
+        },
+      });
     });
 
     it('updates an existing active row when matched on comment_id', async () => {
@@ -73,7 +102,9 @@ describe('CoderabbitCommentRepository', () => {
         data: {
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body,
+          last_body: data.body,
+          last_matched_phrase: data.matched_phrase,
+          last_matched_offset: data.matched_offset,
           coderabbit_run_id: data.coderabbit_run_id,
           gh_updated_at: data.gh_updated_at,
           last_seen_at: frozenNow,
@@ -105,7 +136,9 @@ describe('CoderabbitCommentRepository', () => {
         data: {
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body,
+          last_body: data.body,
+          last_matched_phrase: data.matched_phrase,
+          last_matched_offset: data.matched_offset,
           coderabbit_run_id: data.coderabbit_run_id,
           gh_updated_at: data.gh_updated_at,
           last_seen_at: frozenNow,
@@ -136,7 +169,9 @@ describe('CoderabbitCommentRepository', () => {
           pull_request_id: data.pull_request_id,
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: '',
+          last_body: '',
+          last_matched_phrase: data.matched_phrase,
+          last_matched_offset: data.matched_offset,
           coderabbit_run_id: data.coderabbit_run_id,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
@@ -151,7 +186,7 @@ describe('CoderabbitCommentRepository', () => {
       );
     });
 
-    it('sets last_body_preview to null when body is null', async () => {
+    it('sets last_body to null when body is null', async () => {
       const data = generateCoderabbitCommentCreationData({ body: null });
       const createdRow = generateCoderabbitCommentHydrationData();
       const { prisma, coderabbitComment } = createMockPrismaClient({
@@ -167,7 +202,9 @@ describe('CoderabbitCommentRepository', () => {
           pull_request_id: data.pull_request_id,
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: null,
+          last_body: null,
+          last_matched_phrase: data.matched_phrase,
+          last_matched_offset: data.matched_offset,
           coderabbit_run_id: data.coderabbit_run_id,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
@@ -182,8 +219,9 @@ describe('CoderabbitCommentRepository', () => {
       );
     });
 
-    it('truncates body to EXPECTED_BODY_PREVIEW_MAX_LENGTH', async () => {
-      const longBody = getUniqueString({ maxLength: EXPECTED_BODY_PREVIEW_MAX_LENGTH + 100 });
+    it('stores the whole body with no length limit', async () => {
+      const bodyLength = 2048;
+      const longBody = getUniqueString({ maxLength: bodyLength });
       const data = generateCoderabbitCommentCreationData({ body: longBody });
       const created = generateCoderabbitCommentHydrationData();
       const { prisma, coderabbitComment } = createMockPrismaClient({
@@ -199,13 +237,44 @@ describe('CoderabbitCommentRepository', () => {
           pull_request_id: data.pull_request_id,
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: longBody.slice(0, EXPECTED_BODY_PREVIEW_MAX_LENGTH),
+          last_body: longBody,
+          last_matched_phrase: data.matched_phrase,
+          last_matched_offset: data.matched_offset,
           coderabbit_run_id: data.coderabbit_run_id,
           gh_created_at: data.gh_created_at,
           gh_updated_at: data.gh_updated_at,
           first_seen_at: frozenNow,
           last_seen_at: frozenNow,
           is_not_deleted: true,
+        },
+      });
+    });
+
+    it('clears the matched pair when the classification carries no phrase', async () => {
+      const data = generateCoderabbitCommentCreationData({ matched_phrase: undefined, matched_offset: undefined });
+      const existing = generateCoderabbitCommentHydrationData({ comment_id: data.comment_id });
+      const updated = { ...existing, url: data.url };
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(existing).mockResolvedValue(updated),
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 1 }),
+        },
+      });
+      const sut = new CoderabbitCommentRepository(prisma, logger);
+
+      await sut.upsert(data);
+
+      expect(coderabbitComment.updateMany).toHaveBeenCalledWith({
+        where: { id: existing.id, gh_updated_at: { lte: data.gh_updated_at } },
+        data: {
+          url: data.url,
+          comment_type: data.comment_type,
+          last_body: data.body,
+          last_matched_phrase: null,
+          last_matched_offset: null,
+          coderabbit_run_id: data.coderabbit_run_id,
+          gh_updated_at: data.gh_updated_at,
+          last_seen_at: frozenNow,
         },
       });
     });
@@ -252,7 +321,9 @@ describe('CoderabbitCommentRepository', () => {
         data: {
           url: data.url,
           comment_type: data.comment_type,
-          last_body_preview: data.body,
+          last_body: data.body,
+          last_matched_phrase: data.matched_phrase,
+          last_matched_offset: data.matched_offset,
           coderabbit_run_id: data.coderabbit_run_id,
           gh_updated_at: data.gh_updated_at,
           last_seen_at: frozenNow,
@@ -263,6 +334,37 @@ describe('CoderabbitCommentRepository', () => {
         { fn: 'CoderabbitCommentRepository.upsert', commentId: data.comment_id, id: winningRow.id },
         'Updated CoderabbitComment (race recovery)',
       );
+    });
+
+    it('clears the matched pair on race recovery when the data carries no phrase', async () => {
+      const data = generateCoderabbitCommentCreationData({ matched_phrase: undefined, matched_offset: undefined });
+      const p2002 = new PrismaUniqueConstraintViolationError({ tableName: 'CoderabbitComment' });
+      const winningRow = generateCoderabbitCommentHydrationData({ comment_id: data.comment_id, id: getUniqueInt() });
+      const updated = { ...winningRow, url: data.url };
+      const { prisma, coderabbitComment } = createMockPrismaClient({
+        coderabbitComment: {
+          findFirst: jest.fn<any>().mockResolvedValueOnce(null).mockResolvedValueOnce(winningRow).mockResolvedValue(updated),
+          create: jest.fn<any>().mockRejectedValue(p2002),
+          updateMany: jest.fn<any>().mockResolvedValue({ count: 1 }),
+        },
+      });
+      const sut = new CoderabbitCommentRepository(prisma, logger);
+
+      await sut.upsert(data);
+
+      expect(coderabbitComment.updateMany).toHaveBeenCalledWith({
+        where: { id: winningRow.id, gh_updated_at: { lte: data.gh_updated_at } },
+        data: {
+          url: data.url,
+          comment_type: data.comment_type,
+          last_body: data.body,
+          last_matched_phrase: null,
+          last_matched_offset: null,
+          coderabbit_run_id: data.coderabbit_run_id,
+          gh_updated_at: data.gh_updated_at,
+          last_seen_at: frozenNow,
+        },
+      });
     });
 
     it('rethrows PrismaUniqueConstraintViolationError when no winning row found', async () => {

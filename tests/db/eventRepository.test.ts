@@ -351,6 +351,7 @@ describe('EventRepository', () => {
         refusedCnt,
         excludedCnt,
         failedCnt,
+        headDriftCnt,
         runIdChangedCnt,
         runIdClearedCnt,
         runIdFirstSeenCnt,
@@ -365,6 +366,7 @@ describe('EventRepository', () => {
         'refusedCnt',
         'excludedCnt',
         'failedCnt',
+        'headDriftCnt',
         'runIdChangedCnt',
         'runIdClearedCnt',
         'runIdFirstSeenCnt',
@@ -383,6 +385,7 @@ describe('EventRepository', () => {
         { type: 'coderabbit_run_id_cleared', _count: { type: runIdClearedCnt } },
         { type: 'coderabbit_run_id_first_seen', _count: { type: runIdFirstSeenCnt } },
         { type: 'failed', _count: { type: failedCnt } },
+        { type: 'head_drift_recovered', _count: { type: headDriftCnt } },
       ];
 
       const { prisma, event } = createMockPrismaClient({
@@ -411,6 +414,7 @@ describe('EventRepository', () => {
         enqueued: enqueuedCnt,
         excluded: excludedCnt,
         failed: failedCnt,
+        head_drift_recovered: headDriftCnt,
         retriggered: retriggeredCnt,
       });
       expect(logger.debug).toHaveBeenCalledWith(
@@ -429,6 +433,7 @@ describe('EventRepository', () => {
             enqueued: enqueuedCnt,
             excluded: excludedCnt,
             failed: failedCnt,
+            head_drift_recovered: headDriftCnt,
             retriggered: retriggeredCnt,
           },
         },
@@ -458,6 +463,7 @@ describe('EventRepository', () => {
         enqueued: enqueuedCnt,
         excluded: 0,
         failed: 0,
+        head_drift_recovered: 0,
         retriggered: 0,
       };
 

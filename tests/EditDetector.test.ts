@@ -13,6 +13,12 @@ import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
 const ONE_MINUTE_MS = 60_000;
+const MATCHED_AT_START = 0;
+const APPROVAL_PHRASE = 'No actionable comments were generated in the recent review.';
+const CHANGES_SUGGESTED_PHRASE = 'Actionable comments posted:';
+const RATE_LIMIT_PHRASE = 'rate limited by coderabbit.ai';
+const SKIP_PHRASE = 'skip review by coderabbit.ai';
+const REFUSAL_PREFIX = 'CodeRabbit cannot review this PR ';
 
 describe('EditDetector', () => {
   let refusalPhrase: string;
@@ -116,7 +122,7 @@ describe('EditDetector', () => {
     const ghCreatedAt = getUniqueDate();
     const lastSeenAt = getUniqueDate();
     const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
-    const fetchBody = 'No actionable comments were generated in the recent review.';
+    const fetchBody = APPROVAL_PHRASE;
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
@@ -144,6 +150,8 @@ describe('EditDetector', () => {
       url: ref.commentUrl,
       comment_type: 'review_approved',
       body: fetchBody,
+      matched_phrase: APPROVAL_PHRASE,
+      matched_offset: MATCHED_AT_START,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       coderabbit_run_id: null,
@@ -159,7 +167,7 @@ describe('EditDetector', () => {
     const ghCreatedAt = getUniqueDate();
     const lastSeenAt = getUniqueDate();
     const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
-    const fetchBody = 'Actionable comments posted: 0';
+    const fetchBody = `${CHANGES_SUGGESTED_PHRASE} 0`;
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
@@ -186,6 +194,8 @@ describe('EditDetector', () => {
       url: ref.commentUrl,
       comment_type: 'review_changes_suggested',
       body: fetchBody,
+      matched_phrase: CHANGES_SUGGESTED_PHRASE,
+      matched_offset: MATCHED_AT_START,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       coderabbit_run_id: null,
@@ -201,7 +211,7 @@ describe('EditDetector', () => {
     const ghCreatedAt = getUniqueDate();
     const lastSeenAt = getUniqueDate();
     const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
-    const fetchBody = `CodeRabbit cannot review this PR ${refusalPhrase}.`;
+    const fetchBody = `${REFUSAL_PREFIX}${refusalPhrase}.`;
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
@@ -225,6 +235,8 @@ describe('EditDetector', () => {
       url: ref.commentUrl,
       comment_type: 'review_refused',
       body: fetchBody,
+      matched_phrase: refusalPhrase,
+      matched_offset: REFUSAL_PREFIX.length,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       coderabbit_run_id: null,
@@ -240,7 +252,7 @@ describe('EditDetector', () => {
     const ghCreatedAt = getUniqueDate();
     const lastSeenAt = getUniqueDate();
     const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
-    const fetchBody = 'rate limited by coderabbit.ai';
+    const fetchBody = RATE_LIMIT_PHRASE;
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
@@ -263,6 +275,8 @@ describe('EditDetector', () => {
       url: ref.commentUrl,
       comment_type: 'review_limited',
       body: fetchBody,
+      matched_phrase: RATE_LIMIT_PHRASE,
+      matched_offset: MATCHED_AT_START,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       coderabbit_run_id: null,
@@ -350,7 +364,7 @@ describe('EditDetector', () => {
     const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
     const storedRunId = getUuid();
     const coderabbitRunId = getUuid();
-    const fetchBody = `skip review by coderabbit.ai\n\n**Run ID**: \`${coderabbitRunId}\``;
+    const fetchBody = `${SKIP_PHRASE}\n\n**Run ID**: \`${coderabbitRunId}\``;
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
@@ -375,6 +389,8 @@ describe('EditDetector', () => {
       url: ref.commentUrl,
       comment_type: 'review_skipped',
       body: fetchBody,
+      matched_phrase: SKIP_PHRASE,
+      matched_offset: MATCHED_AT_START,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       coderabbit_run_id: coderabbitRunId,
@@ -391,7 +407,7 @@ describe('EditDetector', () => {
     const lastSeenAt = getUniqueDate();
     const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
     const coderabbitRunId = getUuid();
-    const fetchBody = `skip review by coderabbit.ai\n\n**Run ID**: \`${coderabbitRunId}\``;
+    const fetchBody = `${SKIP_PHRASE}\n\n**Run ID**: \`${coderabbitRunId}\``;
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
@@ -416,6 +432,8 @@ describe('EditDetector', () => {
       url: ref.commentUrl,
       comment_type: 'review_skipped',
       body: fetchBody,
+      matched_phrase: SKIP_PHRASE,
+      matched_offset: MATCHED_AT_START,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       coderabbit_run_id: coderabbitRunId,
@@ -432,7 +450,7 @@ describe('EditDetector', () => {
     const lastSeenAt = getUniqueDate();
     const ghUpdatedAt = new Date(lastSeenAt.getTime() + ONE_MINUTE_MS);
     const storedRunId = getUuid();
-    const fetchBody = 'skip review by coderabbit.ai';
+    const fetchBody = SKIP_PHRASE;
 
     comments.findByCommentId.mockResolvedValue({
       comment_id: commentId,
@@ -457,6 +475,8 @@ describe('EditDetector', () => {
       url: ref.commentUrl,
       comment_type: 'review_skipped',
       body: fetchBody,
+      matched_phrase: SKIP_PHRASE,
+      matched_offset: MATCHED_AT_START,
       gh_created_at: ghCreatedAt,
       gh_updated_at: ghUpdatedAt,
       coderabbit_run_id: null,

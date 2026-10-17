@@ -30,6 +30,7 @@ export const EVENT_TYPE_META: Record<EventType, EventTypeMeta> = {
   [EventType.dismissed]: { label: 'Dismissed', family: 'life' },
   [EventType.excluded]: { label: 'Excluded by ignore rule', family: 'life' },
   [EventType.failed]: { label: 'Failed', family: 'fail' },
+  [EventType.head_drift_recovered]: { label: 'Head drift recovered', family: 'life' },
   [EventType.coderabbit_review_approved]: { label: 'Review approved', family: 'verdict' },
   [EventType.coderabbit_review_changes_suggested]: { label: 'Changes suggested', family: 'verdict' },
   [EventType.coderabbit_review_refused]: { label: 'Review refused', family: 'verdict' },

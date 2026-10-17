@@ -67,6 +67,8 @@ export class EditDetector {
         url: matchingComment.url,
         comment_type: newType,
         body: fetchResult.body,
+        matched_phrase: classification.matchedPhrase,
+        matched_offset: classification.matchedOffset,
         gh_created_at: matchingComment.gh_created_at,
         gh_updated_at: freshGhUpdatedAt,
         coderabbit_run_id: freshRunId ?? null,

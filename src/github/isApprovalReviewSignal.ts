@@ -1,3 +1,4 @@
-import { REVIEW_BOT_NO_ACTIONABLE_SIGNAL } from './index.js';
+import { findPhrase } from '../utils/index.js';
 
-export const isApprovalReviewSignal = (body: string): boolean => body.includes(REVIEW_BOT_NO_ACTIONABLE_SIGNAL);
+/** True when the body holds one of the configured approval phrases. */
+export const isApprovalReviewSignal = (body: string, phrases: readonly string[]): boolean => findPhrase(body, phrases) !== undefined;

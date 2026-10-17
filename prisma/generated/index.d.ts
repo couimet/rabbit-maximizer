@@ -8187,12 +8187,14 @@ export namespace Prisma {
     id: number | null;
     pull_request_id: number | null;
     comment_id: number | null;
+    last_matched_offset: number | null;
   };
 
   export type CoderabbitCommentSumAggregateOutputType = {
     id: number | null;
     pull_request_id: number | null;
     comment_id: number | null;
+    last_matched_offset: number | null;
   };
 
   export type CoderabbitCommentMinAggregateOutputType = {
@@ -8202,7 +8204,9 @@ export namespace Prisma {
     comment_id: number | null;
     url: string | null;
     comment_type: string | null;
-    last_body_preview: string | null;
+    last_body: string | null;
+    last_matched_phrase: string | null;
+    last_matched_offset: number | null;
     coderabbit_run_id: string | null;
     gh_created_at: Date | null;
     gh_updated_at: Date | null;
@@ -8221,7 +8225,9 @@ export namespace Prisma {
     comment_id: number | null;
     url: string | null;
     comment_type: string | null;
-    last_body_preview: string | null;
+    last_body: string | null;
+    last_matched_phrase: string | null;
+    last_matched_offset: number | null;
     coderabbit_run_id: string | null;
     gh_created_at: Date | null;
     gh_updated_at: Date | null;
@@ -8240,7 +8246,9 @@ export namespace Prisma {
     comment_id: number;
     url: number;
     comment_type: number;
-    last_body_preview: number;
+    last_body: number;
+    last_matched_phrase: number;
+    last_matched_offset: number;
     coderabbit_run_id: number;
     gh_created_at: number;
     gh_updated_at: number;
@@ -8257,12 +8265,14 @@ export namespace Prisma {
     id?: true;
     pull_request_id?: true;
     comment_id?: true;
+    last_matched_offset?: true;
   };
 
   export type CoderabbitCommentSumAggregateInputType = {
     id?: true;
     pull_request_id?: true;
     comment_id?: true;
+    last_matched_offset?: true;
   };
 
   export type CoderabbitCommentMinAggregateInputType = {
@@ -8272,7 +8282,9 @@ export namespace Prisma {
     comment_id?: true;
     url?: true;
     comment_type?: true;
-    last_body_preview?: true;
+    last_body?: true;
+    last_matched_phrase?: true;
+    last_matched_offset?: true;
     coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
@@ -8291,7 +8303,9 @@ export namespace Prisma {
     comment_id?: true;
     url?: true;
     comment_type?: true;
-    last_body_preview?: true;
+    last_body?: true;
+    last_matched_phrase?: true;
+    last_matched_offset?: true;
     coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
@@ -8310,7 +8324,9 @@ export namespace Prisma {
     comment_id?: true;
     url?: true;
     comment_type?: true;
-    last_body_preview?: true;
+    last_body?: true;
+    last_matched_phrase?: true;
+    last_matched_offset?: true;
     coderabbit_run_id?: true;
     gh_created_at?: true;
     gh_updated_at?: true;
@@ -8413,7 +8429,9 @@ export namespace Prisma {
     comment_id: number;
     url: string;
     comment_type: string;
-    last_body_preview: string | null;
+    last_body: string | null;
+    last_matched_phrase: string | null;
+    last_matched_offset: number | null;
     coderabbit_run_id: string | null;
     gh_created_at: Date;
     gh_updated_at: Date;
@@ -8450,7 +8468,9 @@ export namespace Prisma {
       comment_id?: boolean;
       url?: boolean;
       comment_type?: boolean;
-      last_body_preview?: boolean;
+      last_body?: boolean;
+      last_matched_phrase?: boolean;
+      last_matched_offset?: boolean;
       coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
@@ -8473,7 +8493,9 @@ export namespace Prisma {
       comment_id?: boolean;
       url?: boolean;
       comment_type?: boolean;
-      last_body_preview?: boolean;
+      last_body?: boolean;
+      last_matched_phrase?: boolean;
+      last_matched_offset?: boolean;
       coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
@@ -8496,7 +8518,9 @@ export namespace Prisma {
       comment_id?: boolean;
       url?: boolean;
       comment_type?: boolean;
-      last_body_preview?: boolean;
+      last_body?: boolean;
+      last_matched_phrase?: boolean;
+      last_matched_offset?: boolean;
       coderabbit_run_id?: boolean;
       gh_created_at?: boolean;
       gh_updated_at?: boolean;
@@ -8518,7 +8542,9 @@ export namespace Prisma {
     comment_id?: boolean;
     url?: boolean;
     comment_type?: boolean;
-    last_body_preview?: boolean;
+    last_body?: boolean;
+    last_matched_phrase?: boolean;
+    last_matched_offset?: boolean;
     coderabbit_run_id?: boolean;
     gh_created_at?: boolean;
     gh_updated_at?: boolean;
@@ -8537,7 +8563,9 @@ export namespace Prisma {
     | 'comment_id'
     | 'url'
     | 'comment_type'
-    | 'last_body_preview'
+    | 'last_body'
+    | 'last_matched_phrase'
+    | 'last_matched_offset'
     | 'coderabbit_run_id'
     | 'gh_created_at'
     | 'gh_updated_at'
@@ -8583,9 +8611,17 @@ export namespace Prisma {
          */
         comment_type: string;
         /**
-         * Max 1024. First N chars of the comment body, truncated by the repository on upsert.
+         * The whole comment body, written by the repository on upsert. The dashboard clips it for display.
          */
-        last_body_preview: string | null;
+        last_body: string | null;
+        /**
+         * The configured phrase the body matched, which is the pause phrase on a pause comment; NULL when no phrase matched.
+         */
+        last_matched_phrase: string | null;
+        /**
+         * Zero-based index of last_matched_phrase in last_body; NULL when no phrase matched.
+         */
+        last_matched_offset: number | null;
         /**
          * Max 75. CodeRabbit's per-comment Run ID from the '**Run ID**: ' line in the body; distinct from our own runId (generateRunId in ReviewTrigger). CHECK in the 20260820 migration.
          */
@@ -9098,7 +9134,9 @@ export namespace Prisma {
     readonly comment_id: FieldRef<'CoderabbitComment', 'Int'>;
     readonly url: FieldRef<'CoderabbitComment', 'String'>;
     readonly comment_type: FieldRef<'CoderabbitComment', 'String'>;
-    readonly last_body_preview: FieldRef<'CoderabbitComment', 'String'>;
+    readonly last_body: FieldRef<'CoderabbitComment', 'String'>;
+    readonly last_matched_phrase: FieldRef<'CoderabbitComment', 'String'>;
+    readonly last_matched_offset: FieldRef<'CoderabbitComment', 'Int'>;
     readonly coderabbit_run_id: FieldRef<'CoderabbitComment', 'String'>;
     readonly gh_created_at: FieldRef<'CoderabbitComment', 'DateTime'>;
     readonly gh_updated_at: FieldRef<'CoderabbitComment', 'DateTime'>;
@@ -10725,7 +10763,9 @@ export namespace Prisma {
     comment_id: 'comment_id';
     url: 'url';
     comment_type: 'comment_type';
-    last_body_preview: 'last_body_preview';
+    last_body: 'last_body';
+    last_matched_phrase: 'last_matched_phrase';
+    last_matched_offset: 'last_matched_offset';
     coderabbit_run_id: 'coderabbit_run_id';
     gh_created_at: 'gh_created_at';
     gh_updated_at: 'gh_updated_at';
@@ -11366,7 +11406,9 @@ export namespace Prisma {
     comment_id?: IntFilter<'CoderabbitComment'> | number;
     url?: StringFilter<'CoderabbitComment'> | string;
     comment_type?: StringFilter<'CoderabbitComment'> | string;
-    last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    last_body?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    last_matched_phrase?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    last_matched_offset?: IntNullableFilter<'CoderabbitComment'> | number | null;
     coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -11386,7 +11428,9 @@ export namespace Prisma {
     comment_id?: SortOrder;
     url?: SortOrder;
     comment_type?: SortOrder;
-    last_body_preview?: SortOrderInput | SortOrder;
+    last_body?: SortOrderInput | SortOrder;
+    last_matched_phrase?: SortOrderInput | SortOrder;
+    last_matched_offset?: SortOrderInput | SortOrder;
     coderabbit_run_id?: SortOrderInput | SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
@@ -11411,7 +11455,9 @@ export namespace Prisma {
       comment_id?: IntFilter<'CoderabbitComment'> | number;
       url?: StringFilter<'CoderabbitComment'> | string;
       comment_type?: StringFilter<'CoderabbitComment'> | string;
-      last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+      last_body?: StringNullableFilter<'CoderabbitComment'> | string | null;
+      last_matched_phrase?: StringNullableFilter<'CoderabbitComment'> | string | null;
+      last_matched_offset?: IntNullableFilter<'CoderabbitComment'> | number | null;
       coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
       gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
       gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -11433,7 +11479,9 @@ export namespace Prisma {
     comment_id?: SortOrder;
     url?: SortOrder;
     comment_type?: SortOrder;
-    last_body_preview?: SortOrderInput | SortOrder;
+    last_body?: SortOrderInput | SortOrder;
+    last_matched_phrase?: SortOrderInput | SortOrder;
+    last_matched_offset?: SortOrderInput | SortOrder;
     coderabbit_run_id?: SortOrderInput | SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
@@ -11460,7 +11508,9 @@ export namespace Prisma {
     comment_id?: IntWithAggregatesFilter<'CoderabbitComment'> | number;
     url?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
     comment_type?: StringWithAggregatesFilter<'CoderabbitComment'> | string;
-    last_body_preview?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
+    last_body?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
+    last_matched_phrase?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
+    last_matched_offset?: IntNullableWithAggregatesFilter<'CoderabbitComment'> | number | null;
     coderabbit_run_id?: StringNullableWithAggregatesFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeWithAggregatesFilter<'CoderabbitComment'> | Date | string;
@@ -12163,7 +12213,9 @@ export namespace Prisma {
     comment_id: number;
     url: string;
     comment_type: string;
-    last_body_preview?: string | null;
+    last_body?: string | null;
+    last_matched_phrase?: string | null;
+    last_matched_offset?: number | null;
     coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
@@ -12183,7 +12235,9 @@ export namespace Prisma {
     comment_id: number;
     url: string;
     comment_type: string;
-    last_body_preview?: string | null;
+    last_body?: string | null;
+    last_matched_phrase?: string | null;
+    last_matched_offset?: number | null;
     coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
@@ -12200,7 +12254,9 @@ export namespace Prisma {
     comment_id?: IntFieldUpdateOperationsInput | number;
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
-    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_body?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_phrase?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_offset?: NullableIntFieldUpdateOperationsInput | number | null;
     coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12220,7 +12276,9 @@ export namespace Prisma {
     comment_id?: IntFieldUpdateOperationsInput | number;
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
-    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_body?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_phrase?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_offset?: NullableIntFieldUpdateOperationsInput | number | null;
     coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12239,7 +12297,9 @@ export namespace Prisma {
     comment_id: number;
     url: string;
     comment_type: string;
-    last_body_preview?: string | null;
+    last_body?: string | null;
+    last_matched_phrase?: string | null;
+    last_matched_offset?: number | null;
     coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
@@ -12256,7 +12316,9 @@ export namespace Prisma {
     comment_id?: IntFieldUpdateOperationsInput | number;
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
-    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_body?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_phrase?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_offset?: NullableIntFieldUpdateOperationsInput | number | null;
     coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12275,7 +12337,9 @@ export namespace Prisma {
     comment_id?: IntFieldUpdateOperationsInput | number;
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
-    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_body?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_phrase?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_offset?: NullableIntFieldUpdateOperationsInput | number | null;
     coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -12941,7 +13005,9 @@ export namespace Prisma {
     comment_id?: SortOrder;
     url?: SortOrder;
     comment_type?: SortOrder;
-    last_body_preview?: SortOrder;
+    last_body?: SortOrder;
+    last_matched_phrase?: SortOrder;
+    last_matched_offset?: SortOrder;
     coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
@@ -12957,6 +13023,7 @@ export namespace Prisma {
     id?: SortOrder;
     pull_request_id?: SortOrder;
     comment_id?: SortOrder;
+    last_matched_offset?: SortOrder;
   };
 
   export type CoderabbitCommentMaxOrderByAggregateInput = {
@@ -12966,7 +13033,9 @@ export namespace Prisma {
     comment_id?: SortOrder;
     url?: SortOrder;
     comment_type?: SortOrder;
-    last_body_preview?: SortOrder;
+    last_body?: SortOrder;
+    last_matched_phrase?: SortOrder;
+    last_matched_offset?: SortOrder;
     coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
@@ -12985,7 +13054,9 @@ export namespace Prisma {
     comment_id?: SortOrder;
     url?: SortOrder;
     comment_type?: SortOrder;
-    last_body_preview?: SortOrder;
+    last_body?: SortOrder;
+    last_matched_phrase?: SortOrder;
+    last_matched_offset?: SortOrder;
     coderabbit_run_id?: SortOrder;
     gh_created_at?: SortOrder;
     gh_updated_at?: SortOrder;
@@ -13001,6 +13072,7 @@ export namespace Prisma {
     id?: SortOrder;
     pull_request_id?: SortOrder;
     comment_id?: SortOrder;
+    last_matched_offset?: SortOrder;
   };
 
   export type BoolNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -13785,7 +13857,9 @@ export namespace Prisma {
     comment_id: number;
     url: string;
     comment_type: string;
-    last_body_preview?: string | null;
+    last_body?: string | null;
+    last_matched_phrase?: string | null;
+    last_matched_offset?: number | null;
     coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
@@ -13803,7 +13877,9 @@ export namespace Prisma {
     comment_id: number;
     url: string;
     comment_type: string;
-    last_body_preview?: string | null;
+    last_body?: string | null;
+    last_matched_phrase?: string | null;
+    last_matched_offset?: number | null;
     coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
@@ -13955,7 +14031,9 @@ export namespace Prisma {
     comment_id?: IntFilter<'CoderabbitComment'> | number;
     url?: StringFilter<'CoderabbitComment'> | string;
     comment_type?: StringFilter<'CoderabbitComment'> | string;
-    last_body_preview?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    last_body?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    last_matched_phrase?: StringNullableFilter<'CoderabbitComment'> | string | null;
+    last_matched_offset?: IntNullableFilter<'CoderabbitComment'> | number | null;
     coderabbit_run_id?: StringNullableFilter<'CoderabbitComment'> | string | null;
     gh_created_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
     gh_updated_at?: DateTimeFilter<'CoderabbitComment'> | Date | string;
@@ -14767,7 +14845,9 @@ export namespace Prisma {
     comment_id: number;
     url: string;
     comment_type: string;
-    last_body_preview?: string | null;
+    last_body?: string | null;
+    last_matched_phrase?: string | null;
+    last_matched_offset?: number | null;
     coderabbit_run_id?: string | null;
     gh_created_at: Date | string;
     gh_updated_at: Date | string;
@@ -14920,7 +15000,9 @@ export namespace Prisma {
     comment_id?: IntFieldUpdateOperationsInput | number;
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
-    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_body?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_phrase?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_offset?: NullableIntFieldUpdateOperationsInput | number | null;
     coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -14938,7 +15020,9 @@ export namespace Prisma {
     comment_id?: IntFieldUpdateOperationsInput | number;
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
-    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_body?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_phrase?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_offset?: NullableIntFieldUpdateOperationsInput | number | null;
     coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;
@@ -14956,7 +15040,9 @@ export namespace Prisma {
     comment_id?: IntFieldUpdateOperationsInput | number;
     url?: StringFieldUpdateOperationsInput | string;
     comment_type?: StringFieldUpdateOperationsInput | string;
-    last_body_preview?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_body?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_phrase?: NullableStringFieldUpdateOperationsInput | string | null;
+    last_matched_offset?: NullableIntFieldUpdateOperationsInput | number | null;
     coderabbit_run_id?: NullableStringFieldUpdateOperationsInput | string | null;
     gh_created_at?: DateTimeFieldUpdateOperationsInput | Date | string;
     gh_updated_at?: DateTimeFieldUpdateOperationsInput | Date | string;

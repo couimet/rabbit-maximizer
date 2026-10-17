@@ -1,18 +1,30 @@
 import { hasRateLimitMarker } from '../../src/github/index.js';
 
-import { getRandomString } from '@couimet/dynamic-testing';
-import { describe, expect, it } from '@jest/globals';
+import { getRandomString, getUniqueString } from '@couimet/dynamic-testing';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('hasRateLimitMarker', () => {
-  it('returns true when the body contains the rate-limit marker', () => {
-    expect(hasRateLimitMarker(`${getRandomString()} rate limited by coderabbit.ai ${getRandomString()}`)).toBe(true);
+  let phrase: string;
+  let phrases: readonly string[];
+
+  beforeEach(() => {
+    phrase = getUniqueString({ prefix: 'rate-limit-' });
+    phrases = [phrase];
   });
 
-  it('returns false when the body does not contain the marker', () => {
-    expect(hasRateLimitMarker(getRandomString())).toBe(false);
+  it('returns true when the body contains a configured phrase', () => {
+    expect(hasRateLimitMarker(`${getRandomString()} ${phrase} ${getRandomString()}`, phrases)).toBe(true);
+  });
+
+  it('returns false when the body holds no configured phrase', () => {
+    expect(hasRateLimitMarker(getRandomString(), phrases)).toBe(false);
+  });
+
+  it('returns false when the phrase list holds nothing', () => {
+    expect(hasRateLimitMarker(phrase, [])).toBe(false);
   });
 
   it('returns false for an empty string', () => {
-    expect(hasRateLimitMarker('')).toBe(false);
+    expect(hasRateLimitMarker('', phrases)).toBe(false);
   });
 });

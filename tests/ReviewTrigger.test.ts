@@ -1,12 +1,13 @@
 import { config } from '../src/config.js';
 import { QueueStatus, TriggerSource } from '../src/domain.js';
 import { StaleCommentRescheduledError } from '../src/errors/index.js';
-import type { CoderabbitCommentClassifier, CoderabbitGitHubClient } from '../src/github/index.js';
+import type { CoderabbitCommentClassifier, CoderabbitGitHubClient, CoderabbitMarkers } from '../src/github/index.js';
 import { ReviewTrigger } from '../src/services.js';
 
 import { spyOnAttributeAdditions, withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 import {
   createCoderabbitCommentClassifier,
+  createCoderabbitMarkers,
   createMockProbeFactory,
   createMockPullRequestRepo,
   createMockQueueRepo,
@@ -28,14 +29,20 @@ const MS_PER_SECOND = 1000;
 const ACCOUNT_COOLDOWN_MS = ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
 const SKIP_COMMENT_BODY =
   '## Review available on request\n\nThis repository has fewer than 10 stars. To request a review, comment "@coderabbitai full review".\n\n<details>\n<summary>skip review by coderabbit.ai</summary>\n</details>';
+const RATE_LIMIT_PHRASE = 'rate limited by coderabbit.ai';
+const RATE_LIMIT_PHRASE_OFFSET = 0;
+const SKIP_PHRASE = 'skip review by coderabbit.ai';
+const SKIP_PHRASE_OFFSET = SKIP_COMMENT_BODY.indexOf(SKIP_PHRASE);
 const REFUSAL_PHRASE = config.CODERABBIT_REFUSAL_PHRASES[0];
 const REFUSAL_COMMENT_BODY = `CodeRabbit cannot review this PR ${REFUSAL_PHRASE}.`;
+const REFUSAL_PHRASE_OFFSET = REFUSAL_COMMENT_BODY.indexOf(REFUSAL_PHRASE);
 
 let generatedRunId: string;
 
 let postedCommentUrl: string | undefined;
 
 let classifier: CoderabbitCommentClassifier;
+let markers: CoderabbitMarkers;
 
 const setup = () => {
   const github = {
@@ -61,7 +68,7 @@ const setup = () => {
 
   runIdGenerator.generate.mockReturnValue(generatedRunId);
 
-  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, systemState, runIdGenerator, cfg, classifier, logger);
+  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, systemState, runIdGenerator, cfg, classifier, markers, logger);
 
   return { github, probeFactory, prisma, tx, logger, reviewTrigger, queue, pullRequests, runIdGenerator, systemState };
 };
@@ -82,6 +89,7 @@ describe('ReviewTrigger', () => {
 
   beforeEach(() => {
     classifier = createCoderabbitCommentClassifier();
+    markers = createCoderabbitMarkers();
     generatedRunId = getUniqueString({ prefix: 'run-' });
     addAttributes = spyOnAttributeAdditions();
     commentUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
@@ -197,7 +205,8 @@ describe('ReviewTrigger', () => {
         createdAt,
         updatedAt,
         classification: 'review_limited',
-        matchedMarker: 'rate limited by coderabbit.ai',
+        matchedPhrase: RATE_LIMIT_PHRASE,
+        matchedOffset: RATE_LIMIT_PHRASE_OFFSET,
       },
       waitSeconds: undefined,
       decision: 'source',
@@ -230,7 +239,8 @@ describe('ReviewTrigger', () => {
         createdAt,
         updatedAt,
         classification: 'review_skipped',
-        matchedMarker: 'skip review by coderabbit.ai',
+        matchedPhrase: SKIP_PHRASE,
+        matchedOffset: SKIP_PHRASE_OFFSET,
       },
       waitSeconds: undefined,
       decision: 'source',
@@ -290,7 +300,8 @@ describe('ReviewTrigger', () => {
         createdAt,
         updatedAt,
         classification: 'review_skipped',
-        matchedMarker: 'skip review by coderabbit.ai',
+        matchedPhrase: SKIP_PHRASE,
+        matchedOffset: SKIP_PHRASE_OFFSET,
       },
       waitSeconds: undefined,
       decision: 'source',
@@ -346,7 +357,8 @@ describe('ReviewTrigger', () => {
         createdAt,
         updatedAt,
         classification: 'review_refused',
-        matchedMarker: undefined,
+        matchedPhrase: REFUSAL_PHRASE,
+        matchedOffset: REFUSAL_PHRASE_OFFSET,
       },
       waitSeconds: undefined,
       decision: 'source',
@@ -416,7 +428,8 @@ describe('ReviewTrigger', () => {
         createdAt: '',
         updatedAt: '',
         classification: 'unknown',
-        matchedMarker: undefined,
+        matchedPhrase: undefined,
+        matchedOffset: undefined,
       },
       waitSeconds: undefined,
       decision: 'direct',
@@ -503,7 +516,8 @@ describe('ReviewTrigger', () => {
       createdAt: sourceFetch.createdAt,
       updatedAt: sourceFetch.updatedAt,
       classification: 'unknown',
-      matchedMarker: undefined,
+      matchedPhrase: undefined,
+      matchedOffset: undefined,
     });
     expect(err.rescheduleEarliest).toStrictEqual(rescheduleEarliest);
   });
@@ -542,7 +556,8 @@ describe('ReviewTrigger', () => {
       createdAt: sourceFetch.createdAt,
       updatedAt: sourceFetch.updatedAt,
       classification: 'unknown',
-      matchedMarker: undefined,
+      matchedPhrase: undefined,
+      matchedOffset: undefined,
     });
   });
 
@@ -623,14 +638,16 @@ describe('ReviewTrigger', () => {
         createdAt: originalCreatedAt,
         updatedAt: originalUpdatedAt,
         classification: 'review_limited',
-        matchedMarker: 'rate limited by coderabbit.ai',
+        matchedPhrase: RATE_LIMIT_PHRASE,
+        matchedOffset: RATE_LIMIT_PHRASE_OFFSET,
       },
       replacementComment: {
         url: item.source_comment_url,
         createdAt: replacementCreatedAt,
         updatedAt: replacementUpdatedAt,
         classification: 'review_limited',
-        matchedMarker: 'rate limited by coderabbit.ai',
+        matchedPhrase: RATE_LIMIT_PHRASE,
+        matchedOffset: RATE_LIMIT_PHRASE_OFFSET,
       },
       waitSeconds: 600,
       decision: 'replacement',
@@ -670,14 +687,16 @@ describe('ReviewTrigger', () => {
         createdAt: '',
         updatedAt: '',
         classification: 'unknown',
-        matchedMarker: undefined,
+        matchedPhrase: undefined,
+        matchedOffset: undefined,
       },
       replacementComment: {
         url: item.source_comment_url,
         createdAt: replacementCreatedAt,
         updatedAt: replacementUpdatedAt,
         classification: 'review_limited',
-        matchedMarker: 'rate limited by coderabbit.ai',
+        matchedPhrase: RATE_LIMIT_PHRASE,
+        matchedOffset: RATE_LIMIT_PHRASE_OFFSET,
       },
       waitSeconds: undefined,
       decision: 'replacement',
@@ -722,14 +741,16 @@ describe('ReviewTrigger', () => {
         createdAt: '',
         updatedAt: '',
         classification: 'unknown',
-        matchedMarker: undefined,
+        matchedPhrase: undefined,
+        matchedOffset: undefined,
       },
       replacementComment: {
         url: item.source_comment_url,
         createdAt: replacementCreatedAt,
         updatedAt: replacementUpdatedAt,
         classification: 'review_limited',
-        matchedMarker: 'rate limited by coderabbit.ai',
+        matchedPhrase: RATE_LIMIT_PHRASE,
+        matchedOffset: RATE_LIMIT_PHRASE_OFFSET,
       },
       waitSeconds: undefined,
       decision: 'replacement',

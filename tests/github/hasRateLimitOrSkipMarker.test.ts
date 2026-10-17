@@ -1,34 +1,44 @@
 import { hasRateLimitOrSkipMarker } from '../../src/github/index.js';
 
-import { getRandomString } from '@couimet/dynamic-testing';
-import { describe, expect, it } from '@jest/globals';
+import { getRandomString, getUniqueString } from '@couimet/dynamic-testing';
+import { beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('hasRateLimitOrSkipMarker', () => {
-  it('returns true when the body contains the rate-limit marker', () => {
-    expect(hasRateLimitOrSkipMarker(`${getRandomString()} rate limited by coderabbit.ai ${getRandomString()}`)).toBe(true);
+  let rateLimitPhrase: string;
+  let skipPhrase: string;
+  let phrases: readonly string[];
+
+  beforeEach(() => {
+    rateLimitPhrase = getUniqueString({ prefix: 'rate-limit-' });
+    skipPhrase = getUniqueString({ prefix: 'skip-' });
+    phrases = [rateLimitPhrase, skipPhrase];
   });
 
-  it('returns true when the body contains the skip marker', () => {
-    expect(hasRateLimitOrSkipMarker(`${getRandomString()} skip review by coderabbit.ai ${getRandomString()}`)).toBe(true);
+  it('returns true when the body contains the rate-limit phrase', () => {
+    expect(hasRateLimitOrSkipMarker(`${getRandomString()} ${rateLimitPhrase} ${getRandomString()}`, phrases)).toBe(true);
   });
 
-  it('returns true when the body contains both markers', () => {
-    expect(hasRateLimitOrSkipMarker(`${getRandomString()} skip review by coderabbit.ai rate limited by coderabbit.ai ${getRandomString()}`)).toBe(true);
+  it('returns true when the body contains the skip phrase', () => {
+    expect(hasRateLimitOrSkipMarker(`${getRandomString()} ${skipPhrase} ${getRandomString()}`, phrases)).toBe(true);
   });
 
-  it('returns false when the body contains neither marker', () => {
-    expect(hasRateLimitOrSkipMarker(getRandomString())).toBe(false);
+  it('returns true when the body contains both phrases', () => {
+    expect(hasRateLimitOrSkipMarker(`${getRandomString()} ${skipPhrase} ${rateLimitPhrase} ${getRandomString()}`, phrases)).toBe(true);
+  });
+
+  it('returns false when the body holds no configured phrase', () => {
+    expect(hasRateLimitOrSkipMarker(getRandomString(), phrases)).toBe(false);
   });
 
   it('returns false for an empty string', () => {
-    expect(hasRateLimitOrSkipMarker('')).toBe(false);
+    expect(hasRateLimitOrSkipMarker('', phrases)).toBe(false);
   });
 
   it('returns false for null', () => {
-    expect(hasRateLimitOrSkipMarker(null)).toBe(false);
+    expect(hasRateLimitOrSkipMarker(null, phrases)).toBe(false);
   });
 
   it('returns false for undefined', () => {
-    expect(hasRateLimitOrSkipMarker(undefined)).toBe(false);
+    expect(hasRateLimitOrSkipMarker(undefined, phrases)).toBe(false);
   });
 });

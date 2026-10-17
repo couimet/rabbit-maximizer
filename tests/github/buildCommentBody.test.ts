@@ -1,5 +1,5 @@
 import pkg from '../../package.json' with { type: 'json' };
-import { CodeRabbitCommentType, MatchedMarker, TriggerSource } from '../../src/domain.js';
+import { CodeRabbitCommentType, TriggerSource } from '../../src/domain.js';
 import { buildCommentBody } from '../../src/github/index.js';
 import type { CommentDiagnosis, RetriggerDiagnosis, RunIdentity } from '../../src/types/index.js';
 
@@ -16,6 +16,8 @@ describe('buildCommentBody', () => {
   let version: string;
   let gitSha: string;
   let identity: RunIdentity;
+  let matchedPhrase: string;
+  let matchedOffset: number;
 
   beforeEach(() => {
     frozenDate = getUniqueDate();
@@ -27,6 +29,8 @@ describe('buildCommentBody', () => {
       runKind: getUniqueString({ prefix: 'kind-' }),
       imageTags: getUniqueString({ prefix: 'tags-' }),
     };
+    matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+    matchedOffset = getUniqueInt();
     jest.useFakeTimers();
     jest.setSystemTime(frozenDate);
   });
@@ -158,7 +162,8 @@ describe('buildCommentBody', () => {
       createdAt: sourceCreatedAt.toISOString(),
       updatedAt: sourceCreatedAt.toISOString(),
       classification: CodeRabbitCommentType.review_limited,
-      matchedMarker: MatchedMarker.rate_limit,
+      matchedPhrase,
+      matchedOffset,
     };
 
     const diagnosis: RetriggerDiagnosis = {
@@ -195,7 +200,8 @@ describe('buildCommentBody', () => {
           createdAt: sourceCreatedAt.toISOString(),
           updatedAt: sourceCreatedAt.toISOString(),
           classification: 'review_limited',
-          matchedMarker: 'rate limited by coderabbit.ai',
+          matchedPhrase,
+          matchedOffset,
         },
         waitSeconds: WAIT_SECONDS,
         decision: 'source',
@@ -218,7 +224,8 @@ describe('buildCommentBody', () => {
         createdAt: sourceCreatedAt.toISOString(),
         updatedAt: sourceCreatedAt.toISOString(),
         classification: CodeRabbitCommentType.review_limited,
-        matchedMarker: MatchedMarker.rate_limit,
+        matchedPhrase,
+        matchedOffset,
       },
       waitSeconds: undefined,
       decision: 'source',
@@ -242,7 +249,8 @@ describe('buildCommentBody', () => {
       createdAt: '',
       updatedAt: '',
       classification: CodeRabbitCommentType.unknown,
-      matchedMarker: undefined,
+      matchedPhrase: undefined,
+      matchedOffset: undefined,
     };
 
     const diagnosis: RetriggerDiagnosis = {
@@ -292,7 +300,8 @@ describe('buildCommentBody', () => {
       createdAt: originalCreatedAt.toISOString(),
       updatedAt: originalCreatedAt.toISOString(),
       classification: CodeRabbitCommentType.review_limited,
-      matchedMarker: MatchedMarker.rate_limit,
+      matchedPhrase,
+      matchedOffset,
     };
 
     const replacementComment: CommentDiagnosis = {
@@ -300,7 +309,8 @@ describe('buildCommentBody', () => {
       createdAt: frozenDate.toISOString(),
       updatedAt: frozenDate.toISOString(),
       classification: CodeRabbitCommentType.review_limited,
-      matchedMarker: MatchedMarker.rate_limit,
+      matchedPhrase,
+      matchedOffset,
     };
 
     const diagnosis: RetriggerDiagnosis = {
@@ -329,7 +339,8 @@ describe('buildCommentBody', () => {
       createdAt: '',
       updatedAt: '',
       classification: CodeRabbitCommentType.unknown,
-      matchedMarker: undefined,
+      matchedPhrase: undefined,
+      matchedOffset: undefined,
     };
 
     const replacementComment: CommentDiagnosis = {
@@ -337,7 +348,8 @@ describe('buildCommentBody', () => {
       createdAt: frozenDate.toISOString(),
       updatedAt: frozenDate.toISOString(),
       classification: CodeRabbitCommentType.review_limited,
-      matchedMarker: MatchedMarker.rate_limit,
+      matchedPhrase,
+      matchedOffset,
     };
 
     const diagnosis: RetriggerDiagnosis = {
@@ -369,7 +381,8 @@ describe('buildCommentBody', () => {
         createdAt: sourceCreatedAt.toISOString(),
         updatedAt: sourceCreatedAt.toISOString(),
         classification: CodeRabbitCommentType.review_limited,
-        matchedMarker: MatchedMarker.rate_limit,
+        matchedPhrase,
+        matchedOffset,
       },
       waitSeconds: WAIT_SECONDS,
       decision: 'source',

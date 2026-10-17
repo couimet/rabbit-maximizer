@@ -22,6 +22,7 @@ describe('eventTypeMeta', () => {
       retriggered: { label: 'Retrigger posted', family: 'life' },
       dismissed: { label: 'Dismissed', family: 'life' },
       failed: { label: 'Failed', family: 'fail' },
+      head_drift_recovered: { label: 'Head drift recovered', family: 'life' },
       coderabbit_review_approved: { label: 'Review approved', family: 'verdict' },
       coderabbit_review_changes_suggested: { label: 'Changes suggested', family: 'verdict' },
       coderabbit_review_refused: { label: 'Review refused', family: 'verdict' },

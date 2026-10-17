@@ -7,3 +7,8 @@ data/
 # Prisma generated client (only index.d.ts is tracked — the type contract)
 prisma/generated/*
 !prisma/generated/index.d.ts
+
+# Captured CodeRabbit comment and review bodies. The corpus tests assert phrase
+# offsets against them verbatim, so a reformat would move every offset.
+tests/fixtures/coderabbit-bodies/
+tests/fixtures/coderabbit-review-bodies/

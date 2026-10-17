@@ -4,110 +4,185 @@ import { createCoderabbitCommentClassifier } from '../helpers/index.js';
 import { getRandomString, getUniqueString } from '@couimet/dynamic-testing';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 
+/**
+ * Joins the phrases with random filler, so a test reads the offset of each phrase
+ * from the returned list instead of hardcoding a body shape.
+ */
+const bodyWith = (...phrases: readonly string[]): { readonly body: string; readonly offsets: readonly number[] } => {
+  const parts: string[] = [];
+  const offsets: number[] = [];
+  let cursor = 0;
+
+  for (const phrase of phrases) {
+    const filler = getRandomString();
+    parts.push(filler, phrase);
+    cursor += filler.length;
+    offsets.push(cursor);
+    cursor += phrase.length;
+  }
+
+  return { body: parts.join(''), offsets };
+};
+
 describe('CoderabbitCommentClassifier', () => {
-  let body: string;
-  let firstPhrase: string;
-  let secondPhrase: string;
+  let acknowledgement: string;
+  let approval: string;
+  let changesSuggested: string;
+  let pause: string;
+  let rateLimit: string;
+  let refusal: string;
+  let secondRefusal: string;
+  let skip: string;
+  let walkthrough: string;
   let classifier: CoderabbitCommentClassifier;
 
   beforeEach(() => {
-    body = getRandomString();
-    firstPhrase = getUniqueString({ prefix: 'refusal-a-' });
-    secondPhrase = getUniqueString({ prefix: 'refusal-b-' });
-    classifier = createCoderabbitCommentClassifier({ CODERABBIT_REFUSAL_PHRASES: [firstPhrase, secondPhrase] });
-  });
-
-  it("returns 'review_limited' and RATE_LIMIT marker when the body contains the rate-limit marker", () => {
-    const result = classifier.classify('some text rate limited by coderabbit.ai more text');
-
-    expect(result).toStrictEqual({ classification: 'review_limited', matchedMarker: 'rate limited by coderabbit.ai', matchedPhrase: undefined });
-  });
-
-  it("returns 'review_skipped' and SKIP marker when the body contains the skip marker", () => {
-    const result = classifier.classify('some text skip review by coderabbit.ai more text');
-
-    expect(result).toStrictEqual({ classification: 'review_skipped', matchedMarker: 'skip review by coderabbit.ai', matchedPhrase: undefined });
-  });
-
-  it("returns 'review_changes_suggested' and ACTIONABLE marker when the body contains actionable comments posted", () => {
-    const result = classifier.classify('## Actionable comments posted: some feedback');
-
-    expect(result).toStrictEqual({ classification: 'review_changes_suggested', matchedMarker: 'Actionable comments posted:', matchedPhrase: undefined });
-  });
-
-  it("returns 'review_approved' and NO_ACTIONABLE marker when the body contains a completion signal with no actionable comments", () => {
-    const result = classifier.classify('No actionable comments were generated in the recent review.');
-
-    expect(result).toStrictEqual({
-      classification: 'review_approved',
-      matchedMarker: 'No actionable comments were generated in the recent review.',
-      matchedPhrase: undefined,
+    acknowledgement = getUniqueString({ prefix: 'acknowledgement-' });
+    approval = getUniqueString({ prefix: 'approval-' });
+    changesSuggested = getUniqueString({ prefix: 'changes-' });
+    pause = getUniqueString({ prefix: 'pause-' });
+    rateLimit = getUniqueString({ prefix: 'rate-limit-' });
+    refusal = getUniqueString({ prefix: 'refusal-' });
+    secondRefusal = getUniqueString({ prefix: 'second-refusal-' });
+    skip = getUniqueString({ prefix: 'skip-' });
+    walkthrough = getUniqueString({ prefix: 'walkthrough-' });
+    classifier = createCoderabbitCommentClassifier({
+      CODERABBIT_ACKNOWLEDGEMENT_PHRASES: [acknowledgement],
+      CODERABBIT_APPROVAL_PHRASES: [approval],
+      CODERABBIT_CHANGES_SUGGESTED_PHRASES: [changesSuggested],
+      CODERABBIT_PAUSE_PHRASES: [pause],
+      CODERABBIT_RATE_LIMIT_PHRASES: [rateLimit],
+      CODERABBIT_REFUSAL_PHRASES: [refusal, secondRefusal],
+      CODERABBIT_SKIP_PHRASES: [skip],
+      CODERABBIT_WALKTHROUGH_PHRASES: [walkthrough],
     });
   });
 
-  it("returns 'unknown' and undefined marker when the body matches none of the known markers", () => {
-    const result = classifier.classify(body);
+  it("returns 'review_limited' with the configured rate-limit phrase", () => {
+    const { body, offsets } = bodyWith(rateLimit);
 
-    expect(result).toStrictEqual({ classification: 'unknown', matchedMarker: undefined, matchedPhrase: undefined });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_limited', matchedPhrase: rateLimit, matchedOffset: offsets[0] });
   });
 
-  it("returns 'unknown' and undefined marker for an empty body", () => {
-    const result = classifier.classify('');
+  it("returns 'review_skipped' with the configured skip phrase", () => {
+    const { body, offsets } = bodyWith(skip);
 
-    expect(result).toStrictEqual({ classification: 'unknown', matchedMarker: undefined, matchedPhrase: undefined });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: skip, matchedOffset: offsets[0] });
   });
 
-  it("returns 'review_skipped' when both rate-limit and skip markers are present (skip checked before rate-limit)", () => {
-    const result = classifier.classify('rate limited by coderabbit.ai and also skip review by coderabbit.ai');
+  it("returns 'review_skipped' with the configured pause phrase", () => {
+    const { body, offsets } = bodyWith(pause);
 
-    expect(result).toStrictEqual({ classification: 'review_skipped', matchedMarker: 'skip review by coderabbit.ai', matchedPhrase: undefined });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: pause, matchedOffset: offsets[0] });
   });
 
-  it("returns 'review_skipped' when both skip and completion markers are present (skip checked before completion)", () => {
-    const result = classifier.classify('skip review by coderabbit.ai Actionable comments posted: some feedback');
+  it("returns 'review_changes_suggested' with the configured changes-suggested phrase", () => {
+    const { body, offsets } = bodyWith(changesSuggested);
 
-    expect(result).toStrictEqual({ classification: 'review_skipped', matchedMarker: 'skip review by coderabbit.ai', matchedPhrase: undefined });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_changes_suggested', matchedPhrase: changesSuggested, matchedOffset: offsets[0] });
   });
 
-  it("returns 'review_limited' when the body contains review_stack_entry_start with a rate-limit marker (walkthrough is not a completion signal)", () => {
-    const result = classifier.classify('rate limited by coderabbit.ai review_stack_entry_start walkthrough');
+  it("returns 'review_approved' with the configured approval phrase", () => {
+    const { body, offsets } = bodyWith(approval);
 
-    expect(result).toStrictEqual({ classification: 'review_limited', matchedMarker: 'rate limited by coderabbit.ai', matchedPhrase: undefined });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_approved', matchedPhrase: approval, matchedOffset: offsets[0] });
   });
 
-  it("returns 'review_refused' with the matched phrase when the body carries a configured refusal phrase", () => {
-    const result = classifier.classify(`This PR was authored by a bot ${firstPhrase}. Ask an organization administrator to assign a seat to the bot.`);
+  it("returns 'review_refused' with the configured refusal phrase", () => {
+    const { body, offsets } = bodyWith(refusal);
 
-    expect(result).toStrictEqual({ classification: 'review_refused', matchedMarker: undefined, matchedPhrase: firstPhrase });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_refused', matchedPhrase: refusal, matchedOffset: offsets[0] });
   });
 
-  it("returns 'review_refused' when the refusal phrase sits beside the skip marker (refusal checked before skip)", () => {
-    const result = classifier.classify(`This PR was authored by a bot ${firstPhrase}.\n\nskip review by coderabbit.ai`);
+  it("returns 'unknown' with no match when the body holds a configured phrase of no tier", () => {
+    const { body } = bodyWith(getRandomString());
 
-    expect(result).toStrictEqual({ classification: 'review_refused', matchedMarker: undefined, matchedPhrase: firstPhrase });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'unknown', matchedPhrase: undefined, matchedOffset: undefined });
   });
 
-  it("returns 'review_refused' when the refusal phrase sits beside a completion signal (refusal checked before completion)", () => {
-    const result = classifier.classify(`${firstPhrase}\n\nActionable comments posted: some feedback`);
+  it("returns 'unknown' with no match when the body holds only the walkthrough phrase", () => {
+    const { body } = bodyWith(walkthrough);
 
-    expect(result).toStrictEqual({ classification: 'review_refused', matchedMarker: undefined, matchedPhrase: firstPhrase });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'unknown', matchedPhrase: undefined, matchedOffset: undefined });
   });
 
-  it('returns the first configured phrase that the body contains when the list holds several phrases', () => {
-    const result = classifier.classify(`refused: ${secondPhrase} and ${firstPhrase}`);
+  it("returns 'unknown' with no match when the body holds only the acknowledgement phrase", () => {
+    const { body } = bodyWith(acknowledgement);
 
-    expect(result).toStrictEqual({ classification: 'review_refused', matchedMarker: undefined, matchedPhrase: firstPhrase });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'unknown', matchedPhrase: undefined, matchedOffset: undefined });
   });
 
-  it('lets the configured phrase list decide the outcome: an unlisted phrase leaves the skip marker in charge', () => {
-    const result = classifier.classify(`${firstPhrase.toUpperCase()}\n\nskip review by coderabbit.ai`);
-
-    expect(result).toStrictEqual({ classification: 'review_skipped', matchedMarker: 'skip review by coderabbit.ai', matchedPhrase: undefined });
+  it("returns 'unknown' with no match for an empty body", () => {
+    expect(classifier.classify('')).toStrictEqual({ classification: 'unknown', matchedPhrase: undefined, matchedOffset: undefined });
   });
 
-  it('matches the refusal phrase case-sensitively', () => {
-    const result = classifier.classify(firstPhrase.toUpperCase());
+  it('returns the first configured phrase of a tier when the body holds two of them', () => {
+    const { body, offsets } = bodyWith(secondRefusal, refusal);
 
-    expect(result).toStrictEqual({ classification: 'unknown', matchedMarker: undefined, matchedPhrase: undefined });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_refused', matchedPhrase: refusal, matchedOffset: offsets[1] });
+  });
+
+  it('matches a configured phrase case-sensitively', () => {
+    expect(classifier.classify(refusal.toUpperCase())).toStrictEqual({ classification: 'unknown', matchedPhrase: undefined, matchedOffset: undefined });
+  });
+
+  it("prefers 'review_refused' over the skip tier", () => {
+    const { body, offsets } = bodyWith(skip, refusal);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_refused', matchedPhrase: refusal, matchedOffset: offsets[1] });
+  });
+
+  it("prefers 'review_refused' over the completion tier", () => {
+    const { body, offsets } = bodyWith(changesSuggested, refusal);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_refused', matchedPhrase: refusal, matchedOffset: offsets[1] });
+  });
+
+  it("prefers 'review_refused' over the pause tier", () => {
+    const { body, offsets } = bodyWith(pause, refusal);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_refused', matchedPhrase: refusal, matchedOffset: offsets[1] });
+  });
+
+  it("prefers 'review_refused' over the rate-limit tier", () => {
+    const { body, offsets } = bodyWith(rateLimit, refusal);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_refused', matchedPhrase: refusal, matchedOffset: offsets[1] });
+  });
+
+  it('prefers the skip tier over the completion tier', () => {
+    const { body, offsets } = bodyWith(changesSuggested, skip);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: skip, matchedOffset: offsets[1] });
+  });
+
+  it('prefers the skip tier over the pause tier', () => {
+    const { body, offsets } = bodyWith(pause, skip);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: skip, matchedOffset: offsets[1] });
+  });
+
+  it('prefers the skip tier over the rate-limit tier', () => {
+    const { body, offsets } = bodyWith(rateLimit, skip);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: skip, matchedOffset: offsets[1] });
+  });
+
+  it('prefers the completion tier over the pause tier', () => {
+    const { body, offsets } = bodyWith(pause, changesSuggested);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_changes_suggested', matchedPhrase: changesSuggested, matchedOffset: offsets[1] });
+  });
+
+  it('prefers the completion tier over the rate-limit tier', () => {
+    const { body, offsets } = bodyWith(rateLimit, approval);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_approved', matchedPhrase: approval, matchedOffset: offsets[1] });
+  });
+
+  it('prefers the pause tier over the rate-limit tier', () => {
+    const { body, offsets } = bodyWith(rateLimit, pause);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: pause, matchedOffset: offsets[1] });
   });
 });
