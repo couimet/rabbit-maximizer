@@ -1,4 +1,4 @@
-import { TYPES } from '../domain.js';
+import { TYPES } from '../server-domain.js';
 import type { PRState } from '../types/index.js';
 
 import type { CoderabbitGitHubClient } from './index.js';

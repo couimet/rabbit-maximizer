@@ -1,5 +1,6 @@
 import { EventRepository, type NewEvent } from '../../src/db/index.js';
-import { EventType, TYPES } from '../../src/domain.js';
+import { EventType } from '../../src/domain.js';
+import { TYPES } from '../../src/server-domain.js';
 import { createMockPrismaClient, createResolvedMock, generateReviewRef } from '../helpers/index.js';
 
 import { getUniqueDate, getUniqueInt, getUniqueIntsNamed, getUniqueString, getUuid } from '@couimet/dynamic-testing';

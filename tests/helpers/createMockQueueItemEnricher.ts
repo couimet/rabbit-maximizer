@@ -1,5 +1,5 @@
+import type { QueueItemEnricher } from '../../src/services.js';
 import type { QueueItem } from '../../src/types/QueueItem.js';
-import type { QueueItemEnricher } from '../../src/utils/index.js';
 
 export const createMockQueueItemEnricher = (): QueueItemEnricher =>
   ({

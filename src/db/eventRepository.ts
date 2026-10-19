@@ -1,5 +1,6 @@
-import { EventType, TYPES } from '../domain.js';
+import { EventType } from '../domain.js';
 import { parseEventRow } from '../schemas/index.js';
+import { TYPES } from '../server-domain.js';
 import type {
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,

@@ -1,6 +1,7 @@
-import { CodeRabbitCommentType, TYPES } from '../domain.js';
+import { CodeRabbitCommentType } from '../domain.js';
 import { BasePrismaRepository, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
 import { BODY_PREVIEW_MAX_LENGTH } from '../schemas/index.js';
+import { TYPES } from '../server-domain.js';
 import { truncateBodyPreview } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';

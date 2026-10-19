@@ -4,7 +4,8 @@ import type { ProbeFactory } from './probes/index.js';
 import type { ScannedPR, ScanResult } from './types/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
 import type { Config } from './config.js';
-import { getPrStateFromGitHubValue, PrState, TYPES } from './domain.js';
+import { getPrStateFromGitHubValue, PrState } from './domain.js';
+import { TYPES } from './server-domain.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';

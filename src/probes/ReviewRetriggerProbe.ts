@@ -1,7 +1,7 @@
 import type { EventRepository } from '../db/index.js';
 import { EventType } from '../domain.js';
+import { getRunIdAttribute } from '../node-utils/index.js';
 import type { QueueItem } from '../types/index.js';
-import { getRunIdAttribute } from '../utils/index.js';
 
 import { getEventTraceAttributes } from './getEventTraceAttributes.js';
 
