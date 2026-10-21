@@ -71,6 +71,8 @@ move_data() {
 }
 
 @test "refuses to import while the container runs" {
+  touch "$ARCHIVE"
+
   FAKE_CONTAINER_RUNNING='true' run move_data import "$ARCHIVE"
 
   [ "$status" -eq 1 ]

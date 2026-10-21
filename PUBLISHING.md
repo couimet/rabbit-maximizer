@@ -109,10 +109,10 @@ Every log record carries the commit and the image tag, so a running ad-hoc image
 
 The gate applies to the `release` event only. A manual dispatch publishes `edge`, which the README documents as a build that can break at any time.
 
-A release starts seconds after the tag push, so the wait covers a commit whose check runs do not exist yet. The gate refuses that commit when the same wait ends with no check run at all, or with no completed run of `ci.yml`.
+A release starts seconds after the tag push, so the wait covers a commit whose check runs do not exist yet. The gate refuses that commit when the same wait ends with no check run at all, or with no completed run of `ci.yml`. `ci.yml` also runs on a push of a `v*` tag, so a release tag that points outside `main` still gets a run for the tagged commit.
 
 ## Notes
 
 - **A migration that fails on populated data passes CI.** `scripts/validate-migrations.sh` applies every migration to a fresh database. Check a migration against a copy of real data before you tag.
-- **The GHCR package inherits its visibility from the repository.** A `docker pull` that asks for credentials needs the package visibility changed in the package settings.
+- **Check the GHCR package visibility in the package settings.** A new package is private by default. When a `docker pull` asks for credentials, make the package public or use credentials with package read access.
 - **The operator upgrade behavior lives in the README.** See the "Upgrading" section of [README.md](README.md) for the migration-on-start rules, the `SKIP_MIGRATIONS` escape, and the backup commands.

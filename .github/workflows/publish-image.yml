@@ -12,6 +12,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       checks: read
       packages: write

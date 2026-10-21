@@ -21,6 +21,7 @@ const {
   createMockQueueOrderRepo,
   createMockQueueRepo,
   createMockSystemStateRepository,
+  restoreEnv,
 } = await import('./helpers/index.js');
 const { createMockLogger } = await import('@couimet/logger-contract-testing');
 
@@ -105,7 +106,7 @@ describe('setupExpress', () => {
       expect(viteMock.createServer).not.toHaveBeenCalled();
       expect(res.headers.get('content-security-policy')).toBe(EXPECTED_CSP_WITHOUT_UPGRADE_INSECURE_REQUESTS);
     } finally {
-      process.env.NODE_ENV = prev;
+      restoreEnv('NODE_ENV', prev);
     }
   });
 
@@ -128,7 +129,7 @@ describe('setupExpress', () => {
       );
       expect(process.exit).toHaveBeenCalledWith(1);
     } finally {
-      process.env.NODE_ENV = prev;
+      restoreEnv('NODE_ENV', prev);
       process.exit = exit;
     }
   });
