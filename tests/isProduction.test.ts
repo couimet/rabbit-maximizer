@@ -1,5 +1,7 @@
 import { isProduction } from '../src/domain.js';
 
+import { restoreEnv } from './helpers/index.js';
+
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 
 describe('isProduction', () => {
@@ -10,7 +12,7 @@ describe('isProduction', () => {
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = prev;
+    restoreEnv('NODE_ENV', prev);
   });
 
   it('returns true when NODE_ENV is "production"', () => {
