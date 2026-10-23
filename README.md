@@ -159,7 +159,7 @@ docker stop rabbit-maximizer \
   && docker start rabbit-maximizer
 ```
 
-Restore the volume with the reverse command. Replace `<file>` with the backup name. The helper extracts the archive into a staging directory inside the volume. It checks the payload for `rabbit-maximizer.db`, then swaps the payload into place with renames. The volume keeps the current database until the replacement is complete. A wrong name, an unreadable archive, a payload with no database, a database that is a symbolic link, or a full volume therefore leaves that database in place. The staging directory holds a second copy of the payload while the command runs. The volume therefore needs that much free space. A failed step stops the sequence, so the container stays stopped until you start it again:
+Restore the volume with the reverse command. Replace `<file>` with the backup name. The helper reads the archive listing before it extracts anything, so a member that is a link or that points outside the staging directory stops the run. The helper then extracts the archive into a staging directory inside the volume. It checks the payload for `rabbit-maximizer.db`, then swaps the payload into place with renames. The volume keeps the current database until the replacement is complete. A wrong name, a link, an unreadable archive, a payload with no database, or a full volume therefore leaves that database in place. The staging directory holds a second copy of the payload while the command runs. The volume therefore needs that much free space. A failed step stops the sequence, so the container stays stopped until you start it again:
 
 ```bash
 # With Docker Compose
@@ -179,7 +179,7 @@ docker stop rabbit-maximizer \
   && docker start rabbit-maximizer
 ```
 
-A failed import removes its own staging directory, so the volume keeps the contents it had before the run. One window stays open. A command that you kill between the two swaps leaves those contents in a `.previous` directory inside the volume, and the data directory then holds no database. Check that directory before you start the container again. An import refuses to run while that directory exists, because it may hold the only copy of the database. Move its entries back into the data directory and remove the directory, then run the import again.
+A failed import removes its own staging directory, so the volume keeps the contents it had before the run. One window stays open. A command that you kill between the two swaps, or a move that the file system refuses, leaves those contents in a `.previous` directory inside the volume, and the data directory then holds no database. A refused move names the entry it could not move and stops the import. Check that directory before you start the container again. An import refuses to run while that directory exists, because it may hold the only copy of the database. Move its entries back into the data directory and remove the directory, then run the import again.
 
 The `docker:move-data` commands run the same helper for you, with the container name and the volume name already set. Run `pnpm docker:move-data:export <file>` on the old host and `pnpm docker:move-data:import <file>` on the new one. Both commands refuse a running container. The import refuses an archive that holds no database, asks before it replaces a volume that already holds a database, and writes a safety export first when you confirm.
 

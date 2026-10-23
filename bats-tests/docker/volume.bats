@@ -4,7 +4,8 @@ load test_helper
 
 # The script runs against a data directory and an archive on the local disk, so
 # these tests exercise the real archive, extraction and owner logic. Only the
-# chown call needs a stand-in, because a test does not run as root.
+# chown call needs a stand-in, because a test does not run as root. One test
+# also stands in for mv, to fail a move that the file system would accept.
 
 SCRIPT="$SCRIPT_DIR/docker/volume.sh"
 DB_FILE_NAME='rabbit-maximizer.db'
@@ -21,6 +22,7 @@ setup() {
   ARCHIVE="$BATS_TEST_TMPDIR/volume.tar.gz"
   CHOWN_LOG="$BATS_TEST_TMPDIR/chown.log"
   BIN_DIR="$BATS_TEST_TMPDIR/bin"
+  REAL_MV="$(command -v mv)"
 
   mkdir -p "$DATA_DIR" "$SOURCE_DIR" "$BIN_DIR"
 
@@ -133,9 +135,9 @@ write_source_archive() {
   [ ! -e "$CHOWN_LOG" ]
 }
 
-@test 'refuses a database that is a symbolic link and keeps the data directory' {
-  # The link points at the database the data directory holds, so the header
-  # check reads a real SQLite file unless the import refuses the link first.
+@test 'refuses an archive that holds a symbolic link and keeps the data directory' {
+  # The link points at the database the data directory holds, so a file check
+  # alone would read a real SQLite file through it.
   write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
   ln -s "$DATA_DIR/$DB_FILE_NAME" "$SOURCE_DIR/$DB_FILE_NAME"
   tar czf "$ARCHIVE" -C "$SOURCE_DIR" .
@@ -143,7 +145,22 @@ write_source_archive() {
   run volume import "$ARCHIVE"
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"The archive holds a $DB_FILE_NAME that is a symbolic link"* ]]
+  [[ "$output" == *"The archive holds a member that is not a file or a directory:"* ]]
+  [[ "$output" == *"$DATA_DIR keeps its contents."* ]]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
+  [ ! -e "$CHOWN_LOG" ]
+}
+
+@test 'refuses an archive that holds a member outside the staging directory' {
+  # -P keeps the .. prefix, which both tar versions otherwise strip.
+  echo 'notes' > "$BATS_TEST_TMPDIR/escaped.txt"
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
+  tar -P -c -z -f "$ARCHIVE" -C "$SOURCE_DIR" ../escaped.txt
+
+  run volume import "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The archive holds a member that points outside the staging directory: ../escaped.txt"* ]]
   [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
   [ ! -e "$CHOWN_LOG" ]
 }
@@ -172,6 +189,31 @@ write_source_archive() {
   [[ "$output" == *"Move the entries of $DATA_DIR/$PREVIOUS_DIR_NAME back into $DATA_DIR"* ]]
   [ -f "$DATA_DIR/$PREVIOUS_DIR_NAME/$DB_FILE_NAME" ]
   [ ! -e "$DATA_DIR/$DB_FILE_NAME" ]
+  [ ! -e "$DATA_DIR/$STAGING_DIR_NAME" ]
+  [ ! -e "$CHOWN_LOG" ]
+}
+
+@test 'stops the import and keeps the previous directory when a move fails' {
+  write_source_archive
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
+
+  # The stand-in refuses only the move out of the data directory, so the
+  # extraction and the checks above it run as they do in production.
+  cat > "$BIN_DIR/mv" <<FAKE_MV
+#!/usr/bin/env bash
+if [ "\$2" = "$DATA_DIR/$PREVIOUS_DIR_NAME/" ]; then
+  exit 1
+fi
+exec "$REAL_MV" "\$@"
+FAKE_MV
+  chmod +x "$BIN_DIR/mv"
+
+  run volume import "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Could not move "*"to $DATA_DIR/$PREVIOUS_DIR_NAME/. The import stopped"* ]]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
+  [ -d "$DATA_DIR/$PREVIOUS_DIR_NAME" ]
   [ ! -e "$DATA_DIR/$STAGING_DIR_NAME" ]
   [ ! -e "$CHOWN_LOG" ]
 }
