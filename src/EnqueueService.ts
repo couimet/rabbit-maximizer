@@ -105,6 +105,16 @@ export class EnqueueService {
         return;
       }
 
+      // A review that covers the head fulfils every queued request for that head, so the
+      // comment must not queue the same work again.
+      if (!isReviewVerdictState(classification)) {
+        const reviewedHeadSha = await this.pullRequests.findReviewedHeadSha(pullRequestId, tx);
+        if (reviewedHeadSha !== null) {
+          probe.headAlreadyReviewed(reviewedHeadSha);
+          return;
+        }
+      }
+
       if (classification === CodeRabbitCommentType.review_skipped) {
         const { created } = await this.queue.enqueue(
           {

@@ -30,6 +30,7 @@ export const createMockPullRequestRepo = (overrides?: Partial<MockedPullRequestR
     findUnreviewedHeadPRs: jest.fn<any>().mockResolvedValue([]),
     findIgnoreRuleTarget: jest.fn<any>().mockResolvedValue(null),
     findTrackedPRs: jest.fn<any>().mockResolvedValue([]),
+    findReviewedHeadSha: jest.fn<any>().mockResolvedValue(null),
     recordAcknowledgement: jest.fn<any>().mockResolvedValue(undefined),
     getColumnMaps: jest
       .fn<(ids: number[], columns: readonly string[]) => Promise<ColumnMapsStub>>()

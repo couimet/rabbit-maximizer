@@ -35,12 +35,19 @@ const FIND_PENDING_ACKNOWLEDGEMENTS_SQL = `
   ORDER BY last_review_requested_at ASC
 `;
 
+/**
+ * Candidates for stale-PR recovery: an open PR with a retrigger history, no active queue
+ * item, and no review that covers its head. `julianday` reads the stored TEXT datetimes,
+ * because a text compare against `datetime('now')` fails on the `T` separator and the
+ * `+00:00` suffix that Prisma writes.
+ */
 const FIND_STALE_OPEN_PRS_SQL = `
   SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.last_review_requested_at
   FROM ${PULL_REQUEST_TABLE} pr
   WHERE pr.pr_state = 'open'
     AND pr.permanent_refusal_at IS NULL
     AND pr.last_review_requested_at IS NOT NULL
+    AND (pr.reviewed_head_sha IS NULL OR pr.reviewed_head_sha <> pr.head_sha)
     AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at)
     AND NOT EXISTS (
       SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
@@ -51,7 +58,7 @@ const FIND_STALE_OPEN_PRS_SQL = `
       SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
       WHERE rq.pull_request_id = pr.id
         AND rq.status = 'resolved'
-        AND rq.resolved_at > datetime('now', '-5 minutes')
+        AND julianday(rq.resolved_at) > julianday('now', '-5 minutes')
     )
 `;
 
@@ -187,6 +194,17 @@ export class PullRequestRepository extends BasePrismaRepository {
         select: { id: true, head_sha: true },
       }),
     );
+  }
+
+  /**
+   * The head commit when the last recorded review covers it, `null` otherwise. A caller
+   * uses this to skip work that a review already completed for the current head.
+   */
+  async findReviewedHeadSha(id: number, tx: Prisma.TransactionClient | undefined): Promise<string | null> {
+    return await this.enforceTx(tx, async (db) => {
+      const row = await db.pullRequest.findUnique({ where: { id }, select: { head_sha: true, reviewed_head_sha: true } });
+      return row !== null && row.head_sha !== null && row.reviewed_head_sha === row.head_sha ? row.head_sha : null;
+    });
   }
 
   private async recordShaObservation(db: Prisma.TransactionClient, pullRequestId: number, data: UpsertPullRequestData): Promise<void> {

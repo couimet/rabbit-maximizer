@@ -688,14 +688,16 @@ describe('ReviewDetector', () => {
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
     });
 
-    it('resolves queue item with Resolution.Skipped when editDetector returns skipped outcome', async () => {
+    it('resolves queue item with Resolution.Skipped when the reviews API reports no review for a skip edit', async () => {
       const retriggeredAt = getUniqueDate();
+      const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
       const ref = generateReviewRef();
       const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
       const reviewUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, item.source_comment_id);
 
       deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
       deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'skipped', reviewUrl }));
+      deps.github.findCompletedReview.mockResolvedValue(undefined);
       deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
 
       const detector = createDetector();
@@ -704,9 +706,50 @@ describe('ReviewDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
 
       expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(ref.owner, ref.repo, ref.prNumber, lookbackSince, item.source_comment_run_id, undefined);
       expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'skipped', {});
+      expect(deps.probe.skippedResolved).toHaveBeenCalledWith();
       expect(deps.pullRequests.recordReview).not.toHaveBeenCalled();
-      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('records the review when a skip edit still has a completed review for the head', async () => {
+      const retriggeredAt = getUniqueDate();
+      const lookbackSince = new Date(retriggeredAt.getTime() - LOOKBACK_MS);
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewUrl = buildCommentUrl(ref.repoFullName, ref.prNumber, item.source_comment_id);
+      const reviewedHeadSha = getUniqueString({ prefix: 'sha-' });
+      const reviewId = getUniqueInt();
+      const completedCommentUrl = `https://github.com/${ref.repoFullName}/pull/${ref.prNumber}#pullrequestreview-${reviewId}`;
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'skipped', reviewUrl }));
+      deps.pullRequests.getColumnMaps.mockResolvedValue({
+        pr_state: new Map(),
+        last_coderabbit_review_at: new Map(),
+        head_sha: new Map([[item.pull_request_id, reviewedHeadSha]]),
+        reviewed_head_sha: new Map(),
+      });
+      deps.github.findCompletedReview.mockResolvedValue({ htmlUrl: completedCommentUrl, reviewId, isApproval: true, commitId: reviewedHeadSha });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findCompletedReview).toHaveBeenCalledWith(
+        ref.owner,
+        ref.repo,
+        ref.prNumber,
+        lookbackSince,
+        item.source_comment_run_id,
+        reviewedHeadSha,
+      );
+      expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'review_completed', {});
+      expect(deps.pullRequests.recordReview).toHaveBeenCalledWith(item.pull_request_id, completedCommentUrl, 'review_approved', reviewedHeadSha, {});
+      expect(deps.probe.reviewed).toHaveBeenCalledWith(completedCommentUrl, 'review_approved', 'github_reviews_api', {});
+      expect(deps.probe.skippedResolved).not.toHaveBeenCalled();
     });
 
     it('flags the PR refused and resolves the item when editDetector returns refused', async () => {

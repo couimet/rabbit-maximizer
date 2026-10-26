@@ -135,6 +135,10 @@ export class Scheduler extends IntervalService {
           } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_STALE_COMMENT_SKIP) {
             await this.queue.markResolved(item!.id, Resolution.StaleComment, tx);
             probe.triggerFailed(err, tx);
+          } else if (err.code === RabbitMaximizerErrorCodes.RETRIGGER_HEAD_ALREADY_REVIEWED) {
+            const { headSha } = err.details as { headSha: string };
+            await this.queue.markResolved(item!.id, Resolution.ReviewCompleted, tx);
+            probe.headAlreadyReviewed(headSha);
           } else {
             if (item!.attempts >= this.maxRetriggerAttempts) {
               await this.queue.markResolved(item!.id, Resolution.Failed, tx);

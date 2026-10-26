@@ -604,6 +604,43 @@ describe('ReviewTrigger', () => {
     expect(probeFactory.createReviewRetriggerProbe).not.toHaveBeenCalled();
   });
 
+  it('returns err with RETRIGGER_HEAD_ALREADY_REVIEWED and posts nothing when a recorded review covers the head', async () => {
+    const { github, probeFactory, reviewTrigger, pullRequests } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    const reviewedHeadSha = getUniqueString({ prefix: 'sha-' });
+    pullRequests.findReviewedHeadSha.mockResolvedValue(reviewedHeadSha);
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler));
+
+    expect(result).toHaveDetailedError('RETRIGGER_HEAD_ALREADY_REVIEWED', {
+      message: 'A recorded review already covers the pull request head',
+      functionName: 'ReviewTrigger.trigger',
+      details: { headSha: reviewedHeadSha },
+    });
+    expect(pullRequests.findReviewedHeadSha).toHaveBeenCalledWith(item.pull_request_id, undefined);
+    expect(probe.headAlreadyReviewed).toHaveBeenCalledWith(reviewedHeadSha);
+    expect(github.fetchComment).not.toHaveBeenCalled();
+    expect(github.postRetrigger).not.toHaveBeenCalled();
+  });
+
+  it('leaves a recorded head review to the operator on a dashboard retrigger', async () => {
+    const { github, probeFactory, reviewTrigger, pullRequests, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    pullRequests.findReviewedHeadSha.mockResolvedValue(getUniqueString({ prefix: 'sha-' }));
+    github.fetchComment.mockResolvedValue(makeFetchResult('rate limited by coderabbit.ai'));
+    postedCommentUrl = commentUrl;
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now));
+
+    expect(pullRequests.findReviewedHeadSha).not.toHaveBeenCalled();
+    expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
+  });
+
   it('builds replacement diagnosis when item has original_source_comment_url', async () => {
     const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
     const item = generateQueueItemHydrationData({

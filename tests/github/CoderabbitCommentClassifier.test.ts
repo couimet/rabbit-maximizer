@@ -168,10 +168,16 @@ describe('CoderabbitCommentClassifier', () => {
     expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: skip, matchedOffset: offsets[1] });
   });
 
-  it('prefers the completion tier over the pause tier', () => {
+  it('prefers the pause tier over the completion tier', () => {
     const { body, offsets } = bodyWith(pause, changesSuggested);
 
-    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_changes_suggested', matchedPhrase: changesSuggested, matchedOffset: offsets[1] });
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: pause, matchedOffset: offsets[0] });
+  });
+
+  it('prefers the pause tier over the approval tier', () => {
+    const { body, offsets } = bodyWith(pause, approval);
+
+    expect(classifier.classify(body)).toStrictEqual({ classification: 'review_skipped', matchedPhrase: pause, matchedOffset: offsets[0] });
   });
 
   it('prefers the completion tier over the rate-limit tier', () => {

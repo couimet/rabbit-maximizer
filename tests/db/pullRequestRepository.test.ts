@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { Prisma } from '@prisma/client';
 
 const FIND_STALE_OPEN_PRS_SQL =
-  "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.permanent_refusal_at IS NULL AND pr.last_review_requested_at IS NOT NULL AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status = 'resolved' AND rq.resolved_at > datetime('now', '-5 minutes'))";
+  "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.last_review_requested_at FROM pull_request pr WHERE pr.pr_state = 'open' AND pr.permanent_refusal_at IS NULL AND pr.last_review_requested_at IS NOT NULL AND (pr.reviewed_head_sha IS NULL OR pr.reviewed_head_sha <> pr.head_sha) AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status = 'resolved' AND julianday(rq.resolved_at) > julianday('now', '-5 minutes'))";
 
 const FIND_UNREVIEWED_HEAD_PRS_SQL =
   "SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.head_sha, pr.reviewed_head_sha, pr.head_committed_at FROM pull_request pr LEFT JOIN pull_request_sha ps ON ps.pull_request_id = pr.id AND ps.sha = pr.head_sha WHERE pr.pr_state = 'open' AND pr.permanent_refusal_at IS NULL AND pr.last_review_requested_at IS NOT NULL AND pr.head_sha IS NOT NULL AND pr.head_committed_at IS NOT NULL AND (pr.reviewed_head_sha IS NULL OR pr.reviewed_head_sha <> pr.head_sha) AND max(pr.head_committed_at, COALESCE(ps.first_observed_at, pr.head_committed_at)) > pr.last_review_requested_at AND max(pr.head_committed_at, COALESCE(ps.first_observed_at, pr.head_committed_at)) < ? AND NOT EXISTS (SELECT 1 FROM review_queue rq WHERE rq.pull_request_id = pr.id AND rq.status IN ('pending', 'retriggered')) ORDER BY pr.head_committed_at ASC";
@@ -859,6 +859,51 @@ describe('PullRequestRepository', () => {
       const result = await sut.findIgnoreRuleTarget(getUniqueInt());
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('findReviewedHeadSha', () => {
+    it('returns the head sha when the recorded review covers it', async () => {
+      const id = getUniqueInt();
+      const headSha = getUniqueString({ prefix: 'head-' });
+      const { prisma, pullRequest } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock({ head_sha: headSha, reviewed_head_sha: headSha }) },
+      });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      const result = await sut.findReviewedHeadSha(id, prisma);
+
+      expect(pullRequest.findUnique).toHaveBeenCalledWith({ where: { id }, select: { head_sha: true, reviewed_head_sha: true } });
+      expect(result).toBe(headSha);
+    });
+
+    it('returns null when the recorded review covers a different head', async () => {
+      const id = getUniqueInt();
+      const reviewedHeadSha = getUniqueString({ prefix: 'reviewed-' });
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock({ head_sha: getUniqueString({ prefix: 'head-' }), reviewed_head_sha: reviewedHeadSha }) },
+      });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      expect(await sut.findReviewedHeadSha(id, prisma)).toBeNull();
+    });
+
+    it('returns null when the pull request holds no head sha', async () => {
+      const id = getUniqueInt();
+      const { prisma } = createMockPrismaClient({
+        pullRequest: { findUnique: createResolvedMock({ head_sha: null, reviewed_head_sha: null }) },
+      });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      expect(await sut.findReviewedHeadSha(id, prisma)).toBeNull();
+    });
+
+    it('returns null when the pull request does not exist', async () => {
+      const id = getUniqueInt();
+      const { prisma } = createMockPrismaClient({ pullRequest: { findUnique: createResolvedMock(null) } });
+      const sut = new PullRequestRepository(prisma, logger);
+
+      expect(await sut.findReviewedHeadSha(id, prisma)).toBeNull();
     });
   });
 

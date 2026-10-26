@@ -59,12 +59,12 @@ CodeRabbit's comment bodies carry hidden markers that drive classification, in t
 
 1. Refusal phrase → `review_refused` — CodeRabbit refuses the review for a permanent cause, such as a missing review seat. The phrase list is configurable (`CODERABBIT_REFUSAL_PHRASES`).
 2. Skip marker → `review_skipped` — CodeRabbit did not review, and a full-review request can change that (`CODERABBIT_SKIP_PHRASES`).
-3. Completion signals → `review_approved` (no-actionable-comments signal) or `review_changes_suggested` (actionable-comments signal) — a verdict was rendered (`CODERABBIT_APPROVAL_PHRASES`, `CODERABBIT_CHANGES_SUGGESTED_PHRASES`).
-4. Pause marker → `review_skipped` — CodeRabbit paused automatic reviews after a set number of commits, and a full-review request resumes the work (`CODERABBIT_PAUSE_PHRASES`).
+3. Pause marker → `review_skipped` — CodeRabbit paused automatic reviews after a set number of commits, and a full-review request resumes the work (`CODERABBIT_PAUSE_PHRASES`).
+4. Completion signals → `review_approved` (no-actionable-comments signal) or `review_changes_suggested` (actionable-comments signal) — a verdict was rendered (`CODERABBIT_APPROVAL_PHRASES`, `CODERABBIT_CHANGES_SUGGESTED_PHRASES`).
 5. Rate-limit marker → `review_limited` — CodeRabbit refused due to its review quota, usually stating a wait time ("Please wait X minutes and Y seconds before requesting another review") (`CODERABBIT_RATE_LIMIT_PHRASES`).
 6. None of the above → `unknown`.
 
-Every phrase list is configurable, so a wording change needs no release. The refusal check runs first, because a refusal comment carries the skip marker too. Without that order the refusal reads as a skip, and a skip always looks retriggerable. The pause check runs after the completion check, so a comment that carries a verdict stays a verdict, and before the rate-limit check.
+Every phrase list is configurable, so a wording change needs no release. The refusal check runs first, because a refusal comment carries the skip marker too. Without that order the refusal reads as a skip, and a skip always looks retriggerable. The pause check runs before the completion check, because CodeRabbit reports the last run inside its pause comment and posts no review object for that run. The report is not a verdict. The pause check runs after the skip check and before the rate-limit check.
 
 Classification outcome at detection:
 
@@ -154,6 +154,8 @@ Removing the rule does not restore the item by itself. The comment can reopen th
 
 A refusal resolves instead of enqueuing, because no review request can clear it. The PR is marked refused in the same step, which is what holds it out of the deleted-comment recovery path (BR-5-5). A refusal that arrives when the PR has no active item still marks the PR refused.
 
+A comment that carries no verdict never enqueues once a recorded review covers the current head (`reviewed_head_sha` equals `head_sha`). The recorded review fulfils every request for that head, so a second request only adds noise. Verdict comments skip this guard, because recording the verdict is their work.
+
 <a id="br-3-4"></a>
 
 ### Deduplication
@@ -214,7 +216,7 @@ A single tick fetches at most `SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK` candidat
 
 - Attempts increment on every trigger outcome, success and failure alike, so the item always reaches the cap.
 - When attempts reach `MAX_RETRIGGER_ATTEMPTS` the item resolves as `failed` — including when every trigger succeeded, capping total retriggers to prevent indefinite loops.
-- On failure: `RETRIGGER_ITEM_NOT_PENDING` races are skipped; a rescheduled item is moved to its replacement source comment; a stale-comment skip resolves as `stale_comment`; terminal HTTP (404/410) resolves as `failed`; anything else backs off — the item parks as `retriggered` with an incremented attempt count and is left to the review detector or the stale-retriggered timeout, never re-selected by the scheduler.
+- On failure: `RETRIGGER_ITEM_NOT_PENDING` races are skipped; a rescheduled item is moved to its replacement source comment; a stale-comment skip resolves as `stale_comment`; `RETRIGGER_HEAD_ALREADY_REVIEWED` resolves as `review_completed`, because the recorded review already did the work; terminal HTTP (404/410) resolves as `failed`; anything else backs off — the item parks as `retriggered` with an incremented attempt count and is left to the review detector or the stale-retriggered timeout, never re-selected by the scheduler.
 - The backoff schedule is exponential: base times 2 to the attempt power, capped at the maximum (`SCHEDULER_RETRY_BACKOFF_BASE_SEC`, `SCHEDULER_RETRY_BACKOFF_MAX_SEC`).
 
 The last scheduler tick time is recorded after every tick; the dashboard uses it to flag a stale scheduler.
@@ -269,7 +271,9 @@ When the source comment was replaced, the item adopts the replacement's comment 
 
 ### Recovery from a deleted comment
 
-PRs that had a request posted but never received a review or acknowledgement, have no active item, and were not resolved in the last 5 minutes are recovered: a synthetic rate-limit comment is fed through detection, so the PR re-enters the queue and receives a retrigger with no reply target. This restores PRs whose rate-limit comment was deleted. The synthetic comment carries an invented id that no GitHub comment holds, so the edit detector reads the terminal status of its fetch as a gone comment and the item keeps resolving through the reviews-API fallback rather than failing on every tick.
+The recovery covers PRs that had a request posted but never received a review or acknowledgement. A PR enters the set only when it has no active item, was not resolved in the last 5 minutes, and holds no recorded review for the current head. The recovery feeds a synthetic rate-limit comment through detection, so the PR re-enters the queue and receives a retrigger with no reply target. This restores PRs whose rate-limit comment was deleted. The synthetic comment carries an invented id that no GitHub comment holds, so the edit detector reads the terminal status of its fetch as a gone comment and the item keeps resolving through the reviews-API fallback rather than failing on every tick.
+
+The recovery compares times with `julianday()`, because Prisma writes datetimes as `2026-10-24T04:01:59.109+00:00` and a text compare against `datetime('now')` never matches that shape. The same holds for the resolved-in-the-last-5-minutes guard: a text compare leaves the guard open, so the recovery re-queues the same PR a few seconds after each resolution.
 
 A PR marked as permanently refused is excluded from that query until the operator re-queues it. Without the exclusion the recovery path would return the PR to the queue a few minutes after the refusal resolved it, and the loop would restart.
 
@@ -280,6 +284,8 @@ A PR that an ignore rule matches is dropped from the recovered set before the sy
 ### Retrigger for a head-drift item
 
 A head-drift item (BR-2-8) carries no real source comment: its source id is synthetic and negative. The trigger refetches that id, GitHub answers 404, and the item posts its retrigger with no reply target, exactly as the deleted-comment recovery does (BR-5-5). The item records no source comment type, so the review detector accepts the newest completed review in the lookback window (BR-6-2) instead of requiring a head or run match.
+
+Every scheduler retrigger first asks whether a recorded review covers the current head. When one does, the trigger posts nothing and returns `RETRIGGER_HEAD_ALREADY_REVIEWED`, and the scheduler resolves the item as `review_completed`. The check runs before the source-comment fetch, so a stale queue entry costs no GitHub call. A dashboard retrigger skips the check, because the operator may want a second review of the same head.
 
 ## 6. Review detector and edit detection
 
@@ -297,7 +303,7 @@ CodeRabbit edits its comment in place per run. The detector refetches the source
 | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Verdict (`review_approved` / `review_changes_suggested`)                                | Resolve `review_completed`; record the review (comment, verdict, head sha at review time)                |
 | `review_refused`                                                                        | Resolve `permanently_refused`; mark the PR as refused                                                    |
-| `review_skipped` with an unchanged run                                                  | Resolve `skipped`                                                                                        |
+| `review_skipped` with an unchanged run                                                  | Falls through to the reviews-API fallback; resolves `skipped` only when no review matches                |
 | `review_skipped` with a new run, head not yet reviewed and trigger stale                | Reopen as `pending` so the scheduler re-triggers; adopting the re-edit in place would deadlock the item  |
 | `review_skipped` with a new run, head already reviewed, head unknown, or trigger recent | Adopt the run in place (update `source_comment_run_id`, restart the retrigger clock); stay `retriggered` |
 | Gone — GitHub answers 404 or 410 for the source comment                                 | No resolution — fall through to the reviews-API fallback, scoped by the source comment's stored type     |
@@ -321,6 +327,8 @@ For any other source comment:
 2. When no run is known, any completed review is accepted.
 
 The `last_coderabbit_review_at` fallback (a recorded review inside the same window also resolves the item as `review_completed`) applies only when no run is known; a known run that produced nothing must stay `retriggered` so the stale-retriggered sweep can fail it after `SCHEDULER_MAX_RETRIGGER_AGE_SEC`. If nothing matches, the item stays `retriggered` and is checked again on a later tick.
+
+A skip edit reaches this fallback too. CodeRabbit pauses its summary comment and can still post a review for the run the retrigger started, so the pause is not proof that no review exists. The detector resolves `skipped` only after the reviews API reports no match, and records the review as `review_completed` when one matches.
 
 <a id="br-6-3"></a>
 

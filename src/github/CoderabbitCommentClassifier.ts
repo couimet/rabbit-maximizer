@@ -12,7 +12,9 @@ import { inject, injectable } from 'inversify';
  *
  * The order below fixes the precedence when a body holds several phrases. A refusal
  * outranks every other signal, because CodeRabbit's refusal comment also carries the
- * skip marker, and no retrigger clears a refusal.
+ * skip marker, and no retrigger clears a refusal. A pause outranks the completion
+ * phrases, because CodeRabbit reports the last run inside its pause comment and posts
+ * no review object for that run. The report is not a verdict.
  */
 @injectable()
 export class CoderabbitCommentClassifier {
@@ -34,6 +36,11 @@ export class CoderabbitCommentClassifier {
       return { classification: CodeRabbitCommentType.review_skipped, matchedPhrase: skip.phrase, matchedOffset: skip.offset };
     }
 
+    const pause = findPhrase(body, this.markers.pause);
+    if (pause !== undefined) {
+      return { classification: CodeRabbitCommentType.review_skipped, matchedPhrase: pause.phrase, matchedOffset: pause.offset };
+    }
+
     const completion = findPhrase(body, this.markers.completion);
     if (completion !== undefined) {
       const approval = findPhrase(body, this.markers.approval);
@@ -44,11 +51,6 @@ export class CoderabbitCommentClassifier {
             matchedPhrase: completion.phrase,
             matchedOffset: completion.offset,
           };
-    }
-
-    const pause = findPhrase(body, this.markers.pause);
-    if (pause !== undefined) {
-      return { classification: CodeRabbitCommentType.review_skipped, matchedPhrase: pause.phrase, matchedOffset: pause.offset };
     }
 
     const rateLimit = findPhrase(body, this.markers.rateLimit);

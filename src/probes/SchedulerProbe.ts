@@ -52,6 +52,13 @@ export class SchedulerProbe {
       'Retrigger skipped for this candidate',
     );
   }
+  headAlreadyReviewed(reviewedHeadSha: string): void {
+    const item = this.item!;
+    this.log.info(
+      { fn: 'SchedulerProbe.headAlreadyReviewed', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, reviewedHeadSha },
+      'A recorded review covers the PR head; resolved the queue item',
+    );
+  }
   noItemsDue(): void {
     this.log.debug({ fn: 'SchedulerProbe.noItemsDue' }, 'No items due for retrigger');
   }

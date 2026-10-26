@@ -76,6 +76,24 @@ export class ReviewTrigger {
     const { owner, repo } = splitRepo(item.repo_full_name);
     const includeDiagnosis = triggerSource === TriggerSource.scheduler;
 
+    // An automatic retrigger asks CodeRabbit to review the current head. A recorded review of
+    // that head already answers the request, so a new post only adds noise to the pull request.
+    // A dashboard retrigger stays manual: the operator may want a second review of the same head.
+    if (includeDiagnosis) {
+      const reviewedHeadSha = await this.pullRequests.findReviewedHeadSha(item.pull_request_id, undefined);
+      if (reviewedHeadSha !== null) {
+        probe.headAlreadyReviewed(reviewedHeadSha);
+        return RabbitResult.err(
+          new RabbitMaximizerError({
+            code: RabbitMaximizerErrorCodes.RETRIGGER_HEAD_ALREADY_REVIEWED,
+            message: 'A recorded review already covers the pull request head',
+            functionName: 'ReviewTrigger.trigger',
+            details: { headSha: reviewedHeadSha },
+          }),
+        );
+      }
+    }
+
     let storedBody: string;
     let sourceCreatedAt: string;
     let sourceUpdatedAt: string;

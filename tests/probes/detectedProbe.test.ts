@@ -690,6 +690,31 @@ describe('DetectedProbe', () => {
     );
   });
 
+  it('logs when a recorded review covers the head', () => {
+    const ref = generateReviewRef();
+    const logger = createMockLogger();
+    const probe = new DetectedProbe(
+      {
+        repo_full_name: ref.repoFullName,
+        pr_number: ref.prNumber,
+        source_ts: getUniqueDate(),
+        source_comment_url: getUniqueString({ prefix: 'https://gh/c/' }),
+        coderabbit_run_id: undefined,
+        detectedVia: CommentDetectionMethod.Search,
+      },
+      {} as EventRepository,
+      logger,
+    );
+
+    const reviewedHeadSha = getUniqueString({ prefix: 'sha-' });
+    probe.headAlreadyReviewed(reviewedHeadSha);
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'DetectedProbe', repo: ref.repoFullName, pr: ref.prNumber, reviewedHeadSha },
+      'A recorded review covers the PR head; skipping enqueue',
+    );
+  });
+
   it('records a coderabbit_review_approved event and logs when verdict is approved', async () => {
     const ref = generateReviewRef();
     const sourceTs = getUniqueDate();
