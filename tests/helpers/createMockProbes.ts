@@ -51,6 +51,7 @@ export interface MockDetectedProbe {
   alreadyExcluded: jest.Mock;
   alreadySkipped: jest.Mock;
   alreadyReviewed: jest.Mock<any>;
+  headAlreadyReviewed: jest.Mock<any>;
   verdictResolved: jest.Mock<() => Promise<unknown>>;
 }
 export const createMockDetectedProbe = (): MockDetectedProbe => ({
@@ -66,6 +67,7 @@ export const createMockDetectedProbe = (): MockDetectedProbe => ({
   alreadyExcluded: jest.fn(),
   alreadySkipped: jest.fn(),
   alreadyReviewed: jest.fn(),
+  headAlreadyReviewed: jest.fn(),
   verdictResolved: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
 });
 
@@ -76,6 +78,7 @@ export interface MockReviewDetectorProbe {
   reviewed: jest.Mock<any>;
   reviewedViaFallback: jest.Mock<any>;
   refused: jest.Mock<any>;
+  skippedResolved: jest.Mock<any>;
   prClosedResolved: jest.Mock<any>;
   resolutionLostRace: jest.Mock<any>;
   runAdopted: jest.Mock<any>;
@@ -91,6 +94,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   reviewed: jest.fn<any>(),
   reviewedViaFallback: jest.fn<any>(),
   refused: jest.fn<any>().mockResolvedValue(undefined),
+  skippedResolved: jest.fn<any>(),
   prClosedResolved: jest.fn<any>(),
   resolutionLostRace: jest.fn<any>(),
   runAdopted: jest.fn<any>(),
@@ -156,6 +160,7 @@ export interface MockSchedulerProbe {
   tickSkippedAwaitingAcknowledgement: jest.Mock<any>;
   tickSkippedCooldown: jest.Mock<any>;
   retriggerSkipped: jest.Mock<any>;
+  headAlreadyReviewed: jest.Mock<any>;
   noItemsDue: jest.Mock<any>;
   scanBudgetExhausted: jest.Mock<any>;
   staleRetriggeredResolved: jest.Mock<any>;
@@ -177,6 +182,7 @@ export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
   tickSkippedAwaitingAcknowledgement: jest.fn<any>(),
   tickSkippedCooldown: jest.fn<any>(),
   retriggerSkipped: jest.fn<any>(),
+  headAlreadyReviewed: jest.fn<any>(),
   noItemsDue: jest.fn<any>(),
   scanBudgetExhausted: jest.fn<any>(),
   tickFailed: jest.fn<any>(),
@@ -195,12 +201,14 @@ export interface MockReviewRetriggerProbe {
   staleCommentSkipped: jest.Mock<any>;
   staleCommentReplacementDeleted: jest.Mock<any>;
   staleCommentRescheduled: jest.Mock<any>;
+  headAlreadyReviewed: jest.Mock<any>;
   reviewRetriggered: jest.Mock<any>;
 }
 export const createMockReviewRetriggerProbe = (): MockReviewRetriggerProbe => ({
   staleCommentSkipped: jest.fn<any>(),
   staleCommentReplacementDeleted: jest.fn<any>(),
   staleCommentRescheduled: jest.fn<any>(),
+  headAlreadyReviewed: jest.fn<any>(),
   reviewRetriggered: jest.fn<any>(),
 });
 

@@ -306,6 +306,46 @@ describe('EnqueueService', () => {
       });
     });
 
+    describe('head-coverage guard', () => {
+      it('does not enqueue a skip comment when a recorded review covers the head', async () => {
+        const reviewedHeadSha = getUniqueString({ prefix: 'sha-' });
+        pullRequests.findReviewedHeadSha.mockResolvedValue(reviewedHeadSha);
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.findReviewedHeadSha).toHaveBeenCalledWith(pullRequestId, tx);
+        expect(queue.enqueue).not.toHaveBeenCalled();
+        expect(probe.headAlreadyReviewed).toHaveBeenCalledWith(reviewedHeadSha);
+        expect(probe.skipped).not.toHaveBeenCalled();
+      });
+
+      it('enqueues a skip comment when no recorded review covers the head', async () => {
+        pullRequests.findReviewedHeadSha.mockResolvedValue(null);
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({ body: FOR_TEST_SKIP_BODY });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(queue.enqueue).toHaveBeenCalled();
+        expect(probe.headAlreadyReviewed).not.toHaveBeenCalled();
+      });
+
+      it('never consults the guard for a verdict comment', async () => {
+        const svc = createService();
+        const comment = generateDetectedCommentHydrationData({ body: APPROVAL_BODY });
+        const pullRequestId = getUniqueInt();
+
+        await svc.handle(comment, pullRequestId);
+
+        expect(pullRequests.findReviewedHeadSha).not.toHaveBeenCalled();
+        expect(pullRequests.recordReview).toHaveBeenCalledWith(pullRequestId, comment.url, 'review_approved', undefined, tx);
+      });
+    });
+
     describe('refusal path', () => {
       it('marks the PR refused, resolves the active item, records the refusal event, and never enqueues', async () => {
         const svc = createService();

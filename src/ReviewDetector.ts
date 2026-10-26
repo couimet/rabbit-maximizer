@@ -77,6 +77,9 @@ export class ReviewDetector extends IntervalService {
         }
         const editOutcome = result.value;
         let sourceCommentType: CodeRabbitCommentType | undefined;
+        // A skip edit is not proof that no review exists: CodeRabbit pauses the comment and
+        // can still post a review for the run the retrigger started.
+        let skippedEdit = false;
         switch (editOutcome.action) {
           case 'resolved':
             {
@@ -109,14 +112,9 @@ export class ReviewDetector extends IntervalService {
             }
             continue;
           case 'skipped':
-            {
-              const resolved = await this.prisma.$transaction((tx) => this.queue.markResolvedIfStillRetriggered(item.id, Resolution.Skipped, tx));
-              if (!resolved) {
-                probe.resolutionLostRace(Resolution.Skipped);
-                continue;
-              }
-            }
-            continue;
+            sourceCommentType = CodeRabbitCommentType.review_skipped;
+            skippedEdit = true;
+            break;
           case 'adopted':
             {
               const headSha = headShaMap.get(item.pull_request_id) ?? undefined;
@@ -173,6 +171,16 @@ export class ReviewDetector extends IntervalService {
         );
 
         if (!completedReview) {
+          if (skippedEdit) {
+            const resolved = await this.prisma.$transaction((tx) => this.queue.markResolvedIfStillRetriggered(item.id, Resolution.Skipped, tx));
+            if (!resolved) {
+              probe.resolutionLostRace(Resolution.Skipped);
+              continue;
+            }
+            probe.skippedResolved();
+            continue;
+          }
+
           // The last-review-at fallback only applies when no run is known: a known run
           // that produced nothing yet must stay retriggered for the stale sweep to fail it.
           const lastCoderabbitReviewAt = lastCoderabbitReviewAtMap.get(item.pull_request_id);

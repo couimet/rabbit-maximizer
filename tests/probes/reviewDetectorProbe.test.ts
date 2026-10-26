@@ -46,6 +46,22 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
+  describe('skippedResolved', () => {
+    it('logs info with the item context', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+
+      probe.skippedResolved();
+
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.skippedResolved', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
+        'Skip edit confirmed by the reviews API; resolved the queue item',
+      );
+    });
+  });
+
   describe('reviewedViaFallback', () => {
     it('records coderabbit_review_approved event with fallback payload and logs info', async () => {
       const ref = generateReviewRef();

@@ -237,6 +237,30 @@ describe('Scheduler', () => {
       await stop();
     });
 
+    it('resolves as review completed when ReviewTrigger reports the head already reviewed', async () => {
+      const item = pendingItem();
+      const headSha = getUniqueString({ prefix: 'sha-' });
+      const reviewedErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_HEAD_ALREADY_REVIEWED,
+        message: 'A recorded review already covers the pull request head',
+        functionName: 'ReviewTrigger.trigger',
+        details: { headSha },
+      });
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(reviewedErr));
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', deps.tx);
+      expect(deps.mockProbe.headAlreadyReviewed).toHaveBeenCalledWith(headSha);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
     it('backs off when ReviewTrigger returns stale replacement deleted', async () => {
       const item = pendingItem();
       const staleErr = new RabbitMaximizerError({

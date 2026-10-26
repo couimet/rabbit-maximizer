@@ -151,6 +151,13 @@ export class ReviewDetectorProbe {
     );
   }
 
+  skippedResolved(): void {
+    this.log.info(
+      { fn: 'ReviewDetectorProbe.skippedResolved', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id },
+      'Skip edit confirmed by the reviews API; resolved the queue item',
+    );
+  }
+
   prClosedResolved(prState: PrState): void {
     this.log.info(
       { fn: 'ReviewDetectorProbe.prClosedResolved', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, prState },

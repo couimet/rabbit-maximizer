@@ -36,6 +36,13 @@ export class ReviewRetriggerProbe {
     );
   }
 
+  headAlreadyReviewed(reviewedHeadSha: string): void {
+    this.log.info(
+      { fn: 'ReviewRetriggerProbe.headAlreadyReviewed', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id, reviewedHeadSha },
+      'A recorded review covers the PR head; refusing to retrigger',
+    );
+  }
+
   async reviewRetriggered(retriggeredCommentUrl: string, tx: Prisma.TransactionClient): Promise<void> {
     const runId = getRunIdAttribute();
     await this.events.record(

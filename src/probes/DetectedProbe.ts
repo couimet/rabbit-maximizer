@@ -199,4 +199,8 @@ export class DetectedProbe {
   alreadyReviewed(comment: AlreadyReviewedComment): void {
     this.log.info({ ...this.loggingCtx, commentId: comment.comment_id, commentUrl: comment.url }, 'PR already reviewed by CodeRabbit; skipping enqueue');
   }
+
+  headAlreadyReviewed(reviewedHeadSha: string): void {
+    this.log.info({ ...this.loggingCtx, reviewedHeadSha }, 'A recorded review covers the PR head; skipping enqueue');
+  }
 }

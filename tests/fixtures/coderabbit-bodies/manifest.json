@@ -12,9 +12,9 @@
     "file": "review-approved-after-pause.md",
     "sourceCommentUrl": "https://github.com/couimet/rabbit-maximizer/pull/320#issuecomment-5404798734",
     "expected": {
-      "classification": "review_approved",
-      "matchedPhrase": "No actionable comments were generated in the recent review.",
-      "matchedOffset": 926
+      "classification": "review_skipped",
+      "matchedPhrase": "review paused by coderabbit.ai",
+      "matchedOffset": 40
     }
   },
   {
