@@ -632,3 +632,19 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   <do>Use surgical SQL operations: DROP COLUMN (SQLite ≥3.35), DELETE FROM _prisma_migrations to retry a specific migration, or create a new forward-fixing migration</do>
   <rationale>The dev database contains real queue state, review history, and system configuration accumulated over time. Deleting it loses operational context that takes hours to rebuild. SQLite and Prisma support precise fixes that target only what needs changing.</rationale>
 </rule>
+
+<rule id="P010" priority="critical">
+  <title>Run the bats suite under Linux bash 5 before handoff</title>
+  <do>Run the full bats suite in a Linux container with bash 5 after any edit under <code>bats-tests/</code>, and before you hand off the work</do>
+  <never>Treat a green <code>pnpm test:bats</code> on macOS as proof that the assertions pass. The macOS <code>/bin/bash</code> is 3.2, and bash 3.2 does not apply <code>set -e</code> to a failing <code>[[ ... ]]</code>. Bats detects a failed line through errexit, so every <code>[[ ... ]]</code> assertion in <code>bats-tests/</code> is a no-op on macOS. A failing <code>[ ... ]</code>, a failing <code>false</code>, or a failing command still aborts the test</never>
+  <rationale>CI runs bash 5 on ubuntu, so it enforces the <code>[[ ... ]]</code> assertions that macOS skips. Commit a18fc22 asserted a message with a trailing slash that <code>scripts/docker/volume.sh</code> does not print. The suite stayed green on macOS, and the bats-test job failed in CI. The docker run below takes one minute and needs no change to the test runner.</rationale>
+  <good-example>
+    ```bash
+    docker run --rm -v "<repo-root>":/src -w /src debian:stable-slim sh -c \
+      'apt-get update -qq && apt-get install -y -qq bats sqlite3 tar gzip coreutils && bats -r bats-tests'
+    # Two failures are container artifacts, not defects:
+    # - the entrypoint tests need pnpm, which the container does not carry
+    # - check-types-no-runtime "fails on find error" needs a non-root user
+    ```
+  </good-example>
+</rule>

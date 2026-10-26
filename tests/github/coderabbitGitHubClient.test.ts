@@ -3,7 +3,7 @@ import { CodeRabbitCommentType, MatchedMarker, TriggerSource } from '../../src/d
 import { CoderabbitGitHubClient } from '../../src/github/index.js';
 import { TYPES } from '../../src/server-domain.js';
 import type { RepoFilter } from '../../src/types/index.js';
-import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockReposRest, type MockSearchRest } from '../helpers/index.js';
+import { createMockOctokit, type MockIssuesRest, type MockPullsRest, type MockReposRest, type MockSearchRest, restoreEnv } from '../helpers/index.js';
 
 import { getRandomString, getUniqueDate, getUniqueGitHubRepoRef, getUniqueInt, getUniqueString } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -60,11 +60,7 @@ describe('client', () => {
   });
 
   afterEach(() => {
-    if (declaredGitSha === undefined) {
-      delete process.env.GIT_SHA;
-    } else {
-      process.env.GIT_SHA = declaredGitSha;
-    }
+    restoreEnv('GIT_SHA', declaredGitSha);
   });
 
   describe('postRetrigger', () => {
