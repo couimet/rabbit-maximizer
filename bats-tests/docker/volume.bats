@@ -211,7 +211,7 @@ FAKE_MV
   run volume import "$ARCHIVE"
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"Could not move "*"to $DATA_DIR/$PREVIOUS_DIR_NAME/. The import stopped"* ]]
+  [[ "$output" == *"Could not move $DATA_DIR/$DB_FILE_NAME to $DATA_DIR/$PREVIOUS_DIR_NAME. The import stopped"* ]]
   [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
   [ -d "$DATA_DIR/$PREVIOUS_DIR_NAME" ]
   [ ! -e "$DATA_DIR/$STAGING_DIR_NAME" ]
