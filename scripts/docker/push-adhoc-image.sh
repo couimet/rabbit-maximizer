@@ -30,6 +30,10 @@ IMAGE_REPO="${IMAGE_REPO:-ghcr.io/couimet/rabbit-maximizer}"
 SHORT_SHA_LENGTH=7
 TIMESTAMP_FORMAT='+%Y%m%d-%H%M%S'
 
+read_package_version() {
+  sed -n 's/^[[:space:]]*"version": "\([^"]*\)".*/\1/p' "$PROJECT_ROOT/package.json" | head -n 1
+}
+
 usage() {
   echo 'Usage: push-adhoc-image.sh <target>' >&2
   echo '  amd64   build for Intel and AMD hosts' >&2
@@ -65,17 +69,19 @@ cd "$PROJECT_ROOT"
 
 COMMIT_SHA="$(git rev-parse HEAD)"
 SHORT_SHA="${COMMIT_SHA:0:$SHORT_SHA_LENGTH}"
+VERSION="$(read_package_version)"
 IMAGE_REF="$IMAGE_REPO:$SHORT_SHA-$(date -u "$TIMESTAMP_FORMAT")"
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "The working tree holds changes that commit $SHORT_SHA does not. The image holds the working tree."
 fi
 
-# GIT_SHA and IMAGE_TAGS give the running container its identity, exactly as the
-# publish workflow does.
+# VERSION, GIT_SHA, and IMAGE_TAGS give the running container its identity,
+# exactly as the publish workflow does.
 if ! docker build \
   "$EXPORT_FLAG" \
   --platform "$PLATFORM" \
+  --build-arg "VERSION=$VERSION" \
   --build-arg "GIT_SHA=$COMMIT_SHA" \
   --build-arg "IMAGE_TAGS=$IMAGE_REF" \
   --tag "$IMAGE_REF" \

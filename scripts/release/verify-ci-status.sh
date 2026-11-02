@@ -20,6 +20,7 @@ WAIT_TIMEOUT_SEC="${WAIT_TIMEOUT_SEC:-600}"
 PAGE_SIZE=100
 COMPLETED_STATUS='completed'
 PASSING_CONCLUSIONS='success neutral skipped'
+REQUIRED_WORKFLOW_CONCLUSION='success'
 
 # Matching a fixed string through case keeps every conclusion literal, so no
 # regular expression reads the spaces of the list as a pattern.
@@ -106,15 +107,18 @@ required_workflow_run_completed() {
   return 1
 }
 
-# One run of the required workflow that concluded a passing result is the whole
-# evidence the gate needs. A later run of the same workflow cannot take it back.
+# One run of the required workflow that concluded success is the whole evidence
+# the gate needs. A later run of the same workflow cannot take it back. The
+# check-run policy does not apply here: neutral and skipped are legitimate for an
+# optional check run, and neither of them proves that the workflow itself ran.
 required_workflow_run_passed() {
   local status
   local conclusion
   local run_id
 
   while IFS=$'\t' read -r status conclusion run_id; do
-    if [ "$status" = "$COMPLETED_STATUS" ] && conclusion_passed "$conclusion"; then
+    if [ "$status" = "$COMPLETED_STATUS" ] \
+      && [ "$conclusion" = "$REQUIRED_WORKFLOW_CONCLUSION" ]; then
       return 0
     fi
   done <<< "$1"

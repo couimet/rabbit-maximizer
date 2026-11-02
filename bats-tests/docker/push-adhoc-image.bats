@@ -82,6 +82,7 @@ tagged_ref() {
   [[ "$build" == *'--load'* ]]
   [[ "$build" != *'--push'* ]]
   [[ "$build" == *"--build-arg GIT_SHA=$COMMIT_SHA"* ]]
+  [[ "$build" =~ --build-arg\ VERSION=[0-9]+\.[0-9]+\.[0-9]+ ]]
   [[ "$build" == *" $PROJECT_ROOT" ]]
 
   local pushed

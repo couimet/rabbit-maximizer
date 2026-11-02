@@ -133,12 +133,15 @@ gh run list --workflow publish-image.yml --limit 1
 gh run watch <run-id>
 \`\`\`
 
-Then confirm that every tag answers through an anonymous pull:
+Then confirm that every tag answers through an anonymous pull. An empty Docker configuration keeps your stored registry credentials out of the check:
 
-\`\`\`bash$MANIFEST_COMMANDS
+\`\`\`bash
+DOCKER_CONFIG="\$(mktemp -d)"
+export DOCKER_CONFIG$MANIFEST_COMMANDS
+rm -rf "\$DOCKER_CONFIG"
 \`\`\`
 
-A \`docker manifest inspect\` that asks for credentials means the GHCR package is still private. See the release notes in \`PUBLISHING.md\`.
+A command that fails with an authentication error means the GHCR package is still private. See the release notes in \`PUBLISHING.md\`.
 
 ## 5. Pull and run the image
 

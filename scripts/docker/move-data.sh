@@ -118,6 +118,15 @@ fi
 refuse_running_container
 
 if volume_holds_database; then
+  # The name carries one-second precision, so a second run in the same second
+  # would replace the backup of the first.
+  SAFETY_ARCHIVE="$ARCHIVE_DIR/pre-import-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
+
+  if [ -e "$SAFETY_ARCHIVE" ]; then
+    echo "Safety export already exists: $SAFETY_ARCHIVE" >&2
+    exit 1
+  fi
+
   echo -n "About to replace the database in the $VOLUME_NAME volume. Continue? [y/N] " >&2
   read -r CONFIRM || CONFIRM=''
 
@@ -126,7 +135,6 @@ if volume_holds_database; then
     exit 0
   fi
 
-  SAFETY_ARCHIVE="$ARCHIVE_DIR/pre-import-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
   write_archive "$SAFETY_ARCHIVE"
   echo "Safety export: $SAFETY_ARCHIVE"
 fi

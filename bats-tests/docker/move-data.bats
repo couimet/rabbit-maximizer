@@ -14,12 +14,16 @@ HELPER_SCRIPT="$SCRIPT_DIR/docker/volume.sh"
 # is the whole contract this suite checks. The helper owns its own behavior.
 EXPORT_COMMAND="sh $HELPER_SCRIPT export $ARCHIVE_REF"
 IMPORT_COMMAND="sh $HELPER_SCRIPT import $ARCHIVE_REF"
+# The safety export name carries the clock at run time, so the sandbox pins the
+# clock to name the file that the guard checks.
+SAFETY_TIMESTAMP='20260101T000000Z'
 
 setup() {
   CALL_LOG="$BATS_TEST_TMPDIR/calls.log"
   BIN_DIR="$BATS_TEST_TMPDIR/bin"
   ARCHIVE="$BATS_TEST_TMPDIR/rabbit-maximizer-data.tar.gz"
-  export CALL_LOG
+  FAKE_SAFETY_TIMESTAMP="$SAFETY_TIMESTAMP"
+  export CALL_LOG FAKE_SAFETY_TIMESTAMP
 
   mkdir -p "$BIN_DIR"
   cat > "$BIN_DIR/docker" <<'FAKE_DOCKER'
@@ -46,6 +50,17 @@ case "$1" in
 esac
 FAKE_DOCKER
   chmod +x "$BIN_DIR/docker"
+
+  cat > "$BIN_DIR/date" <<'FAKE_DATE'
+#!/usr/bin/env bash
+if [ "$*" = '-u +%Y%m%dT%H%M%SZ' ]; then
+  printf '%s\n' "$FAKE_SAFETY_TIMESTAMP"
+  exit 0
+fi
+exec /bin/date "$@"
+FAKE_DATE
+  chmod +x "$BIN_DIR/date"
+
   PATH="$BIN_DIR:$PATH"
   export PATH
 }
@@ -143,6 +158,19 @@ move_data() {
   [[ "$calls" == *"sh $HELPER_SCRIPT export /backup/pre-import-"* ]]
   [[ "$calls" == *"$IMPORT_COMMAND"* ]]
   [[ "$output" == *'Safety export: '* ]]
+}
+
+@test "refuses a safety export whose file already exists" {
+  touch "$ARCHIVE"
+  touch "$BATS_TEST_TMPDIR/pre-import-$SAFETY_TIMESTAMP.tar.gz"
+
+  FAKE_VOLUME_HAS_DB=0 run bash -c "echo 'y' | bash '$SCRIPT' import '$ARCHIVE'"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'Safety export already exists: '* ]]
+  [[ "$output" == *"pre-import-$SAFETY_TIMESTAMP.tar.gz"* ]]
+  [[ "$(cat "$CALL_LOG")" != *'/backup/pre-import-'* ]]
+  [[ "$(cat "$CALL_LOG")" != *"$IMPORT_COMMAND"* ]]
 }
 
 @test "refuses an archive that does not exist" {

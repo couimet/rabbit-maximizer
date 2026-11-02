@@ -76,6 +76,9 @@ generate() {
   runbook="$(cat "$SANDBOX/publishing-instructions/publish-$RELEASE_TAG.md")"
   [[ "$runbook" == *"This release publishes these tags: 0.1.0, 0.1, latest."* ]]
   [[ "$runbook" == *"docker manifest inspect ghcr.io/couimet/rabbit-maximizer:latest"* ]]
+  [[ "$runbook" == *'DOCKER_CONFIG="$(mktemp -d)"'* ]]
+  [[ "$runbook" == *'export DOCKER_CONFIG'* ]]
+  [[ "$runbook" == *'rm -rf "$DOCKER_CONFIG"'* ]]
 }
 
 @test "smoke tests the built image before it writes the runbook" {

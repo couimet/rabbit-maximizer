@@ -66,6 +66,19 @@ lock_version() {
   [ "$(cat "$SANDBOX/CHANGELOG.md")" = "$before" ]
 }
 
+@test "does not report a version as already locked while the API spec is behind" {
+  lock_version '0.2.0'
+  cp "$PROJECT_ROOT/docs/api-spec.yaml" "$SANDBOX/docs/api-spec.yaml"
+  git add -A
+  git commit -q -m 'partial lock'
+
+  run lock_version '0.2.0'
+
+  [ "$status" -eq 1 ]
+  [[ "$output" != *"already locked"* ]]
+  [[ "$output" == *"holds no '## [Unreleased]' heading"* ]]
+}
+
 @test "refuses a prerelease version" {
   run lock_version '0.2.0-beta.1'
 

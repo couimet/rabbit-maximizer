@@ -26,6 +26,10 @@ read_package_version() {
   sed -n 's/^[[:space:]]*"version": "\([^"]*\)".*/\1/p' "$PACKAGE_FILE" | head -n 1
 }
 
+read_api_spec_version() {
+  sed -n "s|^  version: '\([^']*\)'.*|\1|p" "$API_SPEC_FILE" | head -n 1
+}
+
 find_line_number() {
   local file="$1"
   local pattern="$2"
@@ -75,8 +79,11 @@ for required_file in "$PACKAGE_FILE" "$API_SPEC_FILE" "$CHANGELOG_FILE"; do
 done
 
 # A repeat run finds every edit already applied and stops before the dirty-tree
-# check, because the run that applied the edits left the tree dirty.
+# check, because the run that applied the edits left the tree dirty. The API spec
+# is part of the test: a run that stopped between the package.json write and the
+# API spec write leaves that file behind, and must not pass as locked.
 if [ "$(read_package_version)" = "$VERSION" ] \
+  && [ "$(read_api_spec_version)" = "$VERSION" ] \
   && ! grep -q -F -- "$UNRELEASED_HEADING" "$CHANGELOG_FILE" \
   && ! grep -q -F -- "$UNRELEASED_LINK" "$CHANGELOG_FILE"; then
   echo "Version $VERSION is already locked; nothing changed."

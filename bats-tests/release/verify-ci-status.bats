@@ -176,6 +176,24 @@ verify_ci_status() {
   [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on $COMMIT_SHA concluded a passing result"* ]]
 }
 
+@test "refuses a commit whose CI workflow run was skipped" {
+  export WORKFLOW_RUNS="$(printf 'completed\tskipped\t%s\n' "$CI_RUN_ID")"
+
+  run verify_ci_status
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on $COMMIT_SHA concluded a passing result"* ]]
+}
+
+@test "refuses a commit whose CI workflow run was neutral" {
+  export WORKFLOW_RUNS="$(printf 'completed\tneutral\t%s\n' "$CI_RUN_ID")"
+
+  run verify_ci_status
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on $COMMIT_SHA concluded a passing result"* ]]
+}
+
 @test "refuses a commit with no run of the required workflow" {
   export WORKFLOW_RUNS=''
   export WAIT_TIMEOUT_SEC=2
