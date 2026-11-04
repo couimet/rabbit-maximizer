@@ -7,6 +7,28 @@ load test_helper
 
 VERSION='0.1.0'
 RELEASE_TAG='v0.1.0'
+PROJECT_URL='https://github.com/couimet/rabbit-maximizer'
+
+# The fixture files are written here, not copied from the repository. The lock
+# in setup needs a package, an API spec and a changelog, and a copy tracks the
+# live release state, so a locked tree breaks every test.
+write_fixture_tree() {
+  printf '{\n  "name": "rabbit-maximizer",\n  "version": "0.0.1"\n}\n' > "$SANDBOX/package.json"
+  printf "openapi: 3.0.0\ninfo:\n  title: Rabbit Maximizer\n  version: '0.0.1'\n" \
+    > "$SANDBOX/docs/api-spec.yaml"
+  cat > "$SANDBOX/CHANGELOG.md" <<FIXTURE_CHANGELOG
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- A change
+
+[Unreleased]: $PROJECT_URL/commits/main
+FIXTURE_CHANGELOG
+  printf 'RABBIT_MAXIMIZER_LOG_LEVEL=info\n' > "$SANDBOX/.env.ci"
+}
 
 setup() {
   SANDBOX="$BATS_TEST_TMPDIR/tree"
@@ -19,10 +41,7 @@ setup() {
   cp "$SCRIPT_DIR/release/generate-publishing-instructions.sh" "$SANDBOX/scripts/release/"
   cp "$SCRIPT_DIR/release/lock-version.sh" "$SANDBOX/scripts/release/"
   cp "$SCRIPT_DIR/docker/derive-image-tags.sh" "$SANDBOX/scripts/docker/"
-  cp "$PROJECT_ROOT/package.json" "$SANDBOX/"
-  cp "$PROJECT_ROOT/CHANGELOG.md" "$SANDBOX/"
-  cp "$PROJECT_ROOT/docs/api-spec.yaml" "$SANDBOX/docs/"
-  cp "$PROJECT_ROOT/.env.ci" "$SANDBOX/"
+  write_fixture_tree
 
   cat > "$SANDBOX/scripts/docker/smoke-test.sh" <<'FAKE_SMOKE_TEST'
 #!/usr/bin/env bash
@@ -79,6 +98,17 @@ generate() {
   [[ "$runbook" == *'DOCKER_CONFIG="$(mktemp -d)"'* ]]
   [[ "$runbook" == *'export DOCKER_CONFIG'* ]]
   [[ "$runbook" == *'rm -rf "$DOCKER_CONFIG"'* ]]
+}
+
+@test "asks the reader to wait for CI on the tagged commit before the release" {
+  run generate
+  [ "$status" -eq 0 ]
+
+  local runbook
+  runbook="$(cat "$SANDBOX/publishing-instructions/publish-$RELEASE_TAG.md")"
+  [[ "$runbook" == *'## 3. Wait for CI on the tagged commit'* ]]
+  [[ "$runbook" == *'gh run list --workflow ci.yml --commit "$(git rev-parse '"$RELEASE_TAG"')" --limit 1'* ]]
+  [[ "$runbook" == *'## 4. Create the release'* ]]
 }
 
 @test "smoke tests the built image before it writes the runbook" {

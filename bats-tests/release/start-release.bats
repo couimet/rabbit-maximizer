@@ -6,14 +6,32 @@ PROJECT_URL='https://github.com/couimet/rabbit-maximizer'
 VERSION='0.1.0'
 VERSION_HEADING='## [0.1.0]'
 
+# The fixture files are written here, not copied from the repository. The lock
+# in setup needs a package, an API spec and a changelog, and a copy tracks the
+# live release state, so a locked tree breaks every test.
+write_fixture_tree() {
+  printf '{\n  "name": "rabbit-maximizer",\n  "version": "0.0.1"\n}\n' > "$SANDBOX/package.json"
+  printf "openapi: 3.0.0\ninfo:\n  title: Rabbit Maximizer\n  version: '0.0.1'\n" \
+    > "$SANDBOX/docs/api-spec.yaml"
+  cat > "$SANDBOX/CHANGELOG.md" <<FIXTURE_CHANGELOG
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- A change
+
+[Unreleased]: $PROJECT_URL/commits/main
+FIXTURE_CHANGELOG
+}
+
 setup() {
   SANDBOX="$BATS_TEST_TMPDIR/tree"
   mkdir -p "$SANDBOX/scripts/release" "$SANDBOX/docs"
   cp "$SCRIPT_DIR/release/start-release.sh" "$SANDBOX/scripts/release/"
   cp "$SCRIPT_DIR/release/lock-version.sh" "$SANDBOX/scripts/release/"
-  cp "$PROJECT_ROOT/package.json" "$SANDBOX/"
-  cp "$PROJECT_ROOT/CHANGELOG.md" "$SANDBOX/"
-  cp "$PROJECT_ROOT/docs/api-spec.yaml" "$SANDBOX/docs/"
+  write_fixture_tree
 
   cd "$SANDBOX" || return
   git init -q

@@ -34,7 +34,11 @@ if ! git_in_project rev-parse --is-inside-work-tree > /dev/null 2>&1; then
   fail 'git working tree' "$PROJECT_ROOT is not a git working tree"
 fi
 
-if [ -n "$(git_in_project status --porcelain)" ]; then
+# A failed git status must not read as a clean tree. The assignment carries the
+# exit status, so set -e stops the run before the build.
+STATUS="$(git_in_project status --porcelain)"
+
+if [ -n "$STATUS" ]; then
   fail 'clean working tree' 'commit the pending changes first'
 fi
 
@@ -114,7 +118,18 @@ git tag -a $RELEASE_TAG -m "$RELEASE_TAG"
 git push origin $RELEASE_TAG
 \`\`\`
 
-## 3. Create the release
+## 3. Wait for CI on the tagged commit
+
+The publish workflow refuses a commit whose checks did not pass. This wait runs before the release exists, so a red commit leaves no release object behind.
+
+\`\`\`bash
+gh run list --workflow ci.yml --commit "\$(git rev-parse $RELEASE_TAG)" --limit 1
+gh run watch <run-id>
+\`\`\`
+
+A run that has not appeared yet needs a moment; run the list again. A failed run stops the release here.
+
+## 4. Create the release
 
 Copy the \`## [$VERSION]\` section of \`CHANGELOG.md\` into \`/tmp/$RELEASE_TAG-notes.md\` first. Then run:
 
@@ -124,7 +139,7 @@ gh release create $RELEASE_TAG --title "$RELEASE_TAG" --notes-file /tmp/$RELEASE
 
 Do not pass \`--prerelease\`. This version is stable.
 
-## 4. Wait for the publish workflow and verify the published tags
+## 5. Wait for the publish workflow and verify the published tags
 
 The workflow refuses a commit whose checks did not pass, so a failure here means the tag points at a red commit.
 
@@ -143,7 +158,7 @@ rm -rf "\$DOCKER_CONFIG"
 
 A command that fails with an authentication error means the GHCR package is still private. See the release notes in \`PUBLISHING.md\`.
 
-## 5. Pull and run the image
+## 6. Pull and run the image
 
 \`\`\`bash
 docker pull $IMAGE_REPO:$VERSION
@@ -151,7 +166,7 @@ docker pull $IMAGE_REPO:$VERSION
 
 Start the container as the "Run with Docker" section of \`README.md\` describes, with \`$IMAGE_REPO:$VERSION\` in place of the pinned tag. Read the "Upgrading" section of that file before you replace a running container.
 
-## 6. Commit the runbook
+## 7. Commit the runbook
 
 \`publishing-instructions/publish-$RELEASE_TAG.md\` belongs to the repository, so the release keeps the record of what it ran.
 

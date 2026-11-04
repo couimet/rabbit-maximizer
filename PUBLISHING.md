@@ -18,7 +18,7 @@ The image is `ghcr.io/couimet/rabbit-maximizer`. `scripts/docker/derive-image-ta
 | Prerelease, for example `v1.2.3-beta.1` | `1.2.3-beta.1`, `beta`   |
 | Manual dispatch                         | `edge`, `sha-<short>`    |
 
-`latest`, `beta`, and `edge` move. The version tags stay where the release put them.
+`latest`, `beta`, `edge`, and the minor tag move. A patch release rewrites the minor tag, so only the full `X.Y.Z` tag stays where the release put it.
 
 ## Lifecycle
 
@@ -30,22 +30,21 @@ Three phases:
 
 ## Cut a beta
 
-1. Confirm that CI passed on the commit you will tag.
-2. Write the changelog section by hand as `## [X.Y.Z-beta.N] - YYYY-MM-DD`. `pnpm release:lock` accepts stable versions only, so no script writes a prerelease section. See [The changelog](#the-changelog).
-3. Commit the section.
-4. Create the tag: `git tag -a vX.Y.Z-beta.N -m "vX.Y.Z-beta.N"`
-5. Push the tag: `git push origin vX.Y.Z-beta.N`
+1. Write the changelog section by hand as `## [X.Y.Z-beta.N] - YYYY-MM-DD`. `pnpm release:lock` accepts stable versions only, so no script writes a prerelease section. See [The changelog](#the-changelog).
+2. Commit the section.
+3. Create the tag: `git tag -a vX.Y.Z-beta.N -m "vX.Y.Z-beta.N"`
+4. Push the tag: `git push origin vX.Y.Z-beta.N`
+5. Wait for CI on the tagged commit: `gh run list --workflow ci.yml --commit "$(git rev-parse vX.Y.Z-beta.N)" --limit 1`, then `gh run watch <run-id>`. A failed run stops the release here, before the release object exists.
 6. Create the release: `gh release create vX.Y.Z-beta.N --prerelease --title "vX.Y.Z-beta.N"`
 
 The publish workflow reacts to the published release. It pushes the version tag and moves `beta`.
 
 ## Cut a stable release
 
-1. Confirm that CI passed on the commit you will tag.
-2. Lock the version: `pnpm release:lock X.Y.Z`
-3. Commit the result. The script rewrites the changelog heading, syncs the version in `docs/api-spec.yaml`, and sets `version` in `package.json`.
-4. Generate the instructions: `pnpm release:instructions`
-5. Follow the generated file. It lists the phases in order: smoke test the image, create the tag, create the release, wait for the publish workflow, verify the published tags, pull and run the image, and commit the generated file.
+1. Lock the version: `pnpm release:lock X.Y.Z`
+2. Commit the result. The script rewrites the changelog heading, syncs the version in `docs/api-spec.yaml`, and sets `version` in `package.json`.
+3. Generate the instructions: `pnpm release:instructions`
+4. Follow the generated file. It lists the phases in order: smoke test the image, create the tag, wait for CI on the tagged commit, create the release, wait for the publish workflow, verify the published tags, pull and run the image, and commit the generated file.
 
 The generated file lands in `publishing-instructions/publish-vX.Y.Z.md` and is committed with the release. It records what the release ran, so a later reader can see the commands that produced a published image.
 
@@ -57,7 +56,7 @@ After the stable release, run `pnpm release:start`. It adds a fresh `## [Unrelea
 
 An ad-hoc image tests an evolution that is not ready for a release. `pnpm docker:push:adhoc:<target>` builds the image from the working tree and pushes it to GHCR under a tag of its own. Another machine pulls that tag.
 
-The tag carries the commit and a UTC timestamp: `<short>-YYYYMMDD-HHMMSS`, for example `0123456-20261003-143005`. `<short>` is the first seven characters of the commit. The commit alone does not identify the build, because the working tree usually holds changes the commit does not, and because one commit produces many builds while you iterate. The timestamp separates those builds, so a new push never replaces an image that is still in use. Two builds in the same second share one tag, and the second push replaces the first.
+The tag carries the commit, a UTC timestamp, and a random suffix: `<short>-YYYYMMDD-HHMMSS-<4 hex>`, for example `0123456-20261003-143005-a1b2`. `<short>` is the first seven characters of the commit. The commit alone does not identify the build, because the working tree usually holds changes the commit does not, and because one commit produces many builds while you iterate. The timestamp separates those builds, so a new push never replaces an image that is still in use. The suffix separates two builds that start in the same second, which the timestamp alone cannot do.
 
 The command pushes one tag and moves no other tag. `latest`, `beta`, and `edge` keep the images the release process gave them.
 
@@ -76,6 +75,14 @@ Name the target platform. The command takes one of three:
 | `amd64` | Intel and AMD hosts        | loads into the local store, then pushes |
 | `arm64` | ARM hosts                  | loads into the local store, then pushes |
 | `both`  | both, as one manifest list | pushes during the build                 |
+
+The `both` target builds with `docker buildx build`, because `docker build` on the classic image store cannot produce a manifest list. Create a multi-platform builder once, then select it:
+
+```bash
+docker buildx create --name rabbit-multiplatform --driver docker-container --use --bootstrap
+```
+
+The two single-platform targets keep `docker build` and need no builder.
 
 Build the image from the current working tree and push it:
 

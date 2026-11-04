@@ -13,9 +13,9 @@ SHORT_SHA='0123456'
 AMD64_PLATFORM='linux/amd64'
 ARM64_PLATFORM='linux/arm64'
 BOTH_PLATFORM='linux/amd64,linux/arm64'
-# The timestamp is the clock at run time, so the test pins the shape and the
-# commit, not the instant.
-TAG_PATTERN="^$IMAGE_REPO:$SHORT_SHA-[0-9]{8}-[0-9]{6}$"
+# The timestamp and the suffix change at run time, so the test pins the shape
+# and the commit, not the instant.
+TAG_PATTERN="^$IMAGE_REPO:$SHORT_SHA-[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$"
 
 setup() {
   CALL_LOG="$BATS_TEST_TMPDIR/calls.log"
@@ -29,7 +29,7 @@ setup() {
 echo "docker $*" >> "$CALL_LOG"
 
 case "$1" in
-  build)
+  build | buildx)
     exit "${FAKE_BUILD_FAILS:-0}"
     ;;
   push)
@@ -107,6 +107,7 @@ tagged_ref() {
   [ "$status" -eq 0 ]
   local pushed
   pushed="$(tagged_ref)"
+  [[ "$(build_line)" == *'docker buildx build'* ]]
   [[ "$(build_line)" == *"--platform $BOTH_PLATFORM"* ]]
   [[ "$(build_line)" == *'--push'* ]]
   [[ "$(build_line)" != *'--load'* ]]
@@ -115,11 +116,18 @@ tagged_ref() {
   [[ "$output" == *"Pushed $pushed for $BOTH_PLATFORM"* ]]
 }
 
+@test "builds a single platform without buildx" {
+  run push_adhoc amd64
+
+  [ "$status" -eq 0 ]
+  [[ "$(build_line)" != *'docker buildx build'* ]]
+}
+
 @test "pushes to the repository named by IMAGE_REPO" {
   IMAGE_REPO='registry.example.com/team/rabbit-maximizer' run push_adhoc amd64
 
   [ "$status" -eq 0 ]
-  [[ "$(tagged_ref)" =~ ^registry\.example\.com/team/rabbit-maximizer:$SHORT_SHA-[0-9]{8}-[0-9]{6}$ ]]
+  [[ "$(tagged_ref)" =~ ^registry\.example\.com/team/rabbit-maximizer:$SHORT_SHA-[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$ ]]
 }
 
 @test "prints the usage when the target is missing" {
@@ -166,15 +174,24 @@ tagged_ref() {
 
   [ "$status" -eq 1 ]
   [[ "$(cat "$CALL_LOG")" == *'docker push'* ]]
-  [[ "$output" == *'docker login ghcr.io'* ]]
+  [[ "$output" == *'Check the login to ghcr.io'* ]]
   [[ "$output" == *"docker push $(tagged_ref)"* ]]
   [[ "$output" != *'Pushed '* ]]
 }
 
-@test "names the login when a two-platform build stops at its push" {
+@test "names the login and the builder when a two-platform build fails" {
   FAKE_BUILD_FAILS=1 run push_adhoc both
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'docker login ghcr.io'* ]]
+  [[ "$output" == *'The build or its push failed'* ]]
+  [[ "$output" == *'docker buildx ls'* ]]
   [[ "$output" == *'pnpm docker:push:adhoc:both'* ]]
+}
+
+@test "names the registry from IMAGE_REPO in a push failure" {
+  IMAGE_REPO='registry.example.com/team/rabbit-maximizer' FAKE_PUSH_FAILS=1 run push_adhoc amd64
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *'Check the login to registry.example.com'* ]]
+  [[ "$output" != *'ghcr.io'* ]]
 }

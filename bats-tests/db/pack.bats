@@ -57,3 +57,37 @@ pack() {
   [ "$status" -eq 1 ]
   [[ "$output" == *'Usage: pack.sh <file>'* ]]
 }
+
+@test "refuses an archive path that names the live database" {
+  local db_path
+  db_path="$(create_test_db)"
+
+  run pack "$db_path"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The archive path names the live database: $db_path"* ]]
+  [ "$(sqlite3 "$db_path" 'SELECT name FROM test_data WHERE id = 1;')" = 'hello' ]
+}
+
+@test "refuses a link that points at the live database" {
+  local db_path link_path
+  db_path="$(create_test_db)"
+  link_path="$BATS_TEST_TMPDIR/$ARCHIVE_NAME"
+  ln -s "$db_path" "$link_path"
+
+  run pack "$link_path"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The archive path names the live database: $link_path"* ]]
+  [ "$(sqlite3 "$db_path" 'SELECT name FROM test_data WHERE id = 1;')" = 'hello' ]
+}
+
+@test "writes the archive readable by its owner only" {
+  create_test_db
+  local archive="$BATS_TEST_TMPDIR/$ARCHIVE_NAME"
+
+  run pack "$archive"
+
+  [ "$status" -eq 0 ]
+  [ "$(stat -c '%a' "$archive" 2>/dev/null || stat -f '%Lp' "$archive")" = '600' ]
+}

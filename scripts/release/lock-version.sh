@@ -39,12 +39,13 @@ find_line_number() {
 }
 
 # The tag the release creates is excluded, so a second run against the same
-# version reports the tag before it, and not the tag itself.
+# version reports the tag before it, and not the tag itself. A prerelease counts
+# as no previous release, because the compare link must start at a stable tag.
 previous_release_tag() {
   local locked_tag="v$1"
   local tag
   while IFS= read -r tag; do
-    if [ "$tag" != "$locked_tag" ]; then
+    if [ "$tag" != "$locked_tag" ] && [[ "${tag#v}" =~ $SEMVER_STABLE_PATTERN ]]; then
       printf '%s\n' "$tag"
       return 0
     fi
@@ -95,7 +96,11 @@ if ! git_in_project rev-parse --is-inside-work-tree > /dev/null 2>&1; then
   exit 1
 fi
 
-if [ -n "$(git_in_project status --porcelain)" ]; then
+# A failed git status must not read as a clean tree. The assignment carries the
+# exit status, so set -e stops the run before the edits.
+STATUS="$(git_in_project status --porcelain)"
+
+if [ -n "$STATUS" ]; then
   echo "Working tree is dirty; commit the pending changes first" >&2
   exit 1
 fi

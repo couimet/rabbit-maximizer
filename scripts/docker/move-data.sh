@@ -10,7 +10,6 @@
 #        move-data.sh import <file>
 set -euo pipefail
 
-CONTAINER_NAME='rabbit-maximizer'
 VOLUME_NAME='rabbit-maximizer-data'
 VOLUME_MOUNT='/data'
 ARCHIVE_MOUNT='/backup'
@@ -25,15 +24,28 @@ usage() {
   echo '       move-data.sh import <file>' >&2
 }
 
-container_running() {
-  local running
-  running="$(docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null || true)"
-  [ "$running" = 'true' ]
+# Compose names a container after its project, and a plain 'docker run' lets the
+# operator pick any name. The volume is the identity that both forms share.
+running_containers() {
+  local ids
+  ids="$(docker ps --filter "volume=$VOLUME_NAME" --format '{{.ID}}')" || return 1
+  # An empty list must stay empty: printf over no line still prints one space.
+  if [ -n "$ids" ]; then
+    printf '%s\n' "$ids" | tr '\n' ' ' | sed 's/ $//'
+  fi
 }
 
 refuse_running_container() {
-  if container_running; then
-    echo "Container $CONTAINER_NAME is running; stop it first with 'docker stop $CONTAINER_NAME'" >&2
+  local ids
+
+  if ! ids="$(running_containers)"; then
+    echo "The check for a container on the $VOLUME_NAME volume failed. Stop any container that uses the volume, then run the command again." >&2
+    exit 1
+  fi
+
+  if [ -n "$ids" ]; then
+    echo "A container mounts the $VOLUME_NAME volume: $ids" >&2
+    echo "Stop it first with 'docker stop $ids', or with 'docker compose stop rabbit-maximizer' for a Compose deployment." >&2
     exit 1
   fi
 }
@@ -140,9 +152,10 @@ if volume_holds_database; then
 fi
 
 if ! run_helper rw import "$ARCHIVE_MOUNT/$ARCHIVE_NAME"; then
-  echo "The archive did not restore: $ARCHIVE_DIR/$ARCHIVE_NAME. The helper's message names the reason. The $VOLUME_NAME volume keeps its contents." >&2
+  echo "The archive did not restore: $ARCHIVE_DIR/$ARCHIVE_NAME. The helper's message names the reason." >&2
+  echo "Check the $VOLUME_NAME volume before you start the container again. A failed move can leave the previous data in .previous inside the volume, and the helper's message names that recovery." >&2
   exit 1
 fi
 
 echo "Restored the $VOLUME_NAME volume from $ARCHIVE_DIR/$ARCHIVE_NAME"
-echo "Start the container again with 'docker start $CONTAINER_NAME'"
+echo "Start the container again with 'docker start <container>', or with 'docker compose start rabbit-maximizer'."

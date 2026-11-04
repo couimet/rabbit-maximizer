@@ -38,11 +38,24 @@ if [ ! -d "$ARCHIVE_DIR" ]; then
   exit 1
 fi
 
+# tar opens its destination with O_TRUNC, so a path that names the live database
+# would empty that database after the backup step copied it.
+if [ -e "$ARCHIVE" ] && [ "$ARCHIVE" -ef "$DB_FILE" ]; then
+  echo "The archive path names the live database: $ARCHIVE" >&2
+  exit 1
+fi
+
+# The archive holds a copy of the database, so only the owner may read it. tar
+# writes to a temporary file in the destination directory, so a failed run leaves
+# no partial archive under the final name.
+umask 077
 STAGING_DIR="$(mktemp -d)"
-trap 'rm -rf "$STAGING_DIR"' EXIT
+ARCHIVE_TMP="$(mktemp "$ARCHIVE_DIR/.pack.XXXXXX")"
+trap 'rm -rf "$STAGING_DIR" "$ARCHIVE_TMP"' EXIT
 
 sqlite3 "$DB_FILE" ".backup '$STAGING_DIR/$DB_FILE_NAME'"
-tar czf "$ARCHIVE" -C "$STAGING_DIR" "$DB_FILE_NAME"
+tar czf "$ARCHIVE_TMP" -C "$STAGING_DIR" "$DB_FILE_NAME"
+mv -f "$ARCHIVE_TMP" "$ARCHIVE"
 
 if ! grep -qx "$DB_FILE_NAME" <<< "$(tar tzf "$ARCHIVE")"; then
   echo "The archive does not hold $DB_FILE_NAME" >&2

@@ -31,8 +31,11 @@ setup() {
 echo "docker $*" >> "$CALL_LOG"
 
 case "$1" in
-  inspect)
-    echo "${FAKE_CONTAINER_RUNNING:-false}"
+  ps)
+    if [ -n "${FAKE_RUNNING_IDS:-}" ]; then
+      echo "$FAKE_RUNNING_IDS"
+    fi
+    exit "${FAKE_PS_EXIT:-0}"
     ;;
   run)
     # The read-only data mount plus a file test identifies the probe that asks
@@ -77,22 +80,31 @@ move_data() {
   [[ "$output" == *"Wrote the $VOLUME_NAME volume to $ARCHIVE"* ]]
 }
 
-@test "refuses to export while the container runs" {
-  FAKE_CONTAINER_RUNNING='true' run move_data export "$ARCHIVE"
+@test "refuses to export while a container mounts the volume" {
+  FAKE_RUNNING_IDS='abc123' run move_data export "$ARCHIVE"
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'Container rabbit-maximizer is running'* ]]
+  [[ "$output" == *"A container mounts the $VOLUME_NAME volume: abc123"* ]]
+  [[ "$(cat "$CALL_LOG")" == *"docker ps --filter volume=$VOLUME_NAME"* ]]
   [[ "$(cat "$CALL_LOG")" != *"$EXPORT_COMMAND"* ]]
 }
 
-@test "refuses to import while the container runs" {
+@test "refuses to import while a container mounts the volume" {
   touch "$ARCHIVE"
 
-  FAKE_CONTAINER_RUNNING='true' run move_data import "$ARCHIVE"
+  FAKE_RUNNING_IDS='abc123' run move_data import "$ARCHIVE"
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *'Container rabbit-maximizer is running'* ]]
+  [[ "$output" == *"A container mounts the $VOLUME_NAME volume: abc123"* ]]
   [[ "$(cat "$CALL_LOG")" != *"$IMPORT_COMMAND"* ]]
+}
+
+@test "refuses when the container check fails" {
+  FAKE_PS_EXIT=1 run move_data export "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The check for a container on the $VOLUME_NAME volume failed"* ]]
+  [[ "$(cat "$CALL_LOG")" != *"$EXPORT_COMMAND"* ]]
 }
 
 @test "imports the archive into an empty volume through the helper" {
@@ -122,6 +134,7 @@ move_data() {
   [ "$status" -eq 1 ]
   [[ "$output" == *"The archive did not restore: $ARCHIVE."* ]]
   [[ "$output" == *"The helper's message names the reason."* ]]
+  [[ "$output" != *'keeps its contents'* ]]
 }
 
 @test "refuses an import when the volume probe fails at the docker level" {

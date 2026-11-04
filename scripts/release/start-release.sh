@@ -64,7 +64,11 @@ if ! git_in_project rev-parse --is-inside-work-tree > /dev/null 2>&1; then
   exit 1
 fi
 
-if [ -n "$(git_in_project status --porcelain)" ]; then
+# A failed git status must not read as a clean tree. The assignment carries the
+# exit status, so set -e stops the run before the edits.
+STATUS="$(git_in_project status --porcelain)"
+
+if [ -n "$STATUS" ]; then
   echo "Working tree is dirty; commit the pending changes first" >&2
   exit 1
 fi

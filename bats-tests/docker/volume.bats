@@ -34,6 +34,15 @@ echo "chown $*" >> "$CHOWN_LOG"
 exit 0
 FAKE_CHOWN
   chmod +x "$BIN_DIR/chown"
+
+  # The import holds its lock with flock, which the production images carry and
+  # macOS does not, so the stand-in answers the lock request.
+  cat > "$BIN_DIR/flock" <<'FAKE_FLOCK'
+#!/usr/bin/env bash
+exit "${FAKE_FLOCK_EXIT:-0}"
+FAKE_FLOCK
+  chmod +x "$BIN_DIR/flock"
+
   export CHOWN_LOG
 }
 
@@ -90,13 +99,44 @@ write_source_archive() {
   [ ! -e "$DATA_DIR/old.txt" ]
 }
 
-@test 'sets the owner of the data directory after the restore' {
+@test 'sets the owner of the payload and the data directory before the moves' {
   write_source_archive
 
   run volume import "$ARCHIVE"
 
   [ "$status" -eq 0 ]
-  [ "$(cat "$CHOWN_LOG")" = "chown -R $DATA_UID:$DATA_GID $DATA_DIR" ]
+  [[ "$(cat "$CHOWN_LOG")" == *"chown -R $DATA_UID:$DATA_GID $DATA_DIR/$STAGING_DIR_NAME"* ]]
+  [[ "$(cat "$CHOWN_LOG")" == *"chown $DATA_UID:$DATA_GID $DATA_DIR"* ]]
+}
+
+@test 'stops the import when the payload cannot change owner' {
+  write_source_archive
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
+
+  cat > "$BIN_DIR/chown" <<'FAKE_CHOWN'
+#!/usr/bin/env bash
+echo "chown $*" >> "$CHOWN_LOG"
+exit 1
+FAKE_CHOWN
+  chmod +x "$BIN_DIR/chown"
+
+  run volume import "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
+  [ ! -e "$DATA_DIR/$PREVIOUS_DIR_NAME" ]
+}
+
+@test 'refuses an import while another import holds the lock' {
+  write_source_archive
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
+
+  FAKE_FLOCK_EXIT=1 run volume import "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Another import holds the lock on $DATA_DIR"* ]]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
+  [ ! -e "$CHOWN_LOG" ]
 }
 
 @test 'leaves no staging directory behind after a restore' {
@@ -186,7 +226,8 @@ write_source_archive() {
 
   [ "$status" -eq 1 ]
   [[ "$output" == *"An earlier import stopped between its two moves"* ]]
-  [[ "$output" == *"Move the entries of $DATA_DIR/$PREVIOUS_DIR_NAME back into $DATA_DIR"* ]]
+  [[ "$output" == *"move the entries of $DATA_DIR/$PREVIOUS_DIR_NAME back into $DATA_DIR"* ]]
+  [[ "$output" == *"Move the entries that the failed import added out of $DATA_DIR"* ]]
   [ -f "$DATA_DIR/$PREVIOUS_DIR_NAME/$DB_FILE_NAME" ]
   [ ! -e "$DATA_DIR/$DB_FILE_NAME" ]
   [ ! -e "$DATA_DIR/$STAGING_DIR_NAME" ]
@@ -215,7 +256,9 @@ FAKE_MV
   [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
   [ -d "$DATA_DIR/$PREVIOUS_DIR_NAME" ]
   [ ! -e "$DATA_DIR/$STAGING_DIR_NAME" ]
-  [ ! -e "$CHOWN_LOG" ]
+  # The ownership step runs before the moves, so the payload owns its files
+  # even when a move then fails.
+  [[ "$(cat "$CHOWN_LOG")" == *"chown -R $DATA_UID:$DATA_GID $DATA_DIR/$STAGING_DIR_NAME"* ]]
 }
 
 @test 'refuses an archive that is not a tar' {
@@ -236,19 +279,66 @@ FAKE_MV
   [[ "$output" == *'Archive not found: '* ]]
 }
 
-@test 'leaves the staging directories out of an export' {
+@test 'leaves the staging directory and the lock file out of an export' {
   echo 'the database' > "$DATA_DIR/$DB_FILE_NAME"
-  mkdir -p "$DATA_DIR/$STAGING_DIR_NAME" "$DATA_DIR/$PREVIOUS_DIR_NAME"
+  mkdir -p "$DATA_DIR/$STAGING_DIR_NAME"
   echo 'a partial payload' > "$DATA_DIR/$STAGING_DIR_NAME/$DB_FILE_NAME"
-  echo 'a previous payload' > "$DATA_DIR/$PREVIOUS_DIR_NAME/$DB_FILE_NAME"
+  echo 'a lock' > "$DATA_DIR/.import-lock"
 
   run volume export "$ARCHIVE"
 
   [ "$status" -eq 0 ]
   run tar tzf "$ARCHIVE"
   [[ "$output" != *"$STAGING_DIR_NAME"* ]]
-  [[ "$output" != *"$PREVIOUS_DIR_NAME"* ]]
+  [[ "$output" != *'.import-lock'* ]]
   [[ "$output" == *"$DB_FILE_NAME"* ]]
+}
+
+@test 'refuses an export while the previous directory holds the data' {
+  echo 'the database' > "$DATA_DIR/$DB_FILE_NAME"
+  mkdir -p "$DATA_DIR/$PREVIOUS_DIR_NAME"
+  echo 'a previous payload' > "$DATA_DIR/$PREVIOUS_DIR_NAME/$DB_FILE_NAME"
+
+  run volume export "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"An earlier import stopped between its two moves"* ]]
+  [[ "$output" == *"Recover that directory before you export"* ]]
+  [ ! -f "$ARCHIVE" ]
+}
+
+@test 'refuses an export when the data directory holds no database' {
+  echo 'notes' > "$DATA_DIR/notes.txt"
+
+  run volume export "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"No $DB_FILE_NAME in $DATA_DIR, so there is nothing to export."* ]]
+  [ ! -f "$ARCHIVE" ]
+}
+
+@test 'writes the export readable by its owner only' {
+  echo 'the database' > "$DATA_DIR/$DB_FILE_NAME"
+
+  run volume export "$ARCHIVE"
+
+  [ "$status" -eq 0 ]
+  [ "$(stat -c '%a' "$ARCHIVE" 2>/dev/null || stat -f '%Lp' "$ARCHIVE")" = '600' ]
+}
+
+@test 'refuses an archive that holds a reserved staging member' {
+  write_database "$SOURCE_DIR/$DB_FILE_NAME" "$RESTORED_MARKER"
+  mkdir -p "$SOURCE_DIR/$STAGING_DIR_NAME"
+  echo 'a nested payload' > "$SOURCE_DIR/$STAGING_DIR_NAME/$DB_FILE_NAME"
+  tar czf "$ARCHIVE" -C "$SOURCE_DIR" .
+  write_database "$DATA_DIR/$DB_FILE_NAME" "$CURRENT_MARKER"
+
+  run volume import "$ARCHIVE"
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"The archive holds the reserved member $STAGING_DIR_NAME"* ]]
+  [ "$(read_sentinel "$DATA_DIR/$DB_FILE_NAME")" = "$CURRENT_MARKER" ]
+  [ ! -e "$CHOWN_LOG" ]
 }
 
 @test 'refuses a data directory that does not exist' {

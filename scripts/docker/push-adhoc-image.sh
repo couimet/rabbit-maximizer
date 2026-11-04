@@ -2,16 +2,17 @@
 # Build an image from the working tree and push it under a tag of its own, so an
 # operator can test an evolution that is not ready for a release.
 #
-# The tag carries the commit and a UTC timestamp. The commit alone does not
-# identify the build: the working tree usually holds changes the commit does
-# not, and one commit produces many builds while the operator iterates. The
-# timestamp separates those builds, so a new push never replaces an image that
-# is still in use.
+# The tag carries the commit, a UTC timestamp, and a random suffix. The commit
+# alone does not identify the build: the working tree usually holds changes the
+# commit does not, and one commit produces many builds while the operator
+# iterates. The timestamp separates those builds, and the suffix separates two
+# that start in the same second, so a new push never replaces an image that is
+# still in use.
 #
 # A single-platform build loads into the local store and pushes after, so a
 # refused push leaves the image behind for a second attempt. The docker exporter
-# refuses a manifest list, so 'both' pushes during the build and keeps nothing
-# locally.
+# refuses a manifest list, so 'both' builds through buildx, pushes during the
+# build, and keeps nothing locally.
 #
 # Usage: push-adhoc-image.sh <target>
 #
@@ -29,6 +30,8 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 IMAGE_REPO="${IMAGE_REPO:-ghcr.io/couimet/rabbit-maximizer}"
 SHORT_SHA_LENGTH=7
 TIMESTAMP_FORMAT='+%Y%m%d-%H%M%S'
+REGISTRY="${IMAGE_REPO%%/*}"
+RANDOM_SUFFIX_BYTES=2
 
 read_package_version() {
   sed -n 's/^[[:space:]]*"version": "\([^"]*\)".*/\1/p' "$PROJECT_ROOT/package.json" | head -n 1
@@ -61,8 +64,10 @@ esac
 
 if [ "$TARGET" = 'both' ]; then
   EXPORT_FLAG='--push'
+  BUILD_COMMAND=(docker buildx build)
 else
   EXPORT_FLAG='--load'
+  BUILD_COMMAND=(docker build)
 fi
 
 cd "$PROJECT_ROOT"
@@ -70,15 +75,18 @@ cd "$PROJECT_ROOT"
 COMMIT_SHA="$(git rev-parse HEAD)"
 SHORT_SHA="${COMMIT_SHA:0:$SHORT_SHA_LENGTH}"
 VERSION="$(read_package_version)"
-IMAGE_REF="$IMAGE_REPO:$SHORT_SHA-$(date -u "$TIMESTAMP_FORMAT")"
+RANDOM_SUFFIX="$(od -An -N"$RANDOM_SUFFIX_BYTES" -tx1 /dev/urandom | tr -d ' \n')"
+IMAGE_REF="$IMAGE_REPO:$SHORT_SHA-$(date -u "$TIMESTAMP_FORMAT")-$RANDOM_SUFFIX"
 
-if [ -n "$(git status --porcelain)" ]; then
+STATUS="$(git status --porcelain)"
+
+if [ -n "$STATUS" ]; then
   echo "The working tree holds changes that commit $SHORT_SHA does not. The image holds the working tree."
 fi
 
 # VERSION, GIT_SHA, and IMAGE_TAGS give the running container its identity,
 # exactly as the publish workflow does.
-if ! docker build \
+if ! "${BUILD_COMMAND[@]}" \
   "$EXPORT_FLAG" \
   --platform "$PLATFORM" \
   --build-arg "VERSION=$VERSION" \
@@ -87,8 +95,8 @@ if ! docker build \
   --tag "$IMAGE_REF" \
   "$PROJECT_ROOT"; then
   if [ "$EXPORT_FLAG" = '--push' ]; then
-    echo "The build stopped at its push. Run 'docker login ghcr.io' with a token that carries the write:packages scope, then build again:" >&2
-    echo "  pnpm docker:push:adhoc:both" >&2
+    echo "The build or its push failed. Check the login to $REGISTRY, the permission to push to $IMAGE_REPO, and 'docker buildx ls' for a builder that covers both platforms. Then build again:" >&2
+    echo "  pnpm docker:push:adhoc:$TARGET" >&2
   fi
   exit 1
 fi
@@ -96,7 +104,7 @@ fi
 # A refused push leaves the image in the local store, so the operator logs in and
 # pushes that image again without a second build.
 if [ "$EXPORT_FLAG" = '--load' ] && ! docker push "$IMAGE_REF"; then
-  echo "The registry refused the push. Run 'docker login ghcr.io' with a token that carries the write:packages scope, then push the local image again:" >&2
+  echo "The registry refused the push. Check the login to $REGISTRY and the permission to push to $IMAGE_REPO. Then push the local image again:" >&2
   echo "  docker push $IMAGE_REF" >&2
   exit 1
 fi

@@ -33,6 +33,7 @@ DATA_DIR="${RABBIT_MAXIMIZER_DATA_DIR:-/data}"
 DB_FILE_NAME='rabbit-maximizer.db'
 STAGING_DIR_NAME='.restore'
 PREVIOUS_DIR_NAME='.previous'
+LOCK_FILE_NAME='.import-lock'
 SQLITE_HEADER='SQLite format 3'
 SQLITE_HEADER_LENGTH=15
 DATA_UID='1001'
@@ -69,10 +70,36 @@ if [ ! -d "$DATA_DIR" ]; then
 fi
 
 if [ "$COMMAND" = 'export' ]; then
-  # An archive must not carry the staging directories a failed import left.
-  if ! tar czf "$ARCHIVE" -C "$DATA_DIR" \
+  # A failed import can leave the only database in the previous directory. The
+  # export skips that directory, so it would report success on an archive that
+  # holds no database.
+  if [ -d "$PREVIOUS_DIR" ]; then
+    echo "An earlier import stopped between its two moves, so the previous contents of $DATA_DIR are in $PREVIOUS_DIR." >&2
+    echo "Recover that directory before you export; the export does not carry it." >&2
+    exit 1
+  fi
+
+  if [ ! -f "$DATA_DIR/$DB_FILE_NAME" ]; then
+    echo "No $DB_FILE_NAME in $DATA_DIR, so there is nothing to export." >&2
+    exit 1
+  fi
+
+  # The archive holds a copy of the database, so only the owner may read it. The
+  # write goes to a temporary file, so a failed run leaves no partial archive.
+  umask 077
+  ARCHIVE_TMP="$ARCHIVE.tmp.$$"
+
+  if ! tar czf "$ARCHIVE_TMP" -C "$DATA_DIR" \
     --exclude="./$STAGING_DIR_NAME" \
-    --exclude="./$PREVIOUS_DIR_NAME" .; then
+    --exclude="./$PREVIOUS_DIR_NAME" \
+    --exclude="./$LOCK_FILE_NAME" .; then
+    rm -f "$ARCHIVE_TMP"
+    echo "Could not write $ARCHIVE" >&2
+    exit 1
+  fi
+
+  if ! mv -f "$ARCHIVE_TMP" "$ARCHIVE"; then
+    rm -f "$ARCHIVE_TMP"
     echo "Could not write $ARCHIVE" >&2
     exit 1
   fi
@@ -90,8 +117,24 @@ fi
 # in the previous directory. That directory can hold the only copy of the
 # database, so no run removes it. A person recovers it by hand.
 if [ -d "$PREVIOUS_DIR" ]; then
-  echo "An earlier import stopped between its two moves, so $DATA_DIR holds its contents in $PREVIOUS_DIR." >&2
-  echo "Move the entries of $PREVIOUS_DIR back into $DATA_DIR, remove $PREVIOUS_DIR, and run the import again." >&2
+  echo "An earlier import stopped between its two moves, so the previous data of $DATA_DIR is in $PREVIOUS_DIR, and $DATA_DIR can hold part of the new payload." >&2
+  echo "Move the entries that the failed import added out of $DATA_DIR, move the entries of $PREVIOUS_DIR back into $DATA_DIR, remove $PREVIOUS_DIR, and run the import again." >&2
+  exit 1
+fi
+
+# Two imports against one volume would interleave their staging directories and
+# their moves. The kernel drops this lock when the process ends, so a killed run
+# never blocks the next one.
+if ! command -v flock > /dev/null 2>&1; then
+  echo 'The flock command is unavailable, so the import cannot hold its lock.' >&2
+  exit 1
+fi
+
+LOCK_FILE="$DATA_DIR/$LOCK_FILE_NAME"
+exec 9>"$LOCK_FILE"
+
+if ! flock -n 9; then
+  echo "Another import holds the lock on $DATA_DIR. Wait for that run to finish." >&2
   exit 1
 fi
 
@@ -107,6 +150,15 @@ UNSAFE_NAME="$(tar tzf "$ARCHIVE" 2>/dev/null | grep -E '^/|(^|/)\.\.(/|$)' | he
 
 if [ -n "$UNSAFE_NAME" ]; then
   echo "The archive holds a member that points outside the staging directory: $UNSAFE_NAME. $DATA_DIR keeps its contents." >&2
+  exit 1
+fi
+
+# The staging and previous directories belong to this script. A member of either
+# name would land on a live directory during the second move.
+RESERVED_MEMBER="$(tar tzf "$ARCHIVE" 2>/dev/null | sed 's|^\./||' | grep -E "^($STAGING_DIR_NAME|$PREVIOUS_DIR_NAME)(/|$)" | head -n 1)"
+
+if [ -n "$RESERVED_MEMBER" ]; then
+  echo "The archive holds the reserved member $RESERVED_MEMBER. $DATA_DIR keeps its contents." >&2
   exit 1
 fi
 
@@ -167,15 +219,20 @@ move_entries() {
   done
 }
 
+# The caller runs this as root, so the extracted files arrive owned by root. The
+# application runs as uid 1001, and SQLite refuses to write a file that another
+# user owns. The owner and the write bit are set before the first move, so a
+# refused chown stops the import with the current data still in place. The data
+# directory itself also belongs to uid 1001, because SQLite writes its journal
+# beside the database.
+chown -R "$DATA_UID:$DATA_GID" "$STAGING_DIR"
+chmod -R u+rwX "$STAGING_DIR"
+chown "$DATA_UID:$DATA_GID" "$DATA_DIR"
+chmod u+rwx "$DATA_DIR"
+
 mkdir -p "$PREVIOUS_DIR"
-move_entries "$DATA_DIR" "$PREVIOUS_DIR" "$STAGING_DIR_NAME $PREVIOUS_DIR_NAME"
+move_entries "$DATA_DIR" "$PREVIOUS_DIR" "$STAGING_DIR_NAME $PREVIOUS_DIR_NAME $LOCK_FILE_NAME"
 move_entries "$STAGING_DIR" "$DATA_DIR" ''
 rm -rf "$PREVIOUS_DIR" "$STAGING_DIR"
-
-# The caller runs this as root, so the extracted files arrive owned by root.
-# The application runs as uid 1001, and SQLite refuses to write a file that
-# another user owns. A caller that already runs as uid 1001 owns the files
-# already, and its refused chown is not an error.
-chown -R "$DATA_UID:$DATA_GID" "$DATA_DIR" 2>/dev/null || true
 
 echo "Restored $DATA_DIR from $ARCHIVE"
