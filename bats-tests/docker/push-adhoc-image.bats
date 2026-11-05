@@ -116,11 +116,12 @@ tagged_ref() {
   [[ "$output" == *"Pushed $pushed for $BOTH_PLATFORM"* ]]
 }
 
-@test "builds a single platform without buildx" {
+@test "builds a single platform through buildx with the selected builder" {
   run push_adhoc amd64
 
   [ "$status" -eq 0 ]
-  [[ "$(build_line)" != *'docker buildx build'* ]]
+  [[ "$(build_line)" == *'docker buildx build'* ]]
+  [[ "$(build_line)" == *'--load'* ]]
 }
 
 @test "pushes to the repository named by IMAGE_REPO" {

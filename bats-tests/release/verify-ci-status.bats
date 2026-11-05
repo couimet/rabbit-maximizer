@@ -18,7 +18,9 @@ SELF_CHECK_NAME='publish'
 SELF_RUN_ID='1000000001'
 OTHER_RUN_ID='2000000002'
 CI_RUN_ID='3000000003'
+MAIN_RUN_ID='4000000004'
 REQUIRED_WORKFLOW_FILE='ci.yml'
+RELEASE_TAG='v1.2.3'
 
 setup() {
   CALL_LOG="$BATS_TEST_TMPDIR/calls.log"
@@ -32,11 +34,11 @@ setup() {
   UNFINISHED_RUNS="$(printf 'completed\tsuccess\tbuild\t%s\nin_progress\tnone\tlint\t%s\n' "$OTHER_RUN_ID" "$OTHER_RUN_ID")"
   FAILING_RUNS="$(printf 'completed\tsuccess\tbuild\t%s\ncompleted\tfailure\tlint\t%s\n' "$OTHER_RUN_ID" "$OTHER_RUN_ID")"
 
-  export REPOSITORY COMMIT_SHA SELF_CHECK_NAME SELF_RUN_ID REQUIRED_WORKFLOW_FILE
+  export REPOSITORY COMMIT_SHA SELF_CHECK_NAME SELF_RUN_ID REQUIRED_WORKFLOW_FILE RELEASE_TAG
   export SETTLE_AFTER_CALL=1
   export PENDING_RUNS="$UNFINISHED_RUNS"
   export SETTLED_RUNS="$PASSING_RUNS"
-  export WORKFLOW_RUNS="$(printf 'completed\tsuccess\t%s\n' "$CI_RUN_ID")"
+  export WORKFLOW_RUNS="$(printf 'completed\tsuccess\t%s\t%s\n' "$CI_RUN_ID" "$RELEASE_TAG")"
   export POLL_INTERVAL_SEC=1
 
   mkdir -p "$BIN_DIR"
@@ -46,9 +48,20 @@ echo "gh $*" >> "$CALL_LOG"
 
 # The read of the check runs is the one that advances the call count, so
 # SETTLE_AFTER_CALL counts loop iterations rather than the two reads each
-# iteration makes.
+# iteration makes. The workflow report follows the same count, so a fixture can
+# hold a tag run that settles one iteration after the check runs do.
 if [[ "$*" == *"/actions/workflows/"* ]]; then
-  printf '%s\n' "$WORKFLOW_RUNS"
+  runs="$WORKFLOW_RUNS"
+  calls=0
+  if [ -f "$CALL_COUNT_FILE" ]; then
+    calls="$(cat "$CALL_COUNT_FILE")"
+  fi
+  if [ -n "${PENDING_WORKFLOW_RUNS:-}" ] && [ "$calls" -lt "$SETTLE_AFTER_CALL" ]; then
+    runs="$PENDING_WORKFLOW_RUNS"
+  fi
+  if [ -n "$runs" ]; then
+    printf '%s\n' "$runs"
+  fi
   exit 0
 fi
 
@@ -79,9 +92,9 @@ verify_ci_status() {
 
   [ "$status" -eq 0 ]
   [[ "$output" == *"Every check run on $COMMIT_SHA passed"* ]]
-  [[ "$output" == *"$REQUIRED_WORKFLOW_FILE concluded a passing result"* ]]
+  [[ "$output" == *"$REQUIRED_WORKFLOW_FILE passed on tag $RELEASE_TAG"* ]]
   [[ "$(cat "$CALL_LOG")" == *"repos/$REPOSITORY/commits/$COMMIT_SHA/check-runs"* ]]
-  [[ "$(cat "$CALL_LOG")" == *"repos/$REPOSITORY/actions/workflows/$REQUIRED_WORKFLOW_FILE/runs?head_sha=$COMMIT_SHA"* ]]
+  [[ "$(cat "$CALL_LOG")" == *"repos/$REPOSITORY/actions/workflows/$REQUIRED_WORKFLOW_FILE/runs?head_sha=$COMMIT_SHA&event=push"* ]]
 }
 
 @test "refuses a commit with a failed check run, and names it" {
@@ -126,6 +139,31 @@ verify_ci_status() {
   [ "$(cat "$CALL_COUNT_FILE")" -eq 2 ]
 }
 
+@test "waits for the tag run when a passing main run covers the same commit" {
+  # CI runs on every push to main, so the tagged commit usually carries a
+  # passing main run. The gate waits for the run of the tag itself.
+  export SETTLE_AFTER_CALL=2
+  export PENDING_RUNS="$PASSING_RUNS"
+  export PENDING_WORKFLOW_RUNS="$(printf 'completed\tsuccess\t%s\tmain\nin_progress\tnone\t%s\t%s\n' "$MAIN_RUN_ID" "$CI_RUN_ID" "$RELEASE_TAG")"
+  export WORKFLOW_RUNS="$(printf 'completed\tsuccess\t%s\tmain\ncompleted\tsuccess\t%s\t%s\n' "$MAIN_RUN_ID" "$CI_RUN_ID" "$RELEASE_TAG")"
+
+  run verify_ci_status
+
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Waiting 1s for the check runs on $COMMIT_SHA"* ]]
+  [ "$(cat "$CALL_COUNT_FILE")" -eq 2 ]
+}
+
+@test "refuses when only a main run covers the commit" {
+  export WORKFLOW_RUNS="$(printf 'completed\tsuccess\t%s\tmain\n' "$MAIN_RUN_ID")"
+  export WAIT_TIMEOUT_SEC=2
+
+  run verify_ci_status
+
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"No completed run of $REQUIRED_WORKFLOW_FILE on tag $RELEASE_TAG covers $COMMIT_SHA after 2s"* ]]
+}
+
 @test "ignores an in-progress check run of its own job and passes without waiting" {
   # A short timeout ends the test in seconds when the gate stops ignoring its
   # own run, instead of holding the suite for the default ten minutes.
@@ -167,31 +205,40 @@ verify_ci_status() {
   [[ "$output" == *'REQUIRED_WORKFLOW_FILE is required'* ]]
 }
 
+@test "refuses when the release tag is not set" {
+  unset RELEASE_TAG
+
+  run verify_ci_status
+
+  [ "$status" -ne 0 ]
+  [[ "$output" == *'RELEASE_TAG is required'* ]]
+}
+
 @test "refuses a commit whose CI workflow run concluded without a pass" {
-  export WORKFLOW_RUNS="$(printf 'completed\tfailure\t%s\n' "$CI_RUN_ID")"
+  export WORKFLOW_RUNS="$(printf 'completed\tfailure\t%s\t%s\n' "$CI_RUN_ID" "$RELEASE_TAG")"
 
   run verify_ci_status
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on $COMMIT_SHA concluded a passing result"* ]]
+  [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on tag $RELEASE_TAG at $COMMIT_SHA concluded a passing result"* ]]
 }
 
 @test "refuses a commit whose CI workflow run was skipped" {
-  export WORKFLOW_RUNS="$(printf 'completed\tskipped\t%s\n' "$CI_RUN_ID")"
+  export WORKFLOW_RUNS="$(printf 'completed\tskipped\t%s\t%s\n' "$CI_RUN_ID" "$RELEASE_TAG")"
 
   run verify_ci_status
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on $COMMIT_SHA concluded a passing result"* ]]
+  [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on tag $RELEASE_TAG at $COMMIT_SHA concluded a passing result"* ]]
 }
 
 @test "refuses a commit whose CI workflow run was neutral" {
-  export WORKFLOW_RUNS="$(printf 'completed\tneutral\t%s\n' "$CI_RUN_ID")"
+  export WORKFLOW_RUNS="$(printf 'completed\tneutral\t%s\t%s\n' "$CI_RUN_ID" "$RELEASE_TAG")"
 
   run verify_ci_status
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on $COMMIT_SHA concluded a passing result"* ]]
+  [[ "$output" == *"No run of $REQUIRED_WORKFLOW_FILE on tag $RELEASE_TAG at $COMMIT_SHA concluded a passing result"* ]]
 }
 
 @test "refuses a commit with no run of the required workflow" {
@@ -201,7 +248,7 @@ verify_ci_status() {
   run verify_ci_status
 
   [ "$status" -eq 1 ]
-  [[ "$output" == *"No completed run of $REQUIRED_WORKFLOW_FILE covers $COMMIT_SHA after 2s"* ]]
+  [[ "$output" == *"No completed run of $REQUIRED_WORKFLOW_FILE on tag $RELEASE_TAG covers $COMMIT_SHA after 2s"* ]]
 }
 
 @test "refuses when a check run is unfinished past the timeout" {

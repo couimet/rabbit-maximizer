@@ -9,6 +9,7 @@
 #   SELF_CHECK_NAME         check name of the calling job, which the gate ignores
 #   SELF_RUN_ID             workflow run that holds the calling job
 #   REQUIRED_WORKFLOW_FILE  workflow that must pass on the commit, for example ci.yml
+#   RELEASE_TAG             tag of the release, whose own CI run must pass
 #   POLL_INTERVAL_SEC       optional, seconds between two reads of the check runs
 #   WAIT_TIMEOUT_SEC        optional, seconds to wait before the wait counts as a refusal
 #
@@ -41,10 +42,33 @@ read_check_runs() {
 
 # A run of the required workflow proves that CI itself ran on the commit. Every
 # check run of the commit can come from another workflow, so a passing report
-# alone does not say that CI passed.
+# alone does not say that CI passed. A push to a tag names the tag in
+# head_branch, and a push to a branch names the branch there, so the reading
+# keeps the field that tells the two apart.
 read_required_workflow_runs() {
-  gh api "repos/$REPOSITORY/actions/workflows/$REQUIRED_WORKFLOW_FILE/runs?head_sha=$COMMIT_SHA&per_page=$PAGE_SIZE" --paginate \
-    --jq '.workflow_runs[] | [.status, (.conclusion // "none"), .id] | @tsv'
+  gh api "repos/$REPOSITORY/actions/workflows/$REQUIRED_WORKFLOW_FILE/runs?head_sha=$COMMIT_SHA&event=push&per_page=$PAGE_SIZE" --paginate \
+    --jq '.workflow_runs[] | [.status, (.conclusion // "none"), .id, (.head_branch // "")] | @tsv'
+}
+
+# CI also runs on every push to main, so the commit of a release usually carries
+# a passing run of main before the tag run starts. Only the run of the release
+# tag says that the tagged tree passed, and a passing run of main must not stand
+# in for it.
+select_release_tag_runs() {
+  local status
+  local conclusion
+  local run_id
+  local head_branch
+
+  if [ -z "$1" ]; then
+    return 0
+  fi
+
+  while IFS=$'\t' read -r status conclusion run_id head_branch; do
+    if [ "$head_branch" = "$RELEASE_TAG" ]; then
+      printf '%s\t%s\t%s\n' "$status" "$conclusion" "$run_id"
+    fi
+  done <<< "$1"
 }
 
 # The calling job owns one check run inside the run that runs this script, and
@@ -170,6 +194,7 @@ COMMIT_SHA="${COMMIT_SHA:?COMMIT_SHA is required}"
 SELF_CHECK_NAME="${SELF_CHECK_NAME:?SELF_CHECK_NAME is required}"
 SELF_RUN_ID="${SELF_RUN_ID:?SELF_RUN_ID is required}"
 REQUIRED_WORKFLOW_FILE="${REQUIRED_WORKFLOW_FILE:?REQUIRED_WORKFLOW_FILE is required}"
+RELEASE_TAG="${RELEASE_TAG:?RELEASE_TAG is required}"
 
 ELAPSED_SEC=0
 REPORT=''
@@ -179,6 +204,7 @@ while :; do
   REPORT="$(read_check_runs)"
   REPORT="$(drop_self_check_run "$REPORT")"
   WORKFLOW_REPORT="$(read_required_workflow_runs)"
+  WORKFLOW_REPORT="$(select_release_tag_runs "$WORKFLOW_REPORT")"
 
   if ! must_keep_waiting "$REPORT" "$WORKFLOW_REPORT"; then
     break
@@ -190,7 +216,7 @@ while :; do
     elif check_runs_unfinished "$REPORT"; then
       echo "A check run on $COMMIT_SHA is unfinished after ${WAIT_TIMEOUT_SEC}s" >&2
     else
-      echo "No completed run of $REQUIRED_WORKFLOW_FILE covers $COMMIT_SHA after ${WAIT_TIMEOUT_SEC}s" >&2
+      echo "No completed run of $REQUIRED_WORKFLOW_FILE on tag $RELEASE_TAG covers $COMMIT_SHA after ${WAIT_TIMEOUT_SEC}s" >&2
     fi
     exit 1
   fi
@@ -211,8 +237,8 @@ if ! report_failures "$REPORT"; then
 fi
 
 if ! required_workflow_run_passed "$WORKFLOW_REPORT"; then
-  echo "No run of $REQUIRED_WORKFLOW_FILE on $COMMIT_SHA concluded a passing result, so the gate cannot confirm CI passed" >&2
+  echo "No run of $REQUIRED_WORKFLOW_FILE on tag $RELEASE_TAG at $COMMIT_SHA concluded a passing result, so the gate cannot confirm CI passed" >&2
   exit 1
 fi
 
-echo "Every check run on $COMMIT_SHA passed, and $REQUIRED_WORKFLOW_FILE concluded a passing result"
+echo "Every check run on $COMMIT_SHA passed, and $REQUIRED_WORKFLOW_FILE passed on tag $RELEASE_TAG"

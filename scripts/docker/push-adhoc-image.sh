@@ -9,10 +9,11 @@
 # that start in the same second, so a new push never replaces an image that is
 # still in use.
 #
-# A single-platform build loads into the local store and pushes after, so a
-# refused push leaves the image behind for a second attempt. The docker exporter
-# refuses a manifest list, so 'both' builds through buildx, pushes during the
-# build, and keeps nothing locally.
+# Every target builds through buildx, so the build uses the builder that
+# 'docker buildx use' selected. A single-platform build loads into the local
+# store and pushes after, so a refused push leaves the image behind for a second
+# attempt. The docker exporter refuses a manifest list, so 'both' pushes during
+# the build instead and keeps nothing locally.
 #
 # Usage: push-adhoc-image.sh <target>
 #
@@ -64,10 +65,8 @@ esac
 
 if [ "$TARGET" = 'both' ]; then
   EXPORT_FLAG='--push'
-  BUILD_COMMAND=(docker buildx build)
 else
   EXPORT_FLAG='--load'
-  BUILD_COMMAND=(docker build)
 fi
 
 cd "$PROJECT_ROOT"
@@ -86,7 +85,7 @@ fi
 
 # VERSION, GIT_SHA, and IMAGE_TAGS give the running container its identity,
 # exactly as the publish workflow does.
-if ! "${BUILD_COMMAND[@]}" \
+if ! docker buildx build \
   "$EXPORT_FLAG" \
   --platform "$PLATFORM" \
   --build-arg "VERSION=$VERSION" \
