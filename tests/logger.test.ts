@@ -1,4 +1,5 @@
 import { withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
+import { restoreEnv } from './helpers/index.js';
 
 import { getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
@@ -68,7 +69,7 @@ describe('initLogger', () => {
         targets: [{ target: 'pino-pretty', options: { destination: 1, colorize: true }, level: 'debug' }],
       });
     } finally {
-      process.env.LOG_TO_FILE = prev;
+      restoreEnv('LOG_TO_FILE', prev);
     }
   });
 
@@ -95,7 +96,7 @@ describe('initLogger', () => {
         ],
       });
     } finally {
-      process.env.RABBIT_MAXIMIZER_LOGS_DIR = prev;
+      restoreEnv('RABBIT_MAXIMIZER_LOGS_DIR', prev);
     }
   });
 
@@ -112,7 +113,7 @@ describe('initLogger', () => {
 
       expect(mockPinoFn).toHaveBeenCalledWith({ level: DEBUG_LOG_LEVEL }, mockTransport);
     } finally {
-      process.env.LOG_LEVEL = prev;
+      restoreEnv('LOG_LEVEL', prev);
     }
   });
 

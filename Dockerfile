@@ -80,8 +80,11 @@ COPY --from=build --chown=rabbit:rabbit /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build --chown=rabbit:rabbit /app/prisma ./prisma
 COPY --from=build --chown=rabbit:rabbit /app/scripts/db ./scripts/db
 COPY --from=build --chown=rabbit:rabbit /app/scripts/docker/entrypoint.sh ./scripts/docker/entrypoint.sh
+# The volume helper ships in the image, so an operator without a clone of the
+# repository restores a volume by naming the image they already pulled.
+COPY --from=build --chown=rabbit:rabbit /app/scripts/docker/volume.sh ./scripts/docker/volume.sh
 
-RUN chmod +x ./scripts/docker/entrypoint.sh
+RUN chmod +x ./scripts/docker/entrypoint.sh ./scripts/docker/volume.sh
 
 USER rabbit
 

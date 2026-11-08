@@ -75,6 +75,7 @@ export { generatePullRequestHydrationData } from './PullRequestTestSupport.js';
 export { generateQueueItemResponseData } from './QueueItemResponseTestSupport.js';
 export { generateQueueItemHydrationData } from './QueueItemTestSupport.js';
 export { generateReviewQueueWithOrderHydrationData, type ReviewQueueWithOrder } from './QueueOrderTestSupport.js';
+export { restoreEnv } from './restoreEnv.js';
 export { generateReviewQueueHydrationData } from './ReviewQueueTestSupport.js';
 export type { ReviewRef, ReviewRefInput } from './ReviewRefTestSupport.js';
 export { generateReviewRef } from './ReviewRefTestSupport.js';

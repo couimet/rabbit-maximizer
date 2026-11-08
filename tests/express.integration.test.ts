@@ -12,6 +12,7 @@ import {
   createMockQueueRepo,
   createMockSystemStateRepository,
   EXPECTED_CSP_WITHOUT_UPGRADE_INSECURE_REQUESTS,
+  restoreEnv,
 } from './helpers/index.js';
 
 import { createMockLogger } from '@couimet/logger-contract-testing';
@@ -61,7 +62,7 @@ describe('setupExpress in production', () => {
   });
 
   afterAll(async () => {
-    process.env.NODE_ENV = previousNodeEnv;
+    restoreEnv('NODE_ENV', previousNodeEnv);
     if (stop) await stop();
   });
 

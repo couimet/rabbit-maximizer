@@ -1,5 +1,6 @@
 import pkg from '../../package.json' with { type: 'json' };
 import { readRunIdentity } from '../../src/node-utils/index.js';
+import { restoreEnv } from '../helpers/index.js';
 
 import { getRandomHexString, getUniqueString } from '@couimet/dynamic-testing';
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
@@ -40,11 +41,7 @@ describe('readRunIdentity', () => {
 
   afterEach(() => {
     for (const [name, value] of declaredValues) {
-      if (value === undefined) {
-        delete process.env[name];
-      } else {
-        process.env[name] = value;
-      }
+      restoreEnv(name, value);
     }
   });
 

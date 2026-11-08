@@ -4,6 +4,12 @@
 config:
   MD013: false
 
+# .history/ holds VSCode Local History snapshots. Git ignores it, so a CI
+# checkout never sees it. Ignoring it here keeps a local run in step with CI.
+ignores:
+  - '.history/**'
+  - '.claude-work/**'
+
 # MD033/no-inline-html: disabled for CLAUDE.md (custom XML rule tags)
 # and README.md (logo alignment HTML). Everything else is still checked.
 overrides:
