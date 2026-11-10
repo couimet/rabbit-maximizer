@@ -27,6 +27,10 @@ const POLL_INTERVAL_MS = config.POLL_INTERVAL_SEC * MS_PER_SECOND;
  */
 const SECONDARY_LIMIT_FALLBACK_WAIT_SEC = 60;
 
+/** A negative or non-finite retry-after cannot time a backoff, so it falls back to the documented minimum. */
+const secondaryLimitWaitSec = (retryAfterSec: number | undefined): number =>
+  retryAfterSec !== undefined && Number.isFinite(retryAfterSec) && retryAfterSec >= 0 ? retryAfterSec : SECONDARY_LIMIT_FALLBACK_WAIT_SEC;
+
 @injectable()
 export class PollDetector extends IntervalService {
   private rateLimitRetryAfter = 0;
@@ -112,7 +116,7 @@ export class PollDetector extends IntervalService {
     const retryAfterMs =
       rateLimit.kind === 'quota-exhausted'
         ? Math.max(0, rateLimit.resetEpoch * MS_PER_SECOND - Date.now())
-        : (rateLimit.retryAfterSec ?? SECONDARY_LIMIT_FALLBACK_WAIT_SEC) * MS_PER_SECOND;
+        : secondaryLimitWaitSec(rateLimit.retryAfterSec) * MS_PER_SECOND;
 
     this.rateLimitRetryAfter = Date.now() + retryAfterMs;
     this.log.warn(

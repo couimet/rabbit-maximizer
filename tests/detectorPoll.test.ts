@@ -545,6 +545,70 @@ describe('PollDetector', () => {
       await stop();
     });
 
+    it('backs off for the one-minute minimum when a secondary limit reports a negative retry-after', async () => {
+      const rateLimitError = {
+        status: 403,
+        response: { headers: { 'retry-after': '-5' } },
+      };
+      deps.github.getQuota.mockRejectedValue(rateLimitError);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      const { stop } = await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        {
+          fn: 'PollDetector.tick',
+          kind: 'throttled',
+          status: 403,
+          retryAfterSec: 60,
+          resetEpoch: undefined,
+          resource: undefined,
+          limit: undefined,
+          remaining: undefined,
+          used: undefined,
+        },
+        'GitHub API rate limit exhausted; backing off until reset',
+      );
+      expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('backs off for the one-minute minimum when a secondary limit reports a non-finite retry-after', async () => {
+      const rateLimitError = {
+        status: 403,
+        response: { headers: { 'retry-after': 'Infinity' } },
+      };
+      deps.github.getQuota.mockRejectedValue(rateLimitError);
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      const { stop } = await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.logger.warn).toHaveBeenCalledWith(
+        {
+          fn: 'PollDetector.tick',
+          kind: 'throttled',
+          status: 403,
+          retryAfterSec: 60,
+          resetEpoch: undefined,
+          resource: undefined,
+          limit: undefined,
+          remaining: undefined,
+          used: undefined,
+        },
+        'GitHub API rate limit exhausted; backing off until reset',
+      );
+      expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
     it('backs off for the one-minute minimum when a 429 carries no parsable reset header', async () => {
       const rateLimitError = {
         status: 429,
