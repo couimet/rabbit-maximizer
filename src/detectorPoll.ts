@@ -8,7 +8,7 @@ import {
   splitRepo,
 } from './github/index.js';
 import type { OnDetectedCallback, TickGuardOutcome } from './types/index.js';
-import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
+import { mergeByPullRequestId, MS_PER_SECOND, secondaryLimitWaitSec } from './utils/index.js';
 import { config } from './config.js';
 import { CodeRabbitCommentType, TickGuardReason } from './domain.js';
 import { IntervalService, TYPES } from './server-domain.js';
@@ -18,18 +18,6 @@ import type { Logger, LoggingContext } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
 
 const POLL_INTERVAL_MS = config.POLL_INTERVAL_SEC * MS_PER_SECOND;
-
-/**
- * Wait applied when GitHub throttles a request and the response carries no
- * delay of its own. GitHub documents one minute as the minimum wait after a
- * secondary rate limit, and a secondary-limit response can omit the
- * retry-after header that would name an exact wait.
- */
-const SECONDARY_LIMIT_FALLBACK_WAIT_SEC = 60;
-
-/** A negative or non-finite retry-after cannot time a backoff, so it falls back to the documented minimum. */
-const secondaryLimitWaitSec = (retryAfterSec: number | undefined): number =>
-  retryAfterSec !== undefined && Number.isFinite(retryAfterSec) && retryAfterSec >= 0 ? retryAfterSec : SECONDARY_LIMIT_FALLBACK_WAIT_SEC;
 
 @injectable()
 export class PollDetector extends IntervalService {

@@ -21,6 +21,7 @@ export { nullToUndefined } from './nullToUndefined.js';
 export { parseImageTagNames } from './parseImageTagNames.js';
 export type { Duration } from './resolveDurationSince.js';
 export { DEFAULT_DURATION, DURATION_OPTIONS, resolveDurationSince } from './resolveDurationSince.js';
+export { secondaryLimitWaitSec } from './secondaryLimitWaitSec.js';
 export { shortGitSha } from './shortGitSha.js';
 export { shouldReopenStaleRetriggered } from './shouldReopenStaleRetriggered.js';
 export { sqlDateToDate } from './sqlDateToDate.js';
