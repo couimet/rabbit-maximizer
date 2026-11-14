@@ -31,6 +31,7 @@ export const EVENT_TYPE_META: Record<EventType, EventTypeMeta> = {
   [EventType.failed]: { label: 'Failed', family: 'fail' },
   [EventType.coderabbit_review_approved]: { label: 'Review approved', family: 'verdict' },
   [EventType.coderabbit_review_changes_suggested]: { label: 'Changes suggested', family: 'verdict' },
+  [EventType.coderabbit_review_refused]: { label: 'Review refused', family: 'verdict' },
   [EventType.coderabbit_review_skipped]: { label: 'Review skipped', family: 'verdict' },
   [EventType.coderabbit_run_id_first_seen]: { label: 'Run ID seen', family: 'book' },
   [EventType.coderabbit_run_id_changed]: { label: 'Run ID changed', family: 'book' },

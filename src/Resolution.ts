@@ -6,4 +6,5 @@ export enum Resolution {
   Failed = 'failed',
   Skipped = 'skipped',
   StaleComment = 'stale_comment',
+  PermanentlyRefused = 'permanently_refused',
 }

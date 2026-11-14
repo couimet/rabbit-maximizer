@@ -1,10 +1,12 @@
+import { config } from '../src/config.js';
 import { QueueStatus, TriggerSource } from '../src/domain.js';
 import { StaleCommentRescheduledError } from '../src/errors/index.js';
-import type { CoderabbitGitHubClient } from '../src/github/index.js';
+import type { CoderabbitCommentClassifier, CoderabbitGitHubClient } from '../src/github/index.js';
 import { ReviewTrigger } from '../src/services.js';
 
 import { spyOnAttributeAdditions, withTestExecutionContext } from './external-deps/couimet/execution-context-testing/index.js';
 import {
+  createCoderabbitCommentClassifier,
   createMockProbeFactory,
   createMockPullRequestRepo,
   createMockQueueRepo,
@@ -26,10 +28,14 @@ const MS_PER_SECOND = 1000;
 const ACCOUNT_COOLDOWN_MS = ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
 const SKIP_COMMENT_BODY =
   '## Review available on request\n\nThis repository has fewer than 10 stars. To request a review, comment "@coderabbitai full review".\n\n<details>\n<summary>skip review by coderabbit.ai</summary>\n</details>';
+const REFUSAL_PHRASE = config.CODERABBIT_REFUSAL_PHRASES[0];
+const REFUSAL_COMMENT_BODY = `CodeRabbit cannot review this PR ${REFUSAL_PHRASE}.`;
 
 let generatedRunId: string;
 
 let postedCommentUrl: string | undefined;
+
+let classifier: CoderabbitCommentClassifier;
 
 const setup = () => {
   const github = {
@@ -46,11 +52,16 @@ const setup = () => {
   const prisma = { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)) } as unknown as PrismaClient;
   const runIdGenerator = createMockRunIdGenerator();
   const logger = createMockLogger();
-  const cfg = { CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC, REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600, REVIEW_LIMIT_BUFFER_SEC: 60 } as any;
+  const cfg = {
+    CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
+    CODERABBIT_REFUSAL_PHRASES: config.CODERABBIT_REFUSAL_PHRASES,
+    REVIEW_LIMIT_FALLBACK_WAIT_SEC: 3600,
+    REVIEW_LIMIT_BUFFER_SEC: 60,
+  } as any;
 
   runIdGenerator.generate.mockReturnValue(generatedRunId);
 
-  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, systemState, runIdGenerator, cfg, logger);
+  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, systemState, runIdGenerator, cfg, classifier, logger);
 
   return { github, probeFactory, prisma, tx, logger, reviewTrigger, queue, pullRequests, runIdGenerator, systemState };
 };
@@ -70,6 +81,7 @@ describe('ReviewTrigger', () => {
   let frozenNow: Date;
 
   beforeEach(() => {
+    classifier = createCoderabbitCommentClassifier();
     generatedRunId = getUniqueString({ prefix: 'run-' });
     addAttributes = spyOnAttributeAdditions();
     commentUrl = getUniqueString({ prefix: 'https://gh/c/retriggered-' });
@@ -311,6 +323,39 @@ describe('ReviewTrigger', () => {
       undefined,
     );
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
+  });
+
+  it('posts retrigger with refused comment as reply target and passes diagnosis (scheduler)', async () => {
+    const { github, probeFactory, logger, reviewTrigger, queue, tx } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    const createdAt = getUniqueDate().toISOString();
+    const updatedAt = getUniqueDate().toISOString();
+    const runId = getUniqueString({ prefix: 'run-' });
+    github.fetchComment.mockResolvedValue({ body: `${REFUSAL_COMMENT_BODY}\n\n**Run ID**: \`${runId}\``, createdAt, updatedAt });
+    postedCommentUrl = commentUrl;
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler));
+
+    expect(result.success).toBe(true);
+    expect(github.findLatestReviewLimitComment).not.toHaveBeenCalled();
+    expect(github.postRetrigger).toHaveBeenCalledWith(item.repo_full_name, item.pr_number, item.source_comment_url, generatedRunId, 'scheduler', {
+      sourceComment: {
+        url: item.source_comment_url,
+        createdAt,
+        updatedAt,
+        classification: 'review_refused',
+        matchedMarker: undefined,
+      },
+      waitSeconds: undefined,
+      decision: 'source',
+    });
+    expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, runId, tx);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'ReviewTrigger.trigger', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id },
+      'Posting retrigger',
+    );
   });
 
   it('returns err with RETRIGGER_STALE_COMMENT_SKIP when no replacement found and source body is non-empty', async () => {

@@ -123,6 +123,34 @@ export class ReviewDetectorProbe {
     );
   }
 
+  async refused(matchedPhrase: string, tx: Prisma.TransactionClient): Promise<void> {
+    await this.events.record(
+      {
+        type: EventType.coderabbit_review_refused,
+        repo_full_name: this.item!.repo_full_name,
+        pr_number: this.item!.pr_number,
+        ...getEventTraceAttributes(),
+        payload: {
+          source_ts: this.item!.created_at,
+          comment_url: this.item!.source_comment_url,
+          matched_phrase: matchedPhrase,
+          coderabbit_run_id: this.item!.source_comment_run_id ?? undefined,
+        },
+      },
+      tx,
+    );
+    this.log.info(
+      {
+        fn: 'ReviewDetectorProbe.refused',
+        repo: this.item!.repo_full_name,
+        pr: this.item!.pr_number,
+        queueId: this.item!.id,
+        matchedPhrase,
+      },
+      'Re-edited source comment permanently refused the review; resolved the queue item',
+    );
+  }
+
   prClosedResolved(prState: PrState): void {
     this.log.info(
       { fn: 'ReviewDetectorProbe.prClosedResolved', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id, prState },

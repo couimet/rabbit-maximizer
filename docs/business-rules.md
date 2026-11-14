@@ -49,7 +49,7 @@ Detection runs on a fixed poll interval (`POLL_INTERVAL_SEC`). Each tick walks: 
 Two complementary paths feed the same detection handler:
 
 - **Search path** — GitHub search over the monitored repos for open PRs whose comments mention the rate-limit phrases CodeRabbit uses in its comments ("review limit" or "rate limit") or the on-request skip phrase ("review available"). The full body of every hit is fetched before classification, because the search index returns truncated bodies. The freshness latch (below) suppresses already-seen comments before they reach the detection handler.
-- **Direct check path** — for every PR known to the scanner plus recovered PRs, list the PR's comments directly and consider only comments authored by the CodeRabbit bot. This bypasses search-index delay. The number of directly checked PRs per tick is capped (125); beyond the cap, coverage falls back to the search path.
+- **Direct check path** — for every PR known to the scanner plus recovered PRs, list the PR's comments directly and consider only comments authored by the CodeRabbit bot. This bypasses search-index delay. The number of directly checked PRs per tick is capped by `MAX_DIRECT_CHECK_PRS` (default 125); the direct check logs an error that states how many PRs the cap hid, and coverage for those PRs falls back to the search path.
 
 <a id="br-2-3"></a>
 
@@ -57,10 +57,13 @@ Two complementary paths feed the same detection handler:
 
 CodeRabbit's comment bodies carry hidden markers that drive classification, in this precedence order:
 
-1. Skip marker → `review_skipped` — CodeRabbit refused the review permanently.
-2. Completion signals → `review_approved` (no-actionable-comments signal) or `review_changes_suggested` (actionable-comments signal) — a verdict was rendered.
-3. Rate-limit marker → `review_limited` — CodeRabbit refused due to its review quota, usually stating a wait time ("Please wait X minutes and Y seconds before requesting another review").
-4. None of the above → `unknown`.
+1. Refusal phrase → `review_refused` — CodeRabbit refuses the review for a permanent cause, such as a missing review seat. The phrase list is configurable (`CODERABBIT_REFUSAL_PHRASES`).
+2. Skip marker → `review_skipped` — CodeRabbit did not review, and a full-review request can change that.
+3. Completion signals → `review_approved` (no-actionable-comments signal) or `review_changes_suggested` (actionable-comments signal) — a verdict was rendered.
+4. Rate-limit marker → `review_limited` — CodeRabbit refused due to its review quota, usually stating a wait time ("Please wait X minutes and Y seconds before requesting another review").
+5. None of the above → `unknown`.
+
+The refusal check runs first, because a refusal comment carries the skip marker too. Without that order the refusal reads as a skip, and a skip always looks retriggerable.
 
 Classification outcome at detection:
 
@@ -69,6 +72,7 @@ Classification outcome at detection:
 | `review_limited`                                 | Forwarded; contributes to the earliest-next-review computation |
 | `review_limited` with the maximizer's own marker | Skipped — never self-retrigger                                 |
 | `review_skipped`                                 | Forwarded                                                      |
+| `review_refused`                                 | Forwarded — resolved as terminal at enqueue                    |
 | `review_approved` / `review_changes_suggested`   | Forwarded (handled as a verdict at enqueue)                    |
 | `unknown`                                        | Skipped — never acted on                                       |
 
@@ -112,9 +116,12 @@ A completed review only dismisses comments from runs it already saw. CodeRabbit 
 | Comment classification                         | Enqueue behavior                                                                                                                        |
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `review_limited`                               | Enqueue with a per-item cooldown: the comment's update time plus its stated wait (`REVIEW_LIMIT_FALLBACK_WAIT_SEC` when none is stated) |
-| `review_skipped`                               | Enqueue with no cooldown — the skip is a permanent refusal, and a full-review request is the only path to a review                      |
+| `review_skipped`                               | Enqueue with no cooldown — the skip is cleared by a full-review request, which is the only path to a review                             |
+| `review_refused`                               | Never enqueue — resolve the PR's active item as `permanently_refused` and mark the PR as refused                                        |
 | `review_approved` / `review_changes_suggested` | Never enqueue — record the completed review (verdict, comment, and head sha at review time)                                             |
 | `unknown`                                      | Never reaches this point (filtered at detection)                                                                                        |
+
+A refusal resolves instead of enqueuing, because no review request can clear it. The PR is marked refused in the same step, which is what holds it out of the deleted-comment recovery path (BR-5-5). A refusal that arrives when the PR has no active item still marks the PR refused.
 
 <a id="br-3-3"></a>
 
@@ -132,6 +139,7 @@ The enqueue decision depends on the existing item for the same PR and source com
 | `resolved`    | Same source comment, resolved within the last 5 minutes                                                                                             | No-op — recently-resolved loop guard                                                                                                                                    |
 | `resolved`    | Same source comment, still inside the cooldown window                                                                                               | No-op                                                                                                                                                                   |
 | `resolved`    | Reopenable resolution (`review_completed`, `failed`, `skipped`) and the comment was updated after the resolution                                    | Reopen as `pending`; attempts and skip bookkeeping reset; the item keeps or rejoins the queue order                                                                     |
+| `resolved`    | Resolution `permanently_refused`, whatever the comment state                                                                                        | No-op — a permanent refusal never reopens; only the dashboard re-queue action returns the item to `pending`                                                             |
 | `resolved`    | Comment not updated since the resolution                                                                                                            | No-op                                                                                                                                                                   |
 | `pending`     | Any (creation conflict)                                                                                                                             | No-op — already queued                                                                                                                                                  |
 | None          | —                                                                                                                                                   | Create a `pending` item and append it to the end of the queue order                                                                                                     |
@@ -200,15 +208,17 @@ One run id is generated per posted request, so every retrigger of the same item 
 
 The trigger first refetches the source comment that caused the enqueue:
 
-| Source comment state                                                  | Action                                                                 |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Still a rate-limit comment (no own marker)                            | Post the retrigger replying to it                                      |
-| Now classified `review_skipped`                                       | Post the retrigger replying to it — skip becomes a full-review request |
-| Gone (404/410) and no newer rate-limit comment on the PR              | Post the retrigger with no reply target                                |
-| Gone (404/410) and a newer rate-limit comment exists                  | Reschedule the item onto the newer comment                             |
-| Replaced by a newer rate-limit comment                                | Reschedule the item onto the replacement                               |
-| No longer a rate-limit comment and no newer rate-limit comment exists | Resolve `stale_comment` — nothing left to request against              |
-| Replacement comment deleted between listing and fetch                 | Backoff and retry later                                                |
+| Source comment state                                                  | Action                                                                                |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Still a rate-limit comment (no own marker)                            | Post the retrigger replying to it                                                     |
+| Now classified `review_skipped` or `review_refused`                   | Post the retrigger replying to it — a skip or a refusal becomes a full-review request |
+| Gone (404/410) and no newer rate-limit comment on the PR              | Post the retrigger with no reply target                                               |
+| Gone (404/410) and a newer rate-limit comment exists                  | Reschedule the item onto the newer comment                                            |
+| Replaced by a newer rate-limit comment                                | Reschedule the item onto the replacement                                              |
+| No longer a rate-limit comment and no newer rate-limit comment exists | Resolve `stale_comment` — nothing left to request against                             |
+| Replacement comment deleted between listing and fetch                 | Backoff and retry later                                                               |
+
+The `review_refused` row serves the operator re-queue: an item returned to `pending` still points at the refused comment, so the trigger must accept that classification. Without the row the item would resolve as `stale_comment` instead of posting.
 
 <a id="br-5-3"></a>
 
@@ -228,6 +238,8 @@ When the source comment was replaced, the item adopts the replacement's comment 
 
 PRs that had a request posted but never received a review or acknowledgement, have no active item, and were not resolved in the last 5 minutes are recovered: a synthetic rate-limit comment is fed through detection, so the PR re-enters the queue and receives a retrigger with no reply target. This restores PRs whose rate-limit comment was deleted.
 
+A PR marked as permanently refused is excluded from that query until the operator re-queues it. Without the exclusion the recovery path would return the PR to the queue a few minutes after the refusal resolved it, and the loop would restart.
+
 ## 6. Review detector and edit detection
 
 Sources: [`ReviewDetector`](../src/ReviewDetector.ts), [`EditDetector`](../src/EditDetector.ts), [`coderabbitGitHubClient`](../src/github/coderabbitGitHubClient.ts).
@@ -243,6 +255,7 @@ CodeRabbit edits its comment in place per run. The detector refetches the source
 | Fresh comment classification                                                            | Action                                                                                                   |
 | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Verdict (`review_approved` / `review_changes_suggested`)                                | Resolve `review_completed`; record the review (comment, verdict, head sha at review time)                |
+| `review_refused`                                                                        | Resolve `permanently_refused`; mark the PR as refused                                                    |
 | `review_skipped` with an unchanged run                                                  | Resolve `skipped`                                                                                        |
 | `review_skipped` with a new run, head not yet reviewed and trigger stale                | Reopen as `pending` so the scheduler re-triggers; adopting the re-edit in place would deadlock the item  |
 | `review_skipped` with a new run, head already reviewed, head unknown, or trigger recent | Adopt the run in place (update `source_comment_run_id`, restart the retrigger clock); stay `retriggered` |
@@ -276,8 +289,9 @@ The app survives downtime of minutes to days by converging through the existing 
 - A comment re-edited during downtime carries a new CodeRabbit run ID. The first detection tick re-detects it (its freshness latch has not seen the edit); when the still-`retriggered` item's trigger is stale and its head unreviewed, detection reopens it as `pending` so the scheduler re-triggers, otherwise the enqueue adoption rule above rewrites its run tracking in place, restarting the retrigger clock.
 - The first review tick then evaluates the item under the tier order of BR-6-2: a `review_skipped` item resolves on a review whose commit matches the current head even when that review ran before the trigger was posted (a pre-trigger walkthrough), falling back to the adopted run when the commit does not match; other flows still require the adopted run, so a review from a run started before the trigger cannot resolve them.
 - The scheduler's stale-retriggered sweep resolves as `failed` only items whose adopted run genuinely produced nothing after `SCHEDULER_MAX_RETRIGGER_AGE_SEC`.
+- Before the detectors start, one refusal sweep re-reads the source comment of every active item and feeds each refusal through detection, so an item enqueued before the phrase list existed leaves the queue with the true reason instead of looping (see the exception below).
 
-No dedicated reconciliation process exists by design. The same decision logic covers boot after downtime and steady-state operation. Writers that can race the review detector are guarded: the detector resolves only via `markResolvedIfStillRetriggered` (a lost race logs `resolutionLostRace` and skips the resolution), and the scheduler's stale sweep already uses a status-guarded `updateMany`. The pruner's unguarded `markResolved` is deliberate — terminal PR states take precedence over `review_completed` (invariant 9), so its overwrite direction is safe.
+No dedicated reconciliation process exists by design, with one deliberate exception: the startup refusal sweep. It exists because the refusal phrase list is configuration that arrived after those items were enqueued, so their stored comment preview is the only evidence the normal path has, and it may be truncated or written before the check existed. The sweep runs once, before the first detector tick, so no tick can enqueue a refused PR between boot and the sweep. Outside it, the same decision logic covers boot after downtime and steady-state operation. Writers that can race the review detector are guarded: the detector resolves only via `markResolvedIfStillRetriggered` (a lost race logs `resolutionLostRace` and skips the resolution), and the scheduler's stale sweep already uses a status-guarded `updateMany`. The pruner's unguarded `markResolved` is deliberate — terminal PR states take precedence over `review_completed` (invariant 9), so its overwrite direction is safe.
 
 ## 7. Queue order and dashboard retrigger
 
@@ -317,6 +331,22 @@ Retrigger-now bypasses the scheduler gates (spacing, acknowledgement hold, accou
 ### Mark reviewed
 
 The dashboard can resolve any item as `manual_review` — a human attests the review is complete.
+
+<a id="br-7-5"></a>
+
+### Re-queue a permanently-refused item
+
+The dashboard can return a `permanently_refused` item to `pending`. This is the only way such an item leaves its resolution. The operator uses it after clearing the refusal cause, such as assigning the CodeRabbit review seat to the bot.
+
+| Item state                          | Re-queue outcome                                                                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolved` as `permanently_refused` | Returned to `pending`: resolution and resolved time cleared, attempt budget reset, the PR's refusal mark cleared, and the queue-order row restored |
+| Any other resolution or status      | Rejected as a conflict                                                                                                                             |
+| Unknown UUID                        | Rejected as not found                                                                                                                              |
+
+The re-queue posts nothing. The item waits for the scheduler like any other `pending` item, so every gate still applies. If CodeRabbit refuses again, the item resolves as `permanently_refused` a second time.
+
+The attempt budget resets because the cap is what ends retries: an item already at `MAX_RETRIGGER_ATTEMPTS` would resolve as `failed` on its first trigger after the re-queue.
 
 <a id="br-8"></a>
 
@@ -414,6 +444,7 @@ A comment is fresh when the maximizer has not seen it at or after its current up
 | -------------------------- | -------------------------------------------------------- | ------------------------------------------------ |
 | `review_limited`           | Enqueue with per-item cooldown from the stated wait      | Ignored — latch and dedupe suppress reprocessing |
 | `review_skipped`           | Enqueue with no cooldown — full-review request warranted | Ignored                                          |
+| `review_refused`           | Resolve as `permanently_refused`; never enqueue          | Ignored                                          |
 | `review_approved`          | Record the completed review; never enqueue               | Ignored                                          |
 | `review_changes_suggested` | Record the completed review; never enqueue               | Ignored                                          |
 | `unknown`                  | Ignored — never acted on                                 | Ignored                                          |
@@ -426,30 +457,32 @@ A comment whose update time is not newer than the recorded review is dismissed a
 
 All keys are environment variables. Defaults are stated; validation invariants follow.
 
-| Key                                                                              | Meaning                                                                                                           | Default                           |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `REPO_FILTER`                                                                    | Repos to monitor: `owner/*` (all accessible repos of the owner) or `owner/repo` (single repo)                     | Required                          |
-| `GITHUB_PAT`                                                                     | GitHub token for search, comment, and posting calls                                                               | Required                          |
-| `POLL_INTERVAL_SEC`                                                              | Detection tick interval                                                                                           | 90                                |
-| `PR_SCANNER_INTERVAL_SEC`                                                        | Minimum interval between PR scans                                                                                 | 300                               |
-| `SCHEDULER_TICK_INTERVAL_SEC`                                                    | Scheduler tick interval                                                                                           | 10                                |
-| `SCHEDULER_RETRIGGER_SPACING_SEC`                                                | Minimum spacing between review requests; also the settling wait for new items and the acknowledgement hold window | 180                               |
-| `CODERABBIT_ACCOUNT_COOLDOWN_SEC`                                                | Account cooldown after each posted request                                                                        | 3600                              |
-| `REVIEW_LIMIT_FALLBACK_WAIT_SEC`                                                 | Wait applied when a rate-limit comment states no wait                                                             | 3600                              |
-| `REVIEW_LIMIT_BUFFER_SEC`                                                        | Extra wait added when rescheduling onto a replacement comment                                                     | 60                                |
-| `MAX_RETRIGGER_ATTEMPTS`                                                         | Attempt cap per item; the item resolves as failed at the cap                                                      | 10                                |
-| `SCHEDULER_MAX_RETRIGGER_AGE_SEC`                                                | Age at which a retriggered item resolves as failed                                                                | 259200                            |
-| `SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK`                                        | Max candidate PR-state lookups per tick while scanning for the next due item                                      | 5                                 |
-| `SCHEDULER_RETRY_BACKOFF_BASE_SEC`                                               | Base of the exponential failure backoff                                                                           | 60                                |
-| `SCHEDULER_RETRY_BACKOFF_MAX_SEC`                                                | Cap of the exponential failure backoff                                                                            | 3600                              |
-| `REVIEW_DETECTION_LOOKBACK_SEC`                                                  | Lookback window for the reviews-API fallback                                                                      | 7200                              |
-| `SCHEDULER_STALE_TICK_MULTIPLIER`                                                | Multiplier for the dashboard staleness signal                                                                     | 4                                 |
-| `DETECTION_MODE`                                                                 | `poll` or `webhook`; the app runs the poll detector                                                               | `poll`                            |
-| `WEBHOOK_SECRET`, `TUNNEL_URL`                                                   | Required when `DETECTION_MODE=webhook`                                                                            | Unset                             |
-| `WEB_PORT`                                                                       | Dashboard API port                                                                                                | 3000                              |
-| `GITHUB_API_TIMEOUT_SEC`                                                         | GitHub API call timeout                                                                                           | 10                                |
-| `DATABASE_URL`                                                                   | Database location                                                                                                 | `file:./data/rabbit-maximizer.db` |
-| `PAUSE_NOTIFICATION_INITIAL_DELAY_SEC`, `PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC` | Pause-notification timing (dashboard configuration)                                                               | 1800, 900                         |
+| Key                                                                              | Meaning                                                                                                           | Default                                          |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `REPO_FILTER`                                                                    | Repos to monitor: `owner/*` (all accessible repos of the owner) or `owner/repo` (single repo)                     | Required                                         |
+| `GITHUB_PAT`                                                                     | GitHub token for search, comment, and posting calls                                                               | Required                                         |
+| `POLL_INTERVAL_SEC`                                                              | Detection tick interval                                                                                           | 90                                               |
+| `PR_SCANNER_INTERVAL_SEC`                                                        | Minimum interval between PR scans                                                                                 | 300                                              |
+| `MAX_DIRECT_CHECK_PRS`                                                           | Cap on the number of PRs the direct comment check inspects per scan                                               | 125                                              |
+| `SCHEDULER_TICK_INTERVAL_SEC`                                                    | Scheduler tick interval                                                                                           | 10                                               |
+| `SCHEDULER_RETRIGGER_SPACING_SEC`                                                | Minimum spacing between review requests; also the settling wait for new items and the acknowledgement hold window | 180                                              |
+| `CODERABBIT_ACCOUNT_COOLDOWN_SEC`                                                | Account cooldown after each posted request                                                                        | 3600                                             |
+| `CODERABBIT_REFUSAL_PHRASES`                                                     | Phrases that mark a CodeRabbit comment as a permanent refusal; a JSON array or a single phrase                    | `["without an assigned CodeRabbit review seat"]` |
+| `REVIEW_LIMIT_FALLBACK_WAIT_SEC`                                                 | Wait applied when a rate-limit comment states no wait                                                             | 3600                                             |
+| `REVIEW_LIMIT_BUFFER_SEC`                                                        | Extra wait added when rescheduling onto a replacement comment                                                     | 60                                               |
+| `MAX_RETRIGGER_ATTEMPTS`                                                         | Attempt cap per item; the item resolves as failed at the cap                                                      | 10                                               |
+| `SCHEDULER_MAX_RETRIGGER_AGE_SEC`                                                | Age at which a retriggered item resolves as failed                                                                | 259200                                           |
+| `SCHEDULER_MAX_PR_STATE_FETCHES_PER_TICK`                                        | Max candidate PR-state lookups per tick while scanning for the next due item                                      | 5                                                |
+| `SCHEDULER_RETRY_BACKOFF_BASE_SEC`                                               | Base of the exponential failure backoff                                                                           | 60                                               |
+| `SCHEDULER_RETRY_BACKOFF_MAX_SEC`                                                | Cap of the exponential failure backoff                                                                            | 3600                                             |
+| `REVIEW_DETECTION_LOOKBACK_SEC`                                                  | Lookback window for the reviews-API fallback                                                                      | 7200                                             |
+| `SCHEDULER_STALE_TICK_MULTIPLIER`                                                | Multiplier for the dashboard staleness signal                                                                     | 4                                                |
+| `DETECTION_MODE`                                                                 | `poll` or `webhook`; the app runs the poll detector                                                               | `poll`                                           |
+| `WEBHOOK_SECRET`, `TUNNEL_URL`                                                   | Required when `DETECTION_MODE=webhook`                                                                            | Unset                                            |
+| `WEB_PORT`                                                                       | Dashboard API port                                                                                                | 3000                                             |
+| `GITHUB_API_TIMEOUT_SEC`                                                         | GitHub API call timeout                                                                                           | 10                                               |
+| `DATABASE_URL`                                                                   | Database location                                                                                                 | `file:./data/rabbit-maximizer.db`                |
+| `PAUSE_NOTIFICATION_INITIAL_DELAY_SEC`, `PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC` | Pause-notification timing (dashboard configuration)                                                               | 1800, 900                                        |
 
 Validation invariants: backoff max must be at least backoff base; retrigger spacing must be at least the poll interval and strictly less than the account cooldown; the review-detection lookback must be at most twice the account cooldown; webhook mode requires both the webhook secret and the tunnel URL.
 
@@ -473,3 +506,4 @@ These rules must never be violated. Every change to the product must preserve th
 12. Resolved items never appear in the queue order and can never be reordered or retriggered.
 13. The maximizer never posts a review request except in direct response to a detected CodeRabbit comment (or a recovery synthesized from a deleted one).
 14. A review from a run other than the item's adopted run never resolves the item, except when the source comment is `review_skipped` and the review's commit matches the PR head. When no run is known, a `review_skipped` item resolves only on a review matching the PR head; any other source comment resolves on the newest completed review.
+15. A PR CodeRabbit permanently refused is never requested again until an operator re-queues it: its item never reopens, and the recovery path excludes it.

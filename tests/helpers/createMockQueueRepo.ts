@@ -10,6 +10,7 @@ export const createMockQueueRepo = (overrides?: Partial<jest.Mocked<QueueReposit
     markRetriggerSkipped: jest.fn<any>().mockResolvedValue(true),
     markResolved: jest.fn<any>(),
     markResolvedIfStillRetriggered: jest.fn<any>().mockResolvedValue(true),
+    markResolvedByPullRequestId: jest.fn<any>().mockResolvedValue(1),
     adoptRunIfStillRetriggered: jest.fn<any>().mockResolvedValue(true),
     reopenStaleRetriggered: jest.fn<any>().mockResolvedValue(true),
     markResolvedByUuid: jest.fn<any>().mockResolvedValue(undefined),

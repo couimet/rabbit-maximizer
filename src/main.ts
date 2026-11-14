@@ -16,7 +16,7 @@ import { DASHBOARD_DIR, setupExpress } from './express.js';
 import { createGracefulShutdown } from './gracefulShutdown.js';
 import { initLogger } from './logger.js';
 import { TYPES } from './server-domain.js';
-import { type PollDetector, type ReviewDetector, ReviewTrigger, type Scheduler } from './services.js';
+import { type PollDetector, type RefusalSweeper, type ReviewDetector, ReviewTrigger, type Scheduler } from './services.js';
 import { validateGitHubToken } from './validateGitHubToken.js';
 
 import 'reflect-metadata';
@@ -50,6 +50,9 @@ await ExecutionContext.run({ correlationId: 'rabbit-maximizer-init', requestId: 
 
   const prisma = container.get<PrismaClient>(TYPES.PrismaClient);
   log.info({ fn: 'main' }, `Connected to ${describeDatabaseUrl(config.DATABASE_URL)}`);
+
+  const refusalSweeper = container.get<RefusalSweeper>(TYPES.RefusalSweeper);
+  await refusalSweeper.sweep();
 
   const detector = container.get<PollDetector>(TYPES.PollDetector);
   const { stop: stopDetector } = await detector.start();

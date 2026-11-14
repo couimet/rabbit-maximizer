@@ -7,10 +7,12 @@ import {
   createMarkReviewedHandler,
   createMoveQueueOrderHandler,
   createMoveToTopHandler,
+  createRequeueHandler,
   createRetriggerNowHandler,
 } from '../../src/routes/index.js';
 import {
   apiJson,
+  createMockPullRequestRepo,
   createMockQueueItemMapper,
   createMockQueueOrderRepo,
   createMockQueueRepo,
@@ -537,6 +539,94 @@ describe('queueOrderRoutes', () => {
       expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
       expect(await res.json()).toStrictEqual({ error: 'Failed to mark item reviewed' });
       expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.markResolved', error: repoError }, 'Failed to mark item resolved');
+    });
+  });
+
+  describe('POST /api/queue/:uuid/requeue', () => {
+    /** @testFixture */
+    const startServer = (over = {}, prOver = {}, txOverride?: { $transaction: jest.Mock<any>; sentinelTx: object }) => {
+      const txClient = txOverride?.sentinelTx ?? {};
+      const prisma = txOverride ?? { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(txClient)), sentinelTx: txClient };
+      const result = startTestServer(logger, (app) => {
+        app.post(
+          '/api/queue/:uuid/requeue',
+          createRequeueHandler(
+            createMockQueueRepo(over),
+            createMockPullRequestRepo({ clearPermanentRefusalAt: jest.fn<any>().mockResolvedValue(undefined), ...prOver }),
+            prisma as any,
+            logger,
+          ),
+        );
+      });
+      server = result.server;
+      port = result.port;
+    };
+
+    it('returns 200 with { ok: true } and clears the refusal inside the transaction', async () => {
+      const sentinelTx = { __sentinel: true };
+      const item = generateQueueItemHydrationData({ uuid: uuidA });
+      const requeueByUuid = jest.fn<any>().mockResolvedValue(item);
+      const clearPermanentRefusalAt = jest.fn<any>().mockResolvedValue(undefined);
+      const $transaction = jest.fn<any>().mockImplementation((fn: any) => fn(sentinelTx));
+      startServer({ requeueByUuid }, { clearPermanentRefusalAt }, { $transaction, sentinelTx });
+
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/requeue`, { method: 'POST' });
+
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(await res.json()).toStrictEqual({ ok: true });
+      expect($transaction).toHaveBeenCalled();
+      expect(requeueByUuid).toHaveBeenCalledWith(uuidA, sentinelTx);
+      expect(clearPermanentRefusalAt).toHaveBeenCalledWith(item.pull_request_id, sentinelTx);
+      expect(logger.info).toHaveBeenCalledWith({ fn: 'api.queueOrder.requeue', uuid: uuidA, queueId: item.id }, 'Re-queued a permanently-refused item');
+    });
+
+    it('returns 400 for a malformed uuid', async () => {
+      startServer();
+
+      const res = await fetch(`http://[::1]:${port}/api/queue/not-a-uuid/requeue`, { method: 'POST' });
+
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(await res.json()).toStrictEqual({ error: 'uuid must be a valid UUID v4' });
+    });
+
+    it('returns 404 when the queue item is not found', async () => {
+      const notFoundError = new PrismaRecordNotFoundError({
+        tableName: 'reviewQueue',
+        functionName: 'QueueRepository.requeueByUuid',
+        details: { uuid: uuidA },
+      });
+      startServer({ requeueByUuid: jest.fn<any>().mockRejectedValue(notFoundError) });
+
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/requeue`, { method: 'POST' });
+
+      expect(res.status).toBe(StatusCodes.NOT_FOUND);
+      expect(await res.json()).toStrictEqual({ error: `Queue item not found: ${uuidA}` });
+    });
+
+    it('returns 409 when the item is not a permanent refusal', async () => {
+      const message = `Queue item ${uuidA} is not resolved as a permanently-refused review`;
+      const notRefusedError = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.QUEUE_ITEM_NOT_PERMANENTLY_REFUSED,
+        message,
+        functionName: 'QueueRepository.requeueByUuid',
+      });
+      startServer({ requeueByUuid: jest.fn<any>().mockRejectedValue(notRefusedError) });
+
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/requeue`, { method: 'POST' });
+
+      expect(res.status).toBe(StatusCodes.CONFLICT);
+      expect(await res.json()).toStrictEqual({ error: message });
+    });
+
+    it('returns 500 and logs error on unexpected failure', async () => {
+      const repoError = new Error('DB down');
+      startServer({ requeueByUuid: jest.fn<any>().mockRejectedValue(repoError) });
+
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/requeue`, { method: 'POST' });
+
+      expect(res.status).toBe(StatusCodes.INTERNAL_SERVER_ERROR);
+      expect(await res.json()).toStrictEqual({ error: 'Failed to re-queue item' });
+      expect(logger.error).toHaveBeenCalledWith({ fn: 'api.queueOrder.requeue', error: repoError }, 'Failed to re-queue item');
     });
   });
 });

@@ -8,6 +8,7 @@
  * and the whole server vocabulary.
  */
 export { PollDetector } from './detectorPoll.js';
+export { DirectCheckCap } from './DirectCheckCap.js';
 export { DirectCommentChecker } from './DirectCommentChecker.js';
 export { EditDetector } from './EditDetector.js';
 export { EnqueueService } from './EnqueueService.js';
@@ -15,6 +16,7 @@ export { PrScanner } from './prScanner.js';
 export { PruneEvaluator } from './PruneEvaluator.js';
 export { Pruner } from './Pruner.js';
 export { QueueItemEnricher } from './QueueItemEnricher.js';
+export { RefusalSweeper } from './RefusalSweeper.js';
 export { ReviewDetector } from './ReviewDetector.js';
 export { ReviewTrigger } from './ReviewTrigger.js';
 export { RunIdGenerator } from './RunIdGenerator.js';

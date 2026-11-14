@@ -14,6 +14,7 @@ import {
   createMarkReviewedHandler,
   createMoveQueueOrderHandler,
   createMoveToTopHandler,
+  createRequeueHandler,
   createRetriggerNowHandler,
   createSetPausedHandler,
   trySetupVite,
@@ -122,6 +123,7 @@ export const setupExpress = async (deps: ExpressDeps): Promise<ExpressApp> => {
   app.post('/api/queue/order/move-to-top', createMoveToTopHandler(queueOrderRepo, logger));
   app.post('/api/queue/:uuid/retrigger-now', createRetriggerNowHandler(queueOrderRepo, systemStateRepo, reviewTrigger, logger));
   app.post('/api/queue/:uuid/mark-reviewed', createMarkReviewedHandler(queueRepo, prisma, logger));
+  app.post('/api/queue/:uuid/requeue', createRequeueHandler(queueRepo, pullRequestRepo, prisma, logger));
   app.get('/api/activity-list', createGetActivityListHandler(queueRepo, activityListMapper, logger));
   app.post('/api/pause', createSetPausedHandler(systemStateRepo, logger));
   app.get('/api/events', createGetEventsHandler(eventRepo, eventEntryMapper, logger));

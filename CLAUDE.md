@@ -321,6 +321,48 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
   </bad-example>
 </rule>
 
+<rule id="C017" priority="critical">
+  <title>Inject the narrowest domain object, never the whole Config</title>
+  <do>A consumer injects the narrowest domain object that it needs. A consumer that reads one config value injects the domain object that owns that value.</do>
+  <do>Make a domain concept that reads application config a self-bound class. Its consumers never see the config value. `RefusalPhrases` is the precedent: it injects `TYPES.Config` and exposes `match(body)`.</do>
+  <do>Make a domain decision that reads application config a self-bound class too. It injects the domain concepts that it uses, not `Config`. `CoderabbitCommentClassifier` injects `RefusalPhrases`.</do>
+  <do>Keep a pure function pure. A util takes plain data when its callers already hold the value. `describeRepoFilter` stays a util, because `main.ts` reads `REPO_FILTER` and passes the array in.</do>
+  <never>Inject `TYPES.Config` to read one field. That is a wide dependency for a narrow need, and it copies the config value into every consumer.</never>
+  <never>Copy a config array or scalar into a field of a class that also injects `Config` for other values. Inject the domain object instead.</never>
+  <rationale>Adding one parameter to `classifyCoderabbitComment` in issue 376 reached 10 production call sites in 7 files, 16 test call sites, and 3 new `TYPES.Config` injections. Each consumer paid for a value it never read. A domain object moves the change to one binding and one class, so the next configurable value costs one file and not seven. See https://github.com/couimet/rabbit-maximizer/issues/376.</rationale>
+  <good-example>
+    ```typescript
+    // A domain concept owns the config read. Consumers inject the concept.
+    @injectable()
+    export class RefusalPhrases {
+      private readonly phrases: readonly string[];
+
+      constructor(@inject(TYPES.Config) cfg: Config) {
+        this.phrases = cfg.CODERABBIT_REFUSAL_PHRASES;
+      }
+
+      match(body: string): string | undefined {
+        return this.phrases.find((phrase) => body.includes(phrase));
+      }
+    }
+
+    // The consumer injects the concept, not Config.
+    constructor(@inject(TYPES.RefusalPhrases) private readonly refusalPhrases: RefusalPhrases) {}
+    ```
+
+  </good-example>
+  <bad-example>
+    ```typescript
+    // BAD: the whole config arrives to serve one array.
+    constructor(@inject(TYPES.Config) private readonly cfg: Config) {}
+
+    // BAD: an inline copy of the array, with no home for the matching rule.
+    private readonly refusalPhrases: readonly string[];
+    ```
+
+  </bad-example>
+</rule>
+
 <rule id="T001" priority="critical">
   <title>No .not.toThrow() for happy paths</title>
   <do>Call function directly — Jest fails automatically on unexpected exceptions</do>
@@ -506,6 +548,40 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     });
     ```
   </good-example>
+</rule>
+
+<rule id="T012" priority="critical">
+  <title>New fields in generate*HydrationData() helpers default to a dynamic value</title>
+  <do>Give every field that you add to a `generate*HydrationData()` helper a non-null and non-undefined default, drawn from `@couimet/dynamic-testing` (`getUniqueDate()`, `getUniqueString()`, `getUniqueInt()`, `getUuid()`)</do>
+  <do>Let a caller that needs the empty state clear the field itself, with an explicit override such as `{ permanent_refusal_at: null }`</do>
+  <never>Default a new field to `null` or `undefined` in the helper. A null default makes the generated object poorer than the row it stands for, and it hides the populated path from every test that uses the helper.</never>
+  <scope>Applies to fields added from this rule onward. The fields that already carry a `null` default, such as `last_review_url` and `last_review_state` in tests/helpers/PullRequestTestSupport.ts, move over in a later sweep.</scope>
+  <rationale>A hydration helper stands for a real database row. A row usually holds a value, so the helper must generate the rich shape by default and let the rare empty case be explicit at the call site. A dynamic default also proves that the code under test passes the value through, rather than matching a hardcoded constant. This pairs with T009, which asks for the same dynamic values in shared test constants.</rationale>
+  <good-example>
+    ```typescript
+    export const generatePullRequestHydrationData = (overrideValues?: Partial<PullRequest>): PullRequest => ({
+      // ...
+      permanent_refusal_at: getUniqueDate(),
+      // ...
+      ...rest,
+    });
+
+    // A caller that needs the refused-at-cleared row says so.
+    const pr = generatePullRequestHydrationData({ permanent_refusal_at: null });
+    ```
+
+  </good-example>
+  <bad-example>
+    ```typescript
+    export const generatePullRequestHydrationData = (overrideValues?: Partial<PullRequest>): PullRequest => ({
+      // ...
+      permanent_refusal_at: null,
+      // ...
+      ...rest,
+    });
+    ```
+
+  </bad-example>
 </rule>
 
 <rule id="P001" priority="critical">

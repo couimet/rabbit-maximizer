@@ -36,6 +36,23 @@ const makeItem = (over: Record<string, unknown> = {}) =>
     ...over,
   } as Record<string, unknown>);
 
+/** @testFixture */
+const mockRequeueEndpoint = (items: Record<string, unknown>[], requeueResult: () => Promise<Response>) => {
+  globalThis.fetch = jest.fn((url: string) => {
+    if (typeof url === 'string' && url.includes('/activity-list')) {
+      return Promise.resolve({
+        ok: true,
+        status: StatusCodes.OK,
+        json: () => Promise.resolve({ data: items, total: items.length, page: FIRST_PAGE, pageSize: PAGE_SIZE }),
+      } as Response);
+    }
+    if (typeof url === 'string' && url.includes('/requeue')) {
+      return requeueResult();
+    }
+    return Promise.reject(new Error('Unexpected fetch: ' + url));
+  }) as unknown as typeof fetch;
+};
+
 const renderActivityList = (ui?: ReactElement) =>
   render(
     <ErrorProvider>
@@ -354,6 +371,78 @@ describe('ActivityList', () => {
       fireEvent.click(screen.getByTitle('Mark as resolved'));
 
       await waitFor(() => expect(screen.getByText(item.pr_title + ' (#' + item.pr_number + ')')).toBeInTheDocument());
+    });
+  });
+
+  describe('requeue', () => {
+    it('shows the re-queue control on an item resolved as a permanent refusal', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'permanently_refused' });
+      mockActivityListEndpoint({ data: [item], total: 1, page: FIRST_PAGE, pageSize: PAGE_SIZE });
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText('CodeRabbit refused permanently')).toBeInTheDocument());
+      expect(screen.getByLabelText('Re-queue PR')).toBeInTheDocument();
+      expect(screen.queryByTitle('Mark as resolved')).not.toBeInTheDocument();
+    });
+
+    it('omits the re-queue control when the item resolved any other way', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'review_completed' });
+      mockActivityListEndpoint({ data: [item], total: 1, page: FIRST_PAGE, pageSize: PAGE_SIZE });
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText('CodeRabbit: completed analysis')).toBeInTheDocument());
+      expect(screen.queryByLabelText('Re-queue PR')).not.toBeInTheDocument();
+    });
+
+    it('asks for confirmation and sends nothing when the operator cancels', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'permanently_refused' });
+      mockActivityListEndpoint({ data: [item], total: 1, page: FIRST_PAGE, pageSize: PAGE_SIZE });
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText('CodeRabbit refused permanently')).toBeInTheDocument());
+      fireEvent.click(screen.getByLabelText('Re-queue PR'));
+
+      expect(
+        screen.getByText(
+          'Re-queue this permanently-refused PR? Re-queue only after the refusal cause is cleared; the scheduler requests another review on a later tick.',
+        ),
+      ).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('Cancel'));
+
+      expect(screen.queryByText(/refusal cause/)).not.toBeInTheDocument();
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('posts the re-queue and returns the row to pending', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'permanently_refused' });
+      const otherItem = makeItem({ status: 'retriggered' });
+      mockRequeueEndpoint([item, otherItem], () =>
+        Promise.resolve({ ok: true, status: StatusCodes.OK, json: () => Promise.resolve({ ok: true }) } as Response),
+      );
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText('CodeRabbit refused permanently')).toBeInTheDocument());
+      fireEvent.click(screen.getByLabelText('Re-queue PR'));
+      fireEvent.click(screen.getByText('Re-queue'));
+
+      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith(`/api/queue/${item.uuid as string}/requeue`, { method: 'POST' }));
+      await waitFor(() => expect(screen.getAllByTitle('Mark as resolved')).toHaveLength(2));
+      expect(screen.queryByText('CodeRabbit refused permanently')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Re-queue PR')).not.toBeInTheDocument();
+    });
+
+    it('reports the failure and refetches the row when the re-queue call fails', async () => {
+      const item = makeItem({ status: 'resolved', resolution: 'permanently_refused' });
+      mockRequeueEndpoint([item], () => Promise.reject(new Error('API error')));
+      renderActivityList();
+
+      await waitFor(() => expect(screen.getByText('CodeRabbit refused permanently')).toBeInTheDocument());
+      fireEvent.click(screen.getByLabelText('Re-queue PR'));
+      fireEvent.click(screen.getByText('Re-queue'));
+
+      await waitFor(() => expect(screen.getByText('Activity list: API error')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('CodeRabbit refused permanently')).toBeInTheDocument());
     });
   });
 

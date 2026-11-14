@@ -10,6 +10,7 @@ export {
   createMarkReviewedHandler,
   createMoveQueueOrderHandler,
   createMoveToTopHandler,
+  createRequeueHandler,
   createRetriggerNowHandler,
 } from './queueOrderRoutes.js';
 export { createSetPausedHandler } from './setPaused.js';

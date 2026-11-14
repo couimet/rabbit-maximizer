@@ -4,6 +4,7 @@ import { TYPES } from '../server-domain.js';
 import type {
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
+  CoderabbitReviewRefusedPayload,
   CoderabbitReviewSkippedPayload,
   CoderabbitRunIdChangedPayload,
   CoderabbitRunIdClearedPayload,
@@ -39,6 +40,7 @@ export type NewEvent =
   | (NewEventBase & { type: EventType.dismissed; payload: DismissedPayload })
   | (NewEventBase & { type: EventType.coderabbit_review_approved; payload: CoderabbitReviewApprovedPayload })
   | (NewEventBase & { type: EventType.coderabbit_review_changes_suggested; payload: CoderabbitReviewChangesSuggestedPayload })
+  | (NewEventBase & { type: EventType.coderabbit_review_refused; payload: CoderabbitReviewRefusedPayload })
   | (NewEventBase & { type: EventType.coderabbit_review_skipped; payload: CoderabbitReviewSkippedPayload })
   | (NewEventBase & { type: EventType.coderabbit_run_id_changed; payload: CoderabbitRunIdChangedPayload })
   | (NewEventBase & { type: EventType.coderabbit_run_id_cleared; payload: CoderabbitRunIdClearedPayload })
@@ -113,6 +115,7 @@ export class EventRepository {
     const counts: Record<EventType, number> = {
       coderabbit_review_approved: 0,
       coderabbit_review_changes_suggested: 0,
+      coderabbit_review_refused: 0,
       coderabbit_review_skipped: 0,
       coderabbit_run_id_changed: 0,
       coderabbit_run_id_cleared: 0,
