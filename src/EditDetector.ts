@@ -1,8 +1,8 @@
 import type { CoderabbitCommentRepository } from './db/index.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
-import { type CoderabbitCommentClassifier, type CoderabbitGitHubClient, splitRepo } from './github/index.js';
+import { type CoderabbitCommentClassifier, type CoderabbitGitHubClient, type FetchCommentResult, splitRepo } from './github/index.js';
 import { type EditDetectionOutcome, type QueueItem } from './types/index.js';
-import { extractCoderabbitRunId, isReviewVerdictState } from './utils/index.js';
+import { extractCoderabbitRunId, isReviewVerdictState, isTerminalHttpStatus } from './utils/index.js';
 import { CodeRabbitCommentType, FallbackReason } from './domain.js';
 import { RabbitResult } from './RabbitResult.js';
 import { TYPES } from './server-domain.js';
@@ -31,7 +31,22 @@ export class EditDetector {
       }
 
       const { owner, repo } = splitRepo(item.repo_full_name);
-      const fetchResult = await this.github.fetchComment(owner, repo, item.source_comment_id);
+      let fetchResult: FetchCommentResult;
+      try {
+        fetchResult = await this.github.fetchComment(owner, repo, item.source_comment_id);
+      } catch (err: unknown) {
+        const error = err as { status?: number };
+        if (!isTerminalHttpStatus(error.status)) {
+          throw err;
+        }
+        // A comment GitHub cannot return is gone: the stored row is the item's only remaining
+        // evidence, so its last known type still scopes the reviews-API fallback (BR-6-2).
+        return RabbitResult.ok({
+          action: 'fallback',
+          reason: FallbackReason.NotFound,
+          sourceCommentType: matchingComment.comment_type as CodeRabbitCommentType,
+        });
+      }
 
       const freshGhUpdatedAt = new Date(fetchResult.updatedAt);
       if (freshGhUpdatedAt <= matchingComment.last_seen_at) {

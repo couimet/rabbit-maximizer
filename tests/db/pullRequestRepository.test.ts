@@ -542,38 +542,54 @@ describe('PullRequestRepository', () => {
     });
   });
 
-  describe('findPendingAcknowledgement', () => {
-    it('returns the mapped PR when a pending acknowledgement exists', async () => {
-      const lastReviewRequestedAt = getUniqueDate();
-      const findPrRef = generateReviewRef();
-      const pr = {
+  describe('findPendingAcknowledgements', () => {
+    it('queries only open PRs and maps every pending acknowledgement', async () => {
+      const firstRequestedAt = getUniqueDate();
+      const secondRequestedAt = getUniqueDate();
+      const firstPrRef = generateReviewRef();
+      const secondPrRef = generateReviewRef();
+      const firstPr = {
         id: getUniqueInt(),
-        repo_full_name: findPrRef.repoFullName,
-        pr_number: findPrRef.prNumber,
-        last_review_requested_at: lastReviewRequestedAt.toISOString(),
+        repo_full_name: firstPrRef.repoFullName,
+        pr_number: firstPrRef.prNumber,
+        last_review_requested_at: firstRequestedAt.toISOString(),
       };
-      const queryRawUnsafe = jest.fn<any>().mockResolvedValue([pr]);
+      const secondPr = {
+        id: getUniqueInt(),
+        repo_full_name: secondPrRef.repoFullName,
+        pr_number: secondPrRef.prNumber,
+        last_review_requested_at: secondRequestedAt.toISOString(),
+      };
+      const queryRawUnsafe = jest.fn<any>().mockResolvedValue([firstPr, secondPr]);
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: queryRawUnsafe });
       const sut = new PullRequestRepository(prisma, logger);
-      const result = await sut.findPendingAcknowledgement();
+      const result = await sut.findPendingAcknowledgements(undefined);
       expect(queryRawUnsafe).toHaveBeenCalledWith(
         expect.toEqualIgnoringWhitespace(
-          'SELECT id, repo_full_name, pr_number, last_review_requested_at FROM pull_request WHERE last_review_requested_at IS NOT NULL AND (last_coderabbit_acknowledged_at IS NULL OR last_coderabbit_acknowledged_at < last_review_requested_at) ORDER BY last_review_requested_at ASC LIMIT 1',
+          "SELECT id, repo_full_name, pr_number, last_review_requested_at FROM pull_request WHERE pr_state = 'open' AND last_review_requested_at IS NOT NULL AND (last_coderabbit_acknowledged_at IS NULL OR last_coderabbit_acknowledged_at < last_review_requested_at) ORDER BY last_review_requested_at ASC",
         ),
       );
-      expect(result).toStrictEqual({
-        id: pr.id,
-        repo_full_name: pr.repo_full_name,
-        pr_number: pr.pr_number,
-        last_review_requested_at: lastReviewRequestedAt,
-      });
+      expect(result).toStrictEqual([
+        {
+          id: firstPr.id,
+          repo_full_name: firstPr.repo_full_name,
+          pr_number: firstPr.pr_number,
+          last_review_requested_at: firstRequestedAt,
+        },
+        {
+          id: secondPr.id,
+          repo_full_name: secondPr.repo_full_name,
+          pr_number: secondPr.pr_number,
+          last_review_requested_at: secondRequestedAt,
+        },
+      ]);
     });
 
-    it('returns undefined when no PRs have a pending acknowledgement', async () => {
+    it('returns an empty list when no PRs have a pending acknowledgement', async () => {
       const { prisma } = createMockPrismaClient({ $queryRawUnsafe: jest.fn<any>().mockResolvedValue([]) });
       const sut = new PullRequestRepository(prisma, logger);
-      const result = await sut.findPendingAcknowledgement();
-      expect(result).toBeUndefined();
+      const result = await sut.findPendingAcknowledgements(undefined);
+      expect(result).toStrictEqual([]);
     });
   });
 

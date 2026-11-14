@@ -444,7 +444,7 @@ describe('Scheduler', () => {
         pr_number: ackRef.prNumber,
         last_review_requested_at: new Date(frozenNow.getTime() - 30_000),
       };
-      deps.pullRequests.findPendingAcknowledgement.mockResolvedValue(pendingAck);
+      deps.pullRequests.findPendingAcknowledgements.mockResolvedValue([pendingAck]);
       const scheduler = createScheduler();
       const { stop } = await scheduler.start();
       await awaitTick(scheduler);
