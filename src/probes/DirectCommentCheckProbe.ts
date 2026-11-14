@@ -23,10 +23,10 @@ export class DirectCommentCheckProbe {
     this.comment = undefined;
   }
 
-  truncated(prCount: number, maxDirectCheckPRs: number): void {
-    this.log.warn(
-      { fn: 'DirectCommentCheckProbe.truncated', prCount, maxDirectCheckPRs },
-      'PR count exceeds direct-check limit; truncating to prevent API rate-limit exhaustion',
+  truncated(prCount: number, maxDirectCheckPRs: number, hiddenCount: number): void {
+    this.log.error(
+      { fn: 'DirectCommentCheckProbe.truncated', prCount, maxDirectCheckPRs, hiddenCount },
+      'PR count exceeds the direct-check cap; the configured cap hides PRs from the direct check',
     );
   }
 

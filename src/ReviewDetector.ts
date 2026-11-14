@@ -93,6 +93,21 @@ export class ReviewDetector extends IntervalService {
               }
             }
             continue;
+          case 'refused':
+            {
+              const resolved = await this.prisma.$transaction(async (tx) => {
+                const ok = await this.queue.markResolvedIfStillRetriggered(item.id, Resolution.PermanentlyRefused, tx);
+                if (!ok) return false;
+                await this.pullRequests.setPermanentRefusalAt(item.pull_request_id, tx);
+                await probe.refused(editOutcome.matchedPhrase, tx);
+                return true;
+              });
+              if (!resolved) {
+                probe.resolutionLostRace(Resolution.PermanentlyRefused);
+                continue;
+              }
+            }
+            continue;
           case 'skipped':
             {
               const resolved = await this.prisma.$transaction((tx) => this.queue.markResolvedIfStillRetriggered(item.id, Resolution.Skipped, tx));

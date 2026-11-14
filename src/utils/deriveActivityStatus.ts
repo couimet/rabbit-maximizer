@@ -52,6 +52,8 @@ const resolvedStatus = (item: DeriveStatusInput): ActivityStatus => {
       return { state: ActivityState.skipped, linkUrl: item.source_comment_url };
     case 'stale_comment':
       return { state: ActivityState.staleComment, linkUrl: item.source_comment_url };
+    case 'permanently_refused':
+      return { state: ActivityState.permanentlyRefused, linkUrl: item.source_comment_url };
     case 'manual_review':
       return { state: ActivityState.manualReview, linkUrl: undefined };
     default:

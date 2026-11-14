@@ -26,6 +26,7 @@ const FIND_STALE_OPEN_PRS_SQL = `
   SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.last_review_requested_at
   FROM ${PULL_REQUEST_TABLE} pr
   WHERE pr.pr_state = 'open'
+    AND pr.permanent_refusal_at IS NULL
     AND pr.last_review_requested_at IS NOT NULL
     AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at)
     AND NOT EXISTS (
@@ -167,6 +168,24 @@ export class PullRequestRepository extends BasePrismaRepository {
       'PullRequestRepository.incrementRetriggerCount',
     );
     this.log.debug({ fn: 'PullRequestRepository.incrementRetriggerCount', id }, 'Incremented retrigger count on PullRequest');
+  }
+
+  // Holds the PR out of the stale-PR recovery query until an operator re-queues it.
+  async setPermanentRefusalAt(id: number, tx: Prisma.TransactionClient): Promise<void> {
+    await this.withPrismaErrorHandling(
+      () => this.client(tx).pullRequest.update({ where: { id }, data: { permanent_refusal_at: new Date() } }),
+      'PullRequestRepository.setPermanentRefusalAt',
+    );
+    this.log.debug({ fn: 'PullRequestRepository.setPermanentRefusalAt', id }, 'Recorded permanent CodeRabbit refusal on PullRequest');
+  }
+
+  // Lets the PR back into the stale-PR recovery query after an operator re-queues it.
+  async clearPermanentRefusalAt(id: number, tx: Prisma.TransactionClient): Promise<void> {
+    await this.withPrismaErrorHandling(
+      () => this.client(tx).pullRequest.update({ where: { id }, data: { permanent_refusal_at: null } }),
+      'PullRequestRepository.clearPermanentRefusalAt',
+    );
+    this.log.debug({ fn: 'PullRequestRepository.clearPermanentRefusalAt', id }, 'Cleared permanent CodeRabbit refusal on PullRequest');
   }
 
   async recordReview(

@@ -35,6 +35,7 @@ export type { EventEnvelope, EventLogEntry } from './EventLogEntry.js';
 export type {
   CoderabbitReviewApprovedPayload,
   CoderabbitReviewChangesSuggestedPayload,
+  CoderabbitReviewRefusedPayload,
   CoderabbitReviewSkippedPayload,
   CoderabbitRunIdChangedPayload,
   CoderabbitRunIdClearedPayload,

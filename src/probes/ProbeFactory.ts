@@ -11,6 +11,7 @@ import {
   MarkQueueItemReviewedProbe,
   PrScannerProbe,
   PrunerProbe,
+  RefusalSweeperProbe,
   ReviewDetectorProbe,
   ReviewRetriggerProbe,
   SchedulerProbe,
@@ -63,5 +64,9 @@ export class ProbeFactory {
 
   createDirectCommentCheckProbe(): DirectCommentCheckProbe {
     return new DirectCommentCheckProbe(this.eventRepository, this.log);
+  }
+
+  createRefusalSweeperProbe(): RefusalSweeperProbe {
+    return new RefusalSweeperProbe(this.log);
   }
 }
