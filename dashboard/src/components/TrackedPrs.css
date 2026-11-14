@@ -32,3 +32,8 @@
   background: #f4f0e7;
   color: #8b7d6b;
 }
+
+.badge.ignored {
+  background: #e7e7ea;
+  color: #55555f;
+}

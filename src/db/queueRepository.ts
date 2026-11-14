@@ -22,7 +22,7 @@ import { inject, injectable } from 'inversify';
 
 const COMPLETED_GUARD_WINDOW_MS = 5 * MS_PER_MINUTE;
 const MAX_SKIPPED_ITEMS = 50;
-const REOPENABLE_RESOLUTIONS: readonly Resolution[] = [Resolution.ReviewCompleted, Resolution.Failed, Resolution.Skipped] as const;
+const REOPENABLE_RESOLUTIONS: readonly Resolution[] = [Resolution.ReviewCompleted, Resolution.Failed, Resolution.Skipped, Resolution.Excluded] as const;
 const ACTIVE_STATUSES: readonly QueueStatus[] = [QueueStatus.pending, QueueStatus.retriggered] as const;
 
 @injectable()
@@ -421,9 +421,10 @@ export class QueueRepository extends BasePrismaRepository {
     return changed;
   }
 
-  // Resolves whatever active item the PR holds, so a refusal clears the queue entry
-  // that a retrigger loop would otherwise keep alive. Returns the number of rows changed.
-  async markResolvedByPullRequestId(pullRequestId: number, resolution: Resolution, tx: Prisma.TransactionClient): Promise<number> {
+  // Resolves whatever active item the PR holds, so a refusal or an exclusion clears the
+  // queue entry that a retrigger loop would otherwise keep alive. Returns the number of
+  // rows changed. The startup sweep passes an undefined transaction.
+  async markResolvedByPullRequestId(pullRequestId: number, resolution: Resolution, tx: Prisma.TransactionClient | undefined): Promise<number> {
     const result = await this.client(tx).reviewQueue.updateMany({
       where: { pull_request_id: pullRequestId, status: { in: [...ACTIVE_STATUSES] } },
       data: { status: QueueStatus.resolved, resolution, resolved_at: new Date() },

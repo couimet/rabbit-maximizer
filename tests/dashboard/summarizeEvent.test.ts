@@ -168,6 +168,46 @@ describe('summarizeEvent', () => {
     expect(summarizeEvent('coderabbit_review_refused', {})).toStrictEqual([]);
   });
 
+  it('renders the matched rule and source comment link for an excluded event', () => {
+    const reading = summarizeEvent('excluded', {
+      matched_field: 'author',
+      matched_pattern: 'renovate',
+      comment_url: REFUSED_COMMENT_URL,
+    });
+    expect(reading).toStrictEqual([
+      textToken('matched the author rule renovate'),
+      textToken(' · '),
+      linkToken(`source comment ${REFUSED_COMMENT_ID}`, REFUSED_COMMENT_URL),
+    ]);
+  });
+
+  it('renders only the matched rule for an excluded event with no comment url', () => {
+    const reading = summarizeEvent('excluded', {
+      matched_field: 'title',
+      matched_pattern: 'WIP',
+    });
+    expect(reading).toStrictEqual([textToken('matched the title rule WIP')]);
+  });
+
+  it('renders only the source comment link for an excluded event with no matched rule', () => {
+    const reading = summarizeEvent('excluded', {
+      comment_url: REFUSED_COMMENT_URL,
+    });
+    expect(reading).toStrictEqual([linkToken(`source comment ${REFUSED_COMMENT_ID}`, REFUSED_COMMENT_URL)]);
+  });
+
+  it('renders only the source comment link for an excluded event with one half of the rule', () => {
+    const reading = summarizeEvent('excluded', {
+      matched_field: 'author',
+      comment_url: REFUSED_COMMENT_URL,
+    });
+    expect(reading).toStrictEqual([linkToken(`source comment ${REFUSED_COMMENT_ID}`, REFUSED_COMMENT_URL)]);
+  });
+
+  it('returns an empty reading for an excluded event with no payload', () => {
+    expect(summarizeEvent('excluded', {})).toStrictEqual([]);
+  });
+
   it('renders the skip reason for a skipped review', () => {
     const reading = summarizeEvent('coderabbit_review_skipped', {
       skip_reason: 'walkthrough declined by author',

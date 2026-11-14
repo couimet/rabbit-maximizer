@@ -29,6 +29,8 @@ describe('ConfigSchema', () => {
       DETECTION_MODE: 'poll' as const,
       GITHUB_API_TIMEOUT_SEC: 10,
       GITHUB_PAT: githubPat,
+      IGNORE_AUTHORS: [],
+      IGNORE_TITLES: [],
       PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: DEFAULT_PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
       PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: DEFAULT_PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,
       MAX_DIRECT_CHECK_PRS: DEFAULT_MAX_DIRECT_CHECK_PRS,
@@ -221,6 +223,33 @@ describe('ConfigSchema', () => {
     }
   });
 
+  it('applies an empty IGNORE_AUTHORS list when missing', () => {
+    const { IGNORE_AUTHORS: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.IGNORE_AUTHORS).toStrictEqual([]);
+    }
+  });
+
+  it('applies an empty IGNORE_TITLES list when missing', () => {
+    const { IGNORE_TITLES: _, ...rest } = BASE;
+    const result = ConfigSchema.safeParse(rest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.IGNORE_TITLES).toStrictEqual([]);
+    }
+  });
+
+  it('accepts IGNORE_AUTHORS and IGNORE_TITLES patterns that compile', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, IGNORE_AUTHORS: ['renovate', '^dependabot'], IGNORE_TITLES: ['^chore\\('] });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.IGNORE_AUTHORS).toStrictEqual(['renovate', '^dependabot']);
+      expect(result.data.IGNORE_TITLES).toStrictEqual(['^chore\\(']);
+    }
+  });
+
   // -- Failure cases -----------------------------------------------------------
 
   it('rejects an invalid DETECTION_MODE', () => {
@@ -274,6 +303,54 @@ describe('ConfigSchema', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((i) => i.path.includes('CODERABBIT_REFUSAL_PHRASES'))).toBe(true);
+    }
+  });
+
+  it('rejects an IGNORE_AUTHORS entry with an unclosed group', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, IGNORE_AUTHORS: ['(unclosed'] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('IGNORE_AUTHORS'))).toBe(true);
+    }
+  });
+
+  it('rejects an IGNORE_AUTHORS entry that is an empty string', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, IGNORE_AUTHORS: [''] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('IGNORE_AUTHORS'))).toBe(true);
+    }
+  });
+
+  it('rejects a non-array IGNORE_AUTHORS value', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, IGNORE_AUTHORS: 'renovate' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('IGNORE_AUTHORS'))).toBe(true);
+    }
+  });
+
+  it('rejects an IGNORE_TITLES entry with an unterminated character class', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, IGNORE_TITLES: ['[unterminated'] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('IGNORE_TITLES'))).toBe(true);
+    }
+  });
+
+  it('rejects an IGNORE_TITLES entry that is an empty string', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, IGNORE_TITLES: [''] });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('IGNORE_TITLES'))).toBe(true);
+    }
+  });
+
+  it('rejects a non-array IGNORE_TITLES value', () => {
+    const result = ConfigSchema.safeParse({ ...BASE, IGNORE_TITLES: 'chore' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((i) => i.path.includes('IGNORE_TITLES'))).toBe(true);
     }
   });
 

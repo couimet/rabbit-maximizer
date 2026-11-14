@@ -51,7 +51,7 @@ describe('QueueItemEnricher', () => {
 
   it('enriches items with pr_state from repository', async () => {
     const item = generateQueueItemHydrationData();
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, pr_state: new Map([[item.pull_request_id, 'merged']]) });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS, pr_state: new Map([[item.pull_request_id, 'merged']]) });
 
     const result = await enricher.enrich([item]);
 
@@ -64,7 +64,7 @@ describe('QueueItemEnricher', () => {
   it('enriches items with last_coderabbit_acknowledged_at from repository', async () => {
     const acknowledgedAt = getUniqueDate();
     const item = generateQueueItemHydrationData();
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, last_coderabbit_acknowledged_at: new Map([[item.pull_request_id, acknowledgedAt]]) });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS, last_coderabbit_acknowledged_at: new Map([[item.pull_request_id, acknowledgedAt]]) });
 
     const result = await enricher.enrich([item]);
 
@@ -75,7 +75,7 @@ describe('QueueItemEnricher', () => {
 
   it('converts null last_coderabbit_acknowledged_at to undefined', async () => {
     const item = generateQueueItemHydrationData();
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, last_coderabbit_acknowledged_at: new Map([[item.pull_request_id, null]]) });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS, last_coderabbit_acknowledged_at: new Map([[item.pull_request_id, null]]) });
 
     const result = await enricher.enrich([item]);
 
@@ -86,7 +86,7 @@ describe('QueueItemEnricher', () => {
 
   it('keeps placeholder pr_state when not found in map', async () => {
     const item = generateQueueItemHydrationData();
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS });
 
     const result = await enricher.enrich([item]);
 
@@ -98,7 +98,7 @@ describe('QueueItemEnricher', () => {
   it('populates coderabbitReview when both review columns are set', async () => {
     const item = generateQueueItemHydrationData();
     const reviewUrl = generateReviewRef().commentUrl;
-    (pullRequests.getColumnMaps as any).mockResolvedValue({
+    pullRequests.getColumnMaps.mockResolvedValue({
       ...BASE_MAPS,
       last_review_url: new Map([[item.pull_request_id, reviewUrl]]),
       last_review_state: new Map([[item.pull_request_id, 'review_approved']]),
@@ -114,7 +114,7 @@ describe('QueueItemEnricher', () => {
   it('keeps coderabbitReview undefined when only review URL is set', async () => {
     const item = generateQueueItemHydrationData();
     const reviewUrl = generateReviewRef().commentUrl;
-    (pullRequests.getColumnMaps as any).mockResolvedValue({
+    pullRequests.getColumnMaps.mockResolvedValue({
       ...BASE_MAPS,
       last_review_url: new Map([[item.pull_request_id, reviewUrl]]),
     });
@@ -130,7 +130,7 @@ describe('QueueItemEnricher', () => {
     const sharedId = getUniqueInt();
     const item1 = generateQueueItemHydrationData({ pull_request_id: sharedId });
     const item2 = generateQueueItemHydrationData({ pull_request_id: sharedId });
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, pr_state: new Map([[sharedId, 'merged']]) });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS, pr_state: new Map([[sharedId, 'merged']]) });
 
     const result = await enricher.enrich([item1, item2]);
 
@@ -145,7 +145,7 @@ describe('QueueItemEnricher', () => {
 
   it('calls getColumnMaps with unique ids', async () => {
     const item = generateQueueItemHydrationData();
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS });
     await enricher.enrich([item]);
 
     expect(pullRequests.getColumnMaps).toHaveBeenCalledWith([item.pull_request_id], BASE_COLUMNS);
@@ -157,7 +157,7 @@ describe('QueueItemEnricher', () => {
     const validId = getUniqueInt();
     const itemWithNull = generateQueueItemHydrationData({ pull_request_id: null as unknown as number });
     const itemWithId = generateQueueItemHydrationData({ pull_request_id: validId });
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, pr_state: new Map([[validId, 'merged']]) });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS, pr_state: new Map([[validId, 'merged']]) });
 
     const result = await enricher.enrich([itemWithNull, itemWithId]);
 
@@ -194,7 +194,7 @@ describe('QueueItemEnricher', () => {
   it('enriches items with author_login from the repository', async () => {
     const pullRequestId = getUniqueInt();
     const item = generateQueueItemHydrationData({ pull_request_id: pullRequestId });
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, author_login: new Map([[pullRequestId, 'some-login']]) });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS, author_login: new Map([[pullRequestId, 'some-login']]) });
 
     const result = await enricher.enrich([item]);
 
@@ -206,7 +206,7 @@ describe('QueueItemEnricher', () => {
   it('enriches items with retrigger_count from repository', async () => {
     const item = generateQueueItemHydrationData();
     const retriggerCount = getUniqueInt();
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, retrigger_count: new Map([[item.pull_request_id, retriggerCount]]) });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS, retrigger_count: new Map([[item.pull_request_id, retriggerCount]]) });
 
     const result = await enricher.enrich([item]);
 
@@ -218,7 +218,7 @@ describe('QueueItemEnricher', () => {
   it('enriches items with review_count from repository', async () => {
     const item = generateQueueItemHydrationData();
     const reviewCount = getUniqueInt();
-    (pullRequests.getColumnMaps as any).mockResolvedValue({ ...BASE_MAPS, review_count: new Map([[item.pull_request_id, reviewCount]]) });
+    pullRequests.getColumnMaps.mockResolvedValue({ ...BASE_MAPS, review_count: new Map([[item.pull_request_id, reviewCount]]) });
 
     const result = await enricher.enrich([item]);
 

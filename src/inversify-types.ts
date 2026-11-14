@@ -13,6 +13,8 @@ export const TYPES = {
   EventCountsMapper: Symbol.for('EventCountsMapper'),
   EventEntryMapper: Symbol.for('EventEntryMapper'),
   EventRepository: Symbol.for('EventRepository'),
+  ExclusionSweeper: Symbol.for('ExclusionSweeper'),
+  IgnoreRules: Symbol.for('IgnoreRules'),
   Logger: Symbol.for('Logger'),
   DirectCheckCap: Symbol.for('DirectCheckCap'),
   DirectCommentChecker: Symbol.for('DirectCommentChecker'),

@@ -2,6 +2,7 @@ import type { Config } from '../../src/config.js';
 import { startTestServer } from '../../src/external-deps/couimet/express-tools-testing/startTestServer.js';
 import { EventCountsMapper, TrackedPrMapper } from '../../src/mappers/index.js';
 import { createGetDashboardStateHandler } from '../../src/routes/index.js';
+import { IgnoreRules } from '../../src/services.js';
 import {
   apiJson,
   createMockEventRepo,
@@ -74,7 +75,7 @@ describe('getDashboardState', () => {
           createMockPullRequestRepo(pullRequestRepoOver as any),
           queueItemMapper,
           eventCountsMapper,
-          new TrackedPrMapper(),
+          new TrackedPrMapper(new IgnoreRules(generateConfigData())),
           logger,
           config ?? staleConfig,
         ),
@@ -416,6 +417,7 @@ describe('getDashboardState', () => {
       {
         repo_full_name: row1.repo_full_name,
         pr_number: row1.pr_number,
+        matched_ignore_rule: null,
         title: row1.title,
         author_login: row1.author_login,
         last_review_state: 'review_approved',
@@ -424,6 +426,7 @@ describe('getDashboardState', () => {
       {
         repo_full_name: row2.repo_full_name,
         pr_number: row2.pr_number,
+        matched_ignore_rule: null,
         title: row2.title,
         author_login: row2.author_login,
         last_review_state: null,

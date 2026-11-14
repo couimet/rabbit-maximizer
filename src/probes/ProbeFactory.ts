@@ -8,6 +8,7 @@ import {
   type DetectedProbeContext,
   DirectCommentCheckProbe,
   EnqueueProbe,
+  ExclusionSweeperProbe,
   MarkQueueItemReviewedProbe,
   PrScannerProbe,
   PrunerProbe,
@@ -68,5 +69,9 @@ export class ProbeFactory {
 
   createRefusalSweeperProbe(): RefusalSweeperProbe {
     return new RefusalSweeperProbe(this.log);
+  }
+
+  createExclusionSweeperProbe(): ExclusionSweeperProbe {
+    return new ExclusionSweeperProbe(this.log);
   }
 }
