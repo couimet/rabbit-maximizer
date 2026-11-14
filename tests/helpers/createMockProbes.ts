@@ -3,6 +3,7 @@ import { jest } from '@jest/globals';
 export interface MockPrScannerProbe {
   scanStarted: jest.Mock<any>;
   skipped: jest.Mock<any>;
+  skippedRateLimit: jest.Mock<any>;
   discovered: jest.Mock<any>;
   detectedClosures: jest.Mock<any>;
   caughtError: jest.Mock<any>;
@@ -14,6 +15,7 @@ export interface MockPrScannerProbe {
 export const createMockPrScannerProbe = (): MockPrScannerProbe => ({
   scanStarted: jest.fn<any>(),
   skipped: jest.fn<any>(),
+  skippedRateLimit: jest.fn<any>(),
   discovered: jest.fn<any>(),
   detectedClosures: jest.fn<any>(),
   caughtError: jest.fn<any>(),
@@ -26,6 +28,7 @@ export const createMockPrScannerProbe = (): MockPrScannerProbe => ({
 export interface MockPrunerProbe {
   withItem: jest.Mock<any>;
   noItemsToPrune: jest.Mock<any>;
+  skippedRateLimit: jest.Mock<any>;
   prMerged: jest.Mock<any>;
   prClosedWithoutMerge: jest.Mock<any>;
   caughtError: jest.Mock<any>;
@@ -33,6 +36,7 @@ export interface MockPrunerProbe {
 export const createMockPrunerProbe = (): MockPrunerProbe => ({
   withItem: jest.fn<any>(),
   noItemsToPrune: jest.fn<any>(),
+  skippedRateLimit: jest.fn<any>(),
   prMerged: jest.fn<any>().mockResolvedValue(undefined),
   prClosedWithoutMerge: jest.fn<any>().mockResolvedValue(undefined),
   caughtError: jest.fn<any>(),
@@ -79,6 +83,7 @@ export interface MockReviewDetectorProbe {
   reviewedViaFallback: jest.Mock<any>;
   refused: jest.Mock<any>;
   skippedResolved: jest.Mock<any>;
+  skippedRateLimit: jest.Mock<any>;
   prClosedResolved: jest.Mock<any>;
   resolutionLostRace: jest.Mock<any>;
   runAdopted: jest.Mock<any>;
@@ -95,6 +100,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   reviewedViaFallback: jest.fn<any>(),
   refused: jest.fn<any>().mockResolvedValue(undefined),
   skippedResolved: jest.fn<any>(),
+  skippedRateLimit: jest.fn<any>(),
   prClosedResolved: jest.fn<any>(),
   resolutionLostRace: jest.fn<any>(),
   runAdopted: jest.fn<any>(),
@@ -134,6 +140,7 @@ export interface MockDirectCommentCheckProbe {
   walkthroughRecorded: jest.Mock<any>;
   skippedAlreadySeen: jest.Mock<any>;
   prCheckFailed: jest.Mock<any>;
+  skippedRateLimit: jest.Mock<any>;
   found: jest.Mock<any>;
   runIdFirstSeen: jest.Mock<any>;
   runIdChanged: jest.Mock<any>;
@@ -148,6 +155,7 @@ export const createMockDirectCommentCheckProbe = (): MockDirectCommentCheckProbe
   walkthroughRecorded: jest.fn<any>(),
   skippedAlreadySeen: jest.fn<any>(),
   prCheckFailed: jest.fn<any>(),
+  skippedRateLimit: jest.fn<any>(),
   found: jest.fn<any>(),
   runIdFirstSeen: jest.fn<any>().mockResolvedValue(undefined),
   runIdChanged: jest.fn<any>().mockResolvedValue(undefined),
@@ -159,6 +167,7 @@ export interface MockSchedulerProbe {
   schedulerPaused: jest.Mock<any>;
   tickSkippedAwaitingAcknowledgement: jest.Mock<any>;
   tickSkippedCooldown: jest.Mock<any>;
+  tickSkippedRateLimit: jest.Mock<any>;
   retriggerSkipped: jest.Mock<any>;
   headAlreadyReviewed: jest.Mock<any>;
   noItemsDue: jest.Mock<any>;
@@ -181,6 +190,7 @@ export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
   schedulerPaused: jest.fn<any>(),
   tickSkippedAwaitingAcknowledgement: jest.fn<any>(),
   tickSkippedCooldown: jest.fn<any>(),
+  tickSkippedRateLimit: jest.fn<any>(),
   retriggerSkipped: jest.fn<any>(),
   headAlreadyReviewed: jest.fn<any>(),
   noItemsDue: jest.fn<any>(),
@@ -198,6 +208,7 @@ export const createMockSchedulerProbe = (): MockSchedulerProbe => ({
 });
 
 export interface MockReviewRetriggerProbe {
+  rateLimitBlocked: jest.Mock<any>;
   staleCommentSkipped: jest.Mock<any>;
   staleCommentReplacementDeleted: jest.Mock<any>;
   staleCommentRescheduled: jest.Mock<any>;
@@ -205,6 +216,7 @@ export interface MockReviewRetriggerProbe {
   reviewRetriggered: jest.Mock<any>;
 }
 export const createMockReviewRetriggerProbe = (): MockReviewRetriggerProbe => ({
+  rateLimitBlocked: jest.fn<any>(),
   staleCommentSkipped: jest.fn<any>(),
   staleCommentReplacementDeleted: jest.fn<any>(),
   staleCommentRescheduled: jest.fn<any>(),

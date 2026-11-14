@@ -1,5 +1,6 @@
 import type { EventRepository, PullRequestRepository, QueueOrderRepository, QueueRepository, SystemStateRepository } from './db/index.js';
 import { validateAttributes } from './external-deps/couimet/execution-context/src/index.js';
+import { type GitHubRateLimitGate } from './github/index.js';
 import {
   type EventCountsMapper,
   type EventEntryMapper,
@@ -50,6 +51,9 @@ await ExecutionContext.run({ correlationId: 'rabbit-maximizer-init', requestId: 
 
   const prisma = container.get<PrismaClient>(TYPES.PrismaClient);
   log.info({ fn: 'main' }, `Connected to ${describeDatabaseUrl(config.DATABASE_URL)}`);
+
+  const rateLimitGate = container.get<GitHubRateLimitGate>(TYPES.GitHubRateLimitGate);
+  await rateLimitGate.initialize();
 
   const refusalSweeper = container.get<RefusalSweeper>(TYPES.RefusalSweeper);
   await refusalSweeper.sweep();

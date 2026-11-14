@@ -1,6 +1,12 @@
 import type { CoderabbitCommentRepository } from './db/index.js';
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from './errors/index.js';
-import { type CoderabbitCommentClassifier, type CoderabbitGitHubClient, type FetchCommentResult, splitRepo } from './github/index.js';
+import {
+  type CoderabbitCommentClassifier,
+  type CoderabbitGitHubClient,
+  type FetchCommentResult,
+  parseGitHubRateLimitError,
+  splitRepo,
+} from './github/index.js';
 import { type EditDetectionOutcome, type QueueItem } from './types/index.js';
 import { extractCoderabbitRunId, isReviewVerdictState, isTerminalHttpStatus } from './utils/index.js';
 import { CodeRabbitCommentType, FallbackReason } from './domain.js';
@@ -103,6 +109,10 @@ export class EditDetector {
         sourceCommentType: newType,
       });
     } catch (err: unknown) {
+      // A rate limit must reach the caller, which owns the shared gate and the tick.
+      if (parseGitHubRateLimitError(err) !== undefined) {
+        throw err;
+      }
       return RabbitResult.err(
         new RabbitMaximizerError({
           code: RabbitMaximizerErrorCodes.EDIT_DETECTION_FAILED,

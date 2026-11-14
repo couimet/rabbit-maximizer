@@ -37,6 +37,14 @@ describe('SchedulerProbe', () => {
     });
   });
 
+  describe('tickSkippedRateLimit', () => {
+    it('logs debug when the GitHub rate-limit window holds', () => {
+      const probe = createProbe();
+      probe.tickSkippedRateLimit();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'SchedulerProbe.tickSkippedRateLimit' }, 'Tick skipped: GitHub rate limit window active');
+    });
+  });
+
   describe('staleRetriggeredResolved', () => {
     it('logs info with count', () => {
       const probe = createProbe();

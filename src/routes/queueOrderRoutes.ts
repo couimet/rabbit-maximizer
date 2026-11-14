@@ -4,7 +4,7 @@ import { RabbitMaximizerError, RabbitMaximizerErrorCodes } from '../errors/index
 import { PrismaRecordNotFoundError } from '../external-deps/couimet/prisma-repo/index.js';
 import type { QueueItemMapper } from '../mappers/index.js';
 import { ReviewTrigger } from '../services.js';
-import { isValidUuid } from '../utils/index.js';
+import { isValidUuid, MS_PER_SECOND } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import type { PrismaClient } from '@prisma/client';
@@ -107,6 +107,13 @@ export const createRetriggerNowHandler = (
       const result = await reviewTrigger.trigger(item, TriggerSource.dashboard_retrigger_now);
       if (!result.success) {
         logger.warn({ fn: 'api.queueOrder.retriggerNow', uuid, error: result.error }, 'Failed to retrigger now');
+        if (result.error.code === RabbitMaximizerErrorCodes.RETRIGGER_RATE_LIMIT_BLOCKED) {
+          const { blockedUntil } = result.error.details as { blockedUntil: string };
+          const retryAfterSec = Math.max(1, Math.ceil((new Date(blockedUntil).getTime() - Date.now()) / MS_PER_SECOND));
+          res.set('Retry-After', String(retryAfterSec));
+          res.status(StatusCodes.TOO_MANY_REQUESTS).json({ error: `GitHub rate limit window is active until ${blockedUntil}` });
+          return;
+        }
         res.status(StatusCodes.CONFLICT).json({ error: 'Failed to retrigger now' });
         return;
       }

@@ -8,6 +8,7 @@ import { spyOnAttributeAdditions, withTestExecutionContext } from './external-de
 import {
   createCoderabbitCommentClassifier,
   createCoderabbitMarkers,
+  createMockGitHubRateLimitGate,
   createMockProbeFactory,
   createMockPullRequestRepo,
   createMockQueueRepo,
@@ -27,6 +28,7 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 const ACCOUNT_COOLDOWN_SEC = 3600;
 const MS_PER_SECOND = 1000;
 const ACCOUNT_COOLDOWN_MS = ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
+const RATE_LIMIT_RETRY_AFTER_MS = 90_000;
 const SKIP_COMMENT_BODY =
   '## Review available on request\n\nThis repository has fewer than 10 stars. To request a review, comment "@coderabbitai full review".\n\n<details>\n<summary>skip review by coderabbit.ai</summary>\n</details>';
 const RATE_LIMIT_PHRASE = 'rate limited by coderabbit.ai';
@@ -58,6 +60,7 @@ const setup = () => {
   const tx = {} as Prisma.TransactionClient;
   const prisma = { $transaction: jest.fn<any>().mockImplementation((fn: any) => fn(tx)) } as unknown as PrismaClient;
   const runIdGenerator = createMockRunIdGenerator();
+  const rateLimitGate = createMockGitHubRateLimitGate();
   const logger = createMockLogger();
   const cfg = {
     CODERABBIT_ACCOUNT_COOLDOWN_SEC: ACCOUNT_COOLDOWN_SEC,
@@ -68,9 +71,22 @@ const setup = () => {
 
   runIdGenerator.generate.mockReturnValue(generatedRunId);
 
-  const reviewTrigger = new ReviewTrigger(github, probeFactory, queue, pullRequests, prisma, systemState, runIdGenerator, cfg, classifier, markers, logger);
+  const reviewTrigger = new ReviewTrigger(
+    github,
+    probeFactory,
+    queue,
+    pullRequests,
+    prisma,
+    systemState,
+    runIdGenerator,
+    cfg,
+    classifier,
+    markers,
+    rateLimitGate,
+    logger,
+  );
 
-  return { github, probeFactory, prisma, tx, logger, reviewTrigger, queue, pullRequests, runIdGenerator, systemState };
+  return { github, probeFactory, prisma, tx, rateLimitGate, logger, reviewTrigger, queue, pullRequests, runIdGenerator, systemState };
 };
 
 const makeFetchResult = (body: string) => ({ body, createdAt: getUniqueDate().toISOString(), updatedAt: getUniqueDate().toISOString() });
@@ -639,6 +655,55 @@ describe('ReviewTrigger', () => {
     expect(pullRequests.findReviewedHeadSha).not.toHaveBeenCalled();
     expect(result).toBeSuccess({ retriggeredCommentUrl: commentUrl });
     expect(queue.markRetriggered).toHaveBeenCalledWith(item.id, new Date(frozenNow.getTime() + ACCOUNT_COOLDOWN_MS), commentUrl, undefined, tx);
+  });
+
+  it('returns err with RETRIGGER_RATE_LIMIT_BLOCKED while the GitHub rate-limit window holds', async () => {
+    const { github, probeFactory, reviewTrigger, rateLimitGate } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    rateLimitGate.isBlocked.mockReturnValue(true);
+    rateLimitGate.retryAfterMs.mockReturnValue(RATE_LIMIT_RETRY_AFTER_MS);
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler));
+
+    expect(result).toHaveDetailedError('RETRIGGER_RATE_LIMIT_BLOCKED', {
+      message: 'GitHub rate limit window is active',
+      functionName: 'ReviewTrigger.trigger',
+      details: { blockedUntil: new Date(frozenNow.getTime() + RATE_LIMIT_RETRY_AFTER_MS).toISOString() },
+    });
+    expect(probe.rateLimitBlocked).toHaveBeenCalledWith();
+    expect(github.fetchComment).not.toHaveBeenCalled();
+    expect(github.postRetrigger).not.toHaveBeenCalled();
+  });
+
+  it('names the current instant when the gate reports no remaining wait', async () => {
+    const { probeFactory, reviewTrigger, rateLimitGate } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    rateLimitGate.isBlocked.mockReturnValue(true);
+    rateLimitGate.retryAfterMs.mockReturnValue(undefined);
+    const probe = createMockReviewRetriggerProbe();
+    probeFactory.createReviewRetriggerProbe.mockReturnValue(probe as any);
+
+    const result = await inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler));
+
+    expect(result).toHaveDetailedError('RETRIGGER_RATE_LIMIT_BLOCKED', {
+      message: 'GitHub rate limit window is active',
+      functionName: 'ReviewTrigger.trigger',
+      details: { blockedUntil: frozenNow.toISOString() },
+    });
+  });
+
+  it('closes the shared window and rethrows when a GitHub call reports a rate limit', async () => {
+    const { github, reviewTrigger, rateLimitGate } = setup();
+    const item = generateQueueItemHydrationData({ source_comment_id: staleCommentId, status: QueueStatus.pending });
+    const rateLimitError = { status: 403 };
+    github.fetchComment.mockRejectedValue(rateLimitError);
+
+    await expect(inExecutionContext(() => reviewTrigger.trigger(item, TriggerSource.scheduler))).rejects.toStrictEqual(rateLimitError);
+
+    expect(rateLimitGate.recordError).toHaveBeenCalledWith(rateLimitError);
+    expect(github.postRetrigger).not.toHaveBeenCalled();
   });
 
   it('builds replacement diagnosis when item has original_source_comment_url', async () => {

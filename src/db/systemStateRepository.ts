@@ -8,6 +8,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { inject, injectable } from 'inversify';
 
 export enum StateKey {
+  gitHubRateLimitResetAt = 'github_rate_limit_reset_at',
   lastPollStartedAt = 'last_poll_started_at',
   lastPollCompletedAt = 'last_poll_completed_at',
   lastPollOutcome = 'last_poll_outcome',
@@ -21,6 +22,7 @@ export enum StateKey {
 type ValueColumn = 'value_text' | 'value_integer' | 'value_float' | 'value_datetime';
 
 const STATE_KEY_CONFIG: Record<StateKey, { column: ValueColumn }> = {
+  [StateKey.gitHubRateLimitResetAt]: { column: 'value_datetime' },
   [StateKey.lastPollStartedAt]: { column: 'value_datetime' },
   [StateKey.lastPollCompletedAt]: { column: 'value_datetime' },
   [StateKey.lastPollOutcome]: { column: 'value_text' },
@@ -43,6 +45,7 @@ interface SystemStateRow {
 }
 
 type StateKeyToType = {
+  [StateKey.gitHubRateLimitResetAt]: Date;
   [StateKey.lastPollStartedAt]: Date;
   [StateKey.lastPollCompletedAt]: Date;
   [StateKey.lastPollOutcome]: string;
@@ -163,6 +166,15 @@ export class SystemStateRepository extends BasePrismaRepository {
   async setLastSchedulerTickAt(ts: Date, tx: Prisma.TransactionClient | undefined): Promise<void> {
     await this.setState(StateKey.lastSchedulerTickAt, ts, tx);
     this.log.info({ fn: 'setLastSchedulerTickAt', ts }, 'Last scheduler tick updated');
+  }
+
+  // eslint-disable-next-line require-await
+  async getGitHubRateLimitResetAt(tx: Prisma.TransactionClient | undefined): Promise<Date | undefined> {
+    return this.getState(StateKey.gitHubRateLimitResetAt, tx);
+  }
+
+  async setGitHubRateLimitResetAt(until: Date, tx: Prisma.TransactionClient | undefined): Promise<void> {
+    await this.setState(StateKey.gitHubRateLimitResetAt, until, tx);
   }
 
   // eslint-disable-next-line require-await

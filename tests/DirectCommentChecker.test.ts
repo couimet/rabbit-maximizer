@@ -10,6 +10,7 @@ import {
   createMockCoderabbitCommentRepo,
   createMockCoderabbitGitHubClient,
   createMockEventRepo,
+  createMockGitHubRateLimitGate,
   createMockOnDetectedCallback,
   createMockProbeFactory,
   createMockPullRequestRepo,
@@ -44,6 +45,7 @@ describe('DirectCommentChecker', () => {
   let pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   let probeFactory: ReturnType<typeof createMockProbeFactory>;
   let logger: ReturnType<typeof createMockLogger>;
+  let rateLimitGate: ReturnType<typeof createMockGitHubRateLimitGate>;
   let checker: DirectCommentChecker;
 
   const runInContext = <T>(fn: () => Promise<T>): Promise<T> =>
@@ -57,6 +59,7 @@ describe('DirectCommentChecker', () => {
     coderabbitComments.findByCommentId.mockResolvedValue(undefined);
     events = createMockEventRepo();
     logger = createMockLogger();
+    rateLimitGate = createMockGitHubRateLimitGate();
     const probe = new DirectCommentCheckProbe(events, logger);
     probeFactory = createMockProbeFactory({ createDirectCommentCheckProbe: jest.fn().mockReturnValue(probe) });
     queue = createMockQueueRepo();
@@ -71,6 +74,7 @@ describe('DirectCommentChecker', () => {
       createCoderabbitCommentClassifier(),
       new DirectCheckCap(generateConfigData()),
       createCoderabbitMarkers(),
+      rateLimitGate,
     );
   });
 
@@ -613,6 +617,34 @@ describe('DirectCommentChecker', () => {
     expect(onDetected).toHaveBeenCalledTimes(1);
   });
 
+  it('stops the walk while the GitHub rate-limit window holds', async () => {
+    const ref = generateReviewRef();
+    rateLimitGate.isBlocked.mockReturnValue(true);
+
+    const candidates = await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: getUniqueInt(), prTitle: ref.prTitle }]);
+
+    expect(candidates).toStrictEqual([]);
+    expect(github.listComments).not.toHaveBeenCalled();
+    expect(logger.debug).toHaveBeenCalledWith(
+      { fn: 'DirectCommentCheckProbe.skippedRateLimit' },
+      'Skipping direct comment check; GitHub rate limit window active',
+    );
+  });
+
+  it('stops the walk when a comment fetch reports a rate limit', async () => {
+    const ref = generateReviewRef();
+    const rateLimitError = new Error('rate limit');
+    github.listComments.mockRejectedValue(rateLimitError);
+    rateLimitGate.recordError.mockResolvedValue(true);
+
+    const candidates = await checker.check([{ repoFullName: ref.repoFullName, prNumber: ref.prNumber, pullRequestId: getUniqueInt(), prTitle: ref.prTitle }]);
+
+    expect(candidates).toStrictEqual([]);
+    expect(rateLimitGate.recordError).toHaveBeenCalledWith(rateLimitError);
+    expect(onDetected).not.toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
+  });
+
   it('does nothing when input array is empty', async () => {
     const candidates = await checker.check([]);
 
@@ -689,6 +721,7 @@ describe('DirectCommentChecker', () => {
       createCoderabbitCommentClassifier(),
       new DirectCheckCap(generateConfigData({ MAX_DIRECT_CHECK_PRS: configuredCap })),
       createCoderabbitMarkers(),
+      rateLimitGate,
     );
 
     await cappedChecker.check(prs);

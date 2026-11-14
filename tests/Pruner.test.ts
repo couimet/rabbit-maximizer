@@ -2,6 +2,7 @@ import { RabbitMaximizerError } from '../src/errors/index.js';
 import { Pruner } from '../src/services.js';
 
 import {
+  createMockGitHubRateLimitGate,
   createMockProbeFactory,
   createMockPruneEvaluator,
   createMockPrunerProbe,
@@ -21,9 +22,11 @@ describe('Pruner', () => {
   let tx: Prisma.TransactionClient;
   let mockProbe: ReturnType<typeof createMockPrunerProbe>;
   let probeFactory: ReturnType<typeof createMockProbeFactory>;
+  let rateLimitGate: ReturnType<typeof createMockGitHubRateLimitGate>;
 
   beforeEach(() => {
     log = createMockLogger();
+    rateLimitGate = createMockGitHubRateLimitGate();
     queue = createMockQueueRepo();
     pruneEvaluator = createMockPruneEvaluator();
     tx = {} as Prisma.TransactionClient;
@@ -34,7 +37,7 @@ describe('Pruner', () => {
     probeFactory = createMockProbeFactory({ createPrunerProbe: jest.fn<any>().mockReturnValue(mockProbe) });
   });
 
-  const createPruner = () => new Pruner(queue, pruneEvaluator, probeFactory, prisma, log);
+  const createPruner = () => new Pruner(queue, pruneEvaluator, probeFactory, prisma, rateLimitGate, log);
 
   describe('prune', () => {
     it('evaluates active items and applies prune decisions in a transaction', async () => {
@@ -100,6 +103,34 @@ describe('Pruner', () => {
       expect(prisma.$transaction).toHaveBeenCalledTimes(2);
       expect(mockProbe.caughtError).toHaveBeenCalledTimes(1);
       expect(mockProbe.caughtError).toHaveBeenCalledWith(pruneError);
+    });
+
+    it('skips the whole pass while the GitHub rate-limit window holds', async () => {
+      rateLimitGate.isBlocked.mockReturnValue(true);
+      await createPruner().prune();
+      expect(mockProbe.skippedRateLimit).toHaveBeenCalled();
+      expect(queue.getActiveQueue).not.toHaveBeenCalled();
+      expect(pruneEvaluator.evaluate).not.toHaveBeenCalled();
+    });
+
+    it('stops the pass when evaluation reports a rate limit', async () => {
+      const rateLimitError = new Error('rate limit');
+      queue.getActiveQueue.mockResolvedValue([generateQueueItemHydrationData()]);
+      pruneEvaluator.evaluate.mockRejectedValue(rateLimitError);
+      rateLimitGate.recordError.mockResolvedValue(true);
+      await createPruner().prune();
+      expect(rateLimitGate.recordError).toHaveBeenCalledWith(rateLimitError);
+      expect(mockProbe.caughtError).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rethrows an evaluation failure that is not a rate limit', async () => {
+      const evaluateError = new Error('enrichment failure');
+      queue.getActiveQueue.mockResolvedValue([generateQueueItemHydrationData()]);
+      pruneEvaluator.evaluate.mockRejectedValue(evaluateError);
+      await expect(createPruner().prune()).rejects.toBe(evaluateError);
+      expect(rateLimitGate.recordError).toHaveBeenCalledWith(evaluateError);
+      expect(mockProbe.caughtError).not.toHaveBeenCalled();
     });
 
     it('throws for an unexpected prune outcome', async () => {

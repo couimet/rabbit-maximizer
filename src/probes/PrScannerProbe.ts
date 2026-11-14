@@ -11,6 +11,10 @@ export class PrScannerProbe {
     this.log.info({ fn: 'PrScannerProbe.scanStarted' }, 'PR scan started');
   }
 
+  skippedRateLimit(): void {
+    this.log.debug({ fn: 'PrScannerProbe.skippedRateLimit' }, 'Skipping scan; GitHub rate limit window active');
+  }
+
   discovered(opened: number, updated: number): void {
     this.log.info({ fn: 'PrScannerProbe.discovered', opened, updated }, 'PRs discovered from scan');
   }

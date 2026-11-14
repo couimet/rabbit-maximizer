@@ -1,6 +1,8 @@
 import type { QueueRepository } from './db/index.js';
 import { RabbitMaximizerError } from './errors/index.js';
+import type { GitHubRateLimitGate } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
+import type { EnrichedItem } from './types/index.js';
 import { Resolution } from './domain.js';
 import { TYPES } from './server-domain.js';
 import type { PruneEvaluator } from './services.js';
@@ -17,18 +19,31 @@ export class Pruner {
     @inject(TYPES.PruneEvaluator) private readonly pruneEvaluator: PruneEvaluator,
     @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
+    @inject(TYPES.GitHubRateLimitGate) private readonly rateLimitGate: GitHubRateLimitGate,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
 
   async prune(): Promise<void> {
     const probe = this.probeFactory.createPrunerProbe();
+    if (this.rateLimitGate.isBlocked()) {
+      probe.skippedRateLimit();
+      return;
+    }
     const active = await this.queue.getActiveQueue();
     if (active.length === 0) {
       probe.noItemsToPrune();
       return;
     }
-    const enriched = await this.pruneEvaluator.evaluate(active);
+    let enriched: EnrichedItem[];
+    try {
+      enriched = await this.pruneEvaluator.evaluate(active);
+    } catch (err: unknown) {
+      if (await this.rateLimitGate.recordError(err)) {
+        return;
+      }
+      throw err;
+    }
     if (enriched.length === 0) {
       probe.noItemsToPrune();
       return;

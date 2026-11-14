@@ -8,6 +8,7 @@ import type { QueueItem } from '../src/types/index.js';
 import {
   createMockCoderabbitGitHubClient,
   createMockEditDetector,
+  createMockGitHubRateLimitGate,
   createMockProbeFactory,
   createMockQueueRepo,
   createMockReviewDetectorProbe,
@@ -48,6 +49,7 @@ interface MockReviewDetectorDeps {
   probeFactory: ReturnType<typeof createMockProbeFactory>;
   probe: ReturnType<typeof createMockReviewDetectorProbe>;
   prisma: { $transaction: jest.Mock<any> };
+  rateLimitGate: ReturnType<typeof createMockGitHubRateLimitGate>;
   logger: Logger;
   config: { POLL_INTERVAL_SEC: number; REVIEW_DETECTION_LOOKBACK_SEC: number };
 }
@@ -70,9 +72,10 @@ const setup = (): MockReviewDetectorDeps => {
   const probe = createMockReviewDetectorProbe();
   const probeFactory = createMockProbeFactory({ createReviewDetectorProbe: jest.fn<any>().mockReturnValue(probe) });
   const prisma = { $transaction: jest.fn<any>() };
+  const rateLimitGate = createMockGitHubRateLimitGate();
   const logger = createMockLogger();
   const config = { POLL_INTERVAL_SEC: POLL_INTERVAL_SEC, REVIEW_DETECTION_LOOKBACK_SEC: LOOKBACK_SEC };
-  return { queue, pullRequests, github, editDetector, probeFactory, probe, prisma, logger, config };
+  return { queue, pullRequests, github, editDetector, probeFactory, probe, prisma, rateLimitGate, logger, config };
 };
 
 describe('ReviewDetector', () => {
@@ -90,6 +93,7 @@ describe('ReviewDetector', () => {
       deps.probeFactory as any,
       deps.prisma as unknown as PrismaClient,
       deps.config as any,
+      deps.rateLimitGate,
       deps.logger,
     );
 
@@ -488,6 +492,63 @@ describe('ReviewDetector', () => {
       expect(deps.probe.caughtError).toHaveBeenCalledWith(perItemError);
       expect(deps.probeFactory.createReviewDetectorProbe).toHaveBeenCalledTimes(1);
       expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops before the remote calls when the GitHub rate-limit window holds', async () => {
+      const item = makeRetriggeredItem();
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.rateLimitGate.isBlocked.mockReturnValue(true);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.probe.skippedRateLimit).toHaveBeenCalled();
+      expect(deps.editDetector.detectEdit).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('still resolves a merged PR locally while the GitHub rate-limit window holds', async () => {
+      const item = makeRetriggeredItem();
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.pullRequests.getColumnMaps.mockResolvedValue({
+        pr_state: new Map([[item.pull_request_id, PrState.merged]]),
+        last_coderabbit_review_at: new Map(),
+        head_sha: new Map(),
+        reviewed_head_sha: new Map(),
+      });
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+      deps.queue.markResolvedIfStillRetriggered.mockResolvedValue(true);
+      deps.rateLimitGate.isBlocked.mockReturnValue(true);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'pr_merged', {});
+      expect(deps.probe.prClosedResolved).toHaveBeenCalled();
+      expect(deps.probe.skippedRateLimit).not.toHaveBeenCalled();
+    });
+
+    it('stops the batch when a per-item call reports a rate limit', async () => {
+      const item1 = makeRetriggeredItem({ repo_full_name: 'org-a/repo-a', pr_number: 1 });
+      const item2 = makeRetriggeredItem({ repo_full_name: 'org-b/repo-b', pr_number: 2 });
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item1, item2]);
+
+      const rateLimitError = new Error('rate limit');
+      deps.github.findCompletedReview.mockRejectedValue(rateLimitError);
+      deps.rateLimitGate.recordError.mockResolvedValue(true);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.findCompletedReview).toHaveBeenCalledTimes(1);
+      expect(deps.rateLimitGate.recordError).toHaveBeenCalledWith(rateLimitError);
+      expect(deps.probe.caughtError).not.toHaveBeenCalled();
     });
   });
 

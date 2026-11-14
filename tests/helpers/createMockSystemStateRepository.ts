@@ -5,6 +5,10 @@ import { jest } from '@jest/globals';
 export const createMockSystemStateRepository = (overrides?: Partial<jest.Mocked<SystemStateRepository>>): jest.Mocked<SystemStateRepository> =>
   ({
     getDashboardSystemState: jest.fn<any>().mockResolvedValue({ paused: false, lastSchedulerTickAt: undefined, nextReviewAvailableAt: undefined }),
+    getState: jest.fn<any>(),
+    setState: jest.fn<any>(),
+    getGitHubRateLimitResetAt: jest.fn<any>(),
+    setGitHubRateLimitResetAt: jest.fn<any>(),
     isSchedulerPaused: jest.fn<any>().mockResolvedValue(false),
     pauseScheduler: jest.fn<any>(),
     resumeScheduler: jest.fn<any>(),

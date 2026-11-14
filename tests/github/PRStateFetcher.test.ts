@@ -43,5 +43,15 @@ describe('PRStateFetcher', () => {
         'Failed to fetch PR state',
       );
     });
+    it('rethrows a rate-limit error so the owning caller can close the shared window', async () => {
+      const ref = generateReviewRef();
+      const rateLimitError = { status: 403, response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1700000900' } } };
+      github.getPRState.mockRejectedValue(rateLimitError);
+
+      const fetcher = createFetcher();
+
+      await expect(fetcher.fetch(ref.repoFullName, ref.prNumber, 'testFn')).rejects.toStrictEqual(rateLimitError);
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
   });
 });

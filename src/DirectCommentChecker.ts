@@ -4,6 +4,7 @@ import {
   type CoderabbitCommentClassifier,
   type CoderabbitGitHubClient,
   type CoderabbitMarkers,
+  type GitHubRateLimitGate,
   hasOwnRetriggerMarker,
   parseWaitSeconds,
   REVIEW_BOT_LOGIN,
@@ -40,6 +41,8 @@ export class DirectCommentChecker {
     private readonly directCheckCap: DirectCheckCap,
     @inject(TYPES.CoderabbitMarkers)
     private readonly markers: CoderabbitMarkers,
+    @inject(TYPES.GitHubRateLimitGate)
+    private readonly rateLimitGate: GitHubRateLimitGate,
   ) {}
   /* c8 ignore stop */
 
@@ -64,6 +67,10 @@ export class DirectCommentChecker {
     }
 
     for (const pr of effectivePRs) {
+      if (this.rateLimitGate.isBlocked()) {
+        probe.skippedRateLimit();
+        return candidates;
+      }
       try {
         const { owner, repo } = splitRepo(pr.repoFullName);
         const comments = await this.github.listComments(owner, repo, pr.prNumber);
@@ -150,6 +157,9 @@ export class DirectCommentChecker {
         }
         probe.clearComment();
       } catch (err) {
+        if (await this.rateLimitGate.recordError(err)) {
+          return candidates;
+        }
         probe.prCheckFailed(pr.repoFullName, pr.prNumber, err);
       }
     }

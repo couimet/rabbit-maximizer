@@ -10,6 +10,7 @@ export { createMockDirectCommentChecker } from './createMockDirectCommentChecker
 export { createMockEditDetector } from './createMockEditDetector.js';
 export { createMockEventRepo } from './createMockEventRepo.js';
 export { createMockFetch } from './createMockFetch.js';
+export { createMockGitHubRateLimitGate } from './createMockGitHubRateLimitGate.js';
 export { createMockHeadDriftRecoverer } from './createMockHeadDriftRecoverer.js';
 export type {
   MockIssuesRest,

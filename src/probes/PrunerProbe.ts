@@ -23,6 +23,10 @@ export class PrunerProbe {
     this.log.info({ fn: 'PrunerProbe.noItemsToPrune' }, 'No items to prune');
   }
 
+  skippedRateLimit(): void {
+    this.log.debug({ fn: 'PrunerProbe.skippedRateLimit' }, 'Skipping prune; GitHub rate limit window active');
+  }
+
   async prMerged(tx: Prisma.TransactionClient): Promise<void> {
     await recordDismissalEvent({
       events: this.events,

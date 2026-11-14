@@ -15,6 +15,7 @@ export const TYPES = {
   EventEntryMapper: Symbol.for('EventEntryMapper'),
   EventRepository: Symbol.for('EventRepository'),
   ExclusionSweeper: Symbol.for('ExclusionSweeper'),
+  GitHubRateLimitGate: Symbol.for('GitHubRateLimitGate'),
   HeadDriftRecoverer: Symbol.for('HeadDriftRecoverer'),
   IgnoreRules: Symbol.for('IgnoreRules'),
   Logger: Symbol.for('Logger'),

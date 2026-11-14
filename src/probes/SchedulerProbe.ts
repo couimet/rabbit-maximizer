@@ -46,6 +46,9 @@ export class SchedulerProbe {
   tickSkippedCooldown(): void {
     this.log.debug({ fn: 'SchedulerProbe.tickSkippedCooldown' }, 'Tick skipped: review cooldown active');
   }
+  tickSkippedRateLimit(): void {
+    this.log.debug({ fn: 'SchedulerProbe.tickSkippedRateLimit' }, 'Tick skipped: GitHub rate limit window active');
+  }
   retriggerSkipped(item: QueueItem, reason: SkipReason): void {
     this.log.debug(
       { fn: 'SchedulerProbe.retriggerSkipped', repo: item.repo_full_name, pr: item.pr_number, queueId: item.id, reason },

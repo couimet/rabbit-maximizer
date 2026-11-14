@@ -1,5 +1,5 @@
 import { config } from '../src/config.js';
-import type { CoderabbitCommentClassifier, CoderabbitGitHubClient } from '../src/github/index.js';
+import { type CoderabbitCommentClassifier, type CoderabbitGitHubClient, GitHubRateLimitGate } from '../src/github/index.js';
 import { type DirectCommentChecker, PollDetector } from '../src/services.js';
 import type { DetectedComment, OnDetectedCallback } from '../src/types/index.js';
 
@@ -41,6 +41,7 @@ interface MockDetectorDeps {
   stalePrRecoverer: ReturnType<typeof createMockStalePrRecoverer>;
   systemStateRepo: ReturnType<typeof createMockSystemStateRepository>;
   coderabbitComments: ReturnType<typeof createMockCoderabbitCommentRepo>;
+  gate: GitHubRateLimitGate;
   logger: Logger;
 }
 
@@ -56,6 +57,7 @@ const setup = (): MockDetectorDeps => {
   const systemStateRepo = createMockSystemStateRepository();
   const coderabbitComments = createMockCoderabbitCommentRepo();
   const logger = createMockLogger();
+  const gate = new GitHubRateLimitGate(systemStateRepo, logger);
 
   return {
     directCommentChecker,
@@ -67,6 +69,7 @@ const setup = (): MockDetectorDeps => {
     stalePrRecoverer,
     systemStateRepo,
     coderabbitComments,
+    gate,
     logger,
   };
 };
@@ -98,6 +101,7 @@ describe('PollDetector', () => {
       deps.systemStateRepo,
       deps.coderabbitComments,
       classifier,
+      deps.gate,
       deps.logger,
     );
 
@@ -400,17 +404,19 @@ describe('PollDetector', () => {
       await drainMicrotasks(TICK_DEPTH);
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
-          fn: 'PollDetector.tick',
+          fn: 'GitHubRateLimitGate.recordError',
           kind: 'throttled',
           status: 429,
           retryAfterSec: 60,
+          blockedUntil: new Date(frozenNow.getTime() + 60 * MS_PER_SECOND),
           resetEpoch: undefined,
           resource: undefined,
           limit: undefined,
           remaining: 0,
           used: undefined,
+          error: rateLimitError,
         },
-        'GitHub API rate limit exhausted; backing off until reset',
+        'GitHub API rate limit exhausted; all services back off until reset',
       );
       expect(deps.logger.warn).toHaveBeenCalledTimes(1);
       expect(deps.github.findAcknowledgement).toHaveBeenCalledTimes(1);
@@ -445,17 +451,19 @@ describe('PollDetector', () => {
       expect(deps.systemStateRepo.setNextReviewAvailableAtIfLater).toHaveBeenCalledWith(expectedDate, undefined);
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
-          fn: 'PollDetector.tick',
+          fn: 'GitHubRateLimitGate.recordError',
           kind: 'throttled',
           status: 429,
           retryAfterSec: 60,
+          blockedUntil: new Date(frozenNow.getTime() + 60 * MS_PER_SECOND),
           resetEpoch: undefined,
           resource: undefined,
           limit: undefined,
           remaining: 0,
           used: undefined,
+          error: rateLimitError,
         },
-        'GitHub API rate limit exhausted; backing off until reset',
+        'GitHub API rate limit exhausted; all services back off until reset',
       );
     });
 
@@ -533,6 +541,58 @@ describe('PollDetector', () => {
     });
   });
 
+  describe('rate-limit gate between steps', () => {
+    const rateLimitError = { status: 429, response: { headers: { 'retry-after': String(SECONDARY_LIMIT_RETRY_AFTER_SEC) } } };
+
+    it('stops before the head-drift pass when the direct check closes the window', async () => {
+      deps.directCommentChecker.check.mockImplementation(async () => {
+        await deps.gate.recordError(rateLimitError);
+        return [];
+      });
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.headDriftRecoverer.recover).not.toHaveBeenCalled();
+      expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
+    });
+
+    it('stops before the broad search when the head-drift pass closes the window', async () => {
+      deps.headDriftRecoverer.recover.mockImplementation(async () => {
+        await deps.gate.recordError(rateLimitError);
+      });
+      deps.github.searchReviewLimitComments.mockResolvedValue([]);
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.headDriftRecoverer.recover).toHaveBeenCalledTimes(1);
+      expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
+    });
+
+    it('stops the comment walk when the previous fetch closes the window', async () => {
+      const firstComment = generateDetectedCommentHydrationData();
+      const secondComment = generateDetectedCommentHydrationData();
+      deps.github.searchReviewLimitComments.mockResolvedValue([firstComment, secondComment]);
+      deps.github.fetchComment.mockImplementation(async () => {
+        await deps.gate.recordError(rateLimitError);
+        return { body: 'rate limited by coderabbit.ai', createdAt: firstComment.createdAt, updatedAt: firstComment.updatedAt };
+      });
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.github.fetchComment).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('concurrency', () => {
     it('skips tick when another tick is already in-flight', async () => {
       let resolveSearch: (value: DetectedComment[]) => void;
@@ -587,17 +647,19 @@ describe('PollDetector', () => {
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
-          fn: 'PollDetector.tick',
+          fn: 'GitHubRateLimitGate.recordError',
           kind: 'quota-exhausted',
           status: 403,
           retryAfterSec: expectedRetryAfterSec,
+          blockedUntil: new Date(resetEpoch * MS_PER_SECOND),
           resetEpoch,
           resource,
           limit,
           remaining: 0,
           used,
+          error: rateLimitError,
         },
-        'GitHub API rate limit exhausted; backing off until reset',
+        'GitHub API rate limit exhausted; all services back off until reset',
       );
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
 
@@ -666,17 +728,19 @@ describe('PollDetector', () => {
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
-          fn: 'PollDetector.tick',
+          fn: 'GitHubRateLimitGate.recordError',
           kind: 'throttled',
           status: 403,
           retryAfterSec: SECONDARY_LIMIT_RETRY_AFTER_SEC,
+          blockedUntil: new Date(frozenNow.getTime() + SECONDARY_LIMIT_RETRY_AFTER_SEC * MS_PER_SECOND),
           resetEpoch: undefined,
           resource: undefined,
           limit: undefined,
           remaining: undefined,
           used: undefined,
+          error: rateLimitError,
         },
-        'GitHub API rate limit exhausted; backing off until reset',
+        'GitHub API rate limit exhausted; all services back off until reset',
       );
       expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
 
@@ -704,17 +768,19 @@ describe('PollDetector', () => {
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
-          fn: 'PollDetector.tick',
+          fn: 'GitHubRateLimitGate.recordError',
           kind: 'throttled',
           status: 403,
           retryAfterSec: 60,
+          blockedUntil: new Date(frozenNow.getTime() + 60 * MS_PER_SECOND),
           resetEpoch: undefined,
           resource: undefined,
           limit: undefined,
           remaining: undefined,
           used: undefined,
+          error: rateLimitError,
         },
-        'GitHub API rate limit exhausted; backing off until reset',
+        'GitHub API rate limit exhausted; all services back off until reset',
       );
       expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
 
@@ -736,17 +802,19 @@ describe('PollDetector', () => {
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
-          fn: 'PollDetector.tick',
+          fn: 'GitHubRateLimitGate.recordError',
           kind: 'throttled',
           status: 403,
           retryAfterSec: 60,
+          blockedUntil: new Date(frozenNow.getTime() + 60 * MS_PER_SECOND),
           resetEpoch: undefined,
           resource: undefined,
           limit: undefined,
           remaining: undefined,
           used: undefined,
+          error: rateLimitError,
         },
-        'GitHub API rate limit exhausted; backing off until reset',
+        'GitHub API rate limit exhausted; all services back off until reset',
       );
       expect(deps.github.searchReviewLimitComments).not.toHaveBeenCalled();
 
@@ -767,17 +835,19 @@ describe('PollDetector', () => {
 
       expect(deps.logger.warn).toHaveBeenCalledWith(
         {
-          fn: 'PollDetector.tick',
+          fn: 'GitHubRateLimitGate.recordError',
           kind: 'throttled',
           status: 429,
           retryAfterSec: 60,
+          blockedUntil: new Date(frozenNow.getTime() + 60 * MS_PER_SECOND),
           resetEpoch: undefined,
           resource: undefined,
           limit: undefined,
           remaining: 0,
           used: undefined,
+          error: rateLimitError,
         },
-        'GitHub API rate limit exhausted; backing off until reset',
+        'GitHub API rate limit exhausted; all services back off until reset',
       );
       expect(deps.github.searchReviewLimitComments).toHaveBeenCalledTimes(1);
 

@@ -1,5 +1,5 @@
 import { type PullRequestRepository, type SystemStateRepository } from './db/index.js';
-import { type CoderabbitGitHubClient, isPRClosedWithoutMerge, isPRMerged, splitRepo } from './github/index.js';
+import { type CoderabbitGitHubClient, type GitHubRateLimitGate, isPRClosedWithoutMerge, isPRMerged, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import type { ScannedPR, ScanResult } from './types/index.js';
 import { MS_PER_SECOND } from './utils/index.js';
@@ -24,6 +24,8 @@ export class PrScanner {
     private readonly systemState: SystemStateRepository,
     @inject(TYPES.Config)
     private readonly config: Config,
+    @inject(TYPES.GitHubRateLimitGate)
+    private readonly rateLimitGate: GitHubRateLimitGate,
     @inject(TYPES.Logger)
     private readonly log: Logger,
   ) {}
@@ -40,6 +42,11 @@ export class PrScanner {
     let scanResult: ScanResult = { opened: 0, updated: 0, scannedPRs: [] };
 
     probe.scanStarted();
+
+    if (this.rateLimitGate.isBlocked()) {
+      probe.skippedRateLimit();
+      return scanResult;
+    }
 
     try {
       const lastScanCompletedAt = await this.systemState.getLastScanCompletedAt(undefined);
@@ -91,6 +98,9 @@ export class PrScanner {
             updated++;
           }
         } catch (err: unknown) {
+          if (await this.rateLimitGate.recordError(err)) {
+            return scanResult;
+          }
           probe.caughtError(pr.repoFullName, pr.prNumber, err);
         }
       }
@@ -114,6 +124,9 @@ export class PrScanner {
               closed++;
             }
           } catch (err: unknown) {
+            if (await this.rateLimitGate.recordError(err)) {
+              return scanResult;
+            }
             probe.caughtError(dbPR.repo_full_name, dbPR.pr_number, err);
           }
         }
@@ -133,6 +146,9 @@ export class PrScanner {
 
       scanResult = { opened, updated, scannedPRs };
     } catch (err: unknown) {
+      if (await this.rateLimitGate.recordError(err)) {
+        return scanResult;
+      }
       probe.failed(err);
     }
 

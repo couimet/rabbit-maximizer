@@ -88,6 +88,18 @@ describe('ReviewRetriggerProbe', () => {
     );
   });
 
+  it('logs on rateLimitBlocked', () => {
+    const item = generateQueueItemHydrationData();
+
+    const probe = createProbe(item);
+    probe.rateLimitBlocked();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      loggingCtx(item)('ReviewRetriggerProbe.rateLimitBlocked'),
+      'GitHub rate limit window active; refusing to retrigger',
+    );
+  });
+
   it('logs on staleCommentSkipped', () => {
     const item = generateQueueItemHydrationData();
 

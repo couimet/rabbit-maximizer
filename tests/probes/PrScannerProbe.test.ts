@@ -31,6 +31,14 @@ describe('PrScannerProbe', () => {
     });
   });
 
+  describe('skippedRateLimit', () => {
+    it('logs debug when the GitHub rate-limit window holds', () => {
+      createProbe().skippedRateLimit();
+
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PrScannerProbe.skippedRateLimit' }, 'Skipping scan; GitHub rate limit window active');
+    });
+  });
+
   describe('discovered', () => {
     it('logs info with opened and updated counts', () => {
       const opened = getUniqueInt();

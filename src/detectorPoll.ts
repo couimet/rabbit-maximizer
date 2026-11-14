@@ -2,13 +2,13 @@ import { type CoderabbitCommentRepository, type PullRequestRepository, type Syst
 import {
   type CoderabbitCommentClassifier,
   type CoderabbitGitHubClient,
+  type GitHubRateLimitGate,
   hasOwnRetriggerMarker,
-  parseGitHubRateLimitError,
   parseWaitSeconds,
   splitRepo,
 } from './github/index.js';
 import type { OnDetectedCallback, TickGuardOutcome } from './types/index.js';
-import { mergeByPullRequestId, MS_PER_SECOND, secondaryLimitWaitSec } from './utils/index.js';
+import { mergeByPullRequestId, MS_PER_SECOND } from './utils/index.js';
 import { config } from './config.js';
 import { CodeRabbitCommentType, TickGuardReason } from './domain.js';
 import { IntervalService, TYPES } from './server-domain.js';
@@ -21,8 +21,6 @@ const POLL_INTERVAL_MS = config.POLL_INTERVAL_SEC * MS_PER_SECOND;
 
 @injectable()
 export class PollDetector extends IntervalService {
-  private rateLimitRetryAfter = 0;
-
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.CoderabbitGitHubClient)
@@ -45,6 +43,8 @@ export class PollDetector extends IntervalService {
     private readonly coderabbitComments: CoderabbitCommentRepository,
     @inject(TYPES.CoderabbitCommentClassifier)
     private readonly classifier: CoderabbitCommentClassifier,
+    @inject(TYPES.GitHubRateLimitGate)
+    private readonly rateLimitGate: GitHubRateLimitGate,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super('poll-detector', POLL_INTERVAL_MS, log);
@@ -65,9 +65,9 @@ export class PollDetector extends IntervalService {
       return base;
     }
 
-    const now = Date.now();
-    if (now < this.rateLimitRetryAfter) {
-      return { allowed: false, reason: TickGuardReason.rateLimit, retryAfterMs: this.rateLimitRetryAfter - now };
+    const retryAfterMs = this.rateLimitGate.retryAfterMs();
+    if (retryAfterMs !== undefined) {
+      return { allowed: false, reason: TickGuardReason.rateLimit, retryAfterMs };
     }
     return { allowed: true };
   }
@@ -85,47 +85,12 @@ export class PollDetector extends IntervalService {
       );
       return true;
     } catch (err: unknown) {
-      if (this.applyRateLimitBackoff(err, logCtx)) {
+      if (await this.rateLimitGate.recordError(err)) {
         return false;
       }
       this.log.warn({ ...logCtx, error: err }, 'Quota read failed; continuing');
       return true;
     }
-  }
-
-  /**
-   * Applies the polling backoff when the error reports a GitHub rate limit.
-   * Reports true for a rate limit, so the caller stops the tick before touching
-   * the GitHub API again. The guard holds the backoff, so later ticks stay
-   * suppressed until the wait elapses.
-   */
-  private applyRateLimitBackoff(err: unknown, logCtx: LoggingContext): boolean {
-    const rateLimit = parseGitHubRateLimitError(err);
-    if (!rateLimit) {
-      return false;
-    }
-
-    const retryAfterMs =
-      rateLimit.kind === 'quota-exhausted'
-        ? Math.max(0, rateLimit.resetEpoch * MS_PER_SECOND - Date.now())
-        : secondaryLimitWaitSec(rateLimit.retryAfterSec) * MS_PER_SECOND;
-
-    this.rateLimitRetryAfter = Date.now() + retryAfterMs;
-    this.log.warn(
-      {
-        ...logCtx,
-        kind: rateLimit.kind,
-        status: rateLimit.status,
-        retryAfterSec: Math.ceil(retryAfterMs / MS_PER_SECOND),
-        resetEpoch: rateLimit.kind === 'quota-exhausted' ? rateLimit.resetEpoch : undefined,
-        resource: rateLimit.resource,
-        limit: rateLimit.limit,
-        remaining: rateLimit.remaining,
-        used: rateLimit.used,
-      },
-      'GitHub API rate limit exhausted; backing off until reset',
-    );
-    return true;
   }
 
   protected async executeTick(): Promise<void> {
@@ -140,13 +105,23 @@ export class PollDetector extends IntervalService {
 
       const mergedPRs = mergeByPullRequestId(scannedPRs, stalePRs);
       const directCandidates = await this.directCommentChecker.check(mergedPRs);
+      if (this.rateLimitGate.isBlocked()) {
+        return;
+      }
+
       // Runs after the direct check so a pause enqueue from this tick already holds the PR.
       await this.headDriftRecoverer.recover(new Date(Date.now() - config.HEAD_DRIFT_GRACE_SEC * MS_PER_SECOND));
+      if (this.rateLimitGate.isBlocked()) {
+        return;
+      }
 
       const comments = await this.github.searchReviewLimitComments(config.REPO_FILTER);
       let earliestNextReview: Date | undefined;
 
       for (const c of comments) {
+        if (this.rateLimitGate.isBlocked()) {
+          return;
+        }
         const { owner, repo } = splitRepo(c.repoFullName);
         const { body } = await this.github.fetchComment(owner, repo, c.commentId);
 
@@ -210,7 +185,7 @@ export class PollDetector extends IntervalService {
             }
           } catch (err: unknown) {
             // A rate limit must still stop the whole tick, so the per-PR catch cannot swallow it.
-            if (this.applyRateLimitBackoff(err, logCtx)) {
+            if (await this.rateLimitGate.recordError(err)) {
               return;
             }
             this.log.warn(
@@ -223,7 +198,7 @@ export class PollDetector extends IntervalService {
         this.log.warn({ ...logCtx, error: err }, 'Acknowledgement query failed; continuing');
       }
     } catch (err: unknown) {
-      if (this.applyRateLimitBackoff(err, logCtx)) {
+      if (await this.rateLimitGate.recordError(err)) {
         return;
       }
 

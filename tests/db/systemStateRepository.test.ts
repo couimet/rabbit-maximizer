@@ -41,6 +41,29 @@ describe('SystemStateRepository', () => {
       expect(result!.getTime()).toBe(now.getTime());
     });
 
+    it('returns a Date for the GitHub rate-limit window (gitHubRateLimitResetAt)', async () => {
+      const now = getUniqueDate();
+      const row = {
+        state_key: 'github_rate_limit_reset_at',
+        value_text: null,
+        value_integer: null,
+        value_float: null,
+        value_datetime: now.toISOString(),
+        updated_at: now.toISOString(),
+      };
+
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { findUnique: createResolvedMock(row) },
+      });
+      const sut = new SystemStateRepository(prisma, logger);
+
+      const result = await sut.getState(StateKey.gitHubRateLimitResetAt, undefined);
+
+      expect(systemState.findUnique).toHaveBeenCalledWith({ where: { state_key: 'github_rate_limit_reset_at' } });
+      expect(result).toBeInstanceOf(Date);
+      expect(result!.getTime()).toBe(now.getTime());
+    });
+
     it('returns a string for text keys (lastPollOutcome)', async () => {
       const now = getUniqueDate();
       const row = {
@@ -153,6 +176,37 @@ describe('SystemStateRepository', () => {
           value_integer: null,
           value_float: null,
           value_datetime: null,
+          updated_at: expect.any(String),
+        },
+      });
+    });
+
+    it('upserts a new row for the GitHub rate-limit window', async () => {
+      const now = getUniqueDate();
+
+      const { prisma, systemState } = createMockPrismaClient({
+        systemState: { upsert: jest.fn<any>() },
+      });
+      const sut = new SystemStateRepository(prisma, logger);
+
+      await sut.setState(StateKey.gitHubRateLimitResetAt, now, undefined);
+
+      expect(systemState.upsert).toHaveBeenCalledWith({
+        where: { state_key: 'github_rate_limit_reset_at' },
+        create: {
+          state_key: 'github_rate_limit_reset_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
+          updated_at: expect.any(String),
+        },
+        update: {
+          state_key: 'github_rate_limit_reset_at',
+          value_text: null,
+          value_integer: null,
+          value_float: null,
+          value_datetime: now.toISOString(),
           updated_at: expect.any(String),
         },
       });
@@ -754,6 +808,31 @@ describe('SystemStateRepository', () => {
         lastSchedulerTickAt: undefined,
         nextReviewAvailableAt: undefined,
       });
+    });
+  });
+
+  describe('GitHub rate-limit window', () => {
+    it('reads the window under its own state key', async () => {
+      const { prisma } = createMockPrismaClient();
+      const sut = new SystemStateRepository(prisma, logger);
+      const stored = getUniqueDate();
+      const getStateSpy = jest.spyOn(sut, 'getState').mockResolvedValue(stored);
+
+      const result = await sut.getGitHubRateLimitResetAt(undefined);
+
+      expect(getStateSpy).toHaveBeenCalledWith('github_rate_limit_reset_at', undefined);
+      expect(result).toBe(stored);
+    });
+
+    it('writes the window under its own state key', async () => {
+      const { prisma } = createMockPrismaClient();
+      const sut = new SystemStateRepository(prisma, logger);
+      const until = getUniqueDate();
+      const setStateSpy = jest.spyOn(sut, 'setState').mockResolvedValue(undefined);
+
+      await sut.setGitHubRateLimitResetAt(until, undefined);
+
+      expect(setStateSpy).toHaveBeenCalledWith('github_rate_limit_reset_at', until, undefined);
     });
   });
 

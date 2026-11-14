@@ -1,6 +1,6 @@
 import type { PullRequestRepository, QueueRepository } from './db/index.js';
 import { RabbitMaximizerError } from './errors/index.js';
-import { type CoderabbitGitHubClient, splitRepo } from './github/index.js';
+import { type CoderabbitGitHubClient, type GitHubRateLimitGate, splitRepo } from './github/index.js';
 import type { ProbeFactory } from './probes/index.js';
 import { expectedHeadShaForSourceCommentType, MS_PER_SECOND, shouldReopenStaleRetriggered } from './utils/index.js';
 import type { Config } from './config.js';
@@ -25,6 +25,7 @@ export class ReviewDetector extends IntervalService {
     @inject(TYPES.ProbeFactory) private readonly probeFactory: ProbeFactory,
     @inject(TYPES.PrismaClient) private readonly prisma: PrismaClient,
     @inject(TYPES.Config) cfg: Config,
+    @inject(TYPES.GitHubRateLimitGate) private readonly rateLimitGate: GitHubRateLimitGate,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super('review-detector', cfg.POLL_INTERVAL_SEC * MS_PER_SECOND, log);
@@ -68,6 +69,12 @@ export class ReviewDetector extends IntervalService {
           }
           probe.prClosedResolved(prState);
           continue;
+        }
+
+        // The local resolution above needs no remote call, so the gate check sits after it.
+        if (this.rateLimitGate.isBlocked()) {
+          probe.skippedRateLimit();
+          return;
         }
 
         const result = await this.editDetector.detectEdit(item);
@@ -215,6 +222,9 @@ export class ReviewDetector extends IntervalService {
           continue;
         }
       } catch (err: unknown) {
+        if (await this.rateLimitGate.recordError(err)) {
+          return;
+        }
         probe.caughtError(err);
       }
     }

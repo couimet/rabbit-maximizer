@@ -8,6 +8,7 @@ import type { PRState, QueueItem } from '../src/types/index.js';
 import { MS_PER_SECOND } from '../src/utils/index.js';
 
 import {
+  createMockGitHubRateLimitGate,
   createMockProbeFactory,
   createMockPRStateFetcher,
   createMockPruner,
@@ -59,6 +60,7 @@ interface MockSchedulerDeps {
   systemState: ReturnType<typeof createMockSystemStateRepository>;
   pullRequests: ReturnType<typeof createMockPullRequestRepo>;
   prStateFetcher: ReturnType<typeof createMockPRStateFetcher>;
+  rateLimitGate: ReturnType<typeof createMockGitHubRateLimitGate>;
 }
 
 const setup = (): MockSchedulerDeps => {
@@ -85,9 +87,26 @@ const setup = (): MockSchedulerDeps => {
 
   const prStateFetcher = createMockPRStateFetcher();
 
+  const rateLimitGate = createMockGitHubRateLimitGate();
+
   const config = generateConfigData({ SCHEDULER_TICK_INTERVAL_SEC: TICK_INTERVAL_MS / MS_PER_SECOND });
 
-  return { config, queueOrder, queue, prisma, tx, logger, pruner, reviewTrigger, probeFactory, mockProbe, systemState, pullRequests, prStateFetcher };
+  return {
+    config,
+    queueOrder,
+    queue,
+    prisma,
+    tx,
+    logger,
+    pruner,
+    reviewTrigger,
+    probeFactory,
+    mockProbe,
+    systemState,
+    pullRequests,
+    prStateFetcher,
+    rateLimitGate,
+  };
 };
 
 describe('Scheduler', () => {
@@ -113,6 +132,7 @@ describe('Scheduler', () => {
       deps.pullRequests,
       deps.systemState,
       deps.prStateFetcher,
+      deps.rateLimitGate,
       deps.logger,
     );
 
@@ -490,6 +510,45 @@ describe('Scheduler', () => {
       await awaitTick(scheduler);
 
       expect(deps.reviewTrigger.trigger).toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('skips the item selection while the GitHub rate-limit window holds', async () => {
+      const item = pendingItem();
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.rateLimitGate.isBlocked.mockReturnValue(true);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.mockProbe.tickSkippedRateLimit).toHaveBeenCalled();
+      expect(deps.queueOrder.getEffectiveOrder).not.toHaveBeenCalled();
+      expect(deps.reviewTrigger.trigger).not.toHaveBeenCalled();
+      expect(deps.systemState.setLastSchedulerTickAt).toHaveBeenCalledWith(frozenNow, undefined);
+
+      await stop();
+    });
+
+    it('does not back off the item when a trigger reports a rate limit', async () => {
+      const item = pendingItem();
+      const rateLimitError = new Error('rate limit');
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockRejectedValue(rateLimitError);
+      deps.rateLimitGate.recordError.mockResolvedValue(true);
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.rateLimitGate.recordError).toHaveBeenCalledWith(rateLimitError);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+      expect(deps.queue.markResolved).not.toHaveBeenCalled();
+      expect(deps.mockProbe.triggerFailed).not.toHaveBeenCalled();
+      expect(deps.mockProbe.tickFailed).not.toHaveBeenCalled();
 
       await stop();
     });

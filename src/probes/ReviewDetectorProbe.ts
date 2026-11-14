@@ -151,6 +151,13 @@ export class ReviewDetectorProbe {
     );
   }
 
+  skippedRateLimit(): void {
+    this.log.debug(
+      { fn: 'ReviewDetectorProbe.skippedRateLimit', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id },
+      'Skipping review detection; GitHub rate limit window active',
+    );
+  }
+
   skippedResolved(): void {
     this.log.info(
       { fn: 'ReviewDetectorProbe.skippedResolved', repo: this.item!.repo_full_name, pr: this.item!.pr_number, queueId: this.item!.id },

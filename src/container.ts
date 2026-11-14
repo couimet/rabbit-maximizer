@@ -8,7 +8,7 @@ import {
   SystemStateRepository,
 } from './db/index.js';
 import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/index.js';
-import { CoderabbitCommentClassifier, CoderabbitGitHubClient, CoderabbitMarkers, PRStateFetcher } from './github/index.js';
+import { CoderabbitCommentClassifier, CoderabbitGitHubClient, CoderabbitMarkers, GitHubRateLimitGate, PRStateFetcher } from './github/index.js';
 import {
   EventCountsMapper,
   EventEntryMapper,
@@ -75,6 +75,8 @@ container.bind<IgnoreRules>(TYPES.IgnoreRules).to(IgnoreRules).inSingletonScope(
 container.bind<CoderabbitCommentClassifier>(TYPES.CoderabbitCommentClassifier).to(CoderabbitCommentClassifier).inSingletonScope();
 
 container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClient).inSingletonScope();
+
+container.bind<GitHubRateLimitGate>(TYPES.GitHubRateLimitGate).to(GitHubRateLimitGate).inSingletonScope();
 
 container.bind<ReviewDetector>(TYPES.ReviewDetector).to(ReviewDetector).inSingletonScope();
 

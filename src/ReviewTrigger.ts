@@ -5,6 +5,7 @@ import {
   type CoderabbitCommentClassifier,
   type CoderabbitGitHubClient,
   type CoderabbitMarkers,
+  type GitHubRateLimitGate,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,
   parseWaitSeconds,
@@ -51,6 +52,8 @@ export class ReviewTrigger {
     private readonly classifier: CoderabbitCommentClassifier,
     @inject(TYPES.CoderabbitMarkers)
     private readonly markers: CoderabbitMarkers,
+    @inject(TYPES.GitHubRateLimitGate)
+    private readonly rateLimitGate: GitHubRateLimitGate,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {
     this.postCooldownMs = cfg.CODERABBIT_ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
@@ -60,6 +63,17 @@ export class ReviewTrigger {
   /* c8 ignore stop */
 
   async trigger(item: QueueItem, triggerSource: TriggerSource): Promise<RabbitResult<TriggerDetails>> {
+    try {
+      return await this.triggerItem(item, triggerSource);
+    } catch (err: unknown) {
+      // Every GitHub call of a retrigger passes through here, so a manual retrigger
+      // that meets the window closes the gate for every service.
+      await this.rateLimitGate.recordError(err);
+      throw err;
+    }
+  }
+
+  private async triggerItem(item: QueueItem, triggerSource: TriggerSource): Promise<RabbitResult<TriggerDetails>> {
     if (item.status !== QueueStatus.pending) {
       this.log.warn({ fn: 'ReviewTrigger.trigger', queueId: item.id, status: item.status }, 'Item not pending; refusing to trigger');
       return RabbitResult.err(
@@ -92,6 +106,18 @@ export class ReviewTrigger {
           }),
         );
       }
+    }
+
+    if (this.rateLimitGate.isBlocked()) {
+      probe.rateLimitBlocked();
+      return RabbitResult.err(
+        new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.RETRIGGER_RATE_LIMIT_BLOCKED,
+          message: 'GitHub rate limit window is active',
+          functionName: 'ReviewTrigger.trigger',
+          details: { blockedUntil: new Date(Date.now() + (this.rateLimitGate.retryAfterMs() ?? 0)).toISOString() },
+        }),
+      );
     }
 
     let storedBody: string;

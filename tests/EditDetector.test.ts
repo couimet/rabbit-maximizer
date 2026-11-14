@@ -353,6 +353,28 @@ describe('EditDetector', () => {
     });
   });
 
+  it('rethrows a rate-limit error so the owning caller can close the shared window', async () => {
+    const comments = createMockCoderabbitCommentRepo();
+    const github = createMockCoderabbitGitHubClient();
+    const ref = generateReviewRef();
+    const commentId = getUniqueInt();
+    const item = generateQueueItemHydrationData({ source_comment_id: commentId, repo_full_name: ref.repoFullName });
+    const lastSeenAt = getUniqueDate();
+
+    comments.findByCommentId.mockResolvedValue({
+      comment_id: commentId,
+      gh_updated_at: new Date(lastSeenAt.getTime() + ONE_MINUTE_MS),
+      last_seen_at: lastSeenAt,
+      is_not_deleted: true,
+    } as any);
+    const rateLimitError = { status: 403, response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': '1700000900' } } };
+    github.fetchComment.mockRejectedValue(rateLimitError);
+
+    const detector = new EditDetector(comments, github, classifier);
+
+    await expect(detector.detectEdit(item)).rejects.toStrictEqual(rateLimitError);
+  });
+
   it('returns adopted when re-edited skip comment carries a new run id', async () => {
     const comments = createMockCoderabbitCommentRepo();
     const github = createMockCoderabbitGitHubClient();

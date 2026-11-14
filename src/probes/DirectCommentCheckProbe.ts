@@ -59,6 +59,10 @@ export class DirectCommentCheckProbe {
     );
   }
 
+  skippedRateLimit(): void {
+    this.log.debug({ fn: 'DirectCommentCheckProbe.skippedRateLimit' }, 'Skipping direct comment check; GitHub rate limit window active');
+  }
+
   prCheckFailed(repoFullName: string, prNumber: number, error: unknown): void {
     this.log.warn({ fn: 'DirectCommentCheckProbe.prCheckFailed', repoFullName, prNumber, error }, 'Failed to direct-check PR comments; continuing');
   }

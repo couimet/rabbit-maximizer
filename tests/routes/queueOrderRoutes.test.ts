@@ -30,6 +30,9 @@ import express from 'express';
 import { StatusCodes } from 'http-status-codes';
 import type { Server } from 'node:http';
 
+const RATE_LIMIT_RETRY_AFTER_SEC = 90;
+const RATE_LIMIT_RETRY_AFTER_MS = RATE_LIMIT_RETRY_AFTER_SEC * 1000;
+
 describe('queueOrderRoutes', () => {
   let server: Server;
   let logger: ReturnType<typeof createMockLogger>;
@@ -347,6 +350,30 @@ describe('queueOrderRoutes', () => {
       const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
       expect(res.status).toBe(StatusCodes.CONFLICT);
       expect(await res.json()).toStrictEqual({ error: 'Failed to retrigger now' });
+      expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: uuidA, error: triggerErr.error }, 'Failed to retrigger now');
+    });
+
+    it('returns 429 with a Retry-After header while the GitHub rate-limit window holds', async () => {
+      const blockedUntil = new Date(Date.now() + RATE_LIMIT_RETRY_AFTER_MS);
+      const triggerErr = RabbitResult.err(
+        new RabbitMaximizerError({
+          code: RabbitMaximizerErrorCodes.RETRIGGER_RATE_LIMIT_BLOCKED,
+          message: 'GitHub rate limit window is active',
+          functionName: 'ReviewTrigger.trigger',
+          details: { blockedUntil: blockedUntil.toISOString() },
+        }),
+      );
+      startServer(
+        { getEffectiveOrder: jest.fn<any>().mockResolvedValue([{ ...generateQueueItemHydrationData({ uuid: uuidA }), status: 'pending' }]) },
+        {},
+        triggerErr,
+      );
+
+      const res = await fetch(`http://[::1]:${port}/api/queue/${uuidA}/retrigger-now`, { method: 'POST' });
+
+      expect(res.status).toBe(StatusCodes.TOO_MANY_REQUESTS);
+      expect(res.headers.get('retry-after')).toBe(String(RATE_LIMIT_RETRY_AFTER_SEC));
+      expect(await res.json()).toStrictEqual({ error: `GitHub rate limit window is active until ${blockedUntil.toISOString()}` });
       expect(logger.warn).toHaveBeenCalledWith({ fn: 'api.queueOrder.retriggerNow', uuid: uuidA, error: triggerErr.error }, 'Failed to retrigger now');
     });
 

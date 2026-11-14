@@ -15,6 +15,13 @@ export class ReviewRetriggerProbe {
     private readonly log: Logger,
   ) {}
 
+  rateLimitBlocked(): void {
+    this.log.warn(
+      { fn: 'ReviewRetriggerProbe.rateLimitBlocked', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id },
+      'GitHub rate limit window active; refusing to retrigger',
+    );
+  }
+
   staleCommentSkipped(): void {
     this.log.warn(
       { fn: 'ReviewRetriggerProbe.staleCommentSkipped', repo: this.item.repo_full_name, pr: this.item.pr_number, queueId: this.item.id },

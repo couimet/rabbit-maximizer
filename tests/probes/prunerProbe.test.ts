@@ -30,6 +30,14 @@ describe('PrunerProbe', () => {
     });
   });
 
+  describe('skippedRateLimit', () => {
+    it('logs debug when the GitHub rate-limit window holds', () => {
+      const probe = createProbe();
+      probe.skippedRateLimit();
+      expect(logger.debug).toHaveBeenCalledWith({ fn: 'PrunerProbe.skippedRateLimit' }, 'Skipping prune; GitHub rate limit window active');
+    });
+  });
+
   describe('prMerged', () => {
     it('records dismissed event and logs', async () => {
       const ref = generateReviewRef();

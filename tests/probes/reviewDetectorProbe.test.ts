@@ -32,6 +32,22 @@ describe('ReviewDetectorProbe', () => {
     });
   });
 
+  describe('skippedRateLimit', () => {
+    it('logs debug with the item context when the GitHub rate-limit window holds', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const probe = createProbe();
+      probe.withItem(item);
+
+      probe.skippedRateLimit();
+
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'ReviewDetectorProbe.skippedRateLimit', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id },
+        'Skipping review detection; GitHub rate limit window active',
+      );
+    });
+  });
+
   describe('noCompletedReviewFound', () => {
     it('logs debug when no completed review is found', () => {
       const ref = generateReviewRef();

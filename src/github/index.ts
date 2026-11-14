@@ -22,6 +22,7 @@ export {
 export { CoderabbitGitHubClient } from './coderabbitGitHubClient.js';
 export { CoderabbitMarkers } from './CoderabbitMarkers.js';
 export { extractRepoFullName } from './extractRepoFullName.js';
+export { GitHubRateLimitGate } from './GitHubRateLimitGate.js';
 export { hasOwnRetriggerMarker } from './hasOwnRetriggerMarker.js';
 export { hasRateLimitMarker } from './hasRateLimitMarker.js';
 export { hasRateLimitOrSkipMarker } from './hasRateLimitOrSkipMarker.js';

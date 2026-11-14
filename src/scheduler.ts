@@ -1,6 +1,6 @@
 import { type PullRequestRepository, type QueueOrderRepository, type QueueRepository, type SystemStateRepository } from './db/index.js';
 import { RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from './errors/index.js';
-import { isPRClosedWithoutMerge, isPRMerged, type PRStateFetcher } from './github/index.js';
+import { type GitHubRateLimitGate, isPRClosedWithoutMerge, isPRMerged, type PRStateFetcher } from './github/index.js';
 import type { ProbeFactory, SchedulerProbe } from './probes/index.js';
 import type { QueueItem } from './types/index.js';
 import { computeSchedulerBackoff, isTerminalHttpStatus, MS_PER_SECOND } from './utils/index.js';
@@ -45,6 +45,8 @@ export class Scheduler extends IntervalService {
     private readonly systemState: SystemStateRepository,
     @inject(TYPES.PRStateFetcher)
     private readonly prStateFetcher: PRStateFetcher,
+    @inject(TYPES.GitHubRateLimitGate)
+    private readonly rateLimitGate: GitHubRateLimitGate,
     @inject(TYPES.Logger) log: Logger,
   ) {
     super('scheduler', cfg.SCHEDULER_TICK_INTERVAL_SEC * MS_PER_SECOND, log);
@@ -100,6 +102,11 @@ export class Scheduler extends IntervalService {
       const nextReviewAvailableAt = await this.systemState.getNextReviewAvailableAt(undefined);
       if (nextReviewAvailableAt !== undefined && nextReviewAvailableAt.getTime() > Date.now()) {
         probe.tickSkippedCooldown();
+        return;
+      }
+
+      if (this.rateLimitGate.isBlocked()) {
+        probe.tickSkippedRateLimit();
         return;
       }
 
@@ -167,6 +174,11 @@ export class Scheduler extends IntervalService {
         });
       }
     } catch (err: unknown) {
+      // A rate limit holds the whole account, so it must never become an item backoff.
+      if (await this.rateLimitGate.recordError(err)) {
+        return;
+      }
+
       if (!item) {
         probe.tickFailed(err);
         return;

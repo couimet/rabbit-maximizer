@@ -2,6 +2,7 @@ import { TYPES } from '../server-domain.js';
 import type { PRState } from '../types/index.js';
 
 import type { CoderabbitGitHubClient } from './index.js';
+import { parseGitHubRateLimitError } from './parseGitHubRateLimitError.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { inject, injectable } from 'inversify';
@@ -20,6 +21,10 @@ export class PRStateFetcher {
     try {
       return await this.github.getPRState(repo, pr);
     } catch (err: unknown) {
+      // A rate limit must reach the caller, which owns the shared gate and the tick.
+      if (parseGitHubRateLimitError(err) !== undefined) {
+        throw err;
+      }
       this.log.warn({ fn: `${fn}::PRStateFetcher.fetch`, repo, pr, error: err }, 'Failed to fetch PR state');
       return undefined;
     }

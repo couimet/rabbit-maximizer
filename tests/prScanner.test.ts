@@ -7,6 +7,7 @@ import type { DiscoveredPR } from '../src/types/index.js';
 
 import {
   createMockCoderabbitGitHubClient,
+  createMockGitHubRateLimitGate,
   createMockProbeFactory,
   createMockPrScannerProbe,
   createMockPullRequestRepo,
@@ -31,12 +32,14 @@ describe('PrScanner', () => {
   let config: Config;
   let log: Logger;
   let prScannerProbe: MockPrScannerProbe;
+  let rateLimitGate: ReturnType<typeof createMockGitHubRateLimitGate>;
 
   beforeEach(() => {
     github = createMockCoderabbitGitHubClient();
     pullRequests = createMockPullRequestRepo();
     systemState = createMockSystemStateRepository();
     prScannerProbe = createMockPrScannerProbe();
+    rateLimitGate = createMockGitHubRateLimitGate();
     probeFactory = createMockProbeFactory({
       createPrScannerProbe: jest.fn(() => prScannerProbe),
     });
@@ -47,7 +50,7 @@ describe('PrScanner', () => {
     log = createMockLogger();
   });
 
-  const createScanner = () => new PrScanner(github, pullRequests, probeFactory, systemState, config, log);
+  const createScanner = () => new PrScanner(github, pullRequests, probeFactory, systemState, config, rateLimitGate, log);
 
   it('discovers PRs and calls upsert with prState:open and head data for each', async () => {
     const ref1 = generateReviewRef();
@@ -286,6 +289,68 @@ describe('PrScanner', () => {
     expect(prScannerProbe.failed).toHaveBeenCalledWith(scanError);
     expect(prScannerProbe.failedToPersistScanStartedAt).toHaveBeenCalledWith(setStateError);
     expect(prScannerProbe.failedToPersistScanCompletedAt).not.toHaveBeenCalled();
+  });
+
+  it('skips the scan while the GitHub rate-limit window holds', async () => {
+    rateLimitGate.isBlocked.mockReturnValue(true);
+
+    const scanner = createScanner();
+    const result = await scanner.scan();
+
+    expect(result).toStrictEqual({ opened: 0, updated: 0, scannedPRs: [] });
+    expect(prScannerProbe.skippedRateLimit).toHaveBeenCalled();
+    expect(github.listOpenPRs).not.toHaveBeenCalled();
+    expect(systemState.setLastScanStartedAt).not.toHaveBeenCalled();
+  });
+
+  it('stops the scan when a per-PR GitHub call reports a rate limit', async () => {
+    const ref = generateReviewRef();
+    const { prTitle, authorLogin } = getUniqueStringsNamed(['prTitle', 'authorLogin']);
+    const pr: DiscoveredPR = { repoFullName: ref.repoFullName, prNumber: ref.prNumber, prTitle, authorLogin };
+    const rateLimitError = new Error('rate limit');
+
+    github.listOpenPRs.mockResolvedValue([pr]);
+    github.getPRHeadSha.mockRejectedValue(rateLimitError);
+    rateLimitGate.recordError.mockResolvedValue(true);
+
+    const scanner = createScanner();
+    const result = await scanner.scan();
+
+    expect(result).toStrictEqual({ opened: 0, updated: 0, scannedPRs: [] });
+    expect(rateLimitGate.recordError).toHaveBeenCalledWith(rateLimitError);
+    expect(prScannerProbe.caughtError).not.toHaveBeenCalled();
+    expect(prScannerProbe.completed).not.toHaveBeenCalled();
+  });
+
+  it('stops the scan when a closure check reports a rate limit', async () => {
+    const ref = generateReviewRef();
+    const dbPR = { id: getUniqueInt(), repo_full_name: ref.repoFullName, pr_number: ref.prNumber };
+    const rateLimitError = new Error('rate limit');
+
+    github.listOpenPRs.mockResolvedValue([]);
+    pullRequests.findByPrState.mockResolvedValue([dbPR]);
+    github.getPRState.mockRejectedValue(rateLimitError);
+    rateLimitGate.recordError.mockResolvedValue(true);
+
+    const scanner = createScanner();
+    const result = await scanner.scan();
+
+    expect(result).toStrictEqual({ opened: 0, updated: 0, scannedPRs: [] });
+    expect(rateLimitGate.recordError).toHaveBeenCalledWith(rateLimitError);
+    expect(prScannerProbe.caughtError).not.toHaveBeenCalled();
+  });
+
+  it('stops the scan when the discovery call reports a rate limit', async () => {
+    const rateLimitError = new Error('rate limit');
+    github.listOpenPRs.mockRejectedValue(rateLimitError);
+    rateLimitGate.recordError.mockResolvedValue(true);
+
+    const scanner = createScanner();
+    const result = await scanner.scan();
+
+    expect(result).toStrictEqual({ opened: 0, updated: 0, scannedPRs: [] });
+    expect(rateLimitGate.recordError).toHaveBeenCalledWith(rateLimitError);
+    expect(prScannerProbe.failed).not.toHaveBeenCalled();
   });
 
   it('sets lastScanStartedAt but not lastScanCompletedAt when scan fails', async () => {
