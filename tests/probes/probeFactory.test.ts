@@ -5,6 +5,7 @@ import {
   DirectCommentCheckProbe,
   EnqueueProbe,
   ExclusionSweeperProbe,
+  HeadDriftProbe,
   MarkQueueItemReviewedProbe,
   ProbeFactory,
   PrScannerProbe,
@@ -15,10 +16,10 @@ import {
   SchedulerProbe,
 } from '../../src/probes/index.js';
 import { TYPES } from '../../src/server-domain.js';
-import type { QueueItem } from '../../src/types/index.js';
+import type { QueueItem, UnreviewedHeadPR } from '../../src/types/index.js';
 import { createMockEventRepo, createMockPrismaClient, generateReviewRef } from '../helpers/index.js';
 
-import { getUniqueDate, getUniqueInt, getUuid } from '@couimet/dynamic-testing';
+import { getUniqueDate, getUniqueInt, getUniqueString, getUuid } from '@couimet/dynamic-testing';
 import type { Logger } from '@couimet/logger-contract';
 import { createMockLogger } from '@couimet/logger-contract-testing';
 import { describe, expect, it } from '@jest/globals';
@@ -155,6 +156,36 @@ describe('ProbeFactory', () => {
 
     probe.completed(5, 2);
     expect(logger.info).toHaveBeenCalledWith({ fn: 'ExclusionSweeperProbe.completed', checked: 5, excluded: 2 }, 'Ignore-rule sweep completed');
+  });
+
+  it('creates a HeadDriftProbe wired to the factory logger', () => {
+    const { eventRepository, logger } = makeMocks();
+    const factory = new ProbeFactory(eventRepository, logger);
+    const probe = factory.createHeadDriftProbe();
+    expect(probe).toBeInstanceOf(HeadDriftProbe);
+
+    const candidate: UnreviewedHeadPR = {
+      id: getUniqueInt(),
+      repoFullName: 'org/repo',
+      prNumber: 7,
+      title: getUniqueString(),
+      authorLogin: getUniqueString(),
+      headSha: getUniqueString({ prefix: 'head-' }),
+      headCommittedAt: getUniqueDate(),
+      reviewedHeadSha: getUniqueString({ prefix: 'reviewed-' }),
+    };
+    probe.withCandidate(candidate);
+    probe.headDriftFound();
+    expect(logger.info).toHaveBeenCalledWith(
+      {
+        fn: 'HeadDriftProbe.headDriftFound',
+        repo: 'org/repo',
+        pr: 7,
+        headSha: candidate.headSha,
+        reviewedHeadSha: candidate.reviewedHeadSha,
+      },
+      'No completed review covers the head; enqueuing a pending item',
+    );
   });
 
   describe('container binding', () => {

@@ -86,6 +86,23 @@ describe('SchedulerProbe', () => {
     });
   });
 
+  describe('headAlreadyReviewed', () => {
+    it('logs info with the item context and the reviewed head sha', () => {
+      const ref = generateReviewRef();
+      const item = generateQueueItemHydrationData({ repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const reviewedHeadSha = getUniqueString({ prefix: 'sha-' });
+      const probe = createProbe();
+      probe.withItem(item);
+
+      probe.headAlreadyReviewed(reviewedHeadSha);
+
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'SchedulerProbe.headAlreadyReviewed', repo: ref.repoFullName, pr: ref.prNumber, queueId: item.id, reviewedHeadSha },
+        'A recorded review covers the PR head; resolved the queue item',
+      );
+    });
+  });
+
   describe('noItemsDue', () => {
     it('logs debug', () => {
       const probe = createProbe();

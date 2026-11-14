@@ -1,8 +1,6 @@
 import { CodeRabbitCommentType } from '../domain.js';
 import { BasePrismaRepository, PrismaUniqueConstraintViolationError } from '../external-deps/couimet/prisma-repo/index.js';
-import { BODY_PREVIEW_MAX_LENGTH } from '../schemas/index.js';
 import { TYPES } from '../server-domain.js';
-import { truncateBodyPreview } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { type CoderabbitComment, Prisma, type PrismaClient } from '@prisma/client';
@@ -16,6 +14,8 @@ export interface UpsertCommentData {
   readonly url: string;
   readonly comment_type: CodeRabbitCommentType;
   readonly body: string | null;
+  readonly matched_phrase: string | undefined;
+  readonly matched_offset: number | undefined;
   readonly gh_created_at: Date;
   readonly gh_updated_at: Date;
   readonly coderabbit_run_id: string | null;
@@ -33,7 +33,6 @@ export class CoderabbitCommentRepository extends BasePrismaRepository {
   async upsert(data: UpsertCommentData, tx?: Prisma.TransactionClient): Promise<CoderabbitComment> {
     return this.enforceTx(tx, async (db) => {
       const now = new Date();
-      const lastBodyPreviewForSql: string | null = truncateBodyPreview(data.body, BODY_PREVIEW_MAX_LENGTH) ?? null;
 
       const existing = await db.coderabbitComment.findFirst({
         where: { comment_id: data.comment_id },
@@ -48,7 +47,9 @@ export class CoderabbitCommentRepository extends BasePrismaRepository {
               data: {
                 url: data.url,
                 comment_type: data.comment_type,
-                last_body_preview: lastBodyPreviewForSql,
+                last_body: data.body,
+                last_matched_phrase: data.matched_phrase ?? null,
+                last_matched_offset: data.matched_offset ?? null,
                 coderabbit_run_id: data.coderabbit_run_id,
                 gh_updated_at: data.gh_updated_at,
                 last_seen_at: now,
@@ -71,7 +72,9 @@ export class CoderabbitCommentRepository extends BasePrismaRepository {
                 pull_request_id: data.pull_request_id,
                 url: data.url,
                 comment_type: data.comment_type,
-                last_body_preview: lastBodyPreviewForSql,
+                last_body: data.body,
+                last_matched_phrase: data.matched_phrase ?? null,
+                last_matched_offset: data.matched_offset ?? null,
                 coderabbit_run_id: data.coderabbit_run_id,
                 gh_created_at: data.gh_created_at,
                 gh_updated_at: data.gh_updated_at,
@@ -99,7 +102,9 @@ export class CoderabbitCommentRepository extends BasePrismaRepository {
                   data: {
                     url: data.url,
                     comment_type: data.comment_type,
-                    last_body_preview: lastBodyPreviewForSql,
+                    last_body: data.body,
+                    last_matched_phrase: data.matched_phrase ?? null,
+                    last_matched_offset: data.matched_offset ?? null,
                     coderabbit_run_id: data.coderabbit_run_id,
                     gh_updated_at: data.gh_updated_at,
                     last_seen_at: now,

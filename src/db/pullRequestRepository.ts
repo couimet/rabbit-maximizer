@@ -8,8 +8,10 @@ import type {
   PullRequestHeadSha,
   StaleOpenPR,
   TrackedPrRow,
+  UnreviewedHeadPR,
   UpsertPullRequestData,
 } from '../types/index.js';
+import { toSqlDateTime } from '../utils/index.js';
 
 import type { Logger } from '@couimet/logger-contract';
 import { Prisma, type PrismaClient } from '@prisma/client';
@@ -21,6 +23,9 @@ const PULL_REQUEST_TABLE = 'pull_request';
 /** Matches `@@map("review_queue")` in the Prisma schema. */
 const REVIEW_QUEUE_TABLE = 'review_queue';
 
+/** Matches `@@map("pull_request_sha")` in the Prisma schema. */
+const PULL_REQUEST_SHA_TABLE = 'pull_request_sha';
+
 const FIND_PENDING_ACKNOWLEDGEMENTS_SQL = `
   SELECT id, repo_full_name, pr_number, last_review_requested_at
   FROM ${PULL_REQUEST_TABLE}
@@ -30,12 +35,19 @@ const FIND_PENDING_ACKNOWLEDGEMENTS_SQL = `
   ORDER BY last_review_requested_at ASC
 `;
 
+/**
+ * Candidates for stale-PR recovery: an open PR with a retrigger history, no active queue
+ * item, and no review that covers its head. `julianday` reads the stored TEXT datetimes,
+ * because a text compare against `datetime('now')` fails on the `T` separator and the
+ * `+00:00` suffix that Prisma writes.
+ */
 const FIND_STALE_OPEN_PRS_SQL = `
   SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.last_review_requested_at
   FROM ${PULL_REQUEST_TABLE} pr
   WHERE pr.pr_state = 'open'
     AND pr.permanent_refusal_at IS NULL
     AND pr.last_review_requested_at IS NOT NULL
+    AND (pr.reviewed_head_sha IS NULL OR pr.reviewed_head_sha <> pr.head_sha)
     AND (pr.last_coderabbit_review_at IS NULL OR pr.last_coderabbit_review_at < pr.last_review_requested_at)
     AND NOT EXISTS (
       SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
@@ -46,8 +58,37 @@ const FIND_STALE_OPEN_PRS_SQL = `
       SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
       WHERE rq.pull_request_id = pr.id
         AND rq.status = 'resolved'
-        AND rq.resolved_at > datetime('now', '-5 minutes')
+        AND julianday(rq.resolved_at) > julianday('now', '-5 minutes')
     )
+`;
+
+/**
+ * Candidates for the head-drift sweep: an open PR whose head no recorded review covers,
+ * pushed after the last review request, with no active queue item. The grace window
+ * measures from the later of the commit time and the first observation of the sha, so
+ * a re-push of an old commit still waits out the window. `?` is the grace bound in the
+ * stored TEXT datetime form.
+ */
+const FIND_UNREVIEWED_HEAD_PRS_SQL = `
+  SELECT pr.id, pr.repo_full_name, pr.pr_number, pr.title, pr.author_login, pr.head_sha, pr.reviewed_head_sha, pr.head_committed_at
+  FROM ${PULL_REQUEST_TABLE} pr
+  LEFT JOIN ${PULL_REQUEST_SHA_TABLE} ps
+    ON ps.pull_request_id = pr.id
+   AND ps.sha = pr.head_sha
+  WHERE pr.pr_state = 'open'
+    AND pr.permanent_refusal_at IS NULL
+    AND pr.last_review_requested_at IS NOT NULL
+    AND pr.head_sha IS NOT NULL
+    AND pr.head_committed_at IS NOT NULL
+    AND (pr.reviewed_head_sha IS NULL OR pr.reviewed_head_sha <> pr.head_sha)
+    AND max(pr.head_committed_at, COALESCE(ps.first_observed_at, pr.head_committed_at)) > pr.last_review_requested_at
+    AND max(pr.head_committed_at, COALESCE(ps.first_observed_at, pr.head_committed_at)) < ?
+    AND NOT EXISTS (
+      SELECT 1 FROM ${REVIEW_QUEUE_TABLE} rq
+      WHERE rq.pull_request_id = pr.id
+        AND rq.status IN ('pending', 'retriggered')
+    )
+  ORDER BY pr.head_committed_at ASC
 `;
 
 const FIND_TRACKED_PRS_SQL = `
@@ -65,6 +106,18 @@ const FIND_TRACKED_PRS_SQL = `
 
 /** Wire format of FIND_TRACKED_PRS_SQL; kept private so the repository absorbs the driver's string dates. */
 type TrackedPrRawRow = Omit<TrackedPrRow, 'last_coderabbit_review_at'> & { readonly last_coderabbit_review_at: string | null };
+
+/** Wire format of FIND_UNREVIEWED_HEAD_PRS_SQL; the repository converts the driver's string date. */
+type UnreviewedHeadRawRow = {
+  readonly id: number;
+  readonly repo_full_name: string;
+  readonly pr_number: number;
+  readonly title: string;
+  readonly author_login: string;
+  readonly head_sha: string;
+  readonly reviewed_head_sha: string | null;
+  readonly head_committed_at: string;
+};
 
 @injectable()
 export class PullRequestRepository extends BasePrismaRepository {
@@ -141,6 +194,17 @@ export class PullRequestRepository extends BasePrismaRepository {
         select: { id: true, head_sha: true },
       }),
     );
+  }
+
+  /**
+   * The head commit when the last recorded review covers it, `null` otherwise. A caller
+   * uses this to skip work that a review already completed for the current head.
+   */
+  async findReviewedHeadSha(id: number, tx: Prisma.TransactionClient | undefined): Promise<string | null> {
+    return await this.enforceTx(tx, async (db) => {
+      const row = await db.pullRequest.findUnique({ where: { id }, select: { head_sha: true, reviewed_head_sha: true } });
+      return row !== null && row.head_sha !== null && row.reviewed_head_sha === row.head_sha ? row.head_sha : null;
+    });
   }
 
   private async recordShaObservation(db: Prisma.TransactionClient, pullRequestId: number, data: UpsertPullRequestData): Promise<void> {
@@ -263,6 +327,22 @@ export class PullRequestRepository extends BasePrismaRepository {
       title: row.title,
       authorLogin: row.author_login,
       lastReviewRequestedAt: new Date(row.last_review_requested_at),
+    }));
+  }
+
+  async findUnreviewedHeadPRs(graceBound: Date): Promise<UnreviewedHeadPR[]> {
+    const db = this.client();
+    const rows = await db.$queryRawUnsafe<UnreviewedHeadRawRow[]>(FIND_UNREVIEWED_HEAD_PRS_SQL, toSqlDateTime(graceBound));
+    this.log.debug({ fn: 'PullRequestRepository.findUnreviewedHeadPRs', count: rows.length }, 'Found pull requests with an unreviewed head');
+    return rows.map((row) => ({
+      id: row.id,
+      repoFullName: row.repo_full_name,
+      prNumber: row.pr_number,
+      title: row.title,
+      authorLogin: row.author_login,
+      headSha: row.head_sha,
+      headCommittedAt: new Date(row.head_committed_at),
+      reviewedHeadSha: row.reviewed_head_sha,
     }));
   }
 

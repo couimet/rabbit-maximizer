@@ -130,7 +130,8 @@ describe('Scheduler', () => {
           createdAt: getUniqueDate().toISOString(),
           updatedAt: getUniqueDate().toISOString(),
           classification: CodeRabbitCommentType.unknown,
-          matchedMarker: undefined,
+          matchedPhrase: undefined,
+          matchedOffset: undefined,
         },
         rescheduleEarliest,
         'test',
@@ -231,6 +232,30 @@ describe('Scheduler', () => {
 
       expect(deps.mockProbe.triggerFailed).toHaveBeenCalledWith(triggerResult.error, deps.tx);
       expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'stale_comment', deps.tx);
+      expect(deps.queue.backoff).not.toHaveBeenCalled();
+
+      await stop();
+    });
+
+    it('resolves as review completed when ReviewTrigger reports the head already reviewed', async () => {
+      const item = pendingItem();
+      const headSha = getUniqueString({ prefix: 'sha-' });
+      const reviewedErr = new RabbitMaximizerError({
+        code: RabbitMaximizerErrorCodes.RETRIGGER_HEAD_ALREADY_REVIEWED,
+        message: 'A recorded review already covers the pull request head',
+        functionName: 'ReviewTrigger.trigger',
+        details: { headSha },
+      });
+      deps.queueOrder.getEffectiveOrder.mockResolvedValue([item]);
+      deps.reviewTrigger.trigger.mockResolvedValue(RabbitResult.err(reviewedErr));
+
+      const scheduler = createScheduler();
+      const { stop } = await scheduler.start();
+
+      await awaitTick(scheduler);
+
+      expect(deps.queue.markResolved).toHaveBeenCalledWith(item.id, 'review_completed', deps.tx);
+      expect(deps.mockProbe.headAlreadyReviewed).toHaveBeenCalledWith(headSha);
       expect(deps.queue.backoff).not.toHaveBeenCalled();
 
       await stop();

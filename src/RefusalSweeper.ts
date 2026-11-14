@@ -8,9 +8,10 @@ import { TYPES } from './server-domain.js';
 import { inject, injectable } from 'inversify';
 
 /**
- * Clears queue items that CodeRabbit already permanently refused. An item the loop
- * enqueued before the phrase list existed stays queued, so this sweep re-reads every
- * active item's source comment from GitHub at startup and classifies the full body.
+ * Clears queue items that CodeRabbit already permanently refused. A queue item can
+ * outlive the classification that created it, because the operator changes the
+ * configured phrases at any time. The sweep therefore fetches the full comment body
+ * from GitHub and classifies that body again.
  */
 @injectable()
 export class RefusalSweeper {

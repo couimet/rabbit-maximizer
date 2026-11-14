@@ -1,3 +1,4 @@
-import { REVIEW_BOT_COMPLETION_SIGNALS } from './index.js';
+import { findPhrase } from '../utils/index.js';
 
-export const isCompletedReview = (body: string): boolean => REVIEW_BOT_COMPLETION_SIGNALS.some((signal) => body.includes(signal));
+/** True when the body holds one of the configured verdict phrases. */
+export const isCompletedReview = (body: string, phrases: readonly string[]): boolean => findPhrase(body, phrases) !== undefined;

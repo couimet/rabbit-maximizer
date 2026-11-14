@@ -4,6 +4,7 @@ export { DirectCommentCheckProbe } from './DirectCommentCheckProbe.js';
 export { EnqueueProbe } from './EnqueueProbe.js';
 export { ExclusionSweeperProbe } from './ExclusionSweeperProbe.js';
 export { getEventTraceAttributes } from './getEventTraceAttributes.js';
+export { HeadDriftProbe } from './HeadDriftProbe.js';
 export { MarkQueueItemReviewedProbe } from './MarkQueueItemReviewedProbe.js';
 export { ProbeFactory } from './ProbeFactory.js';
 export { PrScannerProbe } from './PrScannerProbe.js';

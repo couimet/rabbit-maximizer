@@ -341,6 +341,7 @@ export interface components {
       | 'enqueued'
       | 'excluded'
       | 'failed'
+      | 'head_drift_recovered'
       | 'retriggered';
     EventEntry: {
       id: number;

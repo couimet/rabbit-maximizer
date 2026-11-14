@@ -606,6 +606,7 @@ components:
           enqueued,
           excluded,
           failed,
+          head_drift_recovered,
           retriggered,
         ]
 

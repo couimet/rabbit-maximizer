@@ -2,7 +2,6 @@ export { type Config, ConfigSchema } from './config.js';
 export { CONFIG_KEYS } from './configKeys.js';
 export { parseEventRow } from './events.js';
 export {
-  BODY_PREVIEW_MAX_LENGTH,
   CODERABBIT_RUN_ID_MAX_LENGTH,
   COMMENT_URL_MAX_LENGTH,
   CORRELATION_ID_MAX_LENGTH,

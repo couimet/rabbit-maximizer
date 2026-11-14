@@ -1,4 +1,5 @@
-import { hasRateLimitMarker, REVIEW_BOT_SKIP_MARKER } from './index.js';
+import { findPhrase } from '../utils/index.js';
 
-export const hasRateLimitOrSkipMarker = (body: string | null | undefined): boolean =>
-  body ? hasRateLimitMarker(body) || body.includes(REVIEW_BOT_SKIP_MARKER) : false;
+/** True when the body holds a configured rate-limit phrase or a configured skip phrase. */
+export const hasRateLimitOrSkipMarker = (body: string | null | undefined, phrases: readonly string[]): boolean =>
+  body ? findPhrase(body, phrases) !== undefined : false;

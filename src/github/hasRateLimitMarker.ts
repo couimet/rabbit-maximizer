@@ -1,3 +1,4 @@
-import { REVIEW_BOT_RATE_LIMIT_MARKER } from './index.js';
+import { findPhrase } from '../utils/index.js';
 
-export const hasRateLimitMarker = (body: string): boolean => body.includes(REVIEW_BOT_RATE_LIMIT_MARKER);
+/** True when the body holds one of the configured rate-limit phrases. */
+export const hasRateLimitMarker = (body: string, phrases: readonly string[]): boolean => findPhrase(body, phrases) !== undefined;

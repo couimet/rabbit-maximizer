@@ -97,6 +97,19 @@ describe('ReviewRetriggerProbe', () => {
     expect(logger.warn).toHaveBeenCalledWith(loggingCtx(item)('ReviewRetriggerProbe.staleCommentSkipped'), 'No replacement rate-limit comment found');
   });
 
+  it('logs on headAlreadyReviewed', () => {
+    const item = generateQueueItemHydrationData();
+    const reviewedHeadSha = getUniqueString({ prefix: 'sha-' });
+
+    const probe = createProbe(item);
+    probe.headAlreadyReviewed(reviewedHeadSha);
+
+    expect(logger.info).toHaveBeenCalledWith(
+      { ...loggingCtx(item)('ReviewRetriggerProbe.headAlreadyReviewed'), reviewedHeadSha },
+      'A recorded review covers the PR head; refusing to retrigger',
+    );
+  });
+
   it('logs on staleCommentReplacementDeleted', () => {
     const item = generateQueueItemHydrationData();
     const replacementId = getUniqueInt();

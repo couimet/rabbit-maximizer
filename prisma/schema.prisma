@@ -243,8 +243,12 @@ model CoderabbitComment {
   url             String
   /// One of 'review_limited' | 'review_refused' | 'review_skipped' | 'review_approved' | 'review_changes_suggested' | 'unknown' (CHECK in migration; contract test pins it to the enum).
   comment_type    String
-  /// Max 1024. First N chars of the comment body, truncated by the repository on upsert.
-  last_body_preview String?
+  /// The whole comment body, written by the repository on upsert. The dashboard clips it for display.
+  last_body       String?
+  /// The configured phrase the body matched, which is the pause phrase on a pause comment; NULL when no phrase matched.
+  last_matched_phrase String?
+  /// Zero-based index of last_matched_phrase in last_body; NULL when no phrase matched.
+  last_matched_offset Int?
   /// Max 75. CodeRabbit's per-comment Run ID from the '**Run ID**: ' line in the body; distinct from our own runId (generateRunId in ReviewTrigger). CHECK in the 20260820 migration.
   coderabbit_run_id String?
   gh_created_at   DateTime

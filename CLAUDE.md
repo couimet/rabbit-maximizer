@@ -324,8 +324,8 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
 <rule id="C017" priority="critical">
   <title>Inject the narrowest domain object, never the whole Config</title>
   <do>A consumer injects the narrowest domain object that it needs. A consumer that reads one config value injects the domain object that owns that value.</do>
-  <do>Make a domain concept that reads application config a self-bound class. Its consumers never see the config value. `RefusalPhrases` is the precedent: it injects `TYPES.Config` and exposes `match(body)`.</do>
-  <do>Make a domain decision that reads application config a self-bound class too. It injects the domain concepts that it uses, not `Config`. `CoderabbitCommentClassifier` injects `RefusalPhrases`.</do>
+  <do>Make a domain concept that reads application config a self-bound class. Its consumers never see the config value. `CoderabbitMarkers` is the precedent: it injects `TYPES.Config` and exposes one readonly phrase list per purpose.</do>
+  <do>Make a domain decision that reads application config a self-bound class too. It injects the domain concepts that it uses, not `Config`. `CoderabbitCommentClassifier` injects `CoderabbitMarkers`.</do>
   <do>Keep a pure function pure. A util takes plain data when its callers already hold the value. `describeRepoFilter` stays a util, because `main.ts` reads `REPO_FILTER` and passes the array in.</do>
   <never>Inject `TYPES.Config` to read one field. That is a wide dependency for a narrow need, and it copies the config value into every consumer.</never>
   <never>Copy a config array or scalar into a field of a class that also injects `Config` for other values. Inject the domain object instead.</never>
@@ -334,20 +334,20 @@ Rule IDs use `<category><number>`: **C** for code, **P** for practice (applies e
     ```typescript
     // A domain concept owns the config read. Consumers inject the concept.
     @injectable()
-    export class RefusalPhrases {
-      private readonly phrases: readonly string[];
+    export class CoderabbitMarkers {
+      /** Phrases that mark a permanent refusal. */
+      readonly refusal: readonly string[];
+      /** Phrases that mark a rate-limit comment. */
+      readonly rateLimit: readonly string[];
 
       constructor(@inject(TYPES.Config) cfg: Config) {
-        this.phrases = cfg.CODERABBIT_REFUSAL_PHRASES;
-      }
-
-      match(body: string): string | undefined {
-        return this.phrases.find((phrase) => body.includes(phrase));
+        this.refusal = cfg.CODERABBIT_REFUSAL_PHRASES;
+        this.rateLimit = cfg.CODERABBIT_RATE_LIMIT_PHRASES;
       }
     }
 
     // The consumer injects the concept, not Config.
-    constructor(@inject(TYPES.RefusalPhrases) private readonly refusalPhrases: RefusalPhrases) {}
+    constructor(@inject(TYPES.CoderabbitMarkers) private readonly markers: CoderabbitMarkers) {}
     ```
 
   </good-example>

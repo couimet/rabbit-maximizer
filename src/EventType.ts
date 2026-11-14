@@ -12,5 +12,6 @@ export enum EventType {
   enqueued = 'enqueued',
   excluded = 'excluded',
   failed = 'failed',
+  head_drift_recovered = 'head_drift_recovered',
   retriggered = 'retriggered',
 }

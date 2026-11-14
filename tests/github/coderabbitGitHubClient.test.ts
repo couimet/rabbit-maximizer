@@ -1,11 +1,12 @@
 import pkg from '../../package.json' with { type: 'json' };
 import type { Config } from '../../src/config.js';
-import { CodeRabbitCommentType, MatchedMarker, TriggerSource } from '../../src/domain.js';
-import { CoderabbitCommentClassifier, CoderabbitGitHubClient, RefusalPhrases } from '../../src/github/index.js';
+import { CodeRabbitCommentType, TriggerSource } from '../../src/domain.js';
+import { CoderabbitCommentClassifier, CoderabbitGitHubClient, CoderabbitMarkers } from '../../src/github/index.js';
 import { TYPES } from '../../src/server-domain.js';
 import type { RepoFilter } from '../../src/types/index.js';
 import {
   createCoderabbitCommentClassifier,
+  createCoderabbitMarkers,
   createMockOctokit,
   generateConfigData,
   type MockIssuesRest,
@@ -51,9 +52,15 @@ describe('client', () => {
   let gitSha: string;
   let declaredGitSha: string | undefined;
   let classifier: CoderabbitCommentClassifier;
+  let markers: CoderabbitMarkers;
+  let matchedPhrase: string;
+  let matchedOffset: number;
 
   beforeEach(() => {
     classifier = createCoderabbitCommentClassifier();
+    markers = createCoderabbitMarkers();
+    matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+    matchedOffset = getUniqueInt();
     declaredGitSha = process.env.GIT_SHA;
     gitSha = getUniqueString({ maxLength: SHORT_SHA_LENGTH });
     process.env.GIT_SHA = gitSha;
@@ -87,7 +94,7 @@ describe('client', () => {
         },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
       const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.scheduler, undefined);
@@ -146,7 +153,7 @@ describe('client', () => {
         },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
       const result = await client.postRetrigger(fullName, prNumber, triggerUrl, runId, TriggerSource.dashboard_retrigger_now, undefined);
@@ -205,7 +212,7 @@ describe('client', () => {
         },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const triggerUrl = `https://github.com/${owner}/${repo}/issues/${prNumber}#issuecomment-${triggerCommentId}`;
       const sourceCreatedAt = new Date(frozenDate.getTime() - 2 * MS_PER_HOUR);
@@ -216,7 +223,8 @@ describe('client', () => {
           createdAt: sourceCreatedAt.toISOString(),
           updatedAt: sourceCreatedAt.toISOString(),
           classification: CodeRabbitCommentType.review_limited,
-          matchedMarker: MatchedMarker.rate_limit,
+          matchedPhrase,
+          matchedOffset,
         },
         waitSeconds: WAIT_SECONDS,
         decision: 'source',
@@ -248,7 +256,8 @@ describe('client', () => {
                 createdAt: sourceCreatedAt.toISOString(),
                 updatedAt: sourceCreatedAt.toISOString(),
                 classification: 'review_limited',
-                matchedMarker: 'rate limited by coderabbit.ai',
+                matchedPhrase,
+                matchedOffset,
               },
               waitSeconds: WAIT_SECONDS,
               decision: 'source',
@@ -283,7 +292,7 @@ describe('client', () => {
         data: { body: bodyText, created_at: createdAt.toISOString(), updated_at: updatedAt.toISOString() },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const result = await client.fetchComment(owner, repo, fetchCommentId);
 
@@ -305,7 +314,7 @@ describe('client', () => {
         data: { body: null, created_at: createdAt.toISOString(), updated_at: updatedAt.toISOString() },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const result = await client.fetchComment(owner, repo, fetchCommentId);
       expect(result).toStrictEqual({ body: '<EMPTY_BODY>', createdAt: createdAt.toISOString(), updatedAt: updatedAt.toISOString() });
@@ -328,7 +337,7 @@ describe('client', () => {
         data: { body: bodyText, created_at: createdAt, updated_at: updatedAt },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const result = await client.fetchCommentByUrl(url);
 
@@ -339,7 +348,7 @@ describe('client', () => {
     });
 
     it('throws GITHUB_INVALID_COMMENT_URL for a malformed URL', async () => {
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       await expect(client.fetchCommentByUrl('not-a-url')).rejects.toBeDetailedError('GITHUB_INVALID_COMMENT_URL', {
         message: 'Cannot parse comment URL: not-a-url',
@@ -370,7 +379,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.listComments(owner, repo, issueNumber);
 
       expect(issues.listComments).toHaveBeenCalledWith({
@@ -406,7 +415,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.listComments(owner, repo, issueNumber);
 
       expect(result).toStrictEqual([
@@ -447,7 +456,7 @@ describe('client', () => {
           ],
         });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.listComments(owner, repo, issueNumber);
 
       expect(issues.listComments).toHaveBeenCalledWith({
@@ -480,7 +489,7 @@ describe('client', () => {
 
       issues.listComments.mockResolvedValue({ data: [] });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.listComments(owner, repo, issueNumber);
 
       expect(result).toStrictEqual([]);
@@ -499,7 +508,7 @@ describe('client', () => {
         data: { items: [] },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       await client.searchReviewLimitComments([USER_FILTER, REPO_FILTER]);
 
@@ -525,7 +534,7 @@ describe('client', () => {
         data: { items: [] },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       await client.searchReviewLimitComments([]);
 
@@ -578,7 +587,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const results = await client.searchReviewLimitComments([USER_FILTER]);
 
@@ -632,7 +641,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const results = await client.searchReviewLimitComments([USER_FILTER]);
 
@@ -652,7 +661,7 @@ describe('client', () => {
         data: { items: [] },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       const results = await client.searchReviewLimitComments([USER_FILTER]);
 
@@ -676,7 +685,7 @@ describe('client', () => {
         data: { items: [] },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const results = await client.listOpenPRs([USER_FILTER]);
 
       expect(results).toStrictEqual([]);
@@ -708,7 +717,7 @@ describe('client', () => {
         },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const results = await client.listOpenPRs([USER_FILTER]);
 
       expect(results).toStrictEqual([
@@ -752,7 +761,7 @@ describe('client', () => {
           },
         });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const results = await client.listOpenPRs([USER_FILTER]);
 
       expect(results).toHaveLength(101);
@@ -796,7 +805,7 @@ describe('client', () => {
         },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const results = await client.listOpenPRs([USER_FILTER]);
 
       expect(results).toStrictEqual([
@@ -821,7 +830,7 @@ describe('client', () => {
         data: { resources: { core: { limit, remaining, used, reset: resetEpoch } } },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.getQuota();
 
       expect(rateLimit.get).toHaveBeenCalledWith();
@@ -833,7 +842,7 @@ describe('client', () => {
       const endpointError = new Error('rate limit endpoint unavailable');
       rateLimit.get.mockRejectedValue(endpointError);
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
 
       await expect(client.getQuota()).rejects.toThrow(endpointError);
     });
@@ -846,7 +855,7 @@ describe('client', () => {
         data: { state: 'open', merged_at: null },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       await client.getPRState(fullName, prNumber);
 
       expect(pulls.get).toHaveBeenCalledWith({
@@ -866,7 +875,7 @@ describe('client', () => {
         data: { state: 'closed', merged_at: mergedAt, closed_at: closedAt },
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.getPRState(fullName, prNumber);
 
       expect(result).toStrictEqual({ state: 'closed', merged_at: mergedAt, closed_at: closedAt });
@@ -879,7 +888,7 @@ describe('client', () => {
       const headSha = getUniqueString({ prefix: 'head-' });
       pulls.get.mockResolvedValue({ data: { head: { sha: headSha } } });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.getPRHeadSha(owner, repo, prNumber);
 
       expect(pulls.get).toHaveBeenCalledWith({ owner, repo, pull_number: prNumber });
@@ -895,7 +904,7 @@ describe('client', () => {
       const committedAt = getUniqueDate().toISOString();
       repos.getCommit.mockResolvedValue({ data: { commit: { committer: { date: committedAt } } } });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.getCommitCommittedAt(owner, repo, headSha);
 
       expect(repos.getCommit).toHaveBeenCalledWith({ owner, repo, ref: headSha });
@@ -924,7 +933,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(pulls.listReviews).toHaveBeenCalledWith({
@@ -957,7 +966,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: true, commitId: undefined });
@@ -979,7 +988,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toBeUndefined();
@@ -1001,7 +1010,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toBeUndefined();
@@ -1023,7 +1032,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toBeUndefined();
@@ -1058,7 +1067,7 @@ describe('client', () => {
           ],
         });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(pulls.listReviews).toHaveBeenCalledWith({
@@ -1093,7 +1102,7 @@ describe('client', () => {
         })),
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toBeUndefined();
@@ -1139,7 +1148,7 @@ describe('client', () => {
           ],
         });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toStrictEqual({ htmlUrl: newerHtmlUrl, reviewId: newerReviewId, isApproval: false, commitId: undefined });
@@ -1178,7 +1187,7 @@ describe('client', () => {
         })
         .mockResolvedValueOnce({ data: [] });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(pulls.listReviews).toHaveBeenCalledWith({
@@ -1220,7 +1229,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, expectedRunId, undefined);
 
       expect(result).toStrictEqual({ htmlUrl: matchingHtmlUrl, reviewId: matchingReviewId, isApproval: false, commitId: undefined });
@@ -1248,7 +1257,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, getUniqueString({ prefix: 'run-' }), undefined);
 
       expect(result).toBeUndefined();
@@ -1276,7 +1285,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findCompletedReview(owner, repo, prNumber, since, undefined, undefined);
 
       expect(result).toStrictEqual({ htmlUrl, reviewId, isApproval: false, commitId });
@@ -1312,7 +1321,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findLatestReviewLimitComment(owner, repo, prNumber);
 
       expect(issues.listComments).toHaveBeenCalledWith({
@@ -1352,7 +1361,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findLatestReviewLimitComment(owner, repo, prNumber);
 
       expect(result).toBeUndefined();
@@ -1374,7 +1383,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findLatestReviewLimitComment(owner, repo, prNumber);
 
       expect(result).toBeUndefined();
@@ -1401,7 +1410,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findAcknowledgement(owner, repo, prNumber, since);
 
       expect(issues.listComments).toHaveBeenCalledWith({
@@ -1448,7 +1457,7 @@ describe('client', () => {
           ],
         });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findAcknowledgement(owner, repo, prNumber, since);
 
       expect(issues.listComments).toHaveBeenCalledWith({
@@ -1492,7 +1501,7 @@ describe('client', () => {
         })),
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findAcknowledgement(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
@@ -1515,7 +1524,7 @@ describe('client', () => {
         ],
       });
 
-      const client = new CoderabbitGitHubClient(octokit, classifier, logger);
+      const client = new CoderabbitGitHubClient(octokit, classifier, markers, logger);
       const result = await client.findAcknowledgement(owner, repo, prNumber, since);
 
       expect(result).toBeUndefined();
@@ -1529,7 +1538,7 @@ describe('client', () => {
 
       container.bind<Octokit>(TYPES.Octokit).toConstantValue(octokit);
       container.bind<Config>(TYPES.Config).toConstantValue(generateConfigData());
-      container.bind<RefusalPhrases>(TYPES.RefusalPhrases).to(RefusalPhrases);
+      container.bind<CoderabbitMarkers>(TYPES.CoderabbitMarkers).toConstantValue(markers);
       container.bind<CoderabbitCommentClassifier>(TYPES.CoderabbitCommentClassifier).to(CoderabbitCommentClassifier);
       container.bind<Logger>(TYPES.Logger).toConstantValue(logger);
       container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClient);
