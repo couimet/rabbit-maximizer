@@ -54,6 +54,24 @@ const parseRepoFilter = (val: string | undefined): RepoFilter[] => {
 };
 
 /**
+ * Parse CODERABBIT_REFUSAL_PHRASES from a JSON array string or a bare single phrase.
+ *   ["seat is missing", "not allowed"]  →  ["seat is missing", "not allowed"]
+ *   seat is missing                     →  ["seat is missing"]
+ */
+const parsePhraseList = (val: string | undefined): string[] | undefined => {
+  if (!val || val.trim() === '') return undefined;
+  const raw = val.trim();
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.every((s: unknown) => typeof s === 'string')) return parsed;
+    // A leading "[" means JSON was intended; anything else is a bare phrase.
+    return raw.startsWith('[') ? [] : [raw];
+  } catch {
+    return raw.startsWith('[') ? [] : [raw];
+  }
+};
+
+/**
  * Parse and validate config from a raw env-like record.
  * Exported so tests can call it without triggering `process.exit`.
  */
@@ -61,10 +79,12 @@ export const parseConfig = (raw: Record<string, string | undefined>): RabbitResu
   // Keep alphabetically sorted by key.
   const prepped = {
     CODERABBIT_ACCOUNT_COOLDOWN_SEC: emptyToUndefined(raw.CODERABBIT_ACCOUNT_COOLDOWN_SEC),
+    CODERABBIT_REFUSAL_PHRASES: parsePhraseList(raw.CODERABBIT_REFUSAL_PHRASES),
     DATABASE_URL: emptyToUndefined(raw.DATABASE_URL),
     DETECTION_MODE: emptyToUndefined(raw.DETECTION_MODE),
     GITHUB_API_TIMEOUT_SEC: emptyToUndefined(raw.GITHUB_API_TIMEOUT_SEC),
     GITHUB_PAT: emptyToUndefined(raw.GITHUB_PAT),
+    MAX_DIRECT_CHECK_PRS: emptyToUndefined(raw.MAX_DIRECT_CHECK_PRS),
     MAX_RETRIGGER_ATTEMPTS: emptyToUndefined(raw.MAX_RETRIGGER_ATTEMPTS),
     PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: emptyToUndefined(raw.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC),
     PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: emptyToUndefined(raw.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC),
@@ -113,10 +133,12 @@ export const exitWithConfigErrors = (error: RabbitMaximizerError): never => {
 // Keep alphabetically sorted by key.
 const parsed = parseConfig({
   CODERABBIT_ACCOUNT_COOLDOWN_SEC: process.env.CODERABBIT_ACCOUNT_COOLDOWN_SEC,
+  CODERABBIT_REFUSAL_PHRASES: process.env.CODERABBIT_REFUSAL_PHRASES,
   DATABASE_URL: process.env.DATABASE_URL,
   DETECTION_MODE: process.env.DETECTION_MODE,
   GITHUB_API_TIMEOUT_SEC: process.env.GITHUB_API_TIMEOUT_SEC,
   GITHUB_PAT: process.env.GITHUB_PAT,
+  MAX_DIRECT_CHECK_PRS: process.env.MAX_DIRECT_CHECK_PRS,
   MAX_RETRIGGER_ATTEMPTS: process.env.MAX_RETRIGGER_ATTEMPTS,
   PAUSE_NOTIFICATION_INITIAL_DELAY_SEC: process.env.PAUSE_NOTIFICATION_INITIAL_DELAY_SEC,
   PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC: process.env.PAUSE_NOTIFICATION_REPEAT_INTERVAL_SEC,

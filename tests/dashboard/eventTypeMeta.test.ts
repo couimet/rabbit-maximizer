@@ -23,6 +23,7 @@ describe('eventTypeMeta', () => {
       failed: { label: 'Failed', family: 'fail' },
       coderabbit_review_approved: { label: 'Review approved', family: 'verdict' },
       coderabbit_review_changes_suggested: { label: 'Changes suggested', family: 'verdict' },
+      coderabbit_review_refused: { label: 'Review refused', family: 'verdict' },
       coderabbit_review_skipped: { label: 'Review skipped', family: 'verdict' },
       coderabbit_run_id_first_seen: { label: 'Run ID seen', family: 'book' },
       coderabbit_run_id_changed: { label: 'Run ID changed', family: 'book' },

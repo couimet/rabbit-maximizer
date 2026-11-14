@@ -20,12 +20,17 @@ export interface MockReposRest {
   getCommit: jest.Mock<any>;
 }
 
+export interface MockRateLimitRest {
+  get: jest.Mock<any>;
+}
+
 export interface MockOctokitOptions {
   rest?: {
     search?: Partial<MockSearchRest>;
     issues?: Partial<MockIssuesRest>;
     pulls?: Partial<MockPullsRest>;
     repos?: Partial<MockReposRest>;
+    rateLimit?: Partial<MockRateLimitRest>;
   };
 }
 
@@ -36,6 +41,7 @@ export interface MockOctokitResult {
     issues: MockIssuesRest;
     pulls: MockPullsRest;
     repos: MockReposRest;
+    rateLimit: MockRateLimitRest;
   };
 }
 
@@ -59,9 +65,13 @@ export const createMockOctokit = (options?: MockOctokitOptions): MockOctokitResu
     getCommit: jest.fn<any>(),
     ...options?.rest?.repos,
   };
+  const rateLimit: MockRateLimitRest = {
+    get: jest.fn<any>(),
+    ...options?.rest?.rateLimit,
+  };
 
   return {
-    octokit: { rest: { search, issues, pulls, repos } } as unknown as Octokit,
-    rest: { search, issues, pulls, repos },
+    octokit: { rest: { search, issues, pulls, repos, rateLimit } } as unknown as Octokit,
+    rest: { search, issues, pulls, repos, rateLimit },
   };
 };

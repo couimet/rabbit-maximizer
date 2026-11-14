@@ -6,6 +6,7 @@ describe('CodeRabbitCommentType', () => {
   it('has the correct values', () => {
     expect(CodeRabbitCommentType).toStrictEqual({
       review_limited: 'review_limited',
+      review_refused: 'review_refused',
       review_skipped: 'review_skipped',
       review_approved: 'review_approved',
       review_changes_suggested: 'review_changes_suggested',

@@ -4,12 +4,12 @@ import { readRunIdentity } from '../node-utils/index.js';
 import { TYPES } from '../server-domain.js';
 import type { AcknowledgementResult, DetectedComment, DiscoveredPR, PRState, RepoFilter, RetriggerDiagnosis, ReviewLimitComment } from '../types/index.js';
 
-import type { CompletedReview, FetchCommentResult, ListedComment, RetriggerComment } from './types/index.js';
+import type { CompletedReview, FetchCommentResult, GitHubQuota, ListedComment, RetriggerComment } from './types/index.js';
 import {
   buildCommentBody,
   buildOpenPRSearchQuery,
   buildSearchQuery,
-  classifyCoderabbitComment,
+  type CoderabbitCommentClassifier,
   extractRepoFullName,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,
@@ -35,12 +35,14 @@ const COMMENTS_FETCH_PER_PAGE = 100;
 const OPEN_PR_SEARCH_PER_PAGE = 100;
 const OPEN_PR_SEARCH_MAX_PAGES = 3;
 const UNKNOWN_USER = '<unknown>';
+const RATE_LIMIT_RESOURCE_CORE = 'core';
 
 @injectable()
 export class CoderabbitGitHubClient {
   /* c8 ignore start — decorator emit branches */
   constructor(
     @inject(TYPES.Octokit) private readonly octokit: Octokit,
+    @inject(TYPES.CoderabbitCommentClassifier) private readonly classifier: CoderabbitCommentClassifier,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {}
   /* c8 ignore stop */
@@ -85,7 +87,7 @@ export class CoderabbitGitHubClient {
             prNumber: item.number,
             prTitle: item.title,
             body: rateLimitComment.body,
-            commentType: classifyCoderabbitComment(rateLimitComment.body).classification,
+            commentType: this.classifier.classify(rateLimitComment.body).classification,
             detectedVia: CommentDetectionMethod.Search,
             commentId: rateLimitComment.id,
             url: rateLimitComment.html_url,
@@ -208,6 +210,15 @@ export class CoderabbitGitHubClient {
     });
 
     return { htmlUrl: response.data.html_url };
+  }
+
+  async getQuota(): Promise<GitHubQuota> {
+    this.log.debug({ fn: 'getQuota', resource: RATE_LIMIT_RESOURCE_CORE }, 'Fetching API quota');
+
+    const response = await this.octokit.rest.rateLimit.get();
+    const core = response.data.resources.core;
+
+    return { resource: RATE_LIMIT_RESOURCE_CORE, limit: core.limit, remaining: core.remaining, used: core.used, resetEpoch: core.reset };
   }
 
   async getPRState(repo: string, pr: number): Promise<PRState> {

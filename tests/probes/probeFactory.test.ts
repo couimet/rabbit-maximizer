@@ -8,6 +8,7 @@ import {
   ProbeFactory,
   PrScannerProbe,
   PrunerProbe,
+  RefusalSweeperProbe,
   ReviewDetectorProbe,
   ReviewRetriggerProbe,
   SchedulerProbe,
@@ -110,6 +111,29 @@ describe('ProbeFactory', () => {
       pr_number: ref.prNumber,
     } as QueueItem);
     expect(probe).toBeInstanceOf(ReviewRetriggerProbe);
+  });
+
+  it('creates a RefusalSweeperProbe wired to the factory logger', () => {
+    const { eventRepository, logger } = makeMocks();
+    const factory = new ProbeFactory(eventRepository, logger);
+    const probe = factory.createRefusalSweeperProbe();
+    expect(probe).toBeInstanceOf(RefusalSweeperProbe);
+
+    probe.sweepStarted(3);
+    expect(logger.info).toHaveBeenCalledWith(
+      { fn: 'RefusalSweeperProbe.sweepStarted', count: 3 },
+      'Sweeping active queue items for permanent CodeRabbit refusals',
+    );
+
+    const sweepError = new Error('sweep failed');
+    probe.itemFailed('org/repo', 7, 123, sweepError);
+    expect(logger.warn).toHaveBeenCalledWith(
+      { fn: 'RefusalSweeperProbe.itemFailed', repo: 'org/repo', pr: 7, sourceCommentId: 123, error: sweepError },
+      'Failed to sweep one queue item; skipping it and continuing',
+    );
+
+    probe.completed(5, 2);
+    expect(logger.info).toHaveBeenCalledWith({ fn: 'RefusalSweeperProbe.completed', checked: 5, refused: 2 }, 'Permanent refusal sweep completed');
   });
 
   describe('container binding', () => {

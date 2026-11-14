@@ -108,6 +108,26 @@ export class DetectedProbe {
     return event;
   }
 
+  async refused(tx: Prisma.TransactionClient, matchedPhrase: string): Promise<EventLogEntry> {
+    const event = await this.eventRepository.record(
+      {
+        type: EventType.coderabbit_review_refused,
+        repo_full_name: this.context.repo_full_name,
+        pr_number: this.context.pr_number,
+        ...getEventTraceAttributes(),
+        payload: {
+          source_ts: this.context.source_ts,
+          comment_url: this.context.source_comment_url,
+          matched_phrase: matchedPhrase,
+          coderabbit_run_id: this.context.coderabbit_run_id,
+        },
+      },
+      tx,
+    );
+    this.log.info({ ...this.loggingCtx, eventUuid: event.uuid, matchedPhrase }, 'CodeRabbit permanently refused the review; resolved the queue item');
+    return event;
+  }
+
   async verdictResolved(tx: Prisma.TransactionClient, verdictState: CoderabbitReviewVerdictState): Promise<EventLogEntry> {
     const event = await this.eventRepository.record(
       {

@@ -2928,6 +2928,129 @@ describe('QueueRepository', () => {
     });
   });
 
+  describe('markResolvedByPullRequestId', () => {
+    it('resolves every active item of the pull request and returns the changed count', async () => {
+      const pullRequestId = getUniqueInt();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 2 }) },
+      });
+      const sut = new QueueRepository(prisma, probeFactory, mapper, config, logger);
+
+      const result = await sut.markResolvedByPullRequestId(pullRequestId, Resolution.PermanentlyRefused, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { pull_request_id: pullRequestId, status: { in: ['pending', 'retriggered'] } },
+        data: { status: 'resolved', resolution: 'permanently_refused', resolved_at: frozenNow },
+      });
+      expect(result).toBe(2);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepository.markResolvedByPullRequestId', pullRequestId, resolution: 'permanently_refused', changed: 2 },
+        'Resolved active queue items of a pull request',
+      );
+    });
+
+    it('returns 0 when the pull request has no active items', async () => {
+      const pullRequestId = getUniqueInt();
+      const { prisma, reviewQueue } = createMockPrismaClient({
+        reviewQueue: { updateMany: createResolvedMock({ count: 0 }) },
+      });
+      const sut = new QueueRepository(prisma, probeFactory, mapper, config, logger);
+
+      const result = await sut.markResolvedByPullRequestId(pullRequestId, Resolution.PermanentlyRefused, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.updateMany).toHaveBeenCalledWith({
+        where: { pull_request_id: pullRequestId, status: { in: ['pending', 'retriggered'] } },
+        data: { status: 'resolved', resolution: 'permanently_refused', resolved_at: frozenNow },
+      });
+      expect(result).toBe(0);
+      expect(logger.debug).toHaveBeenCalledWith(
+        { fn: 'QueueRepository.markResolvedByPullRequestId', pullRequestId, resolution: 'permanently_refused', changed: 0 },
+        'Resolved active queue items of a pull request',
+      );
+    });
+  });
+
+  describe('requeueByUuid', () => {
+    it('returns the refused item to pending with a fresh attempt budget and logs', async () => {
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.resolved, resolution: Resolution.PermanentlyRefused });
+      const updatedRow = { ...row, status: QueueStatus.pending, resolution: null, resolved_at: null, attempts: 0 };
+      const { prisma, reviewQueue, queueOrder } = createMockPrismaClient({
+        reviewQueue: { findUnique: createResolvedMock(row), update: createResolvedMock(updatedRow) },
+        queueOrder: { findUnique: createResolvedMock({ queue_item_id: row.id }) },
+      });
+      const sut = new QueueRepository(prisma, probeFactory, mapper, config, logger);
+
+      const result = await sut.requeueByUuid(row.uuid, prisma as unknown as Prisma.TransactionClient);
+
+      expect(reviewQueue.findUnique).toHaveBeenCalledWith({ where: { uuid: row.uuid } });
+      expect(reviewQueue.update).toHaveBeenCalledWith({
+        where: { id: row.id },
+        data: {
+          status: 'pending',
+          resolution: null,
+          resolved_at: null,
+          attempts: 0,
+          cooldown_until: null,
+          last_skipped_at: null,
+          last_skip_reason: null,
+          retrigger_skip_count: 0,
+        },
+      });
+      expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: row.id } });
+      expect(queueOrder.create).not.toHaveBeenCalled();
+      expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'QueueRepository.requeueByUuid', uuid: row.uuid, id: row.id },
+        'Re-queued a permanently-refused item as pending',
+      );
+    });
+
+    it('creates the missing queue_order row when re-queueing', async () => {
+      const row = generateReviewQueueHydrationData({ status: QueueStatus.resolved, resolution: Resolution.PermanentlyRefused });
+      const updatedRow = { ...row, status: QueueStatus.pending, resolution: null, resolved_at: null, attempts: 0 };
+      const { prisma, queueOrder } = createMockPrismaClient({
+        reviewQueue: { findUnique: createResolvedMock(row), update: createResolvedMock(updatedRow) },
+        queueOrder: { findUnique: createResolvedMock(null) },
+      });
+      const sut = new QueueRepository(prisma, probeFactory, mapper, config, logger);
+
+      const result = await sut.requeueByUuid(row.uuid, prisma as unknown as Prisma.TransactionClient);
+
+      expect(queueOrder.findUnique).toHaveBeenCalledWith({ where: { queue_item_id: row.id } });
+      expect(queueOrder.create).toHaveBeenCalledWith({ data: { queue_item_id: row.id } });
+      expect(result).toStrictEqual(mapper.fromReviewQueue(updatedRow));
+      expect(logger.info).toHaveBeenCalledWith(
+        { fn: 'QueueRepository.requeueByUuid', uuid: row.uuid, id: row.id },
+        'Re-queued a permanently-refused item as pending',
+      );
+    });
+
+    it('throws PrismaRecordNotFoundError when the uuid does not exist', async () => {
+      const uuid = getUuid();
+      const { prisma } = createMockPrismaClient({ reviewQueue: { findUnique: createResolvedMock(null) } });
+      const sut = new QueueRepository(prisma, probeFactory, mapper, config, logger);
+
+      await expect(sut.requeueByUuid(uuid, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('PRISMA_RECORD_NOT_FOUND_P2025', {
+        message: "Record not found in table 'reviewQueue'",
+        functionName: 'QueueRepository.requeueByUuid',
+        details: { tableName: 'reviewQueue', uuid },
+      });
+    });
+
+    it('throws RabbitMaximizerError when the item is not resolved as a permanent refusal', async () => {
+      const uuid = getUuid();
+      const row = generateReviewQueueHydrationData({ uuid, status: QueueStatus.resolved, resolution: Resolution.ReviewCompleted });
+      const { prisma } = createMockPrismaClient({ reviewQueue: { findUnique: createResolvedMock(row) } });
+      const sut = new QueueRepository(prisma, probeFactory, mapper, config, logger);
+
+      await expect(sut.requeueByUuid(uuid, prisma as unknown as Prisma.TransactionClient)).rejects.toBeDetailedError('QUEUE_ITEM_NOT_PERMANENTLY_REFUSED', {
+        message: `Queue item ${uuid} is not resolved as a permanently-refused review`,
+        functionName: 'QueueRepository.requeueByUuid',
+        details: { uuid, status: 'resolved', resolution: 'review_completed' },
+      });
+    });
+  });
+
   describe('container binding', () => {
     it('resolves QueueRepository from the container', () => {
       const { prisma } = createMockPrismaClient();

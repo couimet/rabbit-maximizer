@@ -4,7 +4,7 @@ export { buildOpenPRSearchQuery } from './buildOpenPRSearchQuery.js';
 export { buildPrUrl } from './buildPrUrl.js';
 export { buildRepoQualifierClause } from './buildRepoQualifierClause.js';
 export { buildSearchQuery } from './buildSearchQuery.js';
-export { classifyCoderabbitComment } from './classifyCoderabbitComment.js';
+export { CoderabbitCommentClassifier } from './CoderabbitCommentClassifier.js';
 export {
   REVIEW_BOT_ACKNOWLEDGEMENT_MARKER,
   REVIEW_BOT_ACTIONABLE_SIGNAL,
@@ -35,11 +35,13 @@ export { parseGitHubRateLimitError } from './parseGitHubRateLimitError.js';
 export { parseWaitSeconds } from './parseWaitSeconds.js';
 export { PRStateFetcher } from './PRStateFetcher.js';
 export { isPRClosedWithoutMerge, isPRMerged } from './prStateUtils.js';
+export { RefusalPhrases } from './RefusalPhrases.js';
 export { splitRepo } from './splitRepo.js';
 export { SubmittedComment } from './SubmittedComment.js';
 export { SubmittedReview } from './SubmittedReview.js';
 export type { CompletedReview } from './types/CompletedReview.js';
 export type { FetchCommentResult } from './types/FetchCommentResult.js';
+export type { GitHubQuota } from './types/GitHubQuota.js';
 export type { ListedComment } from './types/ListedComment.js';
 export type { RateLimitInfo } from './types/RateLimitInfo.js';
 export type { RetriggerComment } from './types/RetriggerComment.js';

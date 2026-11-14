@@ -42,7 +42,7 @@ interface MockReviewDetectorDeps {
     adoptRunIfStillRetriggered: jest.Mock<any>;
     reopenStaleRetriggered: jest.Mock<any>;
   };
-  pullRequests: { recordReview: jest.Mock<any>; getColumnMaps: jest.Mock<any> };
+  pullRequests: { recordReview: jest.Mock<any>; setPermanentRefusalAt: jest.Mock<any>; getColumnMaps: jest.Mock<any> };
   github: jest.Mocked<CoderabbitGitHubClient>;
   editDetector: jest.Mocked<EditDetector>;
   probeFactory: ReturnType<typeof createMockProbeFactory>;
@@ -58,6 +58,7 @@ const setup = (): MockReviewDetectorDeps => {
   const queue = createMockQueueRepo() as unknown as MockReviewDetectorDeps['queue'];
   const pullRequests = {
     recordReview: jest.fn<any>(),
+    setPermanentRefusalAt: jest.fn<any>().mockResolvedValue(undefined),
     getColumnMaps: jest
       .fn<any>()
       .mockResolvedValue({ pr_state: new Map(), last_coderabbit_review_at: new Map(), head_sha: new Map(), reviewed_head_sha: new Map() }),
@@ -706,6 +707,51 @@ describe('ReviewDetector', () => {
       expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'skipped', {});
       expect(deps.pullRequests.recordReview).not.toHaveBeenCalled();
       expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('flags the PR refused and resolves the item when editDetector returns refused', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'refused', matchedPhrase }));
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.editDetector.detectEdit).toHaveBeenCalledWith(item);
+      expect(deps.queue.markResolvedIfStillRetriggered).toHaveBeenCalledWith(item.id, 'permanently_refused', {});
+      expect(deps.pullRequests.setPermanentRefusalAt).toHaveBeenCalledWith(item.pull_request_id, {});
+      expect(deps.probe.refused).toHaveBeenCalledWith(matchedPhrase, {});
+      expect(deps.pullRequests.recordReview).not.toHaveBeenCalled();
+      expect(deps.probe.resolutionLostRace).not.toHaveBeenCalled();
+      expect(deps.github.findCompletedReview).not.toHaveBeenCalled();
+    });
+
+    it('reports a lost resolution race and skips the refusal side effects when the refused path loses the race', async () => {
+      const retriggeredAt = getUniqueDate();
+      const ref = generateReviewRef();
+      const item = makeRetriggeredItem({ retriggered_at: retriggeredAt, repo_full_name: ref.repoFullName, pr_number: ref.prNumber });
+      const matchedPhrase = getUniqueString({ prefix: 'phrase-' });
+
+      deps.queue.getRetriggeredQueue.mockResolvedValue([item]);
+      deps.queue.markResolvedIfStillRetriggered.mockResolvedValue(false);
+      deps.editDetector.detectEdit.mockResolvedValue(RabbitResult.ok({ action: 'refused', matchedPhrase }));
+      deps.prisma.$transaction.mockImplementation((fn: (_tx: object) => unknown) => fn({}));
+
+      const detector = createDetector();
+      await detector.start();
+
+      await drainMicrotasks(TICK_DEPTH);
+
+      expect(deps.probe.resolutionLostRace).toHaveBeenCalledWith('permanently_refused');
+      expect(deps.pullRequests.setPermanentRefusalAt).not.toHaveBeenCalled();
+      expect(deps.probe.refused).not.toHaveBeenCalled();
     });
 
     it('adopts the new run in place and stays retriggered when editDetector returns adopted outcome', async () => {

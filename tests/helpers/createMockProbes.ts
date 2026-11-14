@@ -46,6 +46,7 @@ export interface MockDetectedProbe {
   prNotRegistered: jest.Mock<() => Promise<unknown>>;
   alreadyQueued: jest.Mock;
   skipped: jest.Mock<() => Promise<unknown>>;
+  refused: jest.Mock<() => Promise<unknown>>;
   alreadySkipped: jest.Mock;
   alreadyReviewed: jest.Mock<any>;
   verdictResolved: jest.Mock<() => Promise<unknown>>;
@@ -58,6 +59,7 @@ export const createMockDetectedProbe = (): MockDetectedProbe => ({
   prNotRegistered: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadyQueued: jest.fn(),
   skipped: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
+  refused: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
   alreadySkipped: jest.fn(),
   alreadyReviewed: jest.fn(),
   verdictResolved: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
@@ -69,6 +71,7 @@ export interface MockReviewDetectorProbe {
   noCompletedReviewFound: jest.Mock<any>;
   reviewed: jest.Mock<any>;
   reviewedViaFallback: jest.Mock<any>;
+  refused: jest.Mock<any>;
   prClosedResolved: jest.Mock<any>;
   resolutionLostRace: jest.Mock<any>;
   runAdopted: jest.Mock<any>;
@@ -83,6 +86,7 @@ export const createMockReviewDetectorProbe = (): MockReviewDetectorProbe => ({
   noCompletedReviewFound: jest.fn<any>(),
   reviewed: jest.fn<any>(),
   reviewedViaFallback: jest.fn<any>(),
+  refused: jest.fn<any>().mockResolvedValue(undefined),
   prClosedResolved: jest.fn<any>(),
   resolutionLostRace: jest.fn<any>(),
   runAdopted: jest.fn<any>(),
@@ -203,4 +207,15 @@ export interface MockMarkQueueItemReviewedProbe {
 export const createMockMarkQueueItemReviewedProbe = (): MockMarkQueueItemReviewedProbe => ({
   queueItemNotFound: jest.fn<any>(),
   queueItemMarkedReviewed: jest.fn<any>(),
+});
+
+export interface MockRefusalSweeperProbe {
+  sweepStarted: jest.Mock<any>;
+  itemFailed: jest.Mock<any>;
+  completed: jest.Mock<any>;
+}
+export const createMockRefusalSweeperProbe = (): MockRefusalSweeperProbe => ({
+  sweepStarted: jest.fn<any>(),
+  itemFailed: jest.fn<any>(),
+  completed: jest.fn<any>(),
 });

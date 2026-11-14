@@ -7,6 +7,7 @@ describe('EventType', () => {
     expect(EventType).toStrictEqual({
       coderabbit_review_approved: 'coderabbit_review_approved',
       coderabbit_review_changes_suggested: 'coderabbit_review_changes_suggested',
+      coderabbit_review_refused: 'coderabbit_review_refused',
       coderabbit_review_skipped: 'coderabbit_review_skipped',
       coderabbit_run_id_changed: 'coderabbit_run_id_changed',
       coderabbit_run_id_cleared: 'coderabbit_run_id_cleared',

@@ -1,4 +1,5 @@
 export { apiJson } from './apiJson.js';
+export { createCoderabbitCommentClassifier } from './CoderabbitClassifierTestSupport.js';
 export { generateCoderabbitCommentCreationData, generateCoderabbitCommentHydrationData } from './CoderabbitCommentTestSupport.js';
 export { generateConfigData } from './ConfigTestSupport.js';
 export { createMockActivityListMapper } from './createMockActivityListMapper.js';
@@ -8,7 +9,15 @@ export { createMockDirectCommentChecker } from './createMockDirectCommentChecker
 export { createMockEditDetector } from './createMockEditDetector.js';
 export { createMockEventRepo } from './createMockEventRepo.js';
 export { createMockFetch } from './createMockFetch.js';
-export type { MockIssuesRest, MockOctokitOptions, MockOctokitResult, MockPullsRest, MockReposRest, MockSearchRest } from './createMockOctokit.js';
+export type {
+  MockIssuesRest,
+  MockOctokitOptions,
+  MockOctokitResult,
+  MockPullsRest,
+  MockRateLimitRest,
+  MockReposRest,
+  MockSearchRest,
+} from './createMockOctokit.js';
 export { createMockOctokit } from './createMockOctokit.js';
 export { createMockOnDetectedCallback } from './createMockOnDetectedCallback.js';
 export type {
@@ -31,6 +40,7 @@ export type {
   MockMarkQueueItemReviewedProbe,
   MockPrScannerProbe,
   MockPrunerProbe,
+  MockRefusalSweeperProbe,
   MockReviewDetectorProbe,
   MockReviewRetriggerProbe,
   MockSchedulerProbe,
@@ -42,6 +52,7 @@ export {
   createMockMarkQueueItemReviewedProbe,
   createMockPrScannerProbe,
   createMockPrunerProbe,
+  createMockRefusalSweeperProbe,
   createMockReviewDetectorProbe,
   createMockReviewRetriggerProbe,
   createMockSchedulerProbe,

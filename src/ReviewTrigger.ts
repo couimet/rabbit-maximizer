@@ -2,7 +2,7 @@ import type { PullRequestRepository, QueueRepository, SystemStateRepository } fr
 import { RabbitMaximizerError, RabbitMaximizerErrorCodes, StaleCommentRescheduledError } from './errors/index.js';
 import { validateAttributes, withAttributes } from './external-deps/couimet/execution-context/src/index.js';
 import {
-  classifyCoderabbitComment,
+  type CoderabbitCommentClassifier,
   type CoderabbitGitHubClient,
   hasOwnRetriggerMarker,
   hasRateLimitMarker,
@@ -46,6 +46,8 @@ export class ReviewTrigger {
     @inject(TYPES.RunIdGenerator)
     private readonly runIdGenerator: RunIdGenerator,
     @inject(TYPES.Config) cfg: Config,
+    @inject(TYPES.CoderabbitCommentClassifier)
+    private readonly classifier: CoderabbitCommentClassifier,
     @inject(TYPES.Logger) private readonly log: Logger,
   ) {
     this.postCooldownMs = cfg.CODERABBIT_ACCOUNT_COOLDOWN_SEC * MS_PER_SECOND;
@@ -91,6 +93,7 @@ export class ReviewTrigger {
     }
 
     const sourceRunId = extractCoderabbitRunId(storedBody);
+    const storedClassification = this.classifier.classify(storedBody);
 
     if (storedBody !== '' && hasRateLimitMarker(storedBody) && !hasOwnRetriggerMarker(storedBody)) {
       const isReplacement = item.original_source_comment_url !== undefined;
@@ -102,9 +105,12 @@ export class ReviewTrigger {
       return this.postAndRecord(item, probe, triggerSource, item.source_comment_url, diagnosis, sourceRunId);
     }
 
+    // A refused source comment posts too: the operator re-queued the PR because the refusal
+    // cause was cleared, so the retrigger must reach GitHub rather than die as a stale comment.
     if (
       storedBody !== '' &&
-      classifyCoderabbitComment(storedBody).classification === CodeRabbitCommentType.review_skipped &&
+      (storedClassification.classification === CodeRabbitCommentType.review_skipped ||
+        storedClassification.classification === CodeRabbitCommentType.review_refused) &&
       !hasOwnRetriggerMarker(storedBody)
     ) {
       const diagnosis = includeDiagnosis ? this.buildDiagnosis(item.source_comment_url, sourceCreatedAt, sourceUpdatedAt, storedBody, 'source') : undefined;
@@ -155,7 +161,7 @@ export class ReviewTrigger {
     const rescheduleEarliest = new Date(new Date(latest.updatedAt).getTime() + waitSeconds * MS_PER_SECOND);
 
     probe.staleCommentRescheduled(rescheduleEarliest);
-    const { classification, matchedMarker } = classifyCoderabbitComment(storedBody);
+    const { classification, matchedMarker } = storedClassification;
     return RabbitResult.err(
       new StaleCommentRescheduledError(
         { commentId: latest.commentId, commentUrl: latest.url, coderabbitRunId: extractCoderabbitRunId(latestBody) },
@@ -179,7 +185,7 @@ export class ReviewTrigger {
     storedBody: string,
     decision: RetriggerDecision,
   ): RetriggerDiagnosis {
-    const { classification, matchedMarker } = classifyCoderabbitComment(storedBody);
+    const { classification, matchedMarker } = this.classifier.classify(storedBody);
 
     const sourceComment: CommentDiagnosis = {
       url: sourceCommentUrl,
@@ -213,7 +219,7 @@ export class ReviewTrigger {
     let original: CommentDiagnosis;
     try {
       const result = await this.github.fetchCommentByUrl(originalUrl);
-      const { classification, matchedMarker } = classifyCoderabbitComment(result.body);
+      const { classification, matchedMarker } = this.classifier.classify(result.body);
       original = { url: originalUrl, createdAt: result.createdAt, updatedAt: result.updatedAt, classification, matchedMarker };
     } catch (err: unknown) {
       const error = err as { status?: number };
@@ -228,7 +234,7 @@ export class ReviewTrigger {
       }
     }
 
-    const { classification, matchedMarker } = classifyCoderabbitComment(replacementBody);
+    const { classification, matchedMarker } = this.classifier.classify(replacementBody);
     const replacementComment: CommentDiagnosis = {
       url: item.source_comment_url,
       createdAt: replacementCreatedAt,

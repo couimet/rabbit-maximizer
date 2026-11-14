@@ -8,7 +8,7 @@ import {
   SystemStateRepository,
 } from './db/index.js';
 import { softDeleteExtension } from './external-deps/couimet/prisma-extension-soft-delete/src/index.js';
-import { CoderabbitGitHubClient, PRStateFetcher } from './github/index.js';
+import { CoderabbitCommentClassifier, CoderabbitGitHubClient, PRStateFetcher, RefusalPhrases } from './github/index.js';
 import {
   EventCountsMapper,
   EventEntryMapper,
@@ -25,12 +25,14 @@ import { DirectCommentChecker } from './DirectCommentChecker.js';
 import { EditDetector } from './EditDetector.js';
 import { TYPES } from './server-domain.js';
 import {
+  DirectCheckCap,
   EnqueueService,
   PollDetector,
   PrScanner,
   PruneEvaluator,
   Pruner,
   QueueItemEnricher,
+  RefusalSweeper,
   ReviewDetector,
   ReviewTrigger,
   RunIdGenerator,
@@ -63,6 +65,10 @@ container
   .toDynamicValue(() => createPrismaClient().$extends(softDeleteExtension({ models: { CoderabbitComment: true } })) as unknown as PrismaClient)
   .inSingletonScope();
 
+container.bind<RefusalPhrases>(TYPES.RefusalPhrases).to(RefusalPhrases).inSingletonScope();
+
+container.bind<CoderabbitCommentClassifier>(TYPES.CoderabbitCommentClassifier).to(CoderabbitCommentClassifier).inSingletonScope();
+
 container.bind<CoderabbitGitHubClient>(TYPES.CoderabbitGitHubClient).to(CoderabbitGitHubClient).inSingletonScope();
 
 container.bind<ReviewDetector>(TYPES.ReviewDetector).to(ReviewDetector).inSingletonScope();
@@ -90,6 +96,10 @@ container.bind<Pruner>(TYPES.Pruner).to(Pruner).inSingletonScope();
 container.bind<PrScanner>(TYPES.PrScanner).to(PrScanner).inSingletonScope();
 
 container.bind<StalePrRecoverer>(TYPES.StalePrRecoverer).to(StalePrRecoverer).inSingletonScope();
+
+container.bind<RefusalSweeper>(TYPES.RefusalSweeper).to(RefusalSweeper).inSingletonScope();
+
+container.bind<DirectCheckCap>(TYPES.DirectCheckCap).to(DirectCheckCap).inSingletonScope();
 
 container.bind<DirectCommentChecker>(TYPES.DirectCommentChecker).to(DirectCommentChecker).inSingletonScope();
 

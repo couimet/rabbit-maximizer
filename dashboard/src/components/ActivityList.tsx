@@ -1,11 +1,11 @@
 import type { ActivityListItemResponse } from '../../../src/types/index.js';
 import { type Duration, formatRelativeTime, resolveDurationSince } from '../../../src/utils/index.js';
 import { safeDeriveActivityStatus } from '../activityState.js';
-import { fetchActivityList, markResolved } from '../api.js';
+import { fetchActivityList, markResolved, requeue } from '../api.js';
 import { useErrorContext } from '../context/index.js';
 import { prUrl, repoUrl } from '../githubUrl.js';
 
-import { DurationSelect, formatElapsed, STATE_CLASS, STATE_LABEL } from './index.js';
+import { ConfirmDialog, DurationSelect, formatElapsed, STATE_CLASS, STATE_LABEL } from './index.js';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -18,6 +18,8 @@ const ACTIVITY_LIST_DEFAULT_DURATION = '2d';
 /* c8 ignore next 2 — both branches tested but V8 coverage cannot track arrow-function ternaries in React render paths */
 const formatActivityTime = (item: ActivityListItemResponse): string => (item.last_activity_at != null ? formatRelativeTime(item.last_activity_at) : '—');
 
+const isPermanentlyRefused = (item: ActivityListItemResponse): boolean => item.status === 'resolved' && item.resolution === 'permanently_refused';
+
 const ActivityList = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale: boolean; lastSchedulerTickAt: string | null }) => {
   const [items, setItems] = useState<ActivityListItemResponse[]>([]);
   const [page, setPage] = useState(1);
@@ -25,6 +27,7 @@ const ActivityList = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale:
   const [loading, setLoading] = useState(true);
   const { reportError, dismissError } = useErrorContext();
   const [duration, setDuration] = useState<Duration>(ACTIVITY_LIST_DEFAULT_DURATION);
+  const [confirmRequeueUuid, setConfirmRequeueUuid] = useState<string | null>(null);
   const [, setTick] = useState(0);
 
   const mountedRef = useRef(false);
@@ -99,6 +102,14 @@ const ActivityList = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale:
     });
   };
 
+  const handleRequeue = (uuid: string) => {
+    setItems((prev) => prev.map((i) => (i.uuid === uuid ? { ...i, status: 'pending', resolution: null } : i)));
+    requeue(uuid).catch((err: Error) => {
+      reportError('activity-list-requeue', 'Activity list', err.message);
+      fetchData(1, false);
+    });
+  };
+
   const hasMore = total !== null && items.length < total;
 
   const renderStatusPill = (item: ActivityListItemResponse) => {
@@ -169,6 +180,16 @@ const ActivityList = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale:
                         ✓
                       </button>
                     )}
+                    {isPermanentlyRefused(item) && (
+                      <button
+                        className="requeue-button"
+                        onClick={() => setConfirmRequeueUuid(item.uuid)}
+                        aria-label="Re-queue PR"
+                        title="Re-queue this permanently-refused PR"
+                      >
+                        ↻
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -183,6 +204,17 @@ const ActivityList = ({ schedulerStale, lastSchedulerTickAt }: { schedulerStale:
             </div>
           )}
         </>
+      )}
+      {confirmRequeueUuid !== null && (
+        <ConfirmDialog
+          message="Re-queue this permanently-refused PR? Re-queue only after the refusal cause is cleared; the scheduler requests another review on a later tick."
+          confirmLabel="Re-queue"
+          onConfirm={() => {
+            handleRequeue(confirmRequeueUuid);
+            setConfirmRequeueUuid(null);
+          }}
+          onCancel={() => setConfirmRequeueUuid(null)}
+        />
       )}
     </div>
   );
